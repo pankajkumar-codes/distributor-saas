@@ -1,0 +1,2 @@
+web_origins         = ["https://app.example.in"]
+budget_alert_emails = ["you@example.com"]
