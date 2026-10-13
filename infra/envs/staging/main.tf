@@ -40,8 +40,10 @@ module "stack" {
   db_instance_class   = "db.t4g.micro"
   db_multi_az         = false # switch on before live invoices
   deletion_protection = false
-  monthly_budget_usd  = 30
-  budget_alert_emails = var.budget_alert_emails
+  # Lets scripts/smoke_test.sh sign in test users from the command line.
+  allow_test_password_login = true
+  monthly_budget_usd        = 30
+  budget_alert_emails       = var.budget_alert_emails
 }
 
 output "api_endpoint" { value = module.stack.api_endpoint }
