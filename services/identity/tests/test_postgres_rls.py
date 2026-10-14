@@ -4,46 +4,12 @@ Skipped unless PG_ADMIN_URL points at a disposable server, e.g.
 PG_ADMIN_URL=postgresql+psycopg://postgres@localhost:5432/postgres
 """
 
-import os
-import uuid
-from pathlib import Path
-
 import pytest
-from sqlalchemy import create_engine, make_url, text
+from sqlalchemy import text
 
-ADMIN_URL = os.environ.get("PG_ADMIN_URL")
-pytestmark = pytest.mark.skipif(not ADMIN_URL, reason="PG_ADMIN_URL not set")
-MIGRATIONS = sorted((Path(__file__).parent.parent / "migrations").glob("*.sql"))
+from .conftest import PG_ADMIN_URL
 
-
-@pytest.fixture()
-def pg_client(monkeypatch):
-    dbname = f"t_{uuid.uuid4().hex[:10]}"
-    admin = create_engine(ADMIN_URL, isolation_level="AUTOCOMMIT")
-    with admin.connect() as c:
-        c.execute(text(f"create database {dbname}"))
-        c.execute(text("do $$ begin if not exists (select from pg_roles where rolname='rds_iam') then create role rds_iam; end if; end $$"))
-    admin_url = make_url(ADMIN_URL)
-    owner = create_engine(admin_url.set(database=dbname), isolation_level="AUTOCOMMIT")
-    with owner.connect() as c:
-        for m in MIGRATIONS:
-            c.exec_driver_sql(m.read_text())
-        c.execute(text("alter role svc_identity password 'test-only'"))
-    svc = create_engine(admin_url.set(username="svc_identity", password="test-only", database=dbname))
-
-    from fastapi.testclient import TestClient
-
-    from app import main
-
-    monkeypatch.setattr(main, "engine", lambda: svc)
-    monkeypatch.setattr("platform_common.db.engine", lambda: svc)
-    main._factory.cache_clear()
-    yield TestClient(main.app), svc
-    main._factory.cache_clear()
-    svc.dispose()
-    owner.dispose()
-    with admin.connect() as c:
-        c.execute(text(f"drop database {dbname} with (force)"))
+pytestmark = pytest.mark.skipif(not PG_ADMIN_URL, reason="PG_ADMIN_URL not set")
 
 
 def test_api_flow_on_postgres(pg_client):

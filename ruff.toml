@@ -1,0 +1,9 @@
+# Lint gate (engineering handbook §7). Starts with ruff's long-standing default rules
+# so it passes on today's code; widen the selection in its own PR.
+# `ruff format --check` is not gated yet: turning it on reformats ~19 files owned by
+# other engineers, so it waits for a one-off formatting PR the EM schedules.
+line-length = 120
+target-version = "py312"
+
+[lint]
+select = ["E4", "E7", "E9", "F"]
