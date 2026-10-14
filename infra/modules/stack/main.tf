@@ -25,6 +25,11 @@ variable "deletion_protection" {
   type    = bool
   default = true
 }
+variable "allow_test_password_login" {
+  description = "Allow command-line password sign-in for test users. Keep false in prod."
+  type        = bool
+  default     = false
+}
 variable "monthly_budget_usd" {
   type = number
 }
@@ -55,11 +60,12 @@ module "database" {
 }
 
 module "auth" {
-  source              = "../auth"
-  name                = local.name
-  callback_urls       = [for o in var.web_origins : "${o}/auth/callback"]
-  logout_urls         = var.web_origins
-  deletion_protection = var.deletion_protection
+  source               = "../auth"
+  name                 = local.name
+  callback_urls        = [for o in var.web_origins : "${o}/auth/callback"]
+  logout_urls          = var.web_origins
+  allow_password_login = var.allow_test_password_login
+  deletion_protection  = var.deletion_protection
 }
 
 module "storage" {

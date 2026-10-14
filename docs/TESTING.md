@@ -1,0 +1,120 @@
+# Testing: locally, then on AWS
+
+Only the **identity** service has real endpoints so far. The other services answer
+health checks only, so these steps test sign-in, tenants, members, audit and tenant
+isolation.
+
+## 1. Automated tests (no setup beyond Python)
+
+On Windows, run these from WSL, or copy the commands under each target in the `Makefile`.
+
+```bash
+make setup
+make test
+```
+
+These run against an in-memory database. To also run the PostgreSQL tests, including
+row-level security and the migrator, start the local database (step 2) and run:
+
+```bash
+PG_ADMIN_URL=postgresql+psycopg://postgres:local-only@localhost:5432/postgres \
+PG_DSN=postgresql://postgres:local-only@localhost:5432/postgres make test
+```
+
+GitHub Actions runs all of these on every pull request.
+
+## 2. Run it on your machine
+
+Needs Docker and Python 3.12.
+
+```bash
+make db-up          # PostgreSQL 16 in Docker on localhost:5432
+make db-migrate     # creates the identity schema, its tables and row-level security
+make run-identity   # API on http://localhost:8000 (leave this running)
+```
+
+In a second terminal:
+
+```bash
+make smoke-local    # creates a tenant as one user, checks a second user can't see it
+```
+
+You should see `ALL CHECKS PASSED`. You can also open http://localhost:8000/docs to
+try each endpoint in the browser. Locally there is no Cognito: the `X-Debug-User`
+header plays the signed-in user, for example `X-Debug-User: alice`. That header is
+ignored everywhere except local and test runs.
+
+`make db-down` deletes the local database when you want a fresh start.
+
+## 3. Test on AWS (staging)
+
+Needs an AWS account (Mumbai, Paid plan), the AWS CLI v2 signed in to it, and
+Terraform 1.10 or newer. Staging costs money while it exists, roughly $30 a month,
+mostly the database and two private network endpoints. Run `terraform destroy` when
+you are done testing to save credits.
+
+### One-time setup
+
+```bash
+aws configure                     # region: ap-south-1
+cd infra/bootstrap && terraform init && terraform apply
+# note the state_bucket output, then:
+cd ../envs/staging
+cp terraform.tfvars.example terraform.tfvars   # set your web origin and alert email
+terraform init -backend-config="bucket=<state_bucket from above>"
+```
+
+### Deploy
+
+```bash
+cd ../../..                       # repo root
+make build                        # Lambda zips in build/
+cd infra/envs/staging
+terraform plan                    # review what will be created
+terraform apply
+aws lambda invoke --function-name "$(terraform output -raw migrator_function)" out.json && cat out.json
+```
+
+The last command applies the database migrations. It should list
+`identity/0001_identity.sql` and `identity/0002_identity_rls.sql`.
+
+### Create two test users and run the same smoke test
+
+Staging allows command-line password sign-in for test users. Prod does not.
+
+```bash
+POOL=$(terraform output -raw user_pool_id)
+CLIENT=$(terraform output -raw user_pool_client_id)
+API=$(terraform output -raw api_endpoint)
+
+for U in tester-a@example.com tester-b@example.com; do
+  aws cognito-idp admin-create-user --user-pool-id "$POOL" --username "$U" \
+    --user-attributes Name=email,Value="$U" Name=email_verified,Value=true --message-action SUPPRESS
+  aws cognito-idp admin-set-user-password --user-pool-id "$POOL" --username "$U" \
+    --password 'Staging-Test-Pass1' --permanent
+done
+
+token() {
+  aws cognito-idp initiate-auth --client-id "$CLIENT" --auth-flow USER_PASSWORD_AUTH \
+    --auth-parameters USERNAME="$1",PASSWORD='Staging-Test-Pass1' \
+    --query AuthenticationResult.AccessToken --output text
+}
+
+../../../scripts/smoke_test.sh "$API" "$(token tester-a@example.com)" "$(token tester-b@example.com)"
+```
+
+### When something fails
+
+```bash
+aws logs tail /aws/lambda/distsaas-staging-identity --since 15m
+aws logs tail /aws/apigateway/distsaas-staging --since 15m
+```
+
+A 401 means the token was missing or expired (tokens last 60 minutes). A 500 usually
+means the database is unreachable or migrations did not run. Check the identity log.
+
+### Clean up
+
+```bash
+terraform destroy
+```

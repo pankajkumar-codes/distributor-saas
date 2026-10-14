@@ -31,6 +31,15 @@ See `docs/ARCHITECTURE.md` for the reasoning and costs.
   password is stored in the services. The identity service cannot update or delete
   audit rows.
 
+## Test it
+
+Step-by-step local and AWS testing: **docs/TESTING.md**. Quick version:
+
+```bash
+make setup && make test
+make db-up && make db-migrate && make run-identity   # then: make smoke-local
+```
+
 ## Run the tests
 
 ```bash

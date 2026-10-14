@@ -4,6 +4,11 @@
 variable "name" { type = string }
 variable "callback_urls" { type = list(string) }
 variable "logout_urls" { type = list(string) }
+variable "allow_password_login" {
+  description = "Lets scripts sign in with a username and password (USER_PASSWORD_AUTH). For staging testing only."
+  type        = bool
+  default     = false
+}
 variable "deletion_protection" {
   type    = bool
   default = true
@@ -41,7 +46,7 @@ resource "aws_cognito_user_pool_client" "web" {
   name                                 = "${var.name}-web"
   user_pool_id                         = aws_cognito_user_pool.this.id
   generate_secret                      = false
-  explicit_auth_flows                  = ["ALLOW_USER_SRP_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"]
+  explicit_auth_flows                  = concat(["ALLOW_USER_SRP_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"], var.allow_password_login ? ["ALLOW_USER_PASSWORD_AUTH"] : [])
   prevent_user_existence_errors        = "ENABLED"
   allowed_oauth_flows_user_pool_client = true
   allowed_oauth_flows                  = ["code"]

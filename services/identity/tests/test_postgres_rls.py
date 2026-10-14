@@ -9,7 +9,7 @@ import uuid
 from pathlib import Path
 
 import pytest
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, make_url, text
 
 ADMIN_URL = os.environ.get("PG_ADMIN_URL")
 pytestmark = pytest.mark.skipif(not ADMIN_URL, reason="PG_ADMIN_URL not set")
@@ -23,14 +23,13 @@ def pg_client(monkeypatch):
     with admin.connect() as c:
         c.execute(text(f"create database {dbname}"))
         c.execute(text("do $$ begin if not exists (select from pg_roles where rolname='rds_iam') then create role rds_iam; end if; end $$"))
-    base = ADMIN_URL.rsplit("/", 1)[0]
-    owner = create_engine(f"{base}/{dbname}", isolation_level="AUTOCOMMIT")
+    admin_url = make_url(ADMIN_URL)
+    owner = create_engine(admin_url.set(database=dbname), isolation_level="AUTOCOMMIT")
     with owner.connect() as c:
         for m in MIGRATIONS:
             c.exec_driver_sql(m.read_text())
         c.execute(text("alter role svc_identity password 'test-only'"))
-    svc_url = base.replace("postgresql+psycopg://postgres@", "postgresql+psycopg://svc_identity:test-only@")
-    svc = create_engine(f"{svc_url}/{dbname}")
+    svc = create_engine(admin_url.set(username="svc_identity", password="test-only", database=dbname))
 
     from fastapi.testclient import TestClient
 
