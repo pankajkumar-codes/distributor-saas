@@ -24,4 +24,4 @@ Status values: Proposed, Approved, Rejected, Deferred, Blocking.
 | D-018 | SaaS subscription billing | Deferred | Not required for first operational MVP | Yes |
 | D-019 | Microservices (CLAUDE.md rule 13) | Approved 2026-10-12 by owner | Five services split on transaction boundaries; see docs/ARCHITECTURE.md | No |
 | D-020 | Infrastructure as code | Approved 2026-10-12 | Terraform, state in S3 with native locking | No |
-| D-021 | Commerce data model (tables, lifecycle, stock ledger, idempotency) | Proposed 2026-10-14 | See docs/adr/0001-commerce-data-model.md; blocking decisions become per-tenant settings | Yes |
+| D-026 | Commerce data model (tables, lifecycle, stock ledger, idempotency) | Proposed 2026-10-14 | See docs/adr/0001-commerce-data-model.md; blocking decisions become per-tenant settings | Yes |

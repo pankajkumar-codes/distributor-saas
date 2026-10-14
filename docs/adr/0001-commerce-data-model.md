@@ -4,7 +4,7 @@
 - Date: 2026-10-14
 - Author: Staff Engineer (contract owner). Implementation: Lead Engineer, per
   `team/engineering.md` ownership; Staff reviews commerce schema PRs against this ADR.
-- Related: D-004, D-009 to D-015 in `docs/DECISIONS.md`; `docs/DOMAIN_MODEL.md`;
+- Related: D-026 (this ADR), D-004, D-009 to D-015, D-021, D-022, D-024 in `docs/DECISIONS.md`; `docs/DOMAIN_MODEL.md`;
   `docs/BUSINESS_RULES.md` sections 1 to 10; `docs/ARCHITECTURE.md`
 
 ## Context
@@ -261,6 +261,22 @@ by `(product_id, location_id, stock_state)`, then `payments`.
   touch the database need PostgreSQL; CI already has it.
 - Negative: the service, not the database, enforces payment over-allocation. It needs a
   concurrency test before payments ship.
+
+## How the PO's interim defaults map onto this model
+
+The Product Owner's backlog (team board, 2026-10-14) sets defaults to build behind
+until Pankaj decides. Each one fits the model without schema changes:
+
+| Ref | PO default | Where it lives here |
+|---|---|---|
+| D-009 | Marketplace invoice is the legal document; we import it in full | `external_invoice_refs` gains the imported fields (number, date, seller and operator GSTIN, HSN, taxable value, tax components); never issued by us |
+| D-010 | Gapless per GSTIN x document type x FY | `number_series` keyed on `gst_registration_id`, `doc_type`, `financial_year_id` (section 4) |
+| D-011 | No reservations; wholesale deducts on finalize, marketplace on shipped | Only `sale_issue` movements are written; `reserved_delta` stays 0 until reservations are approved |
+| D-012 | Forbidden by default, owner may allow with warning; imports post and flag | `tenant_settings.negative_stock_policy`; an import that would go negative posts and raises an exception-queue item instead of being dropped |
+| D-014 | Batches off for MVP | Nullable `batch_id` (section 5) |
+| D-021 | One legal entity, one GSTIN, one location per tenant | Tables already carry `location_id` and `gst_registration_id`; the UI creates one of each |
+| D-022 | Tax per line, half-up to paise, optional round-off line | `rounding_mode` / `rounding_level` on the document, plus a `round_off_amount` column on `sales_documents` |
+| D-024 | GST rate is effective-dated | `tax_rates (product_id, rate, valid_from)`; lines snapshot the rate and its `tax_rule_ref` |
 
 ## Approval needed
 
