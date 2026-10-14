@@ -42,7 +42,7 @@ checks the invariants below against a real PostgreSQL in CI.
 | Rounding | Not decided (BUSINESS_RULES section 6). Each document stores the `rounding_mode` and `rounding_level` (line or document) it was calculated with, so a finalized document can be recomputed exactly even after the tenant default changes. |
 | Time | `timestamptz` for events, `date` for business dates (invoice date, receipt date). Every document keeps both, because "when it happened" and "when we recorded it" differ for late imports. |
 | Who | `created_by`, and for documents `finalized_by` / `cancelled_by`, hold the Cognito `sub`. |
-| Deletes | `svc_commerce` gets **no `delete` grant** on documents, lines, movements, payments, allocations or audit. Drafts are discarded by status, not deleted. |
+| Deletes | `svc_commerce` gets **no `delete` grant** on documents, movements, payments, allocations or audit. Drafts are discarded by status, not deleted. Lines of a *draft* may be deleted while editing; a trigger refuses it once the document is finalized. |
 
 ### 2. Tables by area
 
@@ -122,6 +122,8 @@ draft ──finalize──▶ finalized ──cancel──▶ cancelled
   (section 5), write the outbox event, write the audit event. Any failure rolls all of
   it back, so there is never a numbered invoice without its stock effect or the
   reverse (BUSINESS_RULES section 5).
+- Lines and tax rows can never be moved to another parent document, and a change to
+  a line is checked against the status of the document it already belongs to.
 - **Finalized** rows are immutable. A trigger rejects any `update` on a finalized
   document or its lines, except the single transition to `cancelled` which may only
   set `status`, `cancelled_at`, `cancelled_by` and `cancel_reason`. This is enforced in
@@ -170,6 +172,8 @@ draft ──finalize──▶ finalized ──cancel──▶ cancelled
   movement_type)`. A retried receipt or import hits the constraint and the service
   treats it as "already done". This is the "purchase receipt changes stock once"
   success criterion, enforced by the database.
+- A source that posts several movements of one type (a cancelled invoice with several
+  lines) must set `source_line_id` per line, or the idempotency key collides.
 - **Corrections**: a `reversal` row with `reverses_movement_id` (unique, so a movement
   can be reversed only once) and the negated deltas.
 - `stock_balances (tenant, product, location, stock_state)` holds running totals,
@@ -198,6 +202,8 @@ draft ──finalize──▶ finalized ──cancel──▶ cancelled
   `<= document outstanding` in the same transaction. A plain check constraint cannot
   express a sum across rows, so this one is enforced by the service under lock, with a
   test that runs two allocations concurrently.
+- A reversal allocation must equal the negated original amount; the service checks
+  it and a test covers it (a trigger can enforce it later if needed).
 - The unallocated part of a payment is an advance. It is reported, never silently
   applied.
 - Refunds are payments in the opposite direction linked to a credit note, not edits of
@@ -219,6 +225,12 @@ rows), and retries of either. Three mechanisms, each for one job:
    (CLAUDE.md rule 10).
 3. **`inbox_messages`** `(tenant_id, message_id)` primary key for SQS deliveries, which
    are at-least-once. The insert happens in the same transaction as the effect.
+
+Work with no live request (import hand-offs, SQS consumers) runs as the user who
+confirmed it: their `sub` travels in the message and is set as `app.user_sub`, so RLS
+and audit behave as for a request. If that member was deactivated before the message
+is processed, the row is held in the exception queue with that reason, never silently
+dropped or run under a service identity.
 
 Events out (for example `sales_document.finalized` to the documents service) are
 written to `outbox_events` in the finalize transaction and published to SQS by a

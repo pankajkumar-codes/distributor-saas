@@ -164,7 +164,12 @@ def test_finalized_invoice_is_immutable_but_cancellable(world):
         _as(c, tid, user)
         doc = _draft_invoice(c, tid, ids)
         _finalize(c, tid, ids, doc)
+    with svc.begin() as c:
+        _as(c, tid, user)
+        other_draft = _draft_invoice(c, tid, ids)
     for stmt in ("update commerce.sales_documents set total_amount = 1 where id = :d",
+                 # Re-parenting a finalized line onto a draft would empty the invoice.
+                 f"update commerce.sales_lines set document_id = '{other_draft}', line_no = 2 where document_id = :d",
                  "update commerce.sales_lines set quantity = 5 where document_id = :d",
                  "delete from commerce.sales_lines where document_id = :d",
                  "update commerce.sales_documents set status = 'cancelled', cancelled_at = now(), "

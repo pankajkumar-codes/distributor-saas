@@ -133,20 +133,31 @@ create function commerce.guard_sales_children() returns trigger
 language plpgsql as $$
 declare
     doc_status text;
+    row_ jsonb := to_jsonb(case when tg_op = 'INSERT' then new else old end);
 begin
+    -- A line or tax row never moves to another parent: otherwise it could be lifted
+    -- out of a finalized document by pointing it at a draft.
+    if tg_op = 'UPDATE' and (
+        new.tenant_id is distinct from old.tenant_id
+        or (tg_table_name = 'sales_lines' and to_jsonb(new) ->> 'document_id' is distinct from row_ ->> 'document_id')
+        or (tg_table_name = 'sales_line_taxes' and to_jsonb(new) ->> 'line_id' is distinct from row_ ->> 'line_id')
+    ) then
+        raise exception '% rows cannot be moved to another parent', tg_table_name
+            using errcode = 'check_violation';
+    end if;
+
     if tg_table_name = 'sales_lines' then
         select status into doc_status from commerce.sales_documents
-         where tenant_id = coalesce(new.tenant_id, old.tenant_id)
-           and id = coalesce(new.document_id, old.document_id);
+         where tenant_id = (row_ ->> 'tenant_id')::uuid and id = (row_ ->> 'document_id')::uuid;
     else
         select d.status into doc_status
           from commerce.sales_lines l join commerce.sales_documents d
             on d.tenant_id = l.tenant_id and d.id = l.document_id
-         where l.tenant_id = coalesce(new.tenant_id, old.tenant_id)
-           and l.id = coalesce(new.line_id, old.line_id);
+         where l.tenant_id = (row_ ->> 'tenant_id')::uuid and l.id = (row_ ->> 'line_id')::uuid;
     end if;
-    if doc_status <> 'draft' then
-        raise exception 'lines of a % document cannot be changed', doc_status
+    -- Fails closed: a missing parent (null status) is refused too.
+    if doc_status is distinct from 'draft' then
+        raise exception 'lines of a % document cannot be changed', coalesce(doc_status, 'missing')
             using errcode = 'check_violation';
     end if;
     return coalesce(new, old);
