@@ -14,7 +14,7 @@ from platform_common.auth import Principal, current_principal
 from platform_common.db import engine, session_factory
 from platform_common.tenancy import not_found, parse_tenant_id
 
-from .models import MANAGE_MEMBERS, AuditEvent, Membership, MembershipStatus, Role, Tenant
+from .models import MANAGE_MEMBERS, READ_AUDIT, AuditEvent, Membership, MembershipStatus, Role, Tenant
 
 app = FastAPI(title="identity", root_path_in_servers=False)
 
@@ -190,7 +190,7 @@ def audit_log(
 ):
     tid = parse_tenant_id(tenant_id)
     caller = active_membership(session, tid, principal.user_sub)
-    if caller.role not in MANAGE_MEMBERS:
+    if caller.role not in READ_AUDIT:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "not allowed to read the audit log")
     events = session.scalars(
         select(AuditEvent).where(AuditEvent.tenant_id == tid).order_by(AuditEvent.at.desc())
