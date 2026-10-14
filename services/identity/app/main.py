@@ -84,7 +84,7 @@ class MemberOut(BaseModel):
     status: MembershipStatus
 
 
-class DeactivateIn(BaseModel):
+class ReasonIn(BaseModel):
     reason: str = Field(min_length=1, max_length=500)
 
 
@@ -191,10 +191,27 @@ def add_member(
 def deactivate_member(
     tenant_id: str,
     user_sub: str,
-    body: DeactivateIn,
+    body: ReasonIn,
     principal: Principal = Depends(current_principal),
     session: Session = Depends(db_session),
 ):
+    return _change_member_status(session, principal, tenant_id, user_sub, MembershipStatus.disabled, body.reason)
+
+
+@app.post("/identity/tenants/{tenant_id}/members/{user_sub}/reactivate", response_model=MemberOut)
+def reactivate_member(
+    tenant_id: str,
+    user_sub: str,
+    body: ReasonIn,
+    principal: Principal = Depends(current_principal),
+    session: Session = Depends(db_session),
+):
+    return _change_member_status(session, principal, tenant_id, user_sub, MembershipStatus.active, body.reason)
+
+
+def _change_member_status(
+    session: Session, principal: Principal, tenant_id: str, user_sub: str, new_status: MembershipStatus, reason: str
+) -> MemberOut:
     tid = parse_tenant_id(tenant_id)
     caller = active_membership(session, tid, principal.user_sub)
     if caller.role not in MANAGE_MEMBERS:
@@ -209,23 +226,27 @@ def deactivate_member(
         )
         .with_for_update()
     ).all()
+    # Lock the target too, so two concurrent changes to one member write one audit event.
     member = session.scalar(
-        select(Membership).where(Membership.tenant_id == tid, Membership.user_sub == user_sub)
+        select(Membership)
+        .where(Membership.tenant_id == tid, Membership.user_sub == user_sub)
+        .with_for_update()
     )
     if member is None:
         raise not_found()
-    if member.status == MembershipStatus.disabled:
-        # A retry of a deactivation that already happened: same answer, no second audit event.
+    if member.status == new_status:
+        # A retry of a change that already happened: same answer, no second audit event.
         return MemberOut(user_sub=member.user_sub, role=member.role, status=member.status)
     if member.role == Role.owner and caller.role != Role.owner:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "only an owner can deactivate an owner")
-    if member.role == Role.owner and len(owners) <= 1:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "only an owner can change an owner's access")
+    if new_status == MembershipStatus.disabled and member.role == Role.owner and len(owners) <= 1:
         raise HTTPException(status.HTTP_409_CONFLICT, "cannot deactivate the last active owner")
 
-    member.status = MembershipStatus.disabled
+    member.status = new_status
+    action = "member.deactivated" if new_status == MembershipStatus.disabled else "member.reactivated"
     audit(
-        session, tid, principal.user_sub, "member.deactivated", "membership", member.id,
-        user_sub=member.user_sub, role=member.role.value, reason=body.reason,
+        session, tid, principal.user_sub, action, "membership", member.id,
+        user_sub=member.user_sub, role=member.role.value, reason=reason,
     )
     session.commit()
     return MemberOut(user_sub=member.user_sub, role=member.role, status=member.status)
