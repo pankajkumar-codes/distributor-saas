@@ -1,9 +1,6 @@
 """Role, membership-status and input rules not covered by test_tenant_isolation.py."""
 
-import uuid
-
 import pytest
-from sqlalchemy import update
 
 from .conftest import as_user
 from .test_tenant_isolation import ALICE, BOB, CAROL, make_tenant
@@ -15,18 +12,11 @@ def add_member(client, tid, actor, user_sub, role):
     )
 
 
-def disable(tid, user_sub):
-    # There is no API to disable a member yet, so flip the row directly.
-    from app import main
-    from app.models import Membership, MembershipStatus
-
-    with main._factory()() as session:
-        session.execute(
-            update(Membership)
-            .where(Membership.tenant_id == uuid.UUID(tid), Membership.user_sub == user_sub)
-            .values(status=MembershipStatus.disabled)
-        )
-        session.commit()
+def disable(client, tid, user_sub):
+    r = client.post(
+        f"/identity/tenants/{tid}/members/{user_sub}/deactivate", json={"reason": "left"}, headers=as_user(ALICE)
+    )
+    assert r.status_code == 200, r.text
 
 
 @pytest.mark.parametrize("role", ["sales", "inventory", "finance", "viewer"])
@@ -64,7 +54,7 @@ def test_owner_can_add_another_owner(client):
 def test_disabled_member_is_treated_as_a_non_member(client):
     tid = make_tenant(client, ALICE, "Alice Co")
     add_member(client, tid, ALICE, BOB, "admin")
-    disable(tid, BOB)
+    disable(client, tid, BOB)
 
     assert client.get("/identity/tenants", headers=as_user(BOB)).json() == []
     for path in ("", "/members", "/audit"):
@@ -75,7 +65,7 @@ def test_disabled_member_is_treated_as_a_non_member(client):
 def test_disabled_member_still_appears_in_member_list_with_status(client):
     tid = make_tenant(client, ALICE, "Alice Co")
     add_member(client, tid, ALICE, BOB, "sales")
-    disable(tid, BOB)
+    disable(client, tid, BOB)
     members = client.get(f"/identity/tenants/{tid}/members", headers=as_user(ALICE)).json()
     assert {m["user_sub"]: m["status"] for m in members} == {ALICE: "active", BOB: "disabled"}
 
@@ -83,7 +73,7 @@ def test_disabled_member_still_appears_in_member_list_with_status(client):
 def test_disabled_member_cannot_be_re_added(client):
     tid = make_tenant(client, ALICE, "Alice Co")
     add_member(client, tid, ALICE, BOB, "sales")
-    disable(tid, BOB)
+    disable(client, tid, BOB)
     assert add_member(client, tid, ALICE, BOB, "sales").status_code == 409
 
 

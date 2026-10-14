@@ -84,11 +84,16 @@ class MemberOut(BaseModel):
     status: MembershipStatus
 
 
+class DeactivateIn(BaseModel):
+    reason: str = Field(min_length=1, max_length=500)
+
+
 class AuditOut(BaseModel):
     actor_sub: str
     action: str
     entity_type: str
     entity_id: str
+    details: dict
     at: datetime
 
 
@@ -182,6 +187,50 @@ def add_member(
     return MemberOut(user_sub=member.user_sub, role=member.role, status=member.status)
 
 
+@app.post("/identity/tenants/{tenant_id}/members/{user_sub}/deactivate", response_model=MemberOut)
+def deactivate_member(
+    tenant_id: str,
+    user_sub: str,
+    body: DeactivateIn,
+    principal: Principal = Depends(current_principal),
+    session: Session = Depends(db_session),
+):
+    tid = parse_tenant_id(tenant_id)
+    caller = active_membership(session, tid, principal.user_sub)
+    if caller.role not in MANAGE_MEMBERS:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "not allowed to manage members")
+    # Lock the tenant's active owners so two owners can't deactivate each other at once.
+    owners = session.scalars(
+        select(Membership)
+        .where(
+            Membership.tenant_id == tid,
+            Membership.role == Role.owner,
+            Membership.status == MembershipStatus.active,
+        )
+        .with_for_update()
+    ).all()
+    member = session.scalar(
+        select(Membership).where(Membership.tenant_id == tid, Membership.user_sub == user_sub)
+    )
+    if member is None:
+        raise not_found()
+    if member.status == MembershipStatus.disabled:
+        # A retry of a deactivation that already happened: same answer, no second audit event.
+        return MemberOut(user_sub=member.user_sub, role=member.role, status=member.status)
+    if member.role == Role.owner and caller.role != Role.owner:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "only an owner can deactivate an owner")
+    if member.role == Role.owner and len(owners) <= 1:
+        raise HTTPException(status.HTTP_409_CONFLICT, "cannot deactivate the last active owner")
+
+    member.status = MembershipStatus.disabled
+    audit(
+        session, tid, principal.user_sub, "member.deactivated", "membership", member.id,
+        user_sub=member.user_sub, role=member.role.value, reason=body.reason,
+    )
+    session.commit()
+    return MemberOut(user_sub=member.user_sub, role=member.role, status=member.status)
+
+
 @app.get("/identity/tenants/{tenant_id}/audit", response_model=list[AuditOut])
 def audit_log(
     tenant_id: str,
@@ -196,7 +245,10 @@ def audit_log(
         select(AuditEvent).where(AuditEvent.tenant_id == tid).order_by(AuditEvent.at.desc())
     )
     return [
-        AuditOut(actor_sub=e.actor_sub, action=e.action, entity_type=e.entity_type, entity_id=e.entity_id, at=e.at)
+        AuditOut(
+            actor_sub=e.actor_sub, action=e.action, entity_type=e.entity_type, entity_id=e.entity_id,
+            details=e.details or {}, at=e.at,
+        )
         for e in events
     ]
 
