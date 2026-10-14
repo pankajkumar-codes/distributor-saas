@@ -18,7 +18,7 @@ class Base(DeclarativeBase):
     pass
 
 
-MANAGE_MEMBERS = roles_with(Permission.MEMBERS_MANAGE)
+MANAGE_MEMBERS = roles_with(Permission.MEMBERS_INVITE)
 READ_AUDIT = roles_with(Permission.AUDIT_VIEW)
 
 

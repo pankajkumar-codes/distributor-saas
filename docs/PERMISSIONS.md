@@ -1,67 +1,83 @@
 # Role permissions matrix
 
-Backlog story E0-4. Source of truth in code: `libs/platform_common/platform_common/permissions.py`.
-A test (`libs/platform_common/tests/test_permissions.py`) fails if this table and the code disagree.
+Backlog story E0-4, task T-002. **The Product Owner decides the matrix** (team board,
+`product/roles-matrix.md`, PO-1; a reversible product decision, not a `CLAUDE.md` approval gate).
+This page is its engineering mapping: one named permission per matrix action.
 
-Status: **proposed default** by Staff Engineer 2 (2026-10-14), for Product Owner review. Not an
-approval-gated decision under `CLAUDE.md`, but the PO owns what each role is for.
+Source of truth in code: `libs/platform_common/platform_common/permissions.py` (`PERMISSION_ROLES`).
+`libs/platform_common/tests/test_permissions.py` checks every permission × role pair against a
+hand-written copy of the PO matrix and fails if this page and the code disagree.
 
 ## Rules
 
-- Permissions are fixed per role. There are no per-tenant or per-user overrides in the MVP.
-- Checks run on the server in every service (identity, commerce, imports, reports, documents).
-  Hiding a button in the UI is never the control.
+- One role per membership; permissions are fixed per role. No per-tenant or per-user overrides in the MVP.
+- Checks run on the server in every service. Hiding a button in the UI is never the control.
 - Order of checks in an endpoint:
   1. Resolve the caller's **active** membership for the tenant. Not a member, disabled, or the
-     tenant does not exist: **404**, so other tenants' ids reveal nothing (Global AC 1).
-  2. `require_permission(role, Permission.X)`. A member without the permission: **403**.
-- Roles without `cost.view` never receive purchase cost, stock valuation, margin or profit fields.
-  The fields are removed from the response (`without_cost_fields`), not set to zero or null.
-- An unknown role string (e.g. a role added later and read by an older service) gets no permissions.
-- Only an owner can make someone an owner, and the last active owner cannot be removed or
-  demoted (enforced in identity, T-003).
+     tenant does not exist: **404**, so other tenants' ids reveal nothing (global AC 1).
+  2. `require_permission(role, Permission.X, reason=...)`. A member without the permission: **403**.
+  3. For ⚠ permissions (`REASON_REQUIRED`), a missing or blank `reason` is **422**, and the endpoint
+     writes an audit event with the reason in the same transaction as the change.
+- Cost data (purchase rates, weighted-average cost, stock valuation, margin, profit) is removed from
+  API responses and CSV exports for roles without `cost.view` (sales, inventory, viewer) using
+  `without_cost_fields`. The fields are dropped, not zeroed. One exception from the PO matrix:
+  the purchase register shows purchase rates to inventory (`purchase_register.view`), without supplier balances.
+- An unknown role string gets no permissions.
+- Conditions on the *target* stay in the endpoint: an admin may deactivate members but not owners
+  (needs `members.manage_owners`), the last active owner can never be deactivated (T-003), and
+  above-threshold adjustments need `stock.adjust_above_threshold` in addition to `stock.adjust`.
+- CSV export of a list uses that list's view permission, with cost columns stripped as above.
 
 ## Matrix
 
-✓ = allowed, — = 403.
+✅ allowed · ⚠ allowed with reason + audit · ❌ 403
 
-| Permission | What it allows | owner | admin | sales | inventory | finance | viewer |
+| Permission | Matrix action | owner | admin | sales | inventory | finance | viewer |
 |---|---|---|---|---|---|---|---|
-| `members.manage` | Invite, change role of, and deactivate members | ✓ | ✓ | — | — | — | — |
-| `audit.view` | Read the tenant audit log | ✓ | ✓ | — | — | — | — |
-| `profile.edit` | Edit business profile, workflows, invoice logo | ✓ | ✓ | — | — | — | — |
-| `profile.change_gstin_after_finalized` | Change GSTIN once any invoice is finalized (E0-3) | ✓ | — | — | — | — | — |
-| `catalog.edit` | Create, edit, archive products | ✓ | ✓ | — | ✓ | — | — |
-| `suppliers.edit` | Create and edit suppliers | ✓ | ✓ | — | ✓ | ✓ | — |
-| `customers.edit` | Create and edit customers, credit days | ✓ | ✓ | ✓ | — | ✓ | — |
-| `opening_stock.post` | Enter opening stock with unit cost (once per product) | ✓ | ✓ | — | — | — | — |
-| `purchase.post` | Draft and post purchase bills (carries cost) | ✓ | ✓ | — | — | ✓ | — |
-| `stock.receive` | Receive goods against a posted purchase | ✓ | ✓ | — | ✓ | — | — |
-| `stock.adjust` | Post a stock adjustment up to the tenant threshold | ✓ | ✓ | — | ✓ | — | — |
-| `stock.adjust_above_threshold` | Post an adjustment above the tenant threshold (E3-3) | ✓ | ✓ | — | — | — | — |
-| `returns.inspect` | Restock or write off pending-inspection returns | ✓ | ✓ | — | ✓ | — | — |
-| `import.upload` | Upload a marketplace file and see its preview | ✓ | ✓ | ✓ | ✓ | — | — |
-| `import.confirm` | Confirm an import so it moves stock | ✓ | ✓ | — | ✓ | — | — |
-| `sku_mapping.edit` | Map marketplace SKUs to products, resolve exceptions | ✓ | ✓ | — | ✓ | — | — |
-| `invoice.draft` | Create and edit draft wholesale invoices | ✓ | ✓ | ✓ | — | — | — |
-| `invoice.finalize` | Finalize an invoice (number, stock deduction) | ✓ | ✓ | ✓ | — | — | — |
-| `payment.record` | Record customer payments and allocations | ✓ | ✓ | — | — | ✓ | — |
-| `expense.record` | Record expenses | ✓ | ✓ | — | — | ✓ | — |
-| `settlement.reconcile` | Match marketplace settlements to payouts | ✓ | ✓ | — | — | ✓ | — |
-| `reports.view` | View reports (quantities, sales, receivables) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `cost.view` | See purchase cost, valuation, margin, profit | ✓ | ✓ | — | — | ✓ | — |
-| `accountant.export` | Download the accountant export pack | ✓ | ✓ | — | — | ✓ | — |
-
-## Why these defaults
-
-- **inventory** runs the warehouse: products, receiving, adjustments, returns, imports. It does
-  not see cost, so it receives against a purchase bill that finance posted.
-- **sales** bills salons and may upload marketplace files to preview them, but cannot confirm an
-  import that moves stock.
-- **finance** owns money: purchase bills (with cost), payments, expenses, settlements, exports.
-- **viewer** sees reports without any cost or profit fields (E0-4 acceptance criterion).
-
-## Open points for the Product Owner
-
-1. Should `sales` be able to finalize invoices, or only draft them for owner/admin/finance to finalize?
-2. Should `inventory` see purchase cost (e.g. when checking a supplier bill on receipt)?
+| `profile.view` | View business profile | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `profile.edit` | Edit business profile (non-GSTIN fields) | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `profile.change_gstin_after_finalized` | Change GSTIN / state after any finalized invoice | ⚠ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `members.invite` | Invite member (non-owner role) | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `members.manage_owners` | Invite / promote to owner; deactivate an owner | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `members.deactivate` | Deactivate member (admin: not owners, needs `members.manage_owners`) | ⚠ | ⚠ | ❌ | ❌ | ❌ | ❌ |
+| `audit.view` | View audit log | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `tenant_settings.edit` | Change tenant settings (negative-stock policy, adjustment threshold, numbering prefix) | ⚠ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `catalog.view` | View products (no cost) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `catalog.edit` | Create / edit / archive products | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ |
+| `catalog.import_confirm` | Bulk product CSV import (confirm) | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ |
+| `sku_mapping.edit` | Marketplace SKU mapping | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ |
+| `suppliers.edit` | Suppliers create / edit | ✅ | ✅ | ❌ | ✅ | ✅ | ❌ |
+| `purchase.draft` | Purchase bill draft / edit draft | ✅ | ✅ | ❌ | ✅ | ✅ | ❌ |
+| `purchase.post` | Post purchase bill | ✅ | ✅ | ❌ | ✅ | ✅ | ❌ |
+| `stock.receive` | Receive stock against purchase | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ |
+| `stock.over_receive` | Over-receipt | ⚠ | ⚠ | ❌ | ⚠ | ❌ | ❌ |
+| `supplier_payment.record` | Supplier payments | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
+| `stock.view` | View on-hand / movement history (quantities); stock quantities report | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `opening_stock.post` | Opening stock (once per product) | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ |
+| `stock.adjust` | Adjustment within threshold | ⚠ | ⚠ | ❌ | ⚠ | ❌ | ❌ |
+| `stock.adjust_above_threshold` | Adjustment above threshold | ⚠ | ⚠ | ❌ | ❌ | ❌ | ❌ |
+| `returns.inspect` | Restock / write-off returned goods | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ |
+| `stock.post_negative` | Manual movement that makes stock negative (only if tenant allows, D-012) | ⚠ | ⚠ | ❌ | ❌ | ❌ | ❌ |
+| `import.orders_upload` | Upload + preview order / return report | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
+| `import.orders_confirm` | Confirm order / return import (posts stock) | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ |
+| `import.settlement` | Upload + confirm settlement report | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
+| `import.exceptions_fix` | Fix exception queue / re-run held rows (orders, returns) | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ |
+| `import.settlement_exceptions_fix` | Fix exception queue / re-run held rows (settlement rows) | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
+| `import.raw_download` | Download raw uploaded file | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `customers.edit` | Customers create / edit | ✅ | ✅ | ✅ | ❌ | ✅ | ❌ |
+| `invoice.draft` | Draft invoice | ✅ | ✅ | ✅ | ❌ | ✅ | ❌ |
+| `invoice.finalize` | Finalize invoice (allocates number, deducts stock) | ✅ | ✅ | ✅ | ❌ | ✅ | ❌ |
+| `credit_debit_note.issue` | Credit / debit note | ⚠ | ⚠ | ❌ | ❌ | ⚠ | ❌ |
+| `invoice.pdf_download` | Download invoice PDF | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ |
+| `payment.record` | Record customer payment | ✅ | ✅ | ✅ | ❌ | ✅ | ❌ |
+| `payment.allocate` | Allocate a customer payment | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
+| `payment.reallocate` | Reallocate or reverse a payment | ⚠ | ⚠ | ❌ | ❌ | ⚠ | ❌ |
+| `settlement.manual_match` | Manual settlement match | ⚠ | ⚠ | ❌ | ❌ | ⚠ | ❌ |
+| `expense.record` | Expenses | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
+| `cost.view` | See cost data: stock valuation, profitability, margin, purchase rates | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
+| `sales_report.view` | Sales report (amounts, no cost) | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ |
+| `purchase_register.view` | Purchase register (with purchase rates) | ✅ | ✅ | ❌ | ✅ | ✅ | ❌ |
+| `supplier_balances.view` | Supplier balances | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
+| `receivables.view` | Receivables ageing / customer statements | ✅ | ✅ | ✅ | ❌ | ✅ | ❌ |
+| `gst_summary.view` | GST summaries | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
+| `accountant.export` | Accountant export pack | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
