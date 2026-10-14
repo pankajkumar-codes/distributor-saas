@@ -21,7 +21,17 @@ PG_ADMIN_URL=postgresql+psycopg://postgres:local-only@localhost:5432/postgres \
 PG_DSN=postgresql://postgres:local-only@localhost:5432/postgres make test
 ```
 
-GitHub Actions runs all of these on every pull request.
+GitHub Actions runs all of these on every pull request, plus:
+
+- `ruff check services libs tests scripts` (rules in `ruff.toml`)
+- `python scripts/float_guard.py`: no float literals, `float()` or `float` types in
+  modules named for money, tax, price, invoice, payment, settlement, ledger, stock or cost
+- gitleaks over the whole git history
+- the end-to-end suite below, against identity on real PostgreSQL, after migrating twice
+
+Some tests are marked `xfail(strict=True)`. Each one is a known defect with an ID
+(`QA-DEF-…`) in the QA plan. When the fix lands the test passes, pytest reports it as an
+unexpected pass and fails, and the marker must be removed in the same PR.
 
 ## 2. Run it on your machine
 
@@ -39,7 +49,15 @@ In a second terminal:
 make smoke-local    # creates a tenant as one user, checks a second user can't see it
 ```
 
-You should see `ALL CHECKS PASSED`. You can also open http://localhost:8000/docs to
+You should see `ALL CHECKS PASSED`. Then run the fuller end-to-end suite:
+
+```bash
+make e2e-local      # tests/e2e: onboarding, isolation, roles, error leakage
+```
+
+The same suite runs against staging with two Cognito tokens:
+`E2E_BASE_URL=$API E2E_TOKEN_A=... E2E_TOKEN_B=... pytest tests/e2e`. Tests that need a
+third user skip there. You can also open http://localhost:8000/docs to
 try each endpoint in the browser. Locally there is no Cognito: the `X-Debug-User`
 header plays the signed-in user, for example `X-Debug-User: alice`. That header is
 ignored everywhere except local and test runs.
