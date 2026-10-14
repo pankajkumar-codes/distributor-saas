@@ -1,0 +1,50 @@
+-- Invite a teammate by email (backlog E0-1, plan T-004). Additive only.
+
+-- Members get a readable email and name; existing rows keep NULL.
+alter table identity.memberships add column email varchar(254);
+alter table identity.memberships add column display_name varchar(200);
+
+create table identity.invitations (
+    id uuid primary key,
+    tenant_id uuid not null references identity.tenants(id),
+    -- Stored lower-cased; matched against the invitee's verified Cognito email.
+    email varchar(254) not null check (email = lower(email)),
+    display_name varchar(200),
+    role varchar(20) not null check (role in ('owner','admin','sales','inventory','finance','viewer')),
+    status varchar(20) not null default 'pending' check (status in ('pending','accepted','revoked')),
+    invited_by varchar(128) not null,
+    created_at timestamptz not null default now(),
+    expires_at timestamptz not null,
+    -- 'pending', 'sent' or 'failed': whether the Cognito invite email went out.
+    delivery varchar(20) not null default 'pending' check (delivery in ('pending','sent','failed')),
+    accepted_by varchar(128),
+    accepted_at timestamptz
+);
+-- At most one open invitation per person per tenant; expired ones are renewed by resend.
+create unique index invitations_one_open on identity.invitations (tenant_id, email) where status = 'pending';
+create index on identity.invitations (email) where status = 'pending';
+
+grant select, insert, update on identity.invitations to svc_identity;
+alter table identity.invitations enable row level security;
+
+-- Members see their tenant's invitations; an invitee sees invitations sent to the
+-- verified email the service put in app.user_email for this transaction.
+create policy invitation_rows on identity.invitations to svc_identity
+    using (
+        identity.is_member(tenant_id)
+        or email = nullif(current_setting('app.user_email', true), '')
+    );
+create policy invitation_insert on identity.invitations for insert to svc_identity
+    with check (identity.is_member(tenant_id));
+
+-- An invitee who is not a member yet may read the name of a tenant that invited them,
+-- so "Join Vashi Essentials?" can be shown before accepting.
+create policy invited_tenants on identity.tenants for select to svc_identity
+    using (
+        exists (
+            select 1 from identity.invitations i
+            where i.tenant_id = tenants.id
+              and i.status = 'pending'
+              and i.email = nullif(current_setting('app.user_email', true), '')
+        )
+    );
