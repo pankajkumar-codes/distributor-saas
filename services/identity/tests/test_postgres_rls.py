@@ -81,3 +81,45 @@ def test_service_cannot_rewrite_audit(pg_client):
         with svc.begin() as c:
             c.execute(text("select set_config('app.user_sub', 'alice', true)"))
             c.execute(text("delete from identity.audit_events"))
+
+
+def test_invitation_flow_under_rls(pg_client):
+    client, _ = pg_client
+    owner = {"x-debug-user": "alice"}
+    tid = client.post("/identity/tenants", json={"name": "Alice Co"}, headers=owner).json()["id"]
+    r = client.post(f"/identity/tenants/{tid}/invitations", json={"email": "Priya@Example.com", "role": "sales"},
+                    headers=owner)
+    assert r.status_code == 201, r.text
+    iid = r.json()["id"]
+
+    invitee = {"x-debug-user": "priya", "x-debug-email": "priya@example.com"}
+    stranger = {"x-debug-user": "eve", "x-debug-email": "eve@example.com"}
+    # The invitee is not a member yet but can see the invitation and the tenant's name.
+    assert [i["tenant_name"] for i in client.get("/identity/invitations", headers=invitee).json()] == ["Alice Co"]
+    assert client.get("/identity/invitations", headers=stranger).json() == []
+    assert client.get(f"/identity/tenants/{tid}", headers=invitee).status_code == 404
+    assert client.post(f"/identity/invitations/{iid}/accept", headers=stranger).status_code == 404
+
+    r = client.post(f"/identity/invitations/{iid}/accept", headers=invitee)
+    assert r.status_code == 200, r.text
+    assert client.get(f"/identity/tenants/{tid}", headers=invitee).json()["role"] == "sales"
+    # Once accepted, the invitation no longer exposes the tenant to anyone else holding that email.
+    assert client.get("/identity/invitations", headers=invitee).json() == []
+
+
+def test_invitations_hidden_from_other_tenants_at_db_level(pg_client):
+    client, svc = pg_client
+    tid = client.post("/identity/tenants", json={"name": "Alice Co"}, headers={"x-debug-user": "alice"}).json()["id"]
+    client.post(f"/identity/tenants/{tid}/invitations", json={"email": "p@example.com", "role": "viewer"},
+                headers={"x-debug-user": "alice"})
+    with svc.connect() as c:
+        c.execute(text("select set_config('app.user_sub', 'mallory', false)"))
+        assert c.execute(text("select count(*) from identity.invitations")).scalar() == 0
+        with pytest.raises(Exception, match="row-level security"):
+            c.execute(
+                text(
+                    "insert into identity.invitations (id, tenant_id, email, role, invited_by, expires_at) "
+                    "values (:id, :t, 'm@example.com', 'owner', 'mallory', now() + interval '7 days')"
+                ),
+                {"id": str(uuid.uuid4()), "t": tid},
+            )
