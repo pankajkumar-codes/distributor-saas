@@ -9,3 +9,8 @@ build/
 *.tfvars
 !*.tfvars.example
 .terraform.lock.hcl
+
+# orgos local state
+*.db
+*.db-wal
+*.db-shm

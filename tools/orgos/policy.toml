@@ -1,0 +1,194 @@
+# orgos policy. Every number here is a setting, not a measurement.
+# Change it in a reviewed PR; the audit log records which policy a decision used.
+
+[review]
+# "seniority": the brief's default. A peer or more senior engineer reviews, plus extra
+#              reviewers for risky areas. Not every role reviews every PR.
+# "all_roles": Pankaj's 2026-10-14 rule in team/engineering.md section 4. Every non-author
+#              engineering role reviews, and any unresolved comment sends the PR back.
+mode = "seniority"
+review_sla_hours = 24        # watchdog nudges reviewers after this
+escalate_after_hours = 48    # watchdog escalates a condition that has lasted this long
+merger_roles = ["em"]        # who may verify and merge
+
+[review.seniority]
+# author role = list of reviewer slots; each slot is roles in order of preference.
+junior = [["lead", "staff"]]
+lead = [["staff"]]
+staff = [["staff", "em"]]
+em = [["staff"]]
+qa = [["staff"]]
+default = [["staff"]]
+block_on_nonblocking_findings = false
+
+[review.all_roles]
+roles = ["junior", "lead", "staff", "qa"]   # every active instance of each, except the author
+block_on_nonblocking_findings = true
+
+[review.tags]
+# Extra reviewer slots by change risk (engineering.md section 4 "Required reviews").
+security = [["security", "staff"], ["qa"]]
+money = [["staff"], ["qa"]]
+migration = [["staff"]]
+infra = [["em"]]
+architecture = [["staff"]]
+
+[review.path_tags]
+# Changed-file prefix = risk tags.
+"libs/platform_common/" = ["security", "architecture"]
+"services/identity/" = ["security"]
+"migrations/" = ["migration"]
+"infra/" = ["infra"]
+"services/commerce/" = ["money"]
+".github/workflows/" = ["security"]
+
+[execution]
+timeout_minutes = 60
+max_retries = 2
+max_tool_calls = 200
+lease_minutes = 30
+
+[budget]
+# Monthly spend limit in USD for model usage. 0 = no limit configured (the dashboard says so).
+monthly_limit_usd = "0"
+optional_pause_pct = 80      # stop optional work at this share of the limit
+hard_stop_pct = 100          # only priority 1-2 work runs past this
+default_execution_budget_usd = "0"   # 0 = none
+
+[workforce]
+waiting_hours_signal = 24    # a ready task nobody can take for this long is a capacity signal
+review_queue_per_reviewer = 3
+idle_days_before_retire_review = 7
+
+# Role templates. Inactive templates are capabilities, not headcount.
+# cost_tier: 1 cheapest .. 3 most expensive; assignment prefers the cheapest qualified agent.
+[roles.ceo]
+department = "executive"
+seniority = 6
+capabilities = ["prioritize", "approve_scaling"]
+max_instances = 1
+cost_tier = 3
+
+[roles.po]
+department = "product"
+seniority = 4
+capabilities = ["requirements", "acceptance"]
+max_instances = 1
+cost_tier = 2
+
+[roles.em]
+department = "engineering"
+seniority = 5
+capabilities = ["merge", "review", "planning"]
+max_instances = 1
+cost_tier = 2
+
+[roles.tpm]
+department = "engineering"
+seniority = 4
+capabilities = ["planning"]
+max_instances = 2
+cost_tier = 1
+
+[roles.staff]
+department = "engineering"
+seniority = 5
+capabilities = ["python", "implementation", "architecture", "review", "security_review", "infra"]
+max_instances = 3
+cost_tier = 3
+coding = true
+
+[roles.lead]
+department = "engineering"
+seniority = 4
+capabilities = ["python", "implementation", "review"]
+max_instances = 3
+cost_tier = 2
+coding = true
+
+[roles.junior]
+department = "engineering"
+seniority = 2
+capabilities = ["python", "implementation", "frontend", "review"]
+max_instances = 3
+cost_tier = 1
+coding = true
+
+[roles.qa]
+department = "engineering"
+seniority = 3
+capabilities = ["testing", "review"]
+max_instances = 3
+cost_tier = 1
+coding = true
+
+[roles.designer]
+department = "design"
+seniority = 3
+capabilities = ["design"]
+max_instances = 2
+cost_tier = 1
+
+[roles.gst]
+department = "domain"
+seniority = 4
+capabilities = ["gst", "marketplace"]
+max_instances = 1
+cost_tier = 2
+
+# Templates below have no active agent. Creating the first instance of one needs the owner.
+[roles.security]
+department = "engineering"
+seniority = 5
+capabilities = ["security_review", "review"]
+max_instances = 1
+cost_tier = 3
+template_only = true
+
+[roles.devops]
+department = "engineering"
+seniority = 4
+capabilities = ["infra", "ci"]
+max_instances = 1
+cost_tier = 2
+template_only = true
+
+[roles.data_analyst]
+department = "business"
+seniority = 3
+capabilities = ["analytics"]
+max_instances = 1
+cost_tier = 1
+template_only = true
+
+[roles.growth]
+department = "business"
+seniority = 3
+capabilities = ["growth"]
+max_instances = 1
+cost_tier = 1
+template_only = true
+
+[roles.support]
+department = "business"
+seniority = 2
+capabilities = ["support"]
+max_instances = 1
+cost_tier = 1
+template_only = true
+
+[roles.finance]
+department = "business"
+seniority = 4
+capabilities = ["finance"]
+max_instances = 1
+cost_tier = 2
+template_only = true
+
+[roles.legal]
+department = "business"
+seniority = 4
+capabilities = ["legal"]
+max_instances = 1
+cost_tier = 2
+template_only = true
