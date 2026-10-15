@@ -12,6 +12,7 @@ import pytest
 from fastapi import HTTPException
 
 from platform_common.permissions import (
+    MAX_REASON_LENGTH,
     PERMISSION_ROLES,
     REASON_REQUIRED,
     ROLE_PERMISSIONS,
@@ -128,6 +129,13 @@ def test_reason_required_set_matches_matrix():
 def test_reason_required_actions_reject_blank_reason(permission, reason):
     with pytest.raises(HTTPException) as exc:
         require_permission(Role.owner, permission, reason=reason)
+    assert exc.value.status_code == 422
+
+
+def test_reason_longer_than_limit_is_rejected():
+    require_permission(Role.owner, P.STOCK_ADJUST, reason="x" * MAX_REASON_LENGTH)
+    with pytest.raises(HTTPException) as exc:
+        require_permission(Role.owner, P.STOCK_ADJUST, reason="x" * (MAX_REASON_LENGTH + 1))
     assert exc.value.status_code == 422
 
 

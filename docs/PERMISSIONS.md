@@ -16,7 +16,7 @@ hand-written copy of the PO matrix and fails if this page and the code disagree.
   1. Resolve the caller's **active** membership for the tenant. Not a member, disabled, or the
      tenant does not exist: **404**, so other tenants' ids reveal nothing (global AC 1).
   2. `require_permission(role, Permission.X, reason=...)`. A member without the permission: **403**.
-  3. For ⚠ permissions (`REASON_REQUIRED`), a missing or blank `reason` is **422**, and the endpoint
+  3. For ⚠ permissions (`REASON_REQUIRED`), a missing, blank or over-500-character `reason` is **422**, and the endpoint
      writes an audit event with the reason in the same transaction as the change.
 - Cost data (purchase rates, weighted-average cost, stock valuation, margin, profit) is removed from
   API responses and CSV exports for roles without `cost.view` (sales, inventory, viewer) using

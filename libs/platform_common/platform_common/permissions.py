@@ -148,6 +148,9 @@ PERMISSION_ROLES: dict[Permission, frozenset[Role]] = {
     P.ACCOUNTANT_EXPORT: _r(Role.finance),
 }
 
+# Reasons land in audit event details; same bound as other free-text audit fields.
+MAX_REASON_LENGTH = 500
+
 # The matrix's ⚠ actions: allowed only with a non-blank reason, recorded in an audit event.
 REASON_REQUIRED: frozenset[Permission] = frozenset(
     {
@@ -181,12 +184,16 @@ def has_permission(role: Role | str | None, permission: Permission) -> bool:
 def require_permission(role: Role | str | None, permission: Permission, reason: str | None = None) -> None:
     """Call after the caller's active membership is resolved.
 
-    403 if the role lacks the permission; 422 if the permission needs a reason and none was given.
+    403 if the role lacks the permission; 422 if the permission needs a reason and none was given,
+    or it is longer than MAX_REASON_LENGTH. 422 is a literal because Starlette renamed its constant.
     """
     if not has_permission(role, permission):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "not allowed")
-    if permission in REASON_REQUIRED and not (reason and reason.strip()):
-        raise HTTPException(422, "a reason is required")
+    if permission in REASON_REQUIRED:
+        if not (reason and reason.strip()):
+            raise HTTPException(422, "a reason is required")
+        if len(reason) > MAX_REASON_LENGTH:
+            raise HTTPException(422, f"reason must be at most {MAX_REASON_LENGTH} characters")
 
 
 def roles_with(permission: Permission) -> frozenset[Role]:
