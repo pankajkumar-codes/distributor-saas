@@ -57,7 +57,8 @@ def test_stage_stores_raw_normalized_and_summary(session):
     assert first.normalized == {"order_item_id": "OI-1", "status": "shipped", "amount": "1250.50"}
     dup = session.scalar(select(ImportRow).where(ImportRow.run_id == run.id, ImportRow.row_number == 4))
     assert dup.errors[0]["code"] == "duplicate" and dup.errors[0]["related_rows"] == [2]
-    assert run.profile_verified is False
+    assert run.profile_verified is False and run.profile_id == "flipkart/orders@test-1"
+    assert first.dedup_values == ["OI-1"]
 
 
 def test_same_file_twice_returns_the_same_run(session):

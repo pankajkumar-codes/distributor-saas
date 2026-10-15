@@ -94,5 +94,6 @@ class ImportRow(Base):
     raw: Mapped[dict] = mapped_column(JSON)
     normalized: Mapped[dict | None] = mapped_column(JSON)
     errors: Mapped[list] = mapped_column(JSON, default=list)
+    dedup_values: Mapped[list | None] = mapped_column(JSON)
     dedup_key: Mapped[str | None] = mapped_column(String(64))
     content_hash: Mapped[str | None] = mapped_column(String(64))

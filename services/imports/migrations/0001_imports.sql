@@ -36,7 +36,9 @@ create table imports.import_rows (
     raw json not null,
     normalized json,
     errors json not null default '[]',
-    -- sha256 of the profile's key fields; the readable values are in normalized.
+    -- The profile's key fields as a JSON array (readable, for the commerce handoff)
+    -- and their sha256, which is what lookups use.
+    dedup_values json,
     dedup_key char(64),
     content_hash char(64),
     unique (run_id, row_number),

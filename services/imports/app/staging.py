@@ -72,6 +72,7 @@ def stage(
                 raw=parsed.raw,
                 normalized=_jsonable(parsed.normalized),
                 errors=_errors(parsed),
+                dedup_values=list(parsed.dedup_key) if parsed.dedup_key is not None else None,
                 dedup_key=key,
                 content_hash=parsed.content_hash,
             )
