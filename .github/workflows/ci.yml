@@ -40,6 +40,31 @@ jobs:
         working-directory: services/${{ matrix.service }}
         run: pytest -q
 
+  platform-common:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PG_ADMIN_URL: postgresql+psycopg://postgres@localhost:5432/postgres
+      PLATFORM_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        working-directory: libs/platform_common
+        run: pip install -e . "psycopg[binary]>=3.2" pytest httpx
+      - name: Test
+        working-directory: libs/platform_common
+        run: pytest -q
+
   terraform:
     runs-on: ubuntu-latest
     steps:
