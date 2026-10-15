@@ -43,7 +43,8 @@ from real, redacted sample reports (OPEN_QUESTIONS.md question 2) and set
 | Amounts | `Decimal` only. Accepts `₹`/`Rs.`/`INR` prefix and Indian or western comma grouping. Rejects exponents, parentheses, `NaN`, odd grouping |
 | Excel number cells | Converted to their shortest exact decimal text (`199.99`), never scientific notation |
 | Dates | Only the profile's formats. A value that reads as two different dates under those formats is `ambiguous_date`, not guessed |
-| Formula cells or text starting with `=`, `@`, tab or CR | Row `invalid` (`formula`); formulas are never evaluated |
+| Formula cells, or text starting with `=`, `@`, `+`, `-`, tab or CR (after folding look-alikes such as full-width `＝` and dropping invisible characters) | Row `invalid` (`formula`); formulas are never evaluated. Number fields still accept a leading sign |
+| Digits from other scripts (e.g. `١٢٣`) in number fields | Row `invalid`; only ASCII digits are numbers |
 | Blank rows | Skipped and counted |
 | Same key, same values | Later copies `duplicate` |
 | Same key, different values | All copies `conflict`, for review |

@@ -215,10 +215,33 @@ def test_decimal_accepts_currency_prefix_and_grouping(value, expected):
     assert row.normalized["amount"] == Decimal(expected)
 
 
-@pytest.mark.parametrize("value", ["=HYPERLINK(\"x\")", "@SUM(A1)", " =1+1"])
+@pytest.mark.parametrize(
+    "value",
+    [
+        '=HYPERLINK(""x"")',
+        "@SUM(A1)",
+        " =1+1",
+        "+cmd|' /C calc'!A0",  # DDE payload
+        "-2+3+cmd|x",
+        "\uff1dHYPERLINK(1)",  # full-width equals sign
+        "\u200b=1+1",  # zero-width space before =
+    ],
+)
 def test_formula_like_text_is_rejected(value):
     (row,) = parse(csv_table(f'A1,1,"{value}",1,10,01-10-2026,\n'), PROFILE).rows
     assert [e.code for e in row.errors] == ["formula"]
+
+
+@pytest.mark.parametrize("field,value", [("Qty", "\u0661"), ("Amount", "\u0661\u0662\u0663"), ("Qty", "\uff11")])
+def test_non_ascii_digits_are_not_numbers(field, value):
+    qty, amount = ("1", value) if field == "Amount" else (value, "10")
+    (row,) = parse(csv_table(f"A1,1,S,{qty},{amount},01-10-2026,\n"), PROFILE).rows
+    assert row.status == RowStatus.invalid
+
+
+def test_negative_numbers_still_allowed_in_number_fields():
+    (row,) = parse(csv_table("A1,1,S,-1,-10.50,01-10-2026,\n"), PROFILE).rows
+    assert row.normalized["quantity"] == -1 and row.normalized["amount"] == Decimal("-10.50")
 
 
 def test_ambiguous_date_is_flagged_not_guessed():

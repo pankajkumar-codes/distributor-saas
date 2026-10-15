@@ -11,6 +11,7 @@ import enum
 import hashlib
 import json
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 
@@ -18,10 +19,13 @@ from .files import FileRejected, SourceTable
 from .profiles import FieldKind, FieldSpec, MappingProfile, header_key
 
 # Plain or comma-grouped (Indian 1,23,456 or western 123,456), optional sign and fraction.
-_DECIMAL = re.compile(r"^[+-]?(\d+|\d{1,3}(,\d{2})*,\d{3}|\d{1,3}(,\d{3})+)(\.\d+)?$")
-_INTEGER = re.compile(r"^[+-]?\d+$")
+# re.ASCII: \d must not accept other scripts' digits (e.g. Arabic-Indic) as numbers.
+_DECIMAL = re.compile(r"^[+-]?(\d+|\d{1,3}(,\d{2})*,\d{3}|\d{1,3}(,\d{3})+)(\.\d+)?$", re.ASCII)
+_INTEGER = re.compile(r"^[+-]?\d+$", re.ASCII)
 _CURRENCY_PREFIX = re.compile(r"^(₹|rs\.?|inr)\s*", re.IGNORECASE)
-_FORMULA_PREFIXES = ("=", "@", "\t", "\r")
+# Characters a spreadsheet treats as the start of a formula. A leading + or - is only
+# allowed in number fields, where the strict patterns above reject anything else.
+_FORMULA_PREFIXES = ("=", "@", "+", "-")
 
 
 class HeaderMismatch(FileRejected):
@@ -221,8 +225,20 @@ class _FieldInvalid(Exception):
         self.message = message
 
 
+def _looks_like_formula(value: str, kind: FieldKind) -> bool:
+    # Fold look-alikes (full-width ＝) and drop invisible format characters (zero-width
+    # space) so they cannot hide a formula prefix.
+    folded = "".join(c for c in unicodedata.normalize("NFKC", value) if unicodedata.category(c) != "Cf")
+    if folded[:1] in ("\t", "\r"):
+        return True
+    head = folded.lstrip()[:1]
+    if kind in (FieldKind.integer, FieldKind.decimal):
+        return head in ("=", "@")
+    return head in _FORMULA_PREFIXES
+
+
 def _convert(spec: FieldSpec, value: str):
-    if value[:1] in _FORMULA_PREFIXES or value.lstrip()[:1] in ("=", "@"):
+    if _looks_like_formula(value, spec.kind):
         # Spreadsheet formulas (or text that a spreadsheet would run as one) are never
         # evaluated or passed on; the user fixes the source file instead.
         raise _FieldInvalid("formula", f"{value[:40]!r} looks like a spreadsheet formula")
