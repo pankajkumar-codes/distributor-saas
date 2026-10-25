@@ -28,6 +28,10 @@ GitHub Actions runs all of these on every pull request, plus:
   modules named for money, tax, price, invoice, payment, settlement, ledger, stock or cost
 - gitleaks over the whole git history
 - the end-to-end suite below, against identity on real PostgreSQL, after migrating twice
+- `tests/isolation`: role guards after every migration. No role but the migrating superuser
+  has superuser, BYPASSRLS, CREATEROLE or replication; the app and owner roles from the
+  design can't reach a privileged role; NOLOGIN roles can't log in; no login role owns
+  objects. Run it locally with `make isolation-local`
 
 Some tests are marked `xfail(strict=True)`. Each one is a known defect with an ID
 (`QA-DEF-…`) in the QA plan. When the fix lands the test passes, pytest reports it as an
