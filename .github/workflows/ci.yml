@@ -34,11 +34,38 @@ jobs:
       - name: Install
         working-directory: services/${{ matrix.service }}
         run: |
-          pip install -r requirements.txt pytest httpx
+          pip install -r requirements.txt pytest httpx pytest-cov
           pip install -e ../../libs/platform_common
       - name: Test
         working-directory: services/${{ matrix.service }}
-        run: pytest -q
+        # Coverage is reported, not gated, until business slices exist.
+        run: pytest -q --cov=app --cov=migrator --cov-report=term-missing:skip-covered
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ruff==0.17.0 pytest
+      - name: Ruff
+        run: ruff check services libs tests scripts
+      - name: No floats in money, tax or stock modules
+        run: python scripts/float_guard.py
+      - name: Float guard self-test
+        run: pytest -q tests/tools
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Gitleaks (whole history)
+        run: |
+          curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz | tar xz gitleaks
+          ./gitleaks git --no-banner --redact --exit-code 1 .
 
   platform-common:
     runs-on: ubuntu-latest
@@ -47,11 +74,56 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install
-        run: pip install -e libs/platform_common pytest httpx
+      - run: pip install -e libs/platform_common pytest httpx pytest-cov
       - name: Test
         working-directory: libs/platform_common
-        run: pytest -q
+        run: pytest -q --cov=platform_common --cov-report=term-missing:skip-covered
+
+  e2e:
+    # Black-box HTTP tests against the identity service running on real PostgreSQL
+    # with row-level security, the same way `make run-identity` runs it locally.
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: saas
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: |
+          pip install -e libs/platform_common uvicorn pytest httpx
+          pip install -r services/identity/requirements.txt -r services/migrator/requirements.txt
+      - name: Migrate, then migrate again (second run must be a no-op)
+        working-directory: services/migrator
+        run: |
+          python -m migrator.local postgresql://postgres@localhost:5432/saas
+          python -m migrator.local postgresql://postgres@localhost:5432/saas | tee second.txt
+          grep -q "applied: nothing new" second.txt
+      - name: Start identity
+        env:
+          PLATFORM_ENV: local
+          DATABASE_URL: postgresql+psycopg://svc_identity:local-only@localhost:5432/saas
+        run: |
+          python -m uvicorn app.main:app --app-dir services/identity --port 8000 > identity.log 2>&1 &
+          for i in $(seq 30); do curl -sf http://localhost:8000/identity/health && exit 0; sleep 1; done
+          cat identity.log; exit 1
+      - name: End-to-end tests
+        env:
+          E2E_BASE_URL: http://localhost:8000
+        run: pytest -q tests/e2e
+      - name: Smoke script
+        run: scripts/smoke_test.sh http://localhost:8000
+      - name: Service log
+        if: failure()
+        run: cat identity.log
 
   terraform:
     runs-on: ubuntu-latest
