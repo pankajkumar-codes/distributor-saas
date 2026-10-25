@@ -13,6 +13,7 @@ rules (sections 4, 5 and 10) make risky.
 
 - **identity**: tenants, memberships, roles, audit. Cognito handles passwords and MFA.
 - **commerce**: everything that changes stock or money. Publishes events to SQS.
+  Data model: `docs/adr/0001-commerce-data-model.md` (proposed).
 - **imports**: uploads land in a private S3 bucket; rows are staged, validated and
   previewed; confirmed rows are handed to commerce idempotently (source file checksum
   plus external IDs).
