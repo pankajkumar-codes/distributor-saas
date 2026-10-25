@@ -2,8 +2,8 @@
 
 The API checks membership before every write; these tests ask whether the database
 would still stop a write if an API check were forgotten or bypassed (defense in
-depth, docs/SECURITY.md). xfail(strict=True) marks known gaps logged in the QA plan:
-when a migration closes one, its test starts passing and pytest fails until the
+depth, docs/SECURITY.md). xfail(strict=True) marks known gaps logged in the QA plan
+(none open: migration 0004 closed QA-DEF-001, 002, 003, 005 and 006). When a migration closes one, its test starts passing and pytest fails until the
 marker is removed, so the fix cannot land untested.
 
 Skipped unless PG_ADMIN_URL is set (see conftest.py).
@@ -88,7 +88,6 @@ def test_disabled_member_sees_no_tenant_rows(pg_client):
     assert client.get(f"/identity/tenants/{tid}", headers={"x-debug-user": "dave"}).status_code == 404
 
 
-@pytest.mark.xfail(strict=True, reason="QA-DEF-001: memberships insert policy is WITH CHECK (true)")
 def test_outsider_cannot_insert_a_membership_into_another_tenant(pg_client):
     client, svc = pg_client
     tid = setup_alice(client)
@@ -101,7 +100,6 @@ def test_outsider_cannot_insert_a_membership_into_another_tenant(pg_client):
             )
 
 
-@pytest.mark.xfail(strict=True, reason="QA-DEF-002: audit_events insert policy is WITH CHECK (true)")
 def test_outsider_cannot_forge_audit_in_another_tenant(pg_client):
     client, svc = pg_client
     tid = setup_alice(client)
@@ -117,7 +115,6 @@ def test_outsider_cannot_forge_audit_in_another_tenant(pg_client):
             )
 
 
-@pytest.mark.xfail(strict=True, reason="QA-DEF-003: member_rows lets a user update their own membership row")
 def test_member_cannot_promote_or_reenable_themselves(pg_client):
     client, svc = pg_client
     tid = setup_alice(client, [("dave", "viewer")])
@@ -131,3 +128,112 @@ def test_member_cannot_promote_or_reenable_themselves(pg_client):
     except Exception:
         pass  # being refused outright is also a pass
     assert ("dave", "viewer", "disabled") in memberships(svc, tid)
+
+
+def test_admin_cannot_add_or_touch_owners_at_the_database(pg_client):
+    client, svc = pg_client
+    tid = setup_alice(client, [("erin", "admin")])
+    with pytest.raises(Exception, match="row-level security"):
+        with svc.begin() as c:
+            as_sub(c, "erin")
+            c.execute(
+                text("insert into identity.memberships (id, tenant_id, user_sub, role) values (:i, :t, 'mallory', 'owner')"),
+                {"i": uuid.uuid4(), "t": tid},
+            )
+    with pytest.raises(Exception, match="only an owner"):
+        with svc.begin() as c:
+            as_sub(c, "erin")
+            c.execute(text("update identity.memberships set status = 'disabled' where user_sub = 'alice'"))
+    with pytest.raises(Exception, match="only an owner"):
+        with svc.begin() as c:
+            as_sub(c, "erin")
+            c.execute(text("update identity.memberships set role = 'owner' where user_sub = 'erin'"))
+    assert ("alice", "owner", "active") in memberships(svc, tid)
+    assert ("erin", "admin", "active") in memberships(svc, tid)
+
+
+def test_admin_can_deactivate_a_non_owner_and_owner_can_deactivate_admin(pg_client):
+    client, svc = pg_client
+    tid = setup_alice(client, [("erin", "admin"), ("sam", "sales")])
+    with svc.begin() as c:
+        as_sub(c, "erin")
+        assert c.execute(text("update identity.memberships set status = 'disabled' where user_sub = 'sam'")).rowcount == 1
+    with svc.begin() as c:
+        as_sub(c, "alice")
+        assert c.execute(text("update identity.memberships set status = 'disabled' where user_sub = 'erin'")).rowcount == 1
+    assert {("sam", "sales", "disabled"), ("erin", "admin", "disabled")} <= memberships(svc, tid)
+
+
+def test_non_admin_member_cannot_add_members_or_write_others_audit(pg_client):
+    client, svc = pg_client
+    tid = setup_alice(client, [("sam", "sales")])
+    with pytest.raises(Exception, match="row-level security"):
+        with svc.begin() as c:
+            as_sub(c, "sam")
+            c.execute(
+                text("insert into identity.memberships (id, tenant_id, user_sub, role) values (:i, :t, 'x', 'viewer')"),
+                {"i": uuid.uuid4(), "t": tid},
+            )
+    with pytest.raises(Exception, match="row-level security"):
+        with svc.begin() as c:
+            as_sub(c, "sam")
+            c.execute(
+                text(
+                    "insert into identity.audit_events (id, tenant_id, actor_sub, action, entity_type, entity_id) "
+                    "values (:i, :t, 'alice', 'member.added', 'membership', 'x')"
+                ),
+                {"i": uuid.uuid4(), "t": tid},
+            )
+
+
+def test_first_owner_rule_only_covers_an_empty_tenant(pg_client):
+    client, svc = pg_client
+    with svc.begin() as c:
+        as_sub(c, "zoe")
+        tid = uuid.uuid4()
+        c.execute(text("insert into identity.tenants (id, name) values (:t, 'Zoe Co')"), {"t": tid})
+        # Not as someone else, not as a lesser role: only themselves as owner.
+        for sub, role in (("other", "owner"), ("zoe", "admin")):
+            c.execute(text("savepoint s"))
+            with pytest.raises(Exception, match="row-level security"):
+                c.execute(
+                    text("insert into identity.memberships (id, tenant_id, user_sub, role) values (:i, :t, :u, :r)"),
+                    {"i": uuid.uuid4(), "t": tid, "u": sub, "r": role},
+                )
+            c.execute(text("rollback to savepoint s"))
+        c.execute(
+            text("insert into identity.memberships (id, tenant_id, user_sub, role) values (:i, :t, 'zoe', 'owner')"),
+            {"i": uuid.uuid4(), "t": tid},
+        )
+
+
+def test_viewer_cannot_rename_tenant_but_admin_can(pg_client):
+    client, svc = pg_client
+    tid = setup_alice(client, [("vic", "viewer"), ("erin", "admin")])
+    with svc.begin() as c:
+        as_sub(c, "vic")
+        assert c.execute(text("update identity.tenants set name = 'pwned' where id = :t"), {"t": tid}).rowcount == 0
+    with svc.begin() as c:
+        as_sub(c, "erin")
+        assert c.execute(text("update identity.tenants set name = 'Alice Pvt Ltd' where id = :t"), {"t": tid}).rowcount == 1
+
+
+def test_admin_can_lock_owner_rows_so_the_api_answers_403(pg_client):
+    # The deactivate endpoint locks the target with SELECT ... FOR UPDATE; RLS must not hide it.
+    client, svc = pg_client
+    tid = setup_alice(client, [("erin", "admin")])
+    with svc.begin() as c:
+        as_sub(c, "erin")
+        rows = c.execute(
+            text("select user_sub from identity.memberships where tenant_id = :t for update"), {"t": tid}
+        ).scalars().all()
+    assert sorted(rows) == ["alice", "erin"]
+
+
+def test_membership_cannot_be_moved_to_another_user(pg_client):
+    client, svc = pg_client
+    setup_alice(client, [("sam", "sales")])
+    with pytest.raises(Exception, match="cannot move"):
+        with svc.begin() as c:
+            as_sub(c, "alice")
+            c.execute(text("update identity.memberships set user_sub = 'mallory' where user_sub = 'sam'"))
