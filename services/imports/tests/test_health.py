@@ -1,7 +1,0 @@
-from fastapi.testclient import TestClient
-
-from app.main import app
-
-
-def test_health():
-    assert TestClient(app).get("/imports/health").json() == {"status": "ok"}

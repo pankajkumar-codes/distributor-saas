@@ -1,35 +1,44 @@
 #!/usr/bin/env bash
-# Builds build/<service>.zip for the arm64 Python 3.12 Lambda runtime.
-# Usage: scripts/build_lambda.sh identity   (or: all)
+# Builds build/<name>.zip for the arm64 Python 3.12 Lambda runtime (LLD-0 §8).
+#   app.zip       the API and worker Lambdas (one artefact, two handlers:
+#                 app.api.handler and app.worker.sqs_handler)
+#   migrator.zip  migrator.handler.handler, with every module's migrations
+# Usage: scripts/build_lambda.sh app   (or: migrator, all)
+# Terraform still names the old per-service zips until Staff 2's S0b change.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SERVICES=(identity commerce imports reports documents migrator)
+TARGETS=(app migrator)
+
+deps() {
+  python3 -m pip install --quiet --platform manylinux2014_aarch64 --implementation cp \
+    --python-version 3.12 --only-binary=:all: -t "$1" "${@:2}"
+}
 
 build() {
-  local svc="$1" src="$ROOT/services/$1" out="$ROOT/build/$1"
+  local name="$1" out="$ROOT/build/$1"
   rm -rf "$out" "$out.zip"
   mkdir -p "$out"
-  python3 -m pip install --quiet --platform manylinux2014_aarch64 --implementation cp \
-    --python-version 3.12 --only-binary=:all: -r "$src/requirements.txt" -t "$out"
-  if [ "$svc" = migrator ]; then
-    cp -r "$src/migrator" "$out/"
-    for s in "${SERVICES[@]}"; do
-      if [ -d "$ROOT/services/$s/migrations" ]; then
-        mkdir -p "$out/migrations/$s"
-        cp "$ROOT/services/$s/migrations/"*.sql "$out/migrations/$s/" 2>/dev/null || true
-      fi
+  if [ "$name" = migrator ]; then
+    deps "$out" -r "$ROOT/migrator/requirements.txt"
+    cp -r "$ROOT/migrator/migrator" "$out/"
+    for d in "$ROOT"/app/src/app/modules/*/migrations; do
+      mkdir -p "$out/migrations/$(basename "$(dirname "$d")")"
+      cp "$d"/*.sql "$out/migrations/$(basename "$(dirname "$d")")/"
     done
   else
-    cp -r "$src/app" "$out/"
+    # Runtime dependencies from app/pyproject.toml, without the app itself.
+    deps "$out" $(python3 -c "import tomllib; print(' '.join(tomllib.load(open('$ROOT/app/pyproject.toml','rb'))['project']['dependencies']))")
+    cp -r "$ROOT/app/src/app" "$out/"
+    find "$out/app" -type d \( -name tests -o -name migrations \) -prune -exec rm -rf {} +
     cp -r "$ROOT/libs/platform_common/platform_common" "$out/"
   fi
   find "$out" -name '__pycache__' -prune -exec rm -rf {} +
   (cd "$out" && python3 -c "import shutil; shutil.make_archive('$out', 'zip', '.')")
-  echo "built build/$svc.zip"
+  echo "built build/$name.zip"
 }
 
 if [ "${1:-all}" = all ]; then
-  for s in "${SERVICES[@]}"; do build "$s"; done
+  for t in "${TARGETS[@]}"; do build "$t"; done
 else
   build "$1"
 fi

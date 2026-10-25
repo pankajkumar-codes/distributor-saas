@@ -1,42 +1,81 @@
-# Architecture (decided 12 Oct 2026)
+# Architecture
 
-Owner decisions on 12 Oct 2026: host on AWS Mumbai; build as microservices with AWS
-infrastructure as code; write services in Python.
+**Decided 2026-10-24** (D-027, superseding the five-service design of D-019). The
+authoritative design documents are in the project files, not in this repo:
 
-## Service boundaries
+- tech plan DOC-3 v0.2 (`team/docs/tech-plan.md`);
+- HLD DOC-4 v0.2 (`team/docs/hld.md`);
+- LLD-0 to LLD-7 (`team/docs/lld-*.md`).
 
-Boundaries follow transactions, not tables. Finalizing an invoice, deducting its
-stock and allocating its payment must succeed or fail together, so catalog,
-procurement, stock, wholesale sales and payments all live in **commerce**. Splitting
-them would need distributed transactions or sagas around money, which the business
-rules (sections 4, 5 and 10) make risky.
+This page summarises them. Where it differs from them, they win.
 
-- **identity**: tenants, memberships, roles, audit. Cognito handles passwords and MFA.
-- **commerce**: everything that changes stock or money. Publishes events to SQS.
-  Data model: `docs/adr/0001-commerce-data-model.md` (proposed).
-- **imports**: uploads land in a private S3 bucket; rows are staged, validated and
-  previewed; confirmed rows are handed to commerce idempotently (source file checksum
-  plus external IDs).
-- **documents**: consumes invoice-finalized events and writes PDFs to S3.
-- **reports**: read-only access to the other schemas.
+> **Code status.** The code is in the layout below (`app/`, `libs/platform_common`,
+> `migrator/`). It still connects as the old `svc_identity` login until the S0a
+> database-roles change moves it to `app_rw`. Terraform still deploys per-service
+> Lambdas until Staff 2's S0b change.
 
-## Data
+## One app, split into modules
 
-One RDS PostgreSQL instance, one schema per service, one login role per service with
-grants only on its own schema (reports gets read-only grants). Row-level security keys
-off `app.user_sub` / `app.tenant_id`, set per transaction by the service.
+One modular monolith, deployed as four Lambdas built from one codebase:
+
+- **api**: FastAPI behind API Gateway (HTTP API). It serves `/api/v1/*`.
+- **worker**: consumes SQS jobs, which come from a transactional outbox.
+- **mailer**: outside the VPC, with no database access. It only sends email through SES.
+- **migrator**: applies migrations and loads refdata on deploy.
+
+Each module has its own PostgreSQL schema and an `interface` package. Other modules
+may import only that `interface` package, and import-linter enforces this in CI. Reads
+across modules go through `security_invoker` views. There are no foreign keys across
+schemas. The shared code is `libs/platform_common`. It provides:
+
+- `unit_of_work` / `business_uow`;
+- `Principal`, `require(permission)`, and `Deny` → 404;
+- `MoneyStr` (decimal strings over the API, never floats);
+- `uuid7`, and `Clock` for IST business dates;
+- audit, outbox and jobs, idempotency, rate counters and log redaction.
+
+The web app is a React + TypeScript single-page app on S3 + CloudFront, on the same
+origin as `/api/*` (D-023).
+
+## Data and tenancy
+
+- **Database:** one RDS PostgreSQL 16 instance.
+- **Database roles:**
+  - The app connects as `app_rw` (IAM auth).
+  - Read-only units of work switch to `app_ro`.
+  - Database objects are owned by `app_owner`, which only the migrator uses. This
+    depends on the RDS master being able to `SET ROLE app_owner`, which was proved on
+    local PostgreSQL 16 but not yet on RDS. If RDS refuses, the master user stays the
+    owner and `app_owner` is unused (LLD-0 §4.1 fallback).
+  - Retention runs as `app_retention`, through definer functions only.
+- **Row-level security:** FORCE RLS on every tenant table. Policies read `app.tenant_id`,
+  `app.user_id`, `app.role` and `app.support_grant_id`, set per transaction from the
+  verified membership. They never come from the client.
+- **Support staff:** read only, and only through an owner-created, expiring grant that
+  is audited on every request.
+- **Financial records:** finalized documents and return snapshots are insert-only.
+  Corrections are new rows, such as credit notes and new snapshot versions (D-034,
+  D-035).
+
+## Sign-in
+
+Our API fronts Cognito. We issue and check our own email codes, and Cognito holds
+passwords and TOTP. Access tokens last 5 minutes, and every request also checks the
+session. Refresh happens through an `HttpOnly` cookie (D-028).
 
 ## Network and cost
 
-Private subnets only. No internet gateway and no NAT gateway. Lambdas reach S3 through
-a free gateway endpoint, and SQS and Secrets Manager through interface endpoints in a
-single AZ to keep cost down. Calls to anything on the public internet (marketplace or
-GST APIs later) will need a NAT gateway or a proxy, which is a cost decision.
+- **Subnets:** private only. No NAT gateway.
+- **AWS services from the VPC:** S3 through a gateway endpoint. SQS, Secrets Manager
+  and Cognito through interface endpoints in one AZ.
+- **Email:** leaves through the mailer Lambda outside the VPC.
+- **Public internet:** any future call to it (marketplace or GST APIs) needs a NAT
+  gateway or a proxy, which is a cost decision.
+- **Budget:** about USD 49/month per environment (D-008).
 
 ## Deliberately not done yet
 
-- No business endpoints in commerce, imports, reports or documents: they wait on the
-  blocking decisions in DECISIONS.md.
-- No web frontend yet (planned: React on S3 + CloudFront).
-- No deploy pipeline to AWS: CI tests and validates Terraform only. Applying is manual
-  until an AWS account and an approval step exist.
+- Nothing is deployed. CI tests the code and validates Terraform only. Deploys wait
+  for the OIDC role and approval (D-031).
+- Stock, payments beyond one full payment per invoice, GSP filing, e-invoice and
+  e-way bill APIs are out of Release 1 (HLD §1).

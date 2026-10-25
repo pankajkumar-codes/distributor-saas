@@ -1,8 +1,7 @@
 # Testing: locally, then on AWS
 
-Only the **identity** service has real endpoints so far. The other services answer
-health checks only, so these steps test sign-in, tenants, members, audit and tenant
-isolation.
+Only the **identity** module has real endpoints so far, so these steps test sign-in,
+tenants, members, invitations, audit and tenant isolation.
 
 ## 1. Automated tests (no setup beyond Python)
 
@@ -21,7 +20,26 @@ PG_ADMIN_URL=postgresql+psycopg://postgres:local-only@localhost:5432/postgres \
 PG_DSN=postgresql://postgres:local-only@localhost:5432/postgres make test
 ```
 
-GitHub Actions runs all of these on every pull request.
+GitHub Actions runs all of these on every pull request, plus:
+
+- `ruff check app migrator libs tests scripts` (rules in `ruff.toml`)
+- `python scripts/float_guard.py`: no float literals, `float()` or `float` types in any
+  module under `app/`, `migrator/` or `libs/` (tests excluded); a real exception needs a
+  `# float-ok: <reason>` comment on the line, which reviewers must agree with
+- `python scripts/ci_checks/migration_keys.py origin/main`: no migration that exists on
+  `main` is missing or edited (the migrator keys its ledger on module and file name)
+- `lint-imports` (contracts in `.importlinter`): modules don't import each other, the
+  API or the worker; `platform_common` and the migrator import nothing from the app
+- gitleaks over the whole git history
+- the end-to-end suite below, against identity on real PostgreSQL, after migrating twice
+- `tests/isolation`: role guards after every migration. No role but the migrating superuser
+  has superuser, BYPASSRLS, CREATEROLE or replication; the app and owner roles from the
+  design can't reach a privileged role; NOLOGIN roles can't log in; no login role owns
+  objects. Run it locally with `make isolation-local`
+
+Some tests are marked `xfail(strict=True)`. Each one is a known defect with an ID
+(`QA-DEF-…`) in the QA plan. When the fix lands the test passes, pytest reports it as an
+unexpected pass and fails, and the marker must be removed in the same PR.
 
 ## 2. Run it on your machine
 
@@ -29,8 +47,8 @@ Needs Docker and Python 3.12.
 
 ```bash
 make db-up          # PostgreSQL 16 in Docker on localhost:5432
-make db-migrate     # creates the identity schema, its tables and row-level security
-make run-identity   # API on http://localhost:8000 (leave this running)
+make db-migrate     # applies every module's migrations (identity schema, tables, row-level security)
+make run-api        # API on http://localhost:8000 (leave this running)
 ```
 
 In a second terminal:
@@ -39,7 +57,15 @@ In a second terminal:
 make smoke-local    # creates a tenant as one user, checks a second user can't see it
 ```
 
-You should see `ALL CHECKS PASSED`. You can also open http://localhost:8000/docs to
+You should see `ALL CHECKS PASSED`. Then run the fuller end-to-end suite:
+
+```bash
+make e2e-local      # tests/e2e: onboarding, isolation, roles, error leakage
+```
+
+The same suite runs against staging with two Cognito tokens:
+`E2E_BASE_URL=$API E2E_TOKEN_A=... E2E_TOKEN_B=... pytest tests/e2e`. Tests that need a
+third user skip there. You can also open http://localhost:8000/docs to
 try each endpoint in the browser. Locally there is no Cognito: the `X-Debug-User`
 header plays the signed-in user, for example `X-Debug-User: alice`. That header is
 ignored everywhere except local and test runs.
@@ -47,6 +73,9 @@ ignored everywhere except local and test runs.
 `make db-down` deletes the local database when you want a fresh start.
 
 ## 3. Test on AWS (staging)
+
+> Out of date until Staff 2's S0b infra change: the Terraform below still deploys the
+> old per-service Lambdas, while `make build` now builds `app.zip` and `migrator.zip`.
 
 Needs an AWS account (Mumbai, Paid plan), the AWS CLI v2 signed in to it, and
 Terraform 1.10 or newer. Staging costs money while it exists, roughly $30 a month,

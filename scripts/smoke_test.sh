@@ -23,30 +23,30 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 status() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
 
 echo "1. health"
-[ "$(status "$BASE/identity/health")" = 200 ] || fail "health check"
+[ "$(status "$BASE/api/v1/health")" = 200 ] || fail "health check"
 
 echo "2. no login is rejected"
-[ "$(status "$BASE/identity/tenants")" = 401 ] || fail "expected 401 without login"
+[ "$(status "$BASE/api/v1/identity/tenants")" = 401 ] || fail "expected 401 without login"
 
 echo "3. user A creates a tenant"
-BODY=$(curl -s -X POST "$BASE/identity/tenants" -H "$(auth a)" -H 'content-type: application/json' -d '{"name":"Smoke Test Co"}')
+BODY=$(curl -s -X POST "$BASE/api/v1/identity/tenants" -H "$(auth a)" -H 'content-type: application/json' -d '{"name":"Smoke Test Co"}')
 TENANT=$(echo "$BODY" | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])') || fail "create tenant: $BODY"
 echo "   tenant $TENANT"
 
 echo "4. user A can read it as owner"
-ROLE=$(curl -s "$BASE/identity/tenants/$TENANT" -H "$(auth a)" | python3 -c 'import json,sys; print(json.load(sys.stdin)["role"])')
+ROLE=$(curl -s "$BASE/api/v1/identity/tenants/$TENANT" -H "$(auth a)" | python3 -c 'import json,sys; print(json.load(sys.stdin)["role"])')
 [ "$ROLE" = owner ] || fail "expected owner, got $ROLE"
 
 if [ -n "$TOKEN_A" ] && [ -z "$TOKEN_B" ]; then
   echo "skipping isolation checks: pass a second user's token to run them"
 else
   echo "5. user B cannot see user A's tenant (404, same as a missing one)"
-  [ "$(status "$BASE/identity/tenants/$TENANT" -H "$(auth b)")" = 404 ] || fail "user B could see tenant"
+  [ "$(status "$BASE/api/v1/identity/tenants/$TENANT" -H "$(auth b)")" = 404 ] || fail "user B could see tenant"
   echo "6. user B cannot add themselves as a member"
-  [ "$(status -X POST "$BASE/identity/tenants/$TENANT/members" -H "$(auth b)" -H 'content-type: application/json' -d '{"user_sub":"x","role":"owner"}')" = 404 ] || fail "user B could add a member"
+  [ "$(status -X POST "$BASE/api/v1/identity/tenants/$TENANT/members" -H "$(auth b)" -H 'content-type: application/json' -d '{"user_sub":"x","role":"owner"}')" = 404 ] || fail "user B could add a member"
 fi
 
 echo "7. audit log records the creation"
-curl -s "$BASE/identity/tenants/$TENANT/audit" -H "$(auth a)" | grep -q tenant.created || fail "audit entry missing"
+curl -s "$BASE/api/v1/identity/tenants/$TENANT/audit" -H "$(auth a)" | grep -q tenant.created || fail "audit entry missing"
 
 echo "ALL CHECKS PASSED"

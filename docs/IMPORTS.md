@@ -1,6 +1,6 @@
 # Marketplace import parsing
 
-Backlog: E4-1 (import engine), generic part. Code: `services/imports/app/parsing`.
+Backlog: E4-1 (import engine), generic part. Code: `app/src/app/modules/imports/parsing`.
 
 `app/parsing` turns an uploaded report into a **preview**: every source row with its raw
 values, its normalized values when valid, its errors, and a de-duplication key.
