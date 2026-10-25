@@ -1,24 +1,26 @@
 #!/usr/bin/env python3
-"""Fail if binary floating point appears in modules that compute money, tax or stock.
+"""Fail if binary floating point appears in application or library code.
 
 CLAUDE.md rule 7: authoritative money arithmetic is Decimal-only. This walks the AST
 (so strings like Decimal("0.01") are fine) and flags float literals, float() calls and
-`float` type annotations in the guarded files.
+`float` type annotations in every module under services/*/app and libs, except tests.
+Money can reach any module, so files are not chosen by name.
 
     python scripts/float_guard.py            # check the repo
     python scripts/float_guard.py FILE...    # check specific files
 
-A line can opt out with `# float-ok: <reason>`, which reviewers must agree with.
+A line can opt out with `# float-ok: <reason>` (the reason is required), which
+reviewers must agree with.
 """
 
 import ast
+import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-# Any module whose file name says it handles money, tax, stock or settlement.
-KEYWORDS = ("money", "tax", "gst", "price", "pricing", "invoice", "payment", "settlement", "ledger", "stock", "cost")
-SEARCH = ["libs/*/*/**/*.py", "services/*/app/**/*.py"]
+SEARCH = ["libs/**/*.py", "services/*/app/**/*.py"]
+OPT_OUT = re.compile(r"#\s*float-ok:\s*\S")
 
 
 def guarded_files() -> list[Path]:
@@ -26,7 +28,7 @@ def guarded_files() -> list[Path]:
     for pattern in SEARCH:
         for p in ROOT.glob(pattern):
             # Tests deliberately feed floats in to prove they are rejected.
-            if "tests" not in p.relative_to(ROOT).parts and any(k in p.stem.lower() for k in KEYWORDS):
+            if "tests" not in p.relative_to(ROOT).parts:
                 files.add(p)
     return sorted(files)
 
@@ -55,7 +57,7 @@ def check(path: Path) -> list[str]:
             parent = parents.get(node)
             if not (isinstance(parent, ast.Call) and parent.func is node):
                 why = "float type"
-        if why and "float-ok:" not in lines[node.lineno - 1]:
+        if why and not OPT_OUT.search(lines[node.lineno - 1]):
             problems.append(f"{path.relative_to(ROOT) if path.is_relative_to(ROOT) else path}:{node.lineno}: {why}")
     return problems
 

@@ -24,8 +24,9 @@ PG_DSN=postgresql://postgres:local-only@localhost:5432/postgres make test
 GitHub Actions runs all of these on every pull request, plus:
 
 - `ruff check services libs tests scripts` (rules in `ruff.toml`)
-- `python scripts/float_guard.py`: no float literals, `float()` or `float` types in
-  modules named for money, tax, price, invoice, payment, settlement, ledger, stock or cost
+- `python scripts/float_guard.py`: no float literals, `float()` or `float` types in any
+  module under `services/*/app` or `libs` (tests excluded); a real exception needs a
+  `# float-ok: <reason>` comment on the line, which reviewers must agree with
 - gitleaks over the whole git history
 - the end-to-end suite below, against identity on real PostgreSQL, after migrating twice
 
