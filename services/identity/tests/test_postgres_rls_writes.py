@@ -370,3 +370,23 @@ def test_invitee_cannot_change_an_invitation_except_to_accept_it(pg_client):
                     text("update identity.invitations set status = :s, accepted_by = :b where id = :i"),
                     {"s": status, "b": by, "i": iid},
                 )
+
+
+def test_invitee_cannot_accept_an_expired_invitation(pg_client):
+    client, svc = pg_client
+    tid = setup_alice(client)
+    r = client.post(
+        f"/identity/tenants/{tid}/invitations",
+        json={"email": "late@example.com", "role": "viewer"},
+        headers={"x-debug-user": "alice"},
+    )
+    iid = r.json()["id"]
+    with svc.begin() as c:
+        as_sub(c, "alice")
+        c.execute(text("update identity.invitations set expires_at = now() - interval '1 day' where id = :i"), {"i": iid})
+    with svc.begin() as c:
+        _as_invitee(c, "late", "late@example.com")
+        n = c.execute(
+            text("update identity.invitations set status = 'accepted', accepted_by = 'late' where id = :i"), {"i": iid}
+        ).rowcount
+    assert n == 0

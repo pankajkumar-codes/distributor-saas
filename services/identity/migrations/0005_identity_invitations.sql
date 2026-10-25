@@ -56,6 +56,7 @@ create policy invitation_manage on identity.invitations for update to svc_identi
 create policy invitation_accept on identity.invitations for update to svc_identity
     using (
         status = 'pending'
+        and expires_at > now()
         and email = nullif(current_setting('app.user_email', true), '')
     )
     with check (
