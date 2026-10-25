@@ -42,7 +42,7 @@ The full text, interim answers and owners are in `team/product/ca-questions.md` 
 Listed in `team/docs/build-readiness.md` §2 and §3 in the project files, with owners. The ones that change the design or the budget:
 - A Cognito interface endpoint exists in ap-south-1, and the `Admin*` and access-token Cognito calls work through it. Fallback: a NAT gateway (about USD 31/month more per environment), which is a CEO cost decision (D-029).
 - Cognito access tokens carry `origin_jti`, and it stays the same after a refresh. Fallback: `event_id`, then a custom claim.
-- The RDS master can be granted `app_owner`, and `btree_gist` and `pg_trgm` are allowed on RDS PostgreSQL 16. Fallbacks are in LLD-0 §4.1 and §6.2.
+- The RDS master can be granted `app_owner`, and `btree_gist` and `pg_trgm` are allowed. All three were proved on local PostgreSQL 16 (build-readiness 2.1–2.3); the RDS re-check is in S0b. Fallbacks are in LLD-0 §4.1 and §6.2.
 - The presigned POST policy and bucket-default KMS (D-036) behave as designed on staging.
 - WeasyPrint runs on Lambda within the cold-start and render-time targets (TD-9). Fallback: ReportLab.
 

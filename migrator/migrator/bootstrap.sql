@@ -7,8 +7,8 @@
 -- are reached with SET ROLE. None of them may bypass RLS (QA role guards, build-readiness 2.6).
 -- On RDS this runs as the master user, which is rds_superuser but not a superuser, so it
 -- never names SUPERUSER, BYPASSRLS or REPLICATION in ALTER ROLE.
--- The owner of platform.support_grant_active is identity_auth (proposed in build-readiness
--- 2.8, to be confirmed in the S0a PR), so it needs no role of its own here.
+-- The owner of platform.support_grant_active is identity_auth (decided 2026-10-25,
+-- build-readiness 2.8 and the LLD-0 erratum), so it needs no role of its own here.
 
 do $$
 declare
