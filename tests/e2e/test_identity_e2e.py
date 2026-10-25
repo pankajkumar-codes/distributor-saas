@@ -51,9 +51,9 @@ def test_invited_viewer_reads_but_cannot_manage(alice, debug_user):
     viewer = debug_user("viewer")
     assert alice.post(f"/api/v1/identity/tenants/{tid}/members", json={"user_sub": viewer.sub, "role": "viewer"}).status_code == 201
     assert viewer.get(f"/api/v1/identity/tenants/{tid}").json()["role"] == "viewer"
-    assert viewer.get(f"/api/v1/identity/tenants/{tid}/audit").status_code == 403
+    assert viewer.get(f"/api/v1/identity/tenants/{tid}/audit").status_code == 404
     r = viewer.post(f"/api/v1/identity/tenants/{tid}/members", json={"user_sub": f"e2e-{RUN}-x", "role": "admin"})
-    assert r.status_code == 403
+    assert r.status_code == 404
     actions = sorted(e["action"] for e in alice.get(f"/api/v1/identity/tenants/{tid}/audit").json())
     assert actions == ["member.added", "tenant.created"]
 
@@ -65,7 +65,7 @@ def test_user_in_two_tenants_gets_each_tenants_role(alice, debug_user):
     alice.post(f"/api/v1/identity/tenants/{theirs}/members", json={"user_sub": dual.sub, "role": "sales"})
     roles = {t["id"]: t["role"] for t in dual.get("/api/v1/identity/tenants").json()}
     assert roles == {own: "owner", theirs: "sales"}
-    assert dual.post(f"/api/v1/identity/tenants/{theirs}/members", json={"user_sub": "x", "role": "viewer"}).status_code == 403
+    assert dual.post(f"/api/v1/identity/tenants/{theirs}/members", json={"user_sub": "x", "role": "viewer"}).status_code == 404
 
 
 def test_debug_header_is_ignored_when_real_auth_is_on(anon, debug_mode):

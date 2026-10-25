@@ -50,7 +50,7 @@ def test_every_active_role_can_read_tenant_and_members(client, role):
 @pytest.mark.parametrize("role", ROLES)
 def test_audit_log_needs_owner_or_admin(client, role):
     tid, sub = tenant_with(client, role)
-    expected = 200 if role in CAN_MANAGE else 403
+    expected = 200 if role in CAN_MANAGE else 404
     assert client.get(f"/api/v1/identity/tenants/{tid}/audit", headers=as_user(sub)).status_code == expected
 
 
@@ -62,9 +62,9 @@ def test_who_can_grant_which_role(client, caller, new_role):
     if caller == "owner":
         expected = 201
     elif caller == "admin":
-        expected = 403 if new_role == "owner" else 201
+        expected = 404 if new_role == "owner" else 201
     else:
-        expected = 403
+        expected = 404
     assert r.status_code == expected, r.text
 
 
@@ -72,7 +72,7 @@ def test_who_can_grant_which_role(client, caller, new_role):
 def test_refused_grant_leaves_no_member_and_no_audit(client, role):
     tid, sub = tenant_with(client, "viewer")
     before = client.get(f"/api/v1/identity/tenants/{tid}/audit", headers=as_user(OWNER)).json()
-    assert add(client, tid, sub, "user-sneaky", role).status_code == 403
+    assert add(client, tid, sub, "user-sneaky", role).status_code == 404
     members = [m["user_sub"] for m in client.get(f"/api/v1/identity/tenants/{tid}/members", headers=as_user(OWNER)).json()]
     assert "user-sneaky" not in members
     assert client.get(f"/api/v1/identity/tenants/{tid}/audit", headers=as_user(OWNER)).json() == before
@@ -117,8 +117,8 @@ def test_role_in_one_tenant_does_not_carry_to_another(client):
     t1 = make_tenant(client, "user-dual", "T1")
     t2 = make_tenant(client, OWNER, "T2")
     assert add(client, t2, OWNER, "user-dual", "viewer").status_code == 201
-    assert add(client, t2, "user-dual", "user-new", "sales").status_code == 403
-    assert client.get(f"/api/v1/identity/tenants/{t2}/audit", headers=as_user("user-dual")).status_code == 403
+    assert add(client, t2, "user-dual", "user-new", "sales").status_code == 404
+    assert client.get(f"/api/v1/identity/tenants/{t2}/audit", headers=as_user("user-dual")).status_code == 404
     assert add(client, t1, "user-dual", "user-new", "sales").status_code == 201
 
 

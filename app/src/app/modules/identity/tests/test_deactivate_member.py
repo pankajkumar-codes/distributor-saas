@@ -92,7 +92,7 @@ def test_admin_can_deactivate_non_owners_but_not_owners(client):
     add_member(client, tid, ALICE, BOB, "admin")
     add_member(client, tid, ALICE, CAROL, "inventory")
     assert deactivate(client, tid, BOB, CAROL).status_code == 200
-    assert deactivate(client, tid, BOB, ALICE).status_code == 403
+    assert deactivate(client, tid, BOB, ALICE).status_code == 404
 
 
 @pytest.mark.parametrize("role", ["sales", "inventory", "finance", "viewer"])
@@ -100,7 +100,7 @@ def test_non_admin_roles_cannot_deactivate(client, role):
     tid = make_tenant(client, ALICE, "Alice Co")
     add_member(client, tid, ALICE, BOB, role)
     add_member(client, tid, ALICE, CAROL, "viewer")
-    assert deactivate(client, tid, BOB, CAROL).status_code == 403
+    assert deactivate(client, tid, BOB, CAROL).status_code == 404
     assert client.get(f"/api/v1/identity/tenants/{tid}", headers=as_user(CAROL)).status_code == 200
 
 

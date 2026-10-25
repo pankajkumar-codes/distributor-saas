@@ -1,7 +1,7 @@
 """Who-is-calling must fail closed: no verified claims and no debug environment means 401."""
 
 import pytest
-from fastapi import HTTPException
+from platform_common.errors import Deny
 from starlette.requests import Request
 
 from platform_common.auth import current_caller
@@ -42,9 +42,9 @@ def test_debug_header_works_only_in_local_and_test(monkeypatch, env):
 @pytest.mark.parametrize("env", ["staging", "prod", "Prod", "LOCAL", "dev", ""])
 def test_debug_header_is_ignored_elsewhere(monkeypatch, env):
     monkeypatch.setenv("PLATFORM_ENV", env)
-    with pytest.raises(HTTPException) as e:
+    with pytest.raises(Deny) as e:
         current_caller(request({"x-debug-user": "alice"}))
-    assert e.value.status_code == 401
+    assert e.value.reason == "session_invalid"
 
 
 @pytest.mark.parametrize(
@@ -59,14 +59,14 @@ def test_debug_header_is_ignored_elsewhere(monkeypatch, env):
 )
 def test_missing_or_empty_claims_are_401(monkeypatch, event):
     monkeypatch.setenv("PLATFORM_ENV", "prod")
-    with pytest.raises(HTTPException) as e:
+    with pytest.raises(Deny) as e:
         current_caller(request(event=event))
-    assert e.value.status_code == 401
+    assert e.value.reason == "session_invalid"
 
 
 def test_empty_debug_header_is_401(monkeypatch):
     monkeypatch.setenv("PLATFORM_ENV", "test")
-    with pytest.raises(HTTPException):
+    with pytest.raises(Deny):
         current_caller(request({"x-debug-user": ""}))
 
 
@@ -77,5 +77,5 @@ def test_empty_debug_header_is_401(monkeypatch):
 )
 def test_unset_platform_env_fails_closed(monkeypatch):
     monkeypatch.delenv("PLATFORM_ENV", raising=False)
-    with pytest.raises(HTTPException):
+    with pytest.raises(Deny):
         current_caller(request({"x-debug-user": "alice"}))

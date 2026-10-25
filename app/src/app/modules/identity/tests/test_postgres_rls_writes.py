@@ -218,7 +218,7 @@ def test_viewer_cannot_rename_tenant_but_admin_can(pg_client):
         assert c.execute(text("update identity.tenants set name = 'Alice Pvt Ltd' where id = :t"), {"t": tid}).rowcount == 1
 
 
-def test_admin_can_lock_owner_rows_so_the_api_answers_403(pg_client):
+def test_admin_can_lock_owner_rows_so_the_api_answers_404(pg_client):
     # The deactivate endpoint locks the target with SELECT ... FOR UPDATE; RLS must not hide it.
     client, svc = pg_client
     tid = setup_alice(client, [("erin", "admin")])
