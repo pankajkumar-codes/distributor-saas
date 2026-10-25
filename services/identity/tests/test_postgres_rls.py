@@ -4,6 +4,8 @@ Skipped unless PG_ADMIN_URL points at a disposable server, e.g.
 PG_ADMIN_URL=postgresql+psycopg://postgres@localhost:5432/postgres
 """
 
+import uuid
+
 import pytest
 from sqlalchemy import text
 
