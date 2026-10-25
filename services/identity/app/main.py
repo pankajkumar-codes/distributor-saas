@@ -3,7 +3,7 @@ from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from functools import lru_cache
 
-from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi import Depends, FastAPI, HTTPException, status
 from mangum import Mangum
 from pydantic import BaseModel, Field
 from sqlalchemy import event, func, select, text
