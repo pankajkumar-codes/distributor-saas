@@ -27,10 +27,11 @@ def factory():
     admin = create_engine(ADMIN_URL, isolation_level="AUTOCOMMIT")
     with admin.connect() as c:
         c.execute(text(f"create database {dbname}"))
-        c.execute(text(
-            "do $$ begin if not exists (select from pg_roles where rolname = 'app_rw') "
-            "then create role app_rw nologin; end if; end $$"
-        ))
+        for role in ("app_rw", "app_ro"):  # the platform migrations grant to both
+            c.execute(text(
+                f"do $$ begin if not exists (select from pg_roles where rolname = '{role}') "
+                f"then create role {role} nologin; end if; end $$"
+            ))
     eng = create_engine(make_url(ADMIN_URL).set(database=dbname))
     with eng.begin() as c:
         for f in sorted(MIGRATIONS.glob("*.sql")):

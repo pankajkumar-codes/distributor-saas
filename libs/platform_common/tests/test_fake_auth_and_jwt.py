@@ -124,8 +124,13 @@ def test_verify_refuses_other_tokens(idp, override):
         verify(idp, _forge(idp, **override))
 
 
+def test_verify_allows_clock_skew_within_leeway(idp):
+    assert verify(idp, _forge(idp, exp=int(time.time()) - 10))["sub"]
+    assert verify(idp, _forge(idp, iat=int(time.time()) + 10))["sub"]
+
+
 def test_verify_refuses_expired_unless_allowed(idp):
-    old = _forge(idp, exp=int(time.time()) - 10)
+    old = _forge(idp, exp=int(time.time()) - 60)
     with pytest.raises(TokenInvalid):
         verify(idp, old)
     assert verify(idp, old, allow_expired=True)["sub"]

@@ -8,7 +8,8 @@ the mailer Lambda; it comes with Staff 2's mail queue and SES access (S0b).
 Until then two senders exist, and neither sends anything real:
 - FakeMailer records messages for tests.
 - LocalFileMailer appends each message as a JSON line to a file, so a developer can
-  read a sign-up code locally. It refuses to start outside PLATFORM_ENV local or test.
+  read a sign-up code locally. It refuses to start outside PLATFORM_ENV local or test,
+  and writes under the git-ignored build/ folder by default, since codes are plain text.
 """
 
 import json
@@ -48,7 +49,9 @@ class FakeMailer:
 
 
 class LocalFileMailer:
-    def __init__(self, path: Path):
+    DEFAULT_PATH = Path("build/mail/outbox.jsonl")
+
+    def __init__(self, path: Path = DEFAULT_PATH):
         if platform_env() not in DEBUG_ENVS:
             raise RuntimeError("LocalFileMailer is for local and test only")
         self.path = path
