@@ -294,7 +294,7 @@ def _change_member_status(
         raise not_found()
     if member.status == new_status:
         # A retry of a change that already happened: same answer, no second audit event.
-        return MemberOut(user_sub=member.user_sub, role=member.role, status=member.status)
+        return member_out(member)
     if member.role == Role.owner and caller.role != Role.owner:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "only an owner can change an owner's access")
     if new_status == MembershipStatus.disabled and member.role == Role.owner and len(owners) <= 1:
@@ -307,7 +307,7 @@ def _change_member_status(
         user_sub=member.user_sub, role=member.role.value, reason=reason,
     )
     session.commit()
-    return MemberOut(user_sub=member.user_sub, role=member.role, status=member.status)
+    return member_out(member)
 
 
 @app.get("/identity/tenants/{tenant_id}/audit", response_model=list[AuditOut])

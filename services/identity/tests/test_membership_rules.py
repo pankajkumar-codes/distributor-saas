@@ -48,7 +48,7 @@ def test_owner_can_add_another_owner(client):
     tid = make_tenant(client, ALICE, "Alice Co")
     r = add_member(client, tid, ALICE, BOB, "owner")
     assert r.status_code == 201
-    assert r.json() == {"user_sub": BOB, "role": "owner", "status": "active"}
+    assert r.json() == {"user_sub": BOB, "role": "owner", "status": "active", "email": None, "display_name": None}
 
 
 def test_disabled_member_is_treated_as_a_non_member(client):

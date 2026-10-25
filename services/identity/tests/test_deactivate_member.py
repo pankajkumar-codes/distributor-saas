@@ -32,7 +32,7 @@ def test_owner_deactivates_member_who_then_loses_access(client):
 
     r = deactivate(client, tid, ALICE, BOB)
     assert r.status_code == 200
-    assert r.json() == {"user_sub": BOB, "role": "sales", "status": "disabled"}
+    assert r.json() == {"user_sub": BOB, "role": "sales", "status": "disabled", "email": None, "display_name": None}
     assert client.get(f"/identity/tenants/{tid}", headers=as_user(BOB)).status_code == 404
 
 
