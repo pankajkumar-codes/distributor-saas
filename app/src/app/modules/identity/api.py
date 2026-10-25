@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from platform_common.auth import Caller, current_caller
 from platform_common.db import engine, session_factory
-from platform_common.errors import AppError, Conflict, Deny
+from platform_common.errors import Conflict, Deny, Gone
 from platform_common.uow import parse_id
 
 from . import invites
@@ -30,11 +30,6 @@ from .models import (
 )
 
 router = APIRouter(prefix="/identity", tags=["identity"])
-
-
-class Gone(AppError):
-    status = 410
-    code = "gone"
 
 
 @lru_cache(maxsize=1)

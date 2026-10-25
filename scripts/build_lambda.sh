@@ -2,7 +2,8 @@
 # Builds build/<name>.zip for the arm64 Python 3.12 Lambda runtime (LLD-0 §8).
 #   app.zip       the API and worker Lambdas (one artefact, two handlers:
 #                 app.api.handler and app.worker.sqs_handler)
-#   migrator.zip  migrator.handler.handler, with every module's migrations
+#   migrator.zip  migrator.handler.handler, with every module's migrations and
+#                 platform_common's (as module "platform")
 # Usage: scripts/build_lambda.sh app   (or: migrator, all)
 # Terraform still names the old per-service zips until Staff 2's S0b change.
 set -euo pipefail
@@ -25,6 +26,8 @@ build() {
       mkdir -p "$out/migrations/$(basename "$(dirname "$d")")"
       cp "$d"/*.sql "$out/migrations/$(basename "$(dirname "$d")")/"
     done
+    mkdir -p "$out/migrations/platform"
+    cp "$ROOT"/libs/platform_common/migrations/*.sql "$out/migrations/platform/"
   else
     # Runtime dependencies from app/pyproject.toml, without the app itself.
     deps "$out" $(python3 -c "import tomllib; print(' '.join(tomllib.load(open('$ROOT/app/pyproject.toml','rb'))['project']['dependencies']))")

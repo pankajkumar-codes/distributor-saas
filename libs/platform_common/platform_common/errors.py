@@ -13,6 +13,7 @@ import logging
 from typing import Literal
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 log = logging.getLogger("platform_common.errors")
@@ -59,6 +60,13 @@ class Invalid(AppError):
     code = "invalid"
 
 
+class Gone(AppError):
+    """The thing existed but can't be used any more: an expired invitation or share link."""
+
+    status = 410
+    code = "gone"
+
+
 class RateLimited(AppError):
     status = 429
     code = "rate_limited"
@@ -103,6 +111,20 @@ def app_error_response(request: Request, exc: AppError) -> JSONResponse:  # noqa
     return JSONResponse(exc.body(), status_code=exc.status, headers=headers)
 
 
+def validation_response(request: Request, exc: RequestValidationError) -> JSONResponse:
+    """FastAPI's own 422 in the platform shape, naming the first bad field.
+
+    A path parameter that doesn't parse is a malformed ID, which is the same 404 as an
+    unknown one (ON-2), so it can't be used to tell the two apart.
+    """
+    first = exc.errors()[0] if exc.errors() else {}
+    loc = [str(part) for part in first.get("loc", ())]
+    if loc[:1] == ["path"]:
+        return deny_response(request, Deny("not_found"))
+    field = ".".join(loc[1:]) or None
+    return app_error_response(request, Invalid("invalid", first.get("msg", "invalid request"), field=field))
+
+
 def internal_error_response(request: Request, exc: Exception) -> JSONResponse:
     log.error("unhandled error", exc_info=exc, extra={"request_id": request_id(request), "route": _route(request)})
     return JSONResponse({"error": {"code": "internal", "message": "something went wrong"}}, status_code=500)
@@ -111,4 +133,5 @@ def internal_error_response(request: Request, exc: Exception) -> JSONResponse:
 def install_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(Deny, deny_response)
     app.add_exception_handler(AppError, app_error_response)
+    app.add_exception_handler(RequestValidationError, validation_response)
     app.add_exception_handler(Exception, internal_error_response)

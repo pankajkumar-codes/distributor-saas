@@ -19,17 +19,23 @@ from .handler import migrate
 
 REPO = Path(__file__).resolve().parents[2]
 MODULES_DIR = REPO / "app" / "src" / "app" / "modules"
+PLATFORM_DIR = REPO / "libs" / "platform_common" / "migrations"
 LOCAL_PASSWORD = "local-only"
 
 
 def collect(root: Path) -> None:
-    """Lay the repo's migrations out as the Lambda zip does: <root>/<module>/<name>.sql."""
-    for module_dir in MODULES_DIR.iterdir():
-        migrations = module_dir / "migrations"
+    """Lay the repo's migrations out as the Lambda zip does: <root>/<module>/<name>.sql.
+
+    platform_common's own tables (LLD-0 §3.8 idempotency keys, later audit and outbox)
+    go in as the module "platform".
+    """
+    sources = [(d.name, d / "migrations") for d in MODULES_DIR.iterdir()]
+    sources.append(("platform", PLATFORM_DIR))
+    for module, migrations in sources:
         if migrations.is_dir():
-            (root / module_dir.name).mkdir(parents=True, exist_ok=True)
+            (root / module).mkdir(parents=True, exist_ok=True)
             for f in migrations.glob("*.sql"):
-                (root / module_dir.name / f.name).write_text(f.read_text())
+                (root / module / f.name).write_text(f.read_text())
 
 
 def main(dsn: str) -> None:
