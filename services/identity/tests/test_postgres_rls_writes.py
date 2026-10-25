@@ -3,7 +3,7 @@
 The API checks membership before every write; these tests ask whether the database
 would still stop a write if an API check were forgotten or bypassed (defense in
 depth, docs/SECURITY.md). xfail(strict=True) marks known gaps logged in the QA plan
-(none open: migration 0003 closed QA-DEF-001, 002, 003, 005 and 006). When a migration closes one, its test starts passing and pytest fails until the
+(none open: migration 0004 closed QA-DEF-001, 002, 003, 005 and 006). When a migration closes one, its test starts passing and pytest fails until the
 marker is removed, so the fix cannot land untested.
 
 Skipped unless PG_ADMIN_URL is set (see conftest.py).
