@@ -47,3 +47,31 @@ def test_service_cannot_rewrite_audit(pg_client):
         with svc.begin() as c:
             c.execute(text("select set_config('app.user_sub', 'alice', true)"))
             c.execute(text("delete from identity.audit_events"))
+
+
+def test_deactivate_on_postgres(pg_client):
+    client, svc = pg_client
+    alice, bob = {"x-debug-user": "alice"}, {"x-debug-user": "bob"}
+    tid = client.post("/identity/tenants", json={"name": "Alice Co"}, headers=alice).json()["id"]
+    client.post(f"/identity/tenants/{tid}/members", json={"user_sub": "bob", "role": "admin"}, headers=alice)
+
+    last_owner = client.post(f"/identity/tenants/{tid}/members/alice/deactivate", json={"reason": "x"}, headers=alice)
+    assert last_owner.status_code == 409
+    r = client.post(f"/identity/tenants/{tid}/members/bob/deactivate", json={"reason": "left"}, headers=alice)
+    assert r.status_code == 200, r.text
+    assert client.get(f"/identity/tenants/{tid}", headers=bob).status_code == 404
+    with svc.begin() as c:
+        c.execute(text("select set_config('app.user_sub', 'bob', true)"))
+        assert c.execute(text("select count(*) from identity.tenants")).scalar() == 0
+
+
+def test_reactivate_on_postgres(pg_client):
+    client, _ = pg_client
+    alice, bob = {"x-debug-user": "alice"}, {"x-debug-user": "bob"}
+    tid = client.post("/identity/tenants", json={"name": "Alice Co"}, headers=alice).json()["id"]
+    client.post(f"/identity/tenants/{tid}/members", json={"user_sub": "bob", "role": "sales"}, headers=alice)
+    client.post(f"/identity/tenants/{tid}/members/bob/deactivate", json={"reason": "leave"}, headers=alice)
+    assert client.get(f"/identity/tenants/{tid}", headers=bob).status_code == 404
+    r = client.post(f"/identity/tenants/{tid}/members/bob/reactivate", json={"reason": "back"}, headers=alice)
+    assert r.status_code == 200, r.text
+    assert client.get(f"/identity/tenants/{tid}", headers=bob).status_code == 200

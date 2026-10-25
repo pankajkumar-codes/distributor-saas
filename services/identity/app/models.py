@@ -5,6 +5,8 @@ from datetime import UTC, datetime
 from sqlalchemy import JSON, DateTime, Enum, ForeignKey, String, UniqueConstraint, Uuid
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
+from platform_common.permissions import Permission, Role, roles_with
+
 SCHEMA = "identity"
 
 
@@ -16,16 +18,8 @@ class Base(DeclarativeBase):
     pass
 
 
-class Role(str, enum.Enum):
-    owner = "owner"
-    admin = "admin"
-    sales = "sales"
-    inventory = "inventory"
-    finance = "finance"
-    viewer = "viewer"
-
-
-MANAGE_MEMBERS = {Role.owner, Role.admin}
+MANAGE_MEMBERS = roles_with(Permission.MEMBERS_INVITE)
+READ_AUDIT = roles_with(Permission.AUDIT_VIEW)
 
 
 class MembershipStatus(str, enum.Enum):
