@@ -1,10 +1,11 @@
 """Who-is-calling must fail closed: no verified claims and no debug environment means 401."""
 
 import pytest
-from platform_common.errors import Deny
 from starlette.requests import Request
 
-from platform_common.auth import current_caller
+from platform_common.auth import current_caller, set_local_verifier
+from platform_common.errors import Deny
+from platform_common.fake_auth import CLIENT_ID, ISSUER, FakeAuthProvider
 
 
 def request(headers=None, event=None):
@@ -83,10 +84,6 @@ def test_unset_platform_env_fails_closed(monkeypatch):
 
 # --- Local bearer tokens (LLD-0 §3.11): verified against FakeAuthProvider's keys -----
 
-from platform_common.auth import set_local_verifier  # noqa: E402
-from platform_common.fake_auth import CLIENT_ID, ISSUER, FakeAuthProvider  # noqa: E402
-
-
 @pytest.fixture()
 def fake_idp(monkeypatch):
     monkeypatch.setenv("PLATFORM_ENV", "test")
@@ -105,18 +102,18 @@ def test_local_bearer_token_gives_the_claims(fake_idp):
 
 
 def test_bad_local_bearer_token_is_401_even_with_a_debug_header(fake_idp):
-    with pytest.raises(HTTPException) as e:
+    with pytest.raises(Deny) as e:
         current_caller(request({"authorization": "Bearer not.a.token", "x-debug-user": "alice"}))
-    assert e.value.status_code == 401
+    assert e.value.reason == "session_invalid"
 
 
 @pytest.mark.parametrize("env", ["staging", "prod"])
 def test_local_bearer_token_is_ignored_outside_local_and_test(fake_idp, monkeypatch, env):
     _, _, token = fake_idp
     monkeypatch.setenv("PLATFORM_ENV", env)
-    with pytest.raises(HTTPException) as e:
+    with pytest.raises(Deny) as e:
         current_caller(request({"authorization": f"Bearer {token}"}))
-    assert e.value.status_code == 401
+    assert e.value.reason == "session_invalid"
 
 
 def test_bearer_without_a_local_verifier_falls_back_to_the_debug_header(monkeypatch):

@@ -13,15 +13,15 @@ import hashlib
 import hmac
 import secrets
 import uuid
-from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 
 import jwt
 from cryptography.hazmat.primitives.asymmetric import rsa
 
 from .auth import DEBUG_ENVS, platform_env
 from .authprovider import AuthRefused, AuthResult
+from .clock import Clock
 
 ISSUER = "https://fake-idp.local/pool"
 CLIENT_ID = "fake-client"
@@ -46,15 +46,11 @@ class _Refresh:
     revoked: bool = False
 
 
-def _utcnow() -> datetime:
-    return datetime.now(UTC)
-
-
 class FakeAuthProvider:
-    def __init__(self, now: Callable[[], datetime] = _utcnow):
+    def __init__(self, clock: Clock | None = None):
         if platform_env() not in DEBUG_ENVS:
             raise RuntimeError("FakeAuthProvider is for local and test only")
-        self._now = now
+        self._clock = clock or Clock()
         self._key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         self._kid = uuid.uuid4().hex
         self._users: dict[str, _User] = {}  # by normalised email
@@ -89,13 +85,13 @@ class FakeAuthProvider:
             raise AuthRefused("not_authorized")
         if u.totp_enabled:
             challenge = secrets.token_urlsafe(32)
-            self._challenges[challenge] = (u.email, self._now() + timedelta(seconds=CHALLENGE_SECONDS))
+            self._challenges[challenge] = (u.email, self._clock.now() + timedelta(seconds=CHALLENGE_SECONDS))
             return AuthResult(challenge=challenge)
         return self._sign_in(u)
 
     def respond_totp(self, challenge: str, code: str) -> AuthResult:
         email, expires = self._challenges.get(challenge, (None, None))
-        if email is None or self._now() >= expires:
+        if email is None or self._clock.now() >= expires:
             self._challenges.pop(challenge, None)
             raise AuthRefused("challenge_expired")
         u = self._users[email]
@@ -169,7 +165,7 @@ class FakeAuthProvider:
             raise AuthRefused("not_authorized") from e
 
     def _sign_in(self, u: _User) -> AuthResult:
-        origin_jti, auth_time = str(uuid.uuid4()), int(self._now().timestamp())
+        origin_jti, auth_time = str(uuid.uuid4()), int(self._clock.now().timestamp())
         token = secrets.token_urlsafe(48)
         self._refresh[token] = _Refresh(u.sub, origin_jti, auth_time)
         return AuthResult(
@@ -177,7 +173,7 @@ class FakeAuthProvider:
         )
 
     def _access(self, sub: str, origin_jti: str, auth_time: int) -> str:
-        iat = int(self._now().timestamp())
+        iat = int(self._clock.now().timestamp())
         claims = {
             "sub": sub,
             "iss": ISSUER,

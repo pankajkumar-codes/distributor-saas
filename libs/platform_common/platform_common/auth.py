@@ -15,7 +15,6 @@ from dataclasses import dataclass, field
 from fastapi import Request
 
 from .errors import Deny
-
 from .jwt_verify import TokenInvalid, verify_access_token
 
 DEBUG_ENVS = {"local", "test"}
@@ -72,7 +71,9 @@ def current_caller(request: Request) -> Caller:
             try:
                 claims = verify_access_token(bearer[7:].strip(), v.jwks, issuer=v.issuer, client_id=v.client_id)
             except TokenInvalid:
-                raise HTTPException(status.HTTP_401_UNAUTHORIZED, "authentication required") from None
+                raise Deny("session_invalid") from None
+            # Access tokens carry no email. Anything that needs a verified email (invitations)
+            # reads it from identity.users, never from a client header (LLD-1).
             return Caller(user_sub=claims["sub"], claims=claims)
         debug_user = request.headers.get("x-debug-user")
         if debug_user:

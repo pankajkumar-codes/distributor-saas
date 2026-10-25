@@ -8,6 +8,7 @@ import jwt
 import pytest
 
 from platform_common.authprovider import AuthRefused
+from platform_common.clock import FrozenClock
 from platform_common.fake_auth import CLIENT_ID, ISSUER, FakeAuthProvider
 from platform_common.jwt_verify import TokenInvalid, verify_access_token
 
@@ -17,18 +18,10 @@ def test_env(monkeypatch):
     monkeypatch.setenv("PLATFORM_ENV", "test")
 
 
-class Clock:
-    def __init__(self):
-        self.t = datetime.now(UTC)
-
-    def __call__(self):
-        return self.t
-
-
 @pytest.fixture()
 def idp():
-    clock = Clock()
-    p = FakeAuthProvider(now=clock)
+    clock = FrozenClock(datetime.now(UTC))
+    p = FakeAuthProvider(clock)
     p.clock = clock
     p.create_user("Asha@Example.com ", "correct horse battery")
     return p
@@ -89,7 +82,7 @@ def test_totp_enrolment_then_challenge(idp):
         idp.respond_totp(step.challenge, idp.totp_code(secret))  # single use
 
     late = idp.initiate_auth("asha@example.com", "correct horse battery")
-    idp.clock.t += timedelta(minutes=3)
+    idp.clock.advance(timedelta(minutes=3))
     with pytest.raises(AuthRefused, match="challenge_expired"):
         idp.respond_totp(late.challenge, idp.totp_code(secret))
 
