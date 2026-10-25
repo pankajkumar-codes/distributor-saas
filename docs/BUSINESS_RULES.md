@@ -7,6 +7,7 @@ Status legend: **Proposed** = suggested but not approved; **Blocking** = must be
 - Never trust a tenant ID supplied by a client without validating membership and authorization.
 - Cross-tenant IDs must not reveal whether another tenant's record exists.
 - SaaS operator access to tenant data must be limited, justified, and audited.
+- Deactivating a member (owner/admin only; only an owner can deactivate an owner) requires a reason, is audited, and takes effect on the member's next request. A tenant always keeps at least one active owner. Deactivated members stay in the member list with status `disabled` and are not deleted. Reactivation follows the same role rules, also requires a reason, is audited, and restores the original role.
 
 ## 2. Marketplace import integrity
 - **Proposed:** imports start as a preview/staging operation; no financial or stock effects until validation and user confirmation.

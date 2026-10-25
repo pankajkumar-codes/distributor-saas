@@ -18,6 +18,7 @@ from . import invites
 from .models import (
     INVITATION_DAYS,
     MANAGE_MEMBERS,
+    READ_AUDIT,
     AuditEvent,
     Delivery,
     Invitation,
@@ -141,11 +142,16 @@ class MyInvitationOut(BaseModel):
     expires_at: datetime
 
 
+class ReasonIn(BaseModel):
+    reason: str = Field(min_length=1, max_length=500)
+
+
 class AuditOut(BaseModel):
     actor_sub: str
     action: str
     entity_type: str
     entity_id: str
+    details: dict
     at: datetime
 
 
@@ -239,6 +245,71 @@ def add_member(
     return member_out(member)
 
 
+@app.post("/identity/tenants/{tenant_id}/members/{user_sub}/deactivate", response_model=MemberOut)
+def deactivate_member(
+    tenant_id: str,
+    user_sub: str,
+    body: ReasonIn,
+    principal: Principal = Depends(current_principal),
+    session: Session = Depends(db_session),
+):
+    return _change_member_status(session, principal, tenant_id, user_sub, MembershipStatus.disabled, body.reason)
+
+
+@app.post("/identity/tenants/{tenant_id}/members/{user_sub}/reactivate", response_model=MemberOut)
+def reactivate_member(
+    tenant_id: str,
+    user_sub: str,
+    body: ReasonIn,
+    principal: Principal = Depends(current_principal),
+    session: Session = Depends(db_session),
+):
+    return _change_member_status(session, principal, tenant_id, user_sub, MembershipStatus.active, body.reason)
+
+
+def _change_member_status(
+    session: Session, principal: Principal, tenant_id: str, user_sub: str, new_status: MembershipStatus, reason: str
+) -> MemberOut:
+    tid = parse_tenant_id(tenant_id)
+    caller = active_membership(session, tid, principal.user_sub)
+    if caller.role not in MANAGE_MEMBERS:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "not allowed to manage members")
+    # Lock the tenant's active owners so two owners can't deactivate each other at once.
+    owners = session.scalars(
+        select(Membership)
+        .where(
+            Membership.tenant_id == tid,
+            Membership.role == Role.owner,
+            Membership.status == MembershipStatus.active,
+        )
+        .with_for_update()
+    ).all()
+    # Lock the target too, so two concurrent changes to one member write one audit event.
+    member = session.scalar(
+        select(Membership)
+        .where(Membership.tenant_id == tid, Membership.user_sub == user_sub)
+        .with_for_update()
+    )
+    if member is None:
+        raise not_found()
+    if member.status == new_status:
+        # A retry of a change that already happened: same answer, no second audit event.
+        return MemberOut(user_sub=member.user_sub, role=member.role, status=member.status)
+    if member.role == Role.owner and caller.role != Role.owner:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "only an owner can change an owner's access")
+    if new_status == MembershipStatus.disabled and member.role == Role.owner and len(owners) <= 1:
+        raise HTTPException(status.HTTP_409_CONFLICT, "cannot deactivate the last active owner")
+
+    member.status = new_status
+    action = "member.deactivated" if new_status == MembershipStatus.disabled else "member.reactivated"
+    audit(
+        session, tid, principal.user_sub, action, "membership", member.id,
+        user_sub=member.user_sub, role=member.role.value, reason=reason,
+    )
+    session.commit()
+    return MemberOut(user_sub=member.user_sub, role=member.role, status=member.status)
+
+
 @app.get("/identity/tenants/{tenant_id}/audit", response_model=list[AuditOut])
 def audit_log(
     tenant_id: str,
@@ -247,13 +318,16 @@ def audit_log(
 ):
     tid = parse_tenant_id(tenant_id)
     caller = active_membership(session, tid, principal.user_sub)
-    if caller.role not in MANAGE_MEMBERS:
+    if caller.role not in READ_AUDIT:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "not allowed to read the audit log")
     events = session.scalars(
         select(AuditEvent).where(AuditEvent.tenant_id == tid).order_by(AuditEvent.at.desc())
     )
     return [
-        AuditOut(actor_sub=e.actor_sub, action=e.action, entity_type=e.entity_type, entity_id=e.entity_id, at=e.at)
+        AuditOut(
+            actor_sub=e.actor_sub, action=e.action, entity_type=e.entity_type, entity_id=e.entity_id,
+            details=e.details or {}, at=e.at,
+        )
         for e in events
     ]
 

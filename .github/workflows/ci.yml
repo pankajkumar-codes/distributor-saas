@@ -40,6 +40,19 @@ jobs:
         working-directory: services/${{ matrix.service }}
         run: pytest -q
 
+  platform-common:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install -e libs/platform_common pytest httpx
+      - name: Test
+        working-directory: libs/platform_common
+        run: pytest -q
+
   terraform:
     runs-on: ubuntu-latest
     steps:
