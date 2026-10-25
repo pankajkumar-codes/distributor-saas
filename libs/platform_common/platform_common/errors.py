@@ -72,10 +72,15 @@ NOT_FOUND_BODY = {"error": {"code": "not_found", "message": "not found"}}
 SESSION_BODY = {"error": {"code": "session_invalid", "message": "sign in again"}}
 
 
+MAX_REQUEST_ID = 64
+
+
 def request_id(request: Request) -> str:
-    """API Gateway's request ID in AWS; a caller-supplied X-Request-ID only locally."""
+    """API Gateway's request ID in AWS; otherwise the client's X-Request-ID, capped, since it
+    goes into app.request_id and the logs."""
     event = request.scope.get("aws.event") or {}
-    return event.get("requestContext", {}).get("requestId") or request.headers.get("x-request-id") or "-"
+    rid = event.get("requestContext", {}).get("requestId") or request.headers.get("x-request-id") or "-"
+    return rid[:MAX_REQUEST_ID]
 
 
 def _route(request: Request) -> str:

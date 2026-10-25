@@ -20,7 +20,7 @@ transaction-local, so nothing leaks into the next request on the same connection
 
 import logging
 import uuid
-from collections.abc import Callable, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
@@ -126,7 +126,6 @@ def unit_of_work(principal: Principal, *, read_only: bool = False) -> Iterator[U
     """
     if _open.get():
         raise RuntimeError("unit_of_work is already open; pass uow.tx down instead")
-    # Set, not reset: FastAPI may enter and exit a dependency in different contexts.
     _open.set(True)
     try:
         with _session_factory()() as tx:
@@ -169,7 +168,15 @@ def _resolve(uow: UnitOfWork, caller: Caller, business_id: uuid.UUID | None) -> 
     return principal
 
 
-def business_uow(business_id: str, request: Request) -> Iterator[UnitOfWork]:
+# The dependencies are async on purpose. FastAPI runs a sync dependency and a sync
+# endpoint each in its own threadpool call with a copy of the request's context, so a
+# nested-call flag set in a sync dependency is invisible to the endpoint. An async
+# dependency runs in the request's own context, which the endpoint's copy inherits, so
+# `unit_of_work` raises when a route tries to open a second one. Their few statements
+# block the event loop briefly; a Lambda serves one request at a time.
+
+
+async def business_uow(business_id: str, request: Request) -> AsyncIterator[UnitOfWork]:
     """FastAPI dependency for every `/api/v1/b/{business_id}/...` route."""
     bid = parse_id(business_id)
     caller = current_caller(request)
@@ -178,7 +185,7 @@ def business_uow(business_id: str, request: Request) -> Iterator[UnitOfWork]:
         yield uow
 
 
-def me_uow(request: Request) -> Iterator[UnitOfWork]:
+async def me_uow(request: Request) -> AsyncIterator[UnitOfWork]:
     """FastAPI dependency for `/api/v1/me/...`: the signed-in user, no business."""
     caller = current_caller(request)
     with unit_of_work(Principal(user_sub=caller.user_sub, request_id=request_id(request))) as uow:
@@ -186,7 +193,7 @@ def me_uow(request: Request) -> Iterator[UnitOfWork]:
         yield uow
 
 
-def public_uow(request: Request) -> Iterator[UnitOfWork]:
+async def public_uow(request: Request) -> AsyncIterator[UnitOfWork]:
     """FastAPI dependency for auth and share-link routes: no user, no business."""
     with unit_of_work(Principal(user_sub=None, request_id=request_id(request))) as uow:
         yield uow

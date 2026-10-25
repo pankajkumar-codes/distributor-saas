@@ -79,3 +79,14 @@ def test_unhandled_error_hides_the_exception_text(caplog):
     assert r.json() == {"error": {"code": "internal", "message": "something went wrong"}}
     assert "secret" not in r.text
     assert caplog.records[-1].levelno == logging.ERROR
+
+
+def test_client_request_id_is_capped():
+    from starlette.requests import Request
+
+    from platform_common.errors import MAX_REQUEST_ID, request_id
+
+    scope = {"type": "http", "headers": [(b"x-request-id", b"x" * 500)]}
+    assert request_id(Request(scope)) == "x" * MAX_REQUEST_ID
+    aws = {"type": "http", "headers": [(b"x-request-id", b"client")], "aws.event": {"requestContext": {"requestId": "gw-1"}}}
+    assert request_id(Request(aws)) == "gw-1"

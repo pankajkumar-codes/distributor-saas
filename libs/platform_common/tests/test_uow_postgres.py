@@ -146,6 +146,20 @@ def _app(calls=None):
         uow.tx.execute(text("insert into demo.once values (1), (1)"))
         return {"ok": True}
 
+    @app.post("/b/{business_id}/nested", dependencies=[Depends(owner_only)])
+    def nested(business_id: str, uow: BusinessUoW):
+        uow.tx.execute(text("insert into demo.notes (tenant_id, body) values (:t, 'outer')"), {"t": business_id})
+        with unit_of_work(uow.principal):
+            pass
+        return {"ok": True}
+
+    @app.post("/b/{business_id}/nested-async", dependencies=[Depends(owner_only)])
+    async def nested_async(business_id: str, uow: BusinessUoW):
+        uow.tx.execute(text("insert into demo.notes (tenant_id, body) values (:t, 'outer')"), {"t": business_id})
+        with unit_of_work(uow.principal):
+            pass
+        return {"ok": True}
+
     @app.get("/me")
     def me(uow: MeUoW):
         return {"tenant": uow.tx.scalar(text("select current_setting('app.tenant_id')"))}
@@ -252,6 +266,17 @@ def test_nested_unit_of_work_raises(t):
             pass
     with unit_of_work(p):  # and the flag is cleared again
         pass
+
+
+@pytest.mark.parametrize("route", ["nested", "nested-async"])
+def test_a_route_cannot_open_a_second_unit_of_work(t, route, caplog):
+    # In AWS (pool_size=1) a second transaction would wait for the connection and then fail;
+    # locally it would commit on its own. The guard must refuse it inside the route.
+    caplog.set_level(logging.ERROR, "platform_common.errors")
+    r = _app().post(f"/b/{t['a']}/{route}", headers={"x-debug-user": t["alice"]})
+    assert r.status_code == 500
+    assert "already open" in str(caplog.records[-1].exc_info[1])
+    assert _count(t["owner"], t["a"]) == 0
 
 
 def test_read_only_unit_of_work_uses_app_ro_and_refuses_writes(t):
