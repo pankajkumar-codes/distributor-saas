@@ -30,7 +30,7 @@ send the Cognito **ID token** on these two calls, because access tokens carry no
 Audit events: `invitation.created`, `invitation.resent`, `invitation.revoked`,
 `invitation.accepted`.
 
-## Row-level security (migration 0004)
+## Row-level security (migration 0005)
 The service sets `app.user_email` (verified email or empty) next to `app.user_sub` at the
 start of every transaction. Invitations are visible to members of their tenant, and to
 the addressee by email. A tenant's name is visible to someone holding a pending
@@ -44,6 +44,7 @@ invitation to it. Inserting an invitation requires membership of its tenant.
   been provisioned. Until then, invites can't be sent from AWS.
   Locally and in tests nothing is sent; the API records what would have gone out.
 - The real Cognito call has not been exercised against AWS.
-- When QA-DEF-001 (memberships insert policy is `WITH CHECK (true)`) is fixed, the new
-  policy must still let an invitee insert their own membership when a matching pending
-  invitation exists.
+- Accepting inserts the invitee's own membership. Since T-013 (QA-DEF-001) only owners
+  and admins may insert memberships, so this migration adds one more case to the
+  `add_member` policy: the caller themselves, with exactly the role of a pending,
+  unexpired invitation addressed to their verified email.

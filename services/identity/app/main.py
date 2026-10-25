@@ -45,7 +45,7 @@ def db_session(principal: Principal = Depends(current_principal)) -> Iterator[Se
 
             @event.listens_for(session, "after_begin")
             def _rls_context(sess, transaction, connection):
-                # Row-level security policies read these; see migrations/0002 and 0004.
+                # Row-level security policies read these; see migrations/0002, 0004 and 0005.
                 # Set at the start of every transaction, since set_config(..., true)
                 # ends with it and a request may commit more than once.
                 connection.execute(

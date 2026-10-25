@@ -237,3 +237,75 @@ def test_membership_cannot_be_moved_to_another_user(pg_client):
         with svc.begin() as c:
             as_sub(c, "alice")
             c.execute(text("update identity.memberships set user_sub = 'mallory' where user_sub = 'sam'"))
+
+
+def _as_invitee(conn, sub, email):
+    conn.execute(
+        text("select set_config('app.user_sub', :s, true), set_config('app.user_email', :e, true)"),
+        {"s": sub, "e": email},
+    )
+
+
+def _insert_member(conn, tid, sub, role):
+    conn.execute(
+        text("insert into identity.memberships (id, tenant_id, user_sub, role) values (:i, :t, :u, :r)"),
+        {"i": uuid.uuid4(), "t": tid, "u": sub, "r": role},
+    )
+
+
+def test_invitee_can_insert_only_their_own_membership_with_the_invited_role(pg_client):
+    client, svc = pg_client
+    tid = setup_alice(client)
+    r = client.post(
+        f"/identity/tenants/{tid}/invitations",
+        json={"email": "ivy@example.com", "role": "sales"},
+        headers={"x-debug-user": "alice"},
+    )
+    assert r.status_code == 201
+    refused = [
+        ("ivy", "ivy@example.com", "owner"),  # a role other than the invited one
+        ("mallory", "mallory@example.com", "sales"),  # no invitation for this email
+        ("mallory", "", "sales"),  # no verified email at all
+    ]
+    for sub, email, role in refused:
+        with pytest.raises(Exception, match="row-level security"):
+            with svc.begin() as c:
+                _as_invitee(c, sub, email)
+                _insert_member(c, tid, sub, role)
+    with pytest.raises(Exception, match="row-level security"):
+        with svc.begin() as c:
+            # The invitation's email does not let you add somebody else.
+            _as_invitee(c, "ivy", "ivy@example.com")
+            _insert_member(c, tid, "mallory", "sales")
+    with svc.begin() as c:
+        _as_invitee(c, "ivy", "ivy@example.com")
+        _insert_member(c, tid, "ivy", "sales")
+    assert ("ivy", "sales", "active") in memberships(svc, tid)
+
+
+def test_revoked_or_expired_invitation_does_not_allow_a_membership_insert(pg_client):
+    client, svc = pg_client
+    tid = setup_alice(client)
+    ids = {}
+    for email in ("rev@example.com", "old@example.com"):
+        r = client.post(
+            f"/identity/tenants/{tid}/invitations",
+            json={"email": email, "role": "viewer"},
+            headers={"x-debug-user": "alice"},
+        )
+        assert r.status_code == 201
+        ids[email] = r.json()["id"]
+    revoke = client.post(
+        f"/identity/tenants/{tid}/invitations/{ids['rev@example.com']}/revoke", headers={"x-debug-user": "alice"}
+    )
+    assert revoke.status_code == 200
+    with svc.begin() as c:
+        as_sub(c, "alice")
+        c.execute(
+            text("update identity.invitations set expires_at = now() - interval '1 day' where email = 'old@example.com'")
+        )
+    for sub, email in (("rev", "rev@example.com"), ("old", "old@example.com")):
+        with pytest.raises(Exception, match="row-level security"):
+            with svc.begin() as c:
+                _as_invitee(c, sub, email)
+                _insert_member(c, tid, sub, "viewer")

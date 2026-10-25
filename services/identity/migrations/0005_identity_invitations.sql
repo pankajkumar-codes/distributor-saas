@@ -48,3 +48,27 @@ create policy invited_tenants on identity.tenants for select to svc_identity
               and i.email = nullif(current_setting('app.user_email', true), '')
         )
     );
+
+-- Accepting an invitation inserts the invitee's own membership. Migration 0003 lets
+-- only owners/admins (or a new tenant's first owner) insert memberships, so add a
+-- third case: the caller themselves, with exactly the role of an invitation addressed
+-- to their verified email. 'accepted' by the same caller is allowed too, because the
+-- accept flush may write the invitation's new status before the membership row.
+drop policy add_member on identity.memberships;
+create policy add_member on identity.memberships for insert to svc_identity
+    with check (
+        identity.has_role(tenant_id, array['owner'])
+        or (identity.has_role(tenant_id, array['admin']) and role <> 'owner')
+        or (identity.has_no_members(tenant_id)
+            and user_sub = current_setting('app.user_sub', true)
+            and role = 'owner')
+        or (user_sub = current_setting('app.user_sub', true)
+            and exists (
+                select 1 from identity.invitations i
+                where i.tenant_id = memberships.tenant_id
+                  and i.email = nullif(current_setting('app.user_email', true), '')
+                  and i.role = memberships.role
+                  and ((i.status = 'pending' and i.expires_at > now())
+                       or (i.status = 'accepted' and i.accepted_by = current_setting('app.user_sub', true)))
+            ))
+    );

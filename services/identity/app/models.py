@@ -90,7 +90,7 @@ class Delivery(str, enum.Enum):
 class Invitation(Base):
     __tablename__ = "invitations"
     __table_args__ = (
-        # Mirrors migrations/0004: at most one open invitation per email per tenant.
+        # Mirrors migrations/0005: at most one open invitation per email per tenant.
         Index(
             "invitations_one_open",
             "tenant_id",
