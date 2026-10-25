@@ -9,12 +9,10 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  app:
+    # The single app (D-027): every module's tests, plus the ADR sketch tests, on
+    # PostgreSQL 16. The migrator has its own job below.
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        service: [identity, commerce, imports, reports, documents, migrator]
     services:
       postgres:
         image: postgres:16
@@ -25,21 +23,46 @@ jobs:
           --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       PG_ADMIN_URL: postgresql+psycopg://postgres@localhost:5432/postgres
-      PG_DSN: postgresql://postgres@localhost:5432/postgres
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - name: Install
-        working-directory: services/${{ matrix.service }}
-        run: |
-          pip install -r requirements.txt pytest httpx pytest-cov
-          pip install -e ../../libs/platform_common
+        run: pip install -e libs/platform_common -e "app[dev]"
       - name: Test
-        working-directory: services/${{ matrix.service }}
+        working-directory: app
         # Coverage is reported, not gated, until business slices exist.
-        run: pytest -q --cov=app --cov=migrator --cov-report=term-missing:skip-covered
+        run: pytest -q --cov=app --cov-report=term-missing:skip-covered
+      - name: ADR sketch tests
+        run: pytest -q tests/adr
+
+  migrator:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PG_DSN: postgresql://postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install -r migrator/requirements.txt pytest pytest-cov
+      - name: Test
+        working-directory: migrator
+        run: pytest -q --cov=migrator --cov-report=term-missing:skip-covered
+      - name: Migrations on main are neither renamed nor edited
+        run: python scripts/ci_checks/migration_keys.py origin/main
 
   lint:
     runs-on: ubuntu-latest
@@ -50,11 +73,25 @@ jobs:
           python-version: "3.12"
       - run: pip install ruff==0.17.0 pytest
       - name: Ruff
-        run: ruff check services libs tests scripts
+        run: ruff check app migrator libs tests scripts
       - name: No floats in app or library code
         run: python scripts/float_guard.py
       - name: Float guard self-test
         run: pytest -q tests/tools
+
+  boundaries:
+    # import-linter contracts in .importlinter (LLD-0 §7).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install import-linter==2.15 -e libs/platform_common -e app -r migrator/requirements.txt
+      - name: Module boundaries
+        env:
+          PYTHONPATH: app/src:libs/platform_common:migrator
+        run: lint-imports
 
   secrets:
     runs-on: ubuntu-latest
@@ -114,14 +151,14 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install
-        run: pip install -r services/migrator/requirements.txt pytest
+        run: pip install -r migrator/requirements.txt pytest
       - name: Role guards
         working-directory: tests/isolation
         run: pytest -q -rxX
 
   e2e:
-    # Black-box HTTP tests against the identity service running on real PostgreSQL
-    # with row-level security, the same way `make run-identity` runs it locally.
+    # Black-box HTTP tests against the API running on real PostgreSQL with row-level
+    # security, the same way `make run-api` runs it locally.
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -139,31 +176,31 @@ jobs:
           python-version: "3.12"
       - name: Install
         run: |
-          pip install -e libs/platform_common uvicorn pytest httpx
-          pip install -r services/identity/requirements.txt -r services/migrator/requirements.txt
+          pip install -e libs/platform_common -e "app[dev]"
+          pip install -r migrator/requirements.txt
       - name: Migrate, then migrate again (second run must be a no-op)
-        working-directory: services/migrator
+        working-directory: migrator
         run: |
           python -m migrator.local postgresql://postgres@localhost:5432/saas
           python -m migrator.local postgresql://postgres@localhost:5432/saas | tee second.txt
           grep -q "applied: nothing new" second.txt
-      - name: Start identity
+      - name: Start the API
         env:
           PLATFORM_ENV: local
           DATABASE_URL: postgresql+psycopg://svc_identity:local-only@localhost:5432/saas
         run: |
-          python -m uvicorn app.main:app --app-dir services/identity --port 8000 > identity.log 2>&1 &
-          for i in $(seq 30); do curl -sf http://localhost:8000/identity/health && exit 0; sleep 1; done
-          cat identity.log; exit 1
+          python -m uvicorn app.api:app --app-dir app/src --port 8000 > api.log 2>&1 &
+          for i in $(seq 30); do curl -sf http://localhost:8000/api/v1/health && exit 0; sleep 1; done
+          cat api.log; exit 1
       - name: End-to-end tests
         env:
           E2E_BASE_URL: http://localhost:8000
         run: pytest -q tests/e2e
       - name: Smoke script
         run: scripts/smoke_test.sh http://localhost:8000
-      - name: Service log
+      - name: API log
         if: failure()
-        run: cat identity.log
+        run: cat api.log
 
   terraform:
     runs-on: ubuntu-latest

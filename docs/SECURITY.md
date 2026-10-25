@@ -62,7 +62,7 @@ These sharpen the priorities above for the approved design (docs/ARCHITECTURE.md
 | Codes, tokens or passwords in logs | Log filter on `password`, `code` and `token` fields; no request bodies in access logs; mail queue rules | Log-capture test for codes, tokens and the test password |
 | Support abuse | Grants only, read only, audited per request | Grant tests |
 | Tampering with filed figures | Insert-only snapshots, checksums, audit link | UPDATE/DELETE as `app_rw` fails |
-| Privilege escalation inside a tenant at the database (e.g. self-promotion, self-invite as owner) | RLS write policies by role, owner-row trigger, column-level grants on invitations (identity migrations 0004 and 0005) | PostgreSQL RLS write tests in `services/identity/tests` |
+| Privilege escalation inside a tenant at the database (e.g. self-promotion, self-invite as owner) | RLS write policies by role, owner-row trigger, column-level grants on invitations (identity migrations 0004 and 0005) | PostgreSQL RLS write tests in `app/src/app/modules/identity/tests` |
 
 **Secrets and encryption:**
 - KMS on S3 and RDS.

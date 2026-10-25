@@ -9,9 +9,10 @@ authoritative design documents are in the project files, not in this repo:
 
 This page summarises them. Where it differs from them, they win.
 
-> **Code status.** Until the S0a restructure PR merges, the repo still has the old
-> layout (`services/<name>/` with one Lambda each and a `svc_<name>` login role).
-> The S0a PR moves it to the layout below without changing behaviour.
+> **Code status.** The code is in the layout below (`app/`, `libs/platform_common`,
+> `migrator/`). It still connects as the old `svc_identity` login until the S0a
+> database-roles change moves it to `app_rw`. Terraform still deploys per-service
+> Lambdas until Staff 2's S0b change.
 
 ## One app, split into modules
 
@@ -42,7 +43,10 @@ origin as `/api/*` (D-023).
 - **Database roles:**
   - The app connects as `app_rw` (IAM auth).
   - Read-only units of work switch to `app_ro`.
-  - Database objects are owned by `app_owner`, which only the migrator uses.
+  - Database objects are owned by `app_owner`, which only the migrator uses. This
+    depends on the RDS master being able to `SET ROLE app_owner`, which was proved on
+    local PostgreSQL 16 but not yet on RDS. If RDS refuses, the master user stays the
+    owner and `app_owner` is unused (LLD-0 §4.1 fallback).
   - Retention runs as `app_retention`, through definer functions only.
 - **Row-level security:** FORCE RLS on every tenant table. Policies read `app.tenant_id`,
   `app.user_id`, `app.role` and `app.support_grant_id`, set per transaction from the

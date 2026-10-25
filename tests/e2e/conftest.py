@@ -65,6 +65,6 @@ def debug_user(debug_mode):
 
 
 def new_tenant(user, label="Co"):
-    r = user.post("/identity/tenants", json={"name": f"E2E {RUN} {label}"})
+    r = user.post("/api/v1/identity/tenants", json={"name": f"E2E {RUN} {label}"})
     assert r.status_code == 201, r.text
     return r.json()["id"]
