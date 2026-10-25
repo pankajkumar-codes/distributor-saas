@@ -5,10 +5,9 @@ BYPASSRLS, or can become one of those walks straight past it. These tests check 
 role attributes PostgreSQL actually holds after every migration has run, not what the
 SQL meant to do.
 
-The S0a roles don't exist yet: migrator/bootstrap.sql creates them (build-readiness
-2.8). Until then each check for those roles is a strict xfail. When the bootstrap PR
-creates a role, its checks pass unexpectedly and fail the run, so that PR must take
-the role's name out of NOT_YET_CREATED.
+migrator/bootstrap.sql creates every role listed here (build-readiness 2.8). A role
+added to ROLES before the bootstrap creates it goes into NOT_YET_CREATED: its checks
+are strict xfails, so the PR that creates it must take its name out again.
 """
 
 import pytest
@@ -24,7 +23,7 @@ ROLES = {
     "identity_auth": False,  # owns identity.auth_* functions (LLD-1 L1-3, §3.4)
     "share_ops": False,  # owns sales.open_share (LLD-4 L4-7, §14)
 }
-NOT_YET_CREATED = set(ROLES)
+NOT_YET_CREATED: set[str] = set()
 
 # Attributes that bypass RLS or lead to a role that does. LLD-0 AC-6 names rolsuper
 # and rolbypassrls; QA adds rolcreaterole (can grant itself other roles) and
