@@ -9,7 +9,7 @@ from sqlalchemy import event, func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from platform_common.auth import Principal, current_principal
+from platform_common.auth import Caller, current_caller
 from platform_common.db import engine, session_factory
 from platform_common.tenancy import not_found, parse_tenant_id
 
@@ -38,7 +38,7 @@ def _factory():
     return session_factory(translate)
 
 
-def db_session(principal: Principal = Depends(current_principal)) -> Iterator[Session]:
+def db_session(principal: Caller = Depends(current_caller)) -> Iterator[Session]:
     with _factory()() as session:
         if session.bind.dialect.name == "postgresql":
 
@@ -157,7 +157,7 @@ class AuditOut(BaseModel):
 @router.post("/tenants", status_code=status.HTTP_201_CREATED, response_model=TenantOut)
 def create_tenant(
     body: TenantIn,
-    principal: Principal = Depends(current_principal),
+    principal: Caller = Depends(current_caller),
     session: Session = Depends(db_session),
 ):
     tenant = Tenant(name=body.name)
@@ -171,7 +171,7 @@ def create_tenant(
 
 @router.get("/tenants", response_model=list[TenantOut])
 def my_tenants(
-    principal: Principal = Depends(current_principal),
+    principal: Caller = Depends(current_caller),
     session: Session = Depends(db_session),
 ):
     rows = session.execute(
@@ -186,7 +186,7 @@ def my_tenants(
 @router.get("/tenants/{tenant_id}", response_model=TenantOut)
 def get_tenant(
     tenant_id: str,
-    principal: Principal = Depends(current_principal),
+    principal: Caller = Depends(current_caller),
     session: Session = Depends(db_session),
 ):
     tid = parse_tenant_id(tenant_id)
@@ -198,7 +198,7 @@ def get_tenant(
 @router.get("/tenants/{tenant_id}/members", response_model=list[MemberOut])
 def list_members(
     tenant_id: str,
-    principal: Principal = Depends(current_principal),
+    principal: Caller = Depends(current_caller),
     session: Session = Depends(db_session),
 ):
     tid = parse_tenant_id(tenant_id)
@@ -217,7 +217,7 @@ def list_members(
 def add_member(
     tenant_id: str,
     body: MemberIn,
-    principal: Principal = Depends(current_principal),
+    principal: Caller = Depends(current_caller),
     session: Session = Depends(db_session),
 ):
     tid = parse_tenant_id(tenant_id)
@@ -244,7 +244,7 @@ def deactivate_member(
     tenant_id: str,
     user_sub: str,
     body: ReasonIn,
-    principal: Principal = Depends(current_principal),
+    principal: Caller = Depends(current_caller),
     session: Session = Depends(db_session),
 ):
     return _change_member_status(session, principal, tenant_id, user_sub, MembershipStatus.disabled, body.reason)
@@ -255,14 +255,14 @@ def reactivate_member(
     tenant_id: str,
     user_sub: str,
     body: ReasonIn,
-    principal: Principal = Depends(current_principal),
+    principal: Caller = Depends(current_caller),
     session: Session = Depends(db_session),
 ):
     return _change_member_status(session, principal, tenant_id, user_sub, MembershipStatus.active, body.reason)
 
 
 def _change_member_status(
-    session: Session, principal: Principal, tenant_id: str, user_sub: str, new_status: MembershipStatus, reason: str
+    session: Session, principal: Caller, tenant_id: str, user_sub: str, new_status: MembershipStatus, reason: str
 ) -> MemberOut:
     tid = parse_tenant_id(tenant_id)
     caller = active_membership(session, tid, principal.user_sub)
@@ -307,7 +307,7 @@ def _change_member_status(
 @router.get("/tenants/{tenant_id}/audit", response_model=list[AuditOut])
 def audit_log(
     tenant_id: str,
-    principal: Principal = Depends(current_principal),
+    principal: Caller = Depends(current_caller),
     session: Session = Depends(db_session),
 ):
     tid = parse_tenant_id(tenant_id)
@@ -394,7 +394,7 @@ def _tenant_invitation(session: Session, tid: uuid.UUID, invitation_id: str) -> 
 def invite_member(
     tenant_id: str,
     body: InvitationIn,
-    principal: Principal = Depends(current_principal),
+    principal: Caller = Depends(current_caller),
     session: Session = Depends(db_session),
 ):
     tid = parse_tenant_id(tenant_id)
@@ -439,7 +439,7 @@ def invite_member(
 @router.get("/tenants/{tenant_id}/invitations", response_model=list[InvitationOut])
 def list_invitations(
     tenant_id: str,
-    principal: Principal = Depends(current_principal),
+    principal: Caller = Depends(current_caller),
     session: Session = Depends(db_session),
 ):
     tid = parse_tenant_id(tenant_id)
@@ -456,7 +456,7 @@ def list_invitations(
 def resend_invitation(
     tenant_id: str,
     invitation_id: str,
-    principal: Principal = Depends(current_principal),
+    principal: Caller = Depends(current_caller),
     session: Session = Depends(db_session),
 ):
     tid = parse_tenant_id(tenant_id)
@@ -477,7 +477,7 @@ def resend_invitation(
 def revoke_invitation(
     tenant_id: str,
     invitation_id: str,
-    principal: Principal = Depends(current_principal),
+    principal: Caller = Depends(current_caller),
     session: Session = Depends(db_session),
 ):
     tid = parse_tenant_id(tenant_id)
@@ -496,7 +496,7 @@ def revoke_invitation(
 
 @router.get("/invitations", response_model=list[MyInvitationOut])
 def my_invitations(
-    principal: Principal = Depends(current_principal),
+    principal: Caller = Depends(current_caller),
     session: Session = Depends(db_session),
 ):
     email = principal.verified_email
@@ -518,7 +518,7 @@ def my_invitations(
 @router.post("/invitations/{invitation_id}/accept", response_model=TenantOut)
 def accept_invitation(
     invitation_id: str,
-    principal: Principal = Depends(current_principal),
+    principal: Caller = Depends(current_caller),
     session: Session = Depends(db_session),
 ):
     email = principal.verified_email
