@@ -39,6 +39,17 @@ def test_applies_once_and_is_safe_to_rerun(conn):
 
 
 @needs_pg
+def test_applies_platform_common_migrations_as_module_platform(conn):
+    c, root = conn
+    applied = migrate(c, root)
+    assert "platform/202610251600_platform_idempotency.sql" in applied
+    forced = c.execute(
+        "select relrowsecurity and relforcerowsecurity from pg_class where oid = 'platform.idempotency_keys'::regclass"
+    ).fetchone()
+    assert forced == (True,)
+
+
+@needs_pg
 def test_refuses_edited_migration(conn):
     c, root = conn
     migrate(c, root)

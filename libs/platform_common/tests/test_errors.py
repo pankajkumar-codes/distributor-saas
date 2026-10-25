@@ -1,12 +1,14 @@
 """One response shape for refusals and errors (LLD-0 §3.2)."""
 
 import logging
+import uuid
 
 import pytest
 from fastapi import FastAPI
+from pydantic import BaseModel
 from fastapi.testclient import TestClient
 
-from platform_common.errors import Conflict, Deny, Invalid, RateLimited, install_error_handlers
+from platform_common.errors import Conflict, Deny, Gone, Invalid, RateLimited, install_error_handlers
 
 app = FastAPI()
 install_error_handlers(app)
@@ -30,6 +32,25 @@ def invalid():
 @app.get("/limited")
 def limited():
     raise RateLimited(retry_after=30)
+
+
+@app.get("/gone")
+def gone():
+    raise Gone("invitation_invalid", "ask for a new one")
+
+
+class Line(BaseModel):
+    qty: int
+
+
+class Body(BaseModel):
+    name: str
+    lines: list[Line]
+
+
+@app.post("/things/{thing_id}")
+def things(thing_id: uuid.UUID, body: Body):
+    return {"ok": True}
 
 
 @app.get("/boom")
@@ -70,6 +91,24 @@ def test_app_errors_carry_code_message_field_and_fix():
     assert r.status_code == 422 and r.json()["error"]["field"] == "reason"
     r = client.get("/limited")
     assert r.status_code == 429 and r.headers["retry-after"] == "30"
+    r = client.get("/gone")
+    assert r.status_code == 410 and r.json()["error"]["code"] == "invitation_invalid"
+
+
+def test_request_validation_uses_the_platform_shape_and_names_the_field():
+    url = f"/things/{uuid.uuid4()}"
+    r = client.post(url, json={"lines": [{"qty": 1}]})
+    assert r.status_code == 422
+    assert r.json()["error"]["code"] == "invalid" and r.json()["error"]["field"] == "name"
+    assert "detail" not in r.json()
+    r = client.post(url, json={"name": "a", "lines": [{"qty": "many"}]})
+    assert r.json()["error"]["field"] == "lines.0.qty"
+
+
+def test_a_path_id_that_does_not_parse_is_the_same_404_as_an_unknown_one():
+    r = client.post("/things/not-a-uuid", json={"name": "a", "lines": []})
+    assert r.status_code == 404
+    assert r.json() == {"error": {"code": "not_found", "message": "not found"}}
 
 
 def test_unhandled_error_hides_the_exception_text(caplog):
