@@ -79,3 +79,47 @@ def test_unset_platform_env_fails_closed(monkeypatch):
     monkeypatch.delenv("PLATFORM_ENV", raising=False)
     with pytest.raises(Deny):
         current_caller(request({"x-debug-user": "alice"}))
+
+
+# --- Local bearer tokens (LLD-0 §3.11): verified against FakeAuthProvider's keys -----
+
+from platform_common.auth import set_local_verifier  # noqa: E402
+from platform_common.fake_auth import CLIENT_ID, ISSUER, FakeAuthProvider  # noqa: E402
+
+
+@pytest.fixture()
+def fake_idp(monkeypatch):
+    monkeypatch.setenv("PLATFORM_ENV", "test")
+    idp = FakeAuthProvider()
+    sub = idp.create_user("asha@example.com", "correct horse battery")
+    token = idp.initiate_auth("asha@example.com", "correct horse battery").access_token
+    set_local_verifier(idp.jwks(), issuer=ISSUER, client_id=CLIENT_ID)
+    yield idp, sub, token
+    set_local_verifier(None)
+
+
+def test_local_bearer_token_gives_the_claims(fake_idp):
+    _, sub, token = fake_idp
+    caller = current_caller(request({"authorization": f"Bearer {token}"}))
+    assert caller.user_sub == sub and caller.claims["origin_jti"]
+
+
+def test_bad_local_bearer_token_is_401_even_with_a_debug_header(fake_idp):
+    with pytest.raises(HTTPException) as e:
+        current_caller(request({"authorization": "Bearer not.a.token", "x-debug-user": "alice"}))
+    assert e.value.status_code == 401
+
+
+@pytest.mark.parametrize("env", ["staging", "prod"])
+def test_local_bearer_token_is_ignored_outside_local_and_test(fake_idp, monkeypatch, env):
+    _, _, token = fake_idp
+    monkeypatch.setenv("PLATFORM_ENV", env)
+    with pytest.raises(HTTPException) as e:
+        current_caller(request({"authorization": f"Bearer {token}"}))
+    assert e.value.status_code == 401
+
+
+def test_bearer_without_a_local_verifier_falls_back_to_the_debug_header(monkeypatch):
+    monkeypatch.setenv("PLATFORM_ENV", "test")
+    set_local_verifier(None)
+    assert current_caller(request({"authorization": "Bearer x", "x-debug-user": "alice"})).user_sub == "alice"
