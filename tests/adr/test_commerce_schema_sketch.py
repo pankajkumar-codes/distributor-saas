@@ -18,9 +18,9 @@ from sqlalchemy.exc import DBAPIError, IntegrityError
 ADMIN_URL = os.environ.get("PG_ADMIN_URL")
 pytestmark = pytest.mark.skipif(not ADMIN_URL, reason="PG_ADMIN_URL not set")
 
-SERVICES = Path(__file__).resolve().parents[2]
-IDENTITY_MIGRATIONS = sorted((SERVICES / "identity" / "migrations").glob("*.sql"))
-SKETCH = SERVICES / "commerce" / "design" / "0001_commerce_schema_sketch.sql"
+REPO = Path(__file__).resolve().parents[2]
+IDENTITY_MIGRATIONS = sorted((REPO / "app" / "src" / "app" / "modules" / "identity" / "migrations").glob("*.sql"))
+SKETCH = REPO / "docs" / "adr" / "0001-commerce-schema-sketch.sql"
 
 
 @pytest.fixture(scope="module")

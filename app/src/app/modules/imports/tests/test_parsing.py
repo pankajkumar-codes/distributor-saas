@@ -8,8 +8,8 @@ from decimal import Decimal
 import openpyxl
 import pytest
 
-from app.parsing import FieldKind, FieldSpec, FileRejected, MappingProfile, ProfileError, RowStatus, parse, read_table
-from app.parsing.normalize import HeaderMismatch
+from app.modules.imports.parsing import FieldKind, FieldSpec, FileRejected, MappingProfile, ProfileError, RowStatus, parse, read_table
+from app.modules.imports.parsing.normalize import HeaderMismatch
 
 PROFILE = MappingProfile(
     marketplace="amazon",
@@ -74,13 +74,13 @@ def test_unsupported_types_are_rejected(name):
 def test_empty_and_oversized_files_are_rejected(monkeypatch):
     with pytest.raises(FileRejected, match="empty"):
         read_table(b"", "x.csv")
-    monkeypatch.setattr("app.parsing.files.MAX_FILE_BYTES", 10)
+    monkeypatch.setattr("app.modules.imports.parsing.files.MAX_FILE_BYTES", 10)
     with pytest.raises(FileRejected, match="larger"):
         read_table(b"a" * 11, "x.csv")
 
 
 def test_row_limit(monkeypatch):
-    monkeypatch.setattr("app.parsing.files.MAX_ROWS", 2)
+    monkeypatch.setattr("app.modules.imports.parsing.files.MAX_ROWS", 2)
     with pytest.raises(FileRejected, match="more than 2 rows"):
         read_table(b"a\nb\nc\n", "x.csv")
 

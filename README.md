@@ -5,18 +5,19 @@ Multi-tenant commerce and distribution SaaS for Indian sellers and distributors
 
 ## Shape
 
-Five Python (FastAPI) microservices on AWS Lambda in Mumbai (`ap-south-1`), behind one
-API Gateway with Cognito sign-in, sharing one RDS PostgreSQL instance where each
-service owns its own schema and database user. Everything in AWS is Terraform.
+One Python (FastAPI) app on AWS Lambda in Mumbai (`ap-south-1`), split into modules
+that each own a PostgreSQL schema (D-027, which replaced the five-service design).
+It sits behind one API Gateway with Cognito sign-in and shares one RDS PostgreSQL
+instance. Everything in AWS is Terraform.
 
-| Service | Owns | State |
+| Path | What | State |
 | --- | --- | --- |
-| identity | tenants, memberships, roles, audit log | working, tested |
-| commerce | catalog, purchases, stock ledger, wholesale invoices, payments | skeleton, waits on D-009 to D-013 |
-| imports | marketplace file uploads, staging, validation, de-duplication | skeleton, waits on sample reports |
-| documents | invoice PDFs from SQS events | skeleton |
-| reports | registers, reconciliation, exports | skeleton |
-| migrator | applies every service's SQL migrations once, as the RDS master user | working, tested |
+| `app/src/app/api.py` | API Lambda: every module's router under `/api/v1` | working, tested |
+| `app/src/app/worker.py` | worker Lambda: SQS jobs | skeleton |
+| `app/src/app/modules/identity` | tenants, memberships, roles, invitations, audit log | working, tested |
+| `app/src/app/modules/imports` | marketplace file parsing and validation | parsing only, tested |
+| `libs/platform_common` | shared helpers: auth, tenancy, money, idempotency, permissions | working, tested |
+| `migrator/` | applies every module's SQL migrations once, as the RDS master user | working, tested |
 
 See `docs/ARCHITECTURE.md` for the reasoning and costs.
 
@@ -27,9 +28,8 @@ See `docs/ARCHITECTURE.md` for the reasoning and costs.
   not exist (404).
 - PostgreSQL row-level security repeats the check inside the database, so a query that
   forgets its tenant filter still returns nothing from other tenants.
-- Services connect with short-lived IAM tokens as `svc_<service>`; no database
-  password is stored in the services. The identity service cannot update or delete
-  audit rows.
+- The app connects with short-lived IAM tokens; no database password is stored in
+  it. The identity module cannot update or delete audit rows.
 
 ## Test it
 
@@ -37,15 +37,14 @@ Step-by-step local and AWS testing: **docs/TESTING.md**. Quick version:
 
 ```bash
 make setup && make test
-make db-up && make db-migrate && make run-identity   # then: make smoke-local
+make db-up && make db-migrate && make run-api   # then: make smoke-local
 ```
 
 ## Run the tests
 
 ```bash
-cd services/identity
-pip install -r requirements-dev.txt -e ../../libs/platform_common
-pytest -q                                   # in-memory SQLite
+pip install -e libs/platform_common -e "app[dev]"
+cd app && pytest -q                         # in-memory SQLite
 PG_ADMIN_URL=postgresql+psycopg://postgres@localhost:5432/postgres pytest -q   # plus real PostgreSQL + RLS
 ```
 
@@ -58,7 +57,8 @@ PG_ADMIN_URL=postgresql+psycopg://postgres@localhost:5432/postgres pytest -q   #
    block (or pass `-backend-config=bucket=...`).
 4. `cp infra/envs/staging/terraform.tfvars.example infra/envs/staging/terraform.tfvars`
    and fill in your web origin and budget-alert email.
-5. `scripts/build_lambda.sh all`
+5. `scripts/build_lambda.sh all` (builds `app.zip` and `migrator.zip`; the Terraform
+   still expects per-service zips until the S0b infra change)
 6. `cd infra/envs/staging && terraform init && terraform plan`, review, then `terraform apply`.
 7. `aws lambda invoke --function-name $(terraform output -raw migrator_function) out.json`
    applies the database migrations.

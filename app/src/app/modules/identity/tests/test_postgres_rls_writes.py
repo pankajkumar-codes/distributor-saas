@@ -24,9 +24,9 @@ def as_sub(conn, sub):
 
 
 def setup_alice(client, extra=()):
-    tid = client.post("/identity/tenants", json={"name": "Alice Co"}, headers={"x-debug-user": "alice"}).json()["id"]
+    tid = client.post("/api/v1/identity/tenants", json={"name": "Alice Co"}, headers={"x-debug-user": "alice"}).json()["id"]
     for sub, role in extra:
-        r = client.post(f"/identity/tenants/{tid}/members", json={"user_sub": sub, "role": role}, headers={"x-debug-user": "alice"})
+        r = client.post(f"/api/v1/identity/tenants/{tid}/members", json={"user_sub": sub, "role": role}, headers={"x-debug-user": "alice"})
         assert r.status_code == 201
     return tid
 
@@ -85,7 +85,7 @@ def test_disabled_member_sees_no_tenant_rows(pg_client):
         assert c.execute(text("select count(*) from identity.audit_events")).scalar() == 0
         # Dave still sees his own membership row by design (policy member_rows).
         assert c.execute(text("select user_sub from identity.memberships")).scalars().all() == ["dave"]
-    assert client.get(f"/identity/tenants/{tid}", headers={"x-debug-user": "dave"}).status_code == 404
+    assert client.get(f"/api/v1/identity/tenants/{tid}", headers={"x-debug-user": "dave"}).status_code == 404
 
 
 def test_outsider_cannot_insert_a_membership_into_another_tenant(pg_client):
@@ -257,7 +257,7 @@ def test_invitee_can_insert_only_their_own_membership_with_the_invited_role(pg_c
     client, svc = pg_client
     tid = setup_alice(client)
     r = client.post(
-        f"/identity/tenants/{tid}/invitations",
+        f"/api/v1/identity/tenants/{tid}/invitations",
         json={"email": "ivy@example.com", "role": "sales"},
         headers={"x-debug-user": "alice"},
     )
@@ -289,14 +289,14 @@ def test_revoked_or_expired_invitation_does_not_allow_a_membership_insert(pg_cli
     ids = {}
     for email in ("rev@example.com", "old@example.com"):
         r = client.post(
-            f"/identity/tenants/{tid}/invitations",
+            f"/api/v1/identity/tenants/{tid}/invitations",
             json={"email": email, "role": "viewer"},
             headers={"x-debug-user": "alice"},
         )
         assert r.status_code == 201
         ids[email] = r.json()["id"]
     revoke = client.post(
-        f"/identity/tenants/{tid}/invitations/{ids['rev@example.com']}/revoke", headers={"x-debug-user": "alice"}
+        f"/api/v1/identity/tenants/{tid}/invitations/{ids['rev@example.com']}/revoke", headers={"x-debug-user": "alice"}
     )
     assert revoke.status_code == 200
     with svc.begin() as c:
@@ -350,7 +350,7 @@ def test_invitee_cannot_change_an_invitation_except_to_accept_it(pg_client):
     client, svc = pg_client
     tid = setup_alice(client)
     r = client.post(
-        f"/identity/tenants/{tid}/invitations",
+        f"/api/v1/identity/tenants/{tid}/invitations",
         json={"email": "ivy@example.com", "role": "viewer"},
         headers={"x-debug-user": "alice"},
     )
@@ -376,7 +376,7 @@ def test_invitee_cannot_accept_an_expired_invitation(pg_client):
     client, svc = pg_client
     tid = setup_alice(client)
     r = client.post(
-        f"/identity/tenants/{tid}/invitations",
+        f"/api/v1/identity/tenants/{tid}/invitations",
         json={"email": "late@example.com", "role": "viewer"},
         headers={"x-debug-user": "alice"},
     )

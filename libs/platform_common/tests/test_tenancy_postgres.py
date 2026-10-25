@@ -23,7 +23,7 @@ ADMIN_URL = os.environ.get("PG_ADMIN_URL")
 pytestmark = pytest.mark.skipif(not ADMIN_URL, reason="PG_ADMIN_URL not set")
 
 REPO = Path(__file__).resolve().parents[3]
-IDENTITY_MIGRATIONS = sorted((REPO / "services" / "identity" / "migrations").glob("*.sql"))
+IDENTITY_MIGRATIONS = sorted((REPO / "app" / "src" / "app" / "modules" / "identity" / "migrations").glob("*.sql"))
 
 # A stand-in for a service table protected the way ADR 0001 prescribes.
 SERVICE_TABLE = """

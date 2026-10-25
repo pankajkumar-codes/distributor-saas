@@ -6,8 +6,8 @@
    `AdminCreateUser` emails the person a temporary password. If the person already has
    a login, no email is sent; the invitation is waiting for them when they sign in.
 2. After signing in, the person sees their pending invitations
-   (`GET /identity/invitations`) and accepts one
-   (`POST /identity/invitations/{id}/accept`). That creates their membership with the
+   (`GET /api/v1/identity/invitations`) and accepts one
+   (`POST /api/v1/identity/invitations/{id}/accept`). That creates their membership with the
    invited role, email and display name.
 
 Invitations are matched only on the caller's **verified** email claim. The web app must

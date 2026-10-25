@@ -1,4 +1,4 @@
-"""Apply every service's migrations to a local PostgreSQL, the same way the
+"""Apply every module's migrations to a local PostgreSQL, the same way the
 migrator Lambda does in AWS.
 
     python -m migrator.local postgresql://postgres:local-only@localhost:5432/saas
@@ -17,17 +17,19 @@ from psycopg import sql
 
 from .handler import migrate
 
-SERVICES_DIR = Path(__file__).resolve().parents[2]
+REPO = Path(__file__).resolve().parents[2]
+MODULES_DIR = REPO / "app" / "src" / "app" / "modules"
 LOCAL_PASSWORD = "local-only"
 
 
 def collect(root: Path) -> None:
-    for svc_dir in SERVICES_DIR.iterdir():
-        migrations = svc_dir / "migrations"
+    """Lay the repo's migrations out as the Lambda zip does: <root>/<module>/<name>.sql."""
+    for module_dir in MODULES_DIR.iterdir():
+        migrations = module_dir / "migrations"
         if migrations.is_dir():
-            (root / svc_dir.name).mkdir(parents=True, exist_ok=True)
+            (root / module_dir.name).mkdir(parents=True, exist_ok=True)
             for f in migrations.glob("*.sql"):
-                (root / svc_dir.name / f.name).write_text(f.read_text())
+                (root / module_dir.name / f.name).write_text(f.read_text())
 
 
 def main(dsn: str) -> None:

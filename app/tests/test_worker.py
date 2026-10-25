@@ -1,4 +1,4 @@
-from app.main import sqs_handler
+from app.worker import sqs_handler
 
 
 def test_bad_message_is_reported_for_retry_and_good_one_is_not():

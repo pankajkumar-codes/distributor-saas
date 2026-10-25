@@ -3,8 +3,7 @@ from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from functools import lru_cache
 
-from fastapi import Depends, FastAPI, HTTPException, status
-from mangum import Mangum
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy import event, func, select, text
 from sqlalchemy.exc import IntegrityError
@@ -29,7 +28,7 @@ from .models import (
     Tenant,
 )
 
-app = FastAPI(title="identity", root_path_in_servers=False)
+router = APIRouter(prefix="/identity", tags=["identity"])
 
 
 @lru_cache(maxsize=1)
@@ -155,12 +154,7 @@ class AuditOut(BaseModel):
     at: datetime
 
 
-@app.get("/identity/health")
-def health():
-    return {"status": "ok"}
-
-
-@app.post("/identity/tenants", status_code=status.HTTP_201_CREATED, response_model=TenantOut)
+@router.post("/tenants", status_code=status.HTTP_201_CREATED, response_model=TenantOut)
 def create_tenant(
     body: TenantIn,
     principal: Principal = Depends(current_principal),
@@ -175,7 +169,7 @@ def create_tenant(
     return TenantOut(id=tenant.id, name=tenant.name, role=Role.owner)
 
 
-@app.get("/identity/tenants", response_model=list[TenantOut])
+@router.get("/tenants", response_model=list[TenantOut])
 def my_tenants(
     principal: Principal = Depends(current_principal),
     session: Session = Depends(db_session),
@@ -189,7 +183,7 @@ def my_tenants(
     return [TenantOut(id=t.id, name=t.name, role=role) for t, role in rows]
 
 
-@app.get("/identity/tenants/{tenant_id}", response_model=TenantOut)
+@router.get("/tenants/{tenant_id}", response_model=TenantOut)
 def get_tenant(
     tenant_id: str,
     principal: Principal = Depends(current_principal),
@@ -201,7 +195,7 @@ def get_tenant(
     return TenantOut(id=tenant.id, name=tenant.name, role=membership.role)
 
 
-@app.get("/identity/tenants/{tenant_id}/members", response_model=list[MemberOut])
+@router.get("/tenants/{tenant_id}/members", response_model=list[MemberOut])
 def list_members(
     tenant_id: str,
     principal: Principal = Depends(current_principal),
@@ -215,8 +209,8 @@ def list_members(
     return [member_out(m) for m in members]
 
 
-@app.post(
-    "/identity/tenants/{tenant_id}/members",
+@router.post(
+    "/tenants/{tenant_id}/members",
     status_code=status.HTTP_201_CREATED,
     response_model=MemberOut,
 )
@@ -245,7 +239,7 @@ def add_member(
     return member_out(member)
 
 
-@app.post("/identity/tenants/{tenant_id}/members/{user_sub}/deactivate", response_model=MemberOut)
+@router.post("/tenants/{tenant_id}/members/{user_sub}/deactivate", response_model=MemberOut)
 def deactivate_member(
     tenant_id: str,
     user_sub: str,
@@ -256,7 +250,7 @@ def deactivate_member(
     return _change_member_status(session, principal, tenant_id, user_sub, MembershipStatus.disabled, body.reason)
 
 
-@app.post("/identity/tenants/{tenant_id}/members/{user_sub}/reactivate", response_model=MemberOut)
+@router.post("/tenants/{tenant_id}/members/{user_sub}/reactivate", response_model=MemberOut)
 def reactivate_member(
     tenant_id: str,
     user_sub: str,
@@ -310,7 +304,7 @@ def _change_member_status(
     return member_out(member)
 
 
-@app.get("/identity/tenants/{tenant_id}/audit", response_model=list[AuditOut])
+@router.get("/tenants/{tenant_id}/audit", response_model=list[AuditOut])
 def audit_log(
     tenant_id: str,
     principal: Principal = Depends(current_principal),
@@ -392,8 +386,8 @@ def _tenant_invitation(session: Session, tid: uuid.UUID, invitation_id: str) -> 
     return inv
 
 
-@app.post(
-    "/identity/tenants/{tenant_id}/invitations",
+@router.post(
+    "/tenants/{tenant_id}/invitations",
     status_code=status.HTTP_201_CREATED,
     response_model=InvitationOut,
 )
@@ -442,7 +436,7 @@ def invite_member(
     return invitation_out(inv)
 
 
-@app.get("/identity/tenants/{tenant_id}/invitations", response_model=list[InvitationOut])
+@router.get("/tenants/{tenant_id}/invitations", response_model=list[InvitationOut])
 def list_invitations(
     tenant_id: str,
     principal: Principal = Depends(current_principal),
@@ -458,7 +452,7 @@ def list_invitations(
     return [invitation_out(i) for i in rows]
 
 
-@app.post("/identity/tenants/{tenant_id}/invitations/{invitation_id}/resend", response_model=InvitationOut)
+@router.post("/tenants/{tenant_id}/invitations/{invitation_id}/resend", response_model=InvitationOut)
 def resend_invitation(
     tenant_id: str,
     invitation_id: str,
@@ -479,7 +473,7 @@ def resend_invitation(
     return invitation_out(inv)
 
 
-@app.post("/identity/tenants/{tenant_id}/invitations/{invitation_id}/revoke", response_model=InvitationOut)
+@router.post("/tenants/{tenant_id}/invitations/{invitation_id}/revoke", response_model=InvitationOut)
 def revoke_invitation(
     tenant_id: str,
     invitation_id: str,
@@ -500,7 +494,7 @@ def revoke_invitation(
     return invitation_out(inv)
 
 
-@app.get("/identity/invitations", response_model=list[MyInvitationOut])
+@router.get("/invitations", response_model=list[MyInvitationOut])
 def my_invitations(
     principal: Principal = Depends(current_principal),
     session: Session = Depends(db_session),
@@ -521,7 +515,7 @@ def my_invitations(
     ]
 
 
-@app.post("/identity/invitations/{invitation_id}/accept", response_model=TenantOut)
+@router.post("/invitations/{invitation_id}/accept", response_model=TenantOut)
 def accept_invitation(
     invitation_id: str,
     principal: Principal = Depends(current_principal),
@@ -573,5 +567,3 @@ def accept_invitation(
     session.commit()
     return TenantOut(id=tenant.id, name=tenant.name, role=inv.role)
 
-
-handler = Mangum(app, lifespan="off")

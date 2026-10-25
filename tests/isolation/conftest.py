@@ -24,7 +24,7 @@ def migrated_db():
     import psycopg
     from psycopg.conninfo import conninfo_to_dict, make_conninfo
 
-    sys.path.insert(0, str(REPO / "services" / "migrator"))
+    sys.path.insert(0, str(REPO / "migrator"))
     from migrator import local
 
     name = f"iso_{uuid.uuid4().hex[:10]}"

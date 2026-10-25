@@ -41,7 +41,9 @@ def test_guard_covers_every_app_and_lib_module_but_not_tests():
     files = [p.relative_to(float_guard.ROOT) for p in float_guard.guarded_files()]
     assert any(p.name == "money.py" for p in files)
     # Modules whose names say nothing about money are guarded too.
-    assert any(p.parts[0] == "services" and "money" not in p.stem for p in files)
+    assert any(p.parts[0] == "app" and "money" not in p.stem for p in files)
+    assert any(p.parts[:4] == ("app", "src", "app", "modules") for p in files)
+    assert any(p.parts[0] == "migrator" for p in files)
     assert not any("tests" in p.parts for p in files)
 
 

@@ -9,11 +9,11 @@ import psycopg.conninfo
 import psycopg.errors
 import pytest
 
-from migrator.handler import bootstrap, migrate
+from migrator.handler import bootstrap, migrate, ordered
+from migrator.local import collect
 
 DSN = os.environ.get("PG_DSN")
-pytestmark = pytest.mark.skipif(not DSN, reason="PG_DSN not set")
-SERVICES = Path(__file__).resolve().parents[2]
+needs_pg = pytest.mark.skipif(not DSN, reason="PG_DSN not set")
 
 
 @pytest.fixture()
@@ -23,17 +23,14 @@ def conn(tmp_path):
         admin.execute(f"create database {name}")
         admin.execute("do $$ begin if not exists (select from pg_roles where rolname='rds_iam') then create role rds_iam; end if; end $$")
     root = tmp_path / "migrations"
-    for svc_dir in SERVICES.iterdir():
-        if (svc_dir / "migrations").is_dir():
-            (root / svc_dir.name).mkdir(parents=True)
-            for f in (svc_dir / "migrations").glob("*.sql"):
-                (root / svc_dir.name / f.name).write_text(f.read_text())
+    collect(root)
     with psycopg.connect(DSN.rsplit("/", 1)[0] + f"/{name}", autocommit=True) as c:
         yield c, root
     with psycopg.connect(DSN, autocommit=True) as admin:
         admin.execute(f"drop database {name} with (force)")
 
 
+@needs_pg
 def test_applies_once_and_is_safe_to_rerun(conn):
     c, root = conn
     first = migrate(c, root)
@@ -41,6 +38,7 @@ def test_applies_once_and_is_safe_to_rerun(conn):
     assert migrate(c, root) == []
 
 
+@needs_pg
 def test_refuses_edited_migration(conn):
     c, root = conn
     migrate(c, root)
@@ -48,6 +46,33 @@ def test_refuses_edited_migration(conn):
     f.write_text(f.read_text() + "\n-- edited")
     with pytest.raises(RuntimeError, match="changed after it was applied"):
         migrate(c, root)
+
+
+def _tree(tmp_path: Path, files: dict[str, list[str]]) -> Path:
+    for module, names in files.items():
+        (tmp_path / module).mkdir()
+        for n in names:
+            (tmp_path / module / n).write_text("select 1;")
+    return tmp_path
+
+
+def test_grandfathered_files_first_then_timestamps_across_modules(tmp_path):
+    root = _tree(tmp_path, {
+        "identity": ["0001_a.sql", "0002_b.sql", "202611010900_c.sql"],
+        "imports": ["0001_x.sql"],
+        "platform": ["202611010900_p.sql", "202610300000_q.sql"],
+    })
+    got = [f"{m}/{p.name}" for m, p in ordered(root)]
+    assert got == [
+        "identity/0001_a.sql", "identity/0002_b.sql", "imports/0001_x.sql",
+        "platform/202610300000_q.sql", "platform/202611010900_p.sql", "identity/202611010900_c.sql",
+    ]
+
+
+@pytest.mark.parametrize("files", [{"identity": ["3_bad.sql"]}, {"nosuchmodule": ["0001_a.sql"]}])
+def test_refuses_bad_names_and_unknown_modules(tmp_path, files):
+    with pytest.raises(RuntimeError):
+        ordered(_tree(tmp_path, files))
 
 
 DESIGN_ROLES = {
@@ -62,6 +87,7 @@ DESIGN_ROLES = {
 }
 
 
+@needs_pg
 def test_bootstrap_creates_the_design_roles_without_rls_bypass(conn):
     c, root = conn
     migrate(c, root)
@@ -78,6 +104,7 @@ def test_bootstrap_creates_the_design_roles_without_rls_bypass(conn):
         assert rows[name] == (login, False, False, False, False, False), name
 
 
+@needs_pg
 def test_bootstrap_memberships(conn):
     c, root = conn
     migrate(c, root)
@@ -99,6 +126,7 @@ def test_bootstrap_memberships(conn):
     assert c.execute("select has_database_privilege('app_owner', current_database(), 'CREATE')").fetchone()[0]
 
 
+@needs_pg
 def test_bootstrap_refuses_and_names_a_role_that_gained_bypassrls(conn):
     c, root = conn
     migrate(c, root)
@@ -110,6 +138,7 @@ def test_bootstrap_refuses_and_names_a_role_that_gained_bypassrls(conn):
         c.execute("alter role app_rw nobypassrls")
 
 
+@needs_pg
 def test_bootstrap_fixes_login_and_createrole_drift(conn):
     c, root = conn
     migrate(c, root)
@@ -118,6 +147,7 @@ def test_bootstrap_fixes_login_and_createrole_drift(conn):
     assert c.execute("select rolcanlogin, rolcreaterole from pg_roles where rolname = 'app_ro'").fetchone() == (False, False)
 
 
+@needs_pg
 def test_bootstrap_runs_as_a_non_superuser_createrole_master(tmp_path):
     # On RDS the master is rds_superuser, not a superuser (build-readiness 2.1 stand-in).
     db, master = f"m_{uuid.uuid4().hex[:10]}", f"master_{uuid.uuid4().hex[:6]}"

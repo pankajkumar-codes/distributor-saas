@@ -28,13 +28,14 @@ def client(monkeypatch):
     db.engine.cache_clear()
     monkeypatch.setattr(db, "engine", lambda: eng)
 
-    from app import main
-    from app.models import Base
+    from app import api as app_api
+    from app.modules.identity import api as main
+    from app.modules.identity.models import Base
 
     monkeypatch.setattr(main, "engine", lambda: eng)
     main._factory.cache_clear()
     Base.metadata.create_all(eng.execution_options(schema_translate_map={"identity": None}))
-    yield TestClient(main.app)
+    yield TestClient(app_api.app)
     main._factory.cache_clear()
 
 
@@ -63,12 +64,13 @@ def pg_client(monkeypatch):
 
     from fastapi.testclient import TestClient
 
-    from app import main
+    from app import api as app_api
+    from app.modules.identity import api as main
 
     monkeypatch.setattr(main, "engine", lambda: svc)
     monkeypatch.setattr("platform_common.db.engine", lambda: svc)
     main._factory.cache_clear()
-    yield TestClient(main.app), svc
+    yield TestClient(app_api.app), svc
     main._factory.cache_clear()
     svc.dispose()
     owner.dispose()

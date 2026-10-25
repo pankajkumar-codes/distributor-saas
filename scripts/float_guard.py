@@ -3,7 +3,7 @@
 
 CLAUDE.md rule 7: authoritative money arithmetic is Decimal-only. This walks the AST
 (so strings like Decimal("0.01") are fine) and flags float literals, float() calls and
-`float` type annotations in every module under services/*/app and libs, except tests.
+`float` type annotations in every module under app/, migrator/ and libs/, except tests.
 Money can reach any module, so files are not chosen by name.
 
     python scripts/float_guard.py            # check the repo
@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SEARCH = ["libs/**/*.py", "services/*/app/**/*.py"]
+SEARCH = ["libs/**/*.py", "app/**/*.py", "migrator/**/*.py"]
 OPT_OUT = re.compile(r"#\s*float-ok:\s*\S")
 
 

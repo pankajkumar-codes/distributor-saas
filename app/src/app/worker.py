@@ -1,5 +1,7 @@
-"""documents: builds invoice PDFs from invoice-finalized events on SQS and stores
-them privately in S3. The PDF template waits on approved invoice/tax requirements."""
+"""The worker Lambda: SQS jobs from the outbox (TD-3).
+
+Today it only logs each message's type; job handlers per module come with their
+slices (invoice PDFs in LLD-4)."""
 
 import json
 import logging
