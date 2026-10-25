@@ -28,6 +28,8 @@ GitHub Actions runs all of these on every pull request, plus:
   `# float-ok: <reason>` comment on the line, which reviewers must agree with
 - `python scripts/ci_checks/migration_keys.py origin/main`: no migration that exists on
   `main` is missing or edited (the migrator keys its ledger on module and file name)
+- `lint-imports` (contracts in `.importlinter`): modules don't import each other, the
+  API or the worker; `platform_common` and the migrator import nothing from the app
 - gitleaks over the whole git history
 - the end-to-end suite below, against identity on real PostgreSQL, after migrating twice
 - `tests/isolation`: role guards after every migration. No role but the migrating superuser

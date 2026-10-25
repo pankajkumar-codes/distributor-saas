@@ -79,6 +79,20 @@ jobs:
       - name: Float guard self-test
         run: pytest -q tests/tools
 
+  boundaries:
+    # import-linter contracts in .importlinter (LLD-0 §7).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install import-linter==2.15 -e libs/platform_common -e app -r migrator/requirements.txt
+      - name: Module boundaries
+        env:
+          PYTHONPATH: app/src:libs/platform_common:migrator
+        run: lint-imports
+
   secrets:
     runs-on: ubuntu-latest
     steps:
