@@ -37,7 +37,7 @@ def test_reactivated_member_regains_access_with_same_role(client):
 
     r = change(client, tid, ALICE, BOB, "reactivate")
     assert r.status_code == 200
-    assert r.json() == {"user_sub": BOB, "role": "finance", "status": "active"}
+    assert r.json() == {"user_sub": BOB, "role": "finance", "status": "active", "email": None, "display_name": None}
     assert client.get(f"/identity/tenants/{tid}", headers=as_user(BOB)).json()["role"] == "finance"
 
 
