@@ -24,18 +24,45 @@ create table identity.invitations (
 create unique index invitations_one_open on identity.invitations (tenant_id, email) where status = 'pending';
 create index on identity.invitations (email) where status = 'pending';
 
-grant select, insert, update on identity.invitations to svc_identity;
+grant select, insert on identity.invitations to svc_identity;
+-- Who an invitation is for, where and as what never changes once written.
+grant update (status, delivery, accepted_by, accepted_at, expires_at) on identity.invitations to svc_identity;
 alter table identity.invitations enable row level security;
 
 -- Members see their tenant's invitations; an invitee sees invitations sent to the
 -- verified email the service put in app.user_email for this transaction.
-create policy invitation_rows on identity.invitations to svc_identity
+create policy invitation_rows on identity.invitations for select to svc_identity
     using (
         identity.is_member(tenant_id)
         or email = nullif(current_setting('app.user_email', true), '')
     );
+-- Same rule as adding a member: an owner invites anyone, an admin anyone but an owner.
 create policy invitation_insert on identity.invitations for insert to svc_identity
-    with check (identity.is_member(tenant_id));
+    with check (
+        identity.has_role(tenant_id, array['owner'])
+        or (identity.has_role(tenant_id, array['admin']) and role <> 'owner')
+    );
+-- Revoke, resend and recording delivery.
+create policy invitation_manage on identity.invitations for update to svc_identity
+    using (
+        identity.has_role(tenant_id, array['owner'])
+        or (identity.has_role(tenant_id, array['admin']) and role <> 'owner')
+    )
+    with check (
+        identity.has_role(tenant_id, array['owner'])
+        or (identity.has_role(tenant_id, array['admin']) and role <> 'owner')
+    );
+-- The invitee may only accept a pending invitation to their own email, as themselves.
+create policy invitation_accept on identity.invitations for update to svc_identity
+    using (
+        status = 'pending'
+        and email = nullif(current_setting('app.user_email', true), '')
+    )
+    with check (
+        status = 'accepted'
+        and accepted_by = current_setting('app.user_sub', true)
+        and email = nullif(current_setting('app.user_email', true), '')
+    );
 
 -- An invitee who is not a member yet may read the name of a tenant that invited them,
 -- so "Join Vashi Essentials?" can be shown before accepting.

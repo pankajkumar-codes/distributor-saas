@@ -309,3 +309,64 @@ def test_revoked_or_expired_invitation_does_not_allow_a_membership_insert(pg_cli
             with svc.begin() as c:
                 _as_invitee(c, sub, email)
                 _insert_member(c, tid, sub, "viewer")
+
+
+def _insert_invitation(conn, tid, email, role):
+    conn.execute(
+        text(
+            "insert into identity.invitations (id, tenant_id, email, role, invited_by, expires_at) "
+            "values (:i, :t, :e, :r, 'x', now() + interval '7 days')"
+        ),
+        {"i": uuid.uuid4(), "t": tid, "e": email, "r": role},
+    )
+
+
+def test_outsider_cannot_invite_themselves_as_owner(pg_client):
+    # Without FOR SELECT on invitation_rows, its "email = mine" clause also allowed this
+    # insert, and the invitee branch of add_member then let the outsider join as owner.
+    client, svc = pg_client
+    tid = setup_alice(client)
+    with pytest.raises(Exception, match="row-level security"):
+        with svc.begin() as c:
+            _as_invitee(c, "mallory", "mallory@example.com")
+            _insert_invitation(c, tid, "mallory@example.com", "owner")
+    assert ("mallory", "owner", "active") not in memberships(svc, tid)
+
+
+def test_only_owner_or_admin_can_invite_and_admin_not_as_owner(pg_client):
+    client, svc = pg_client
+    tid = setup_alice(client, extra=[("vic", "viewer"), ("ada", "admin")])
+    for sub, role in (("vic", "viewer"), ("vic", "owner"), ("ada", "owner")):
+        with pytest.raises(Exception, match="row-level security"):
+            with svc.begin() as c:
+                as_sub(c, sub)
+                _insert_invitation(c, tid, f"{sub}-{role}@example.com", role)
+    with svc.begin() as c:
+        as_sub(c, "ada")
+        _insert_invitation(c, tid, "new@example.com", "sales")
+
+
+def test_invitee_cannot_change_an_invitation_except_to_accept_it(pg_client):
+    client, svc = pg_client
+    tid = setup_alice(client)
+    r = client.post(
+        f"/identity/tenants/{tid}/invitations",
+        json={"email": "ivy@example.com", "role": "viewer"},
+        headers={"x-debug-user": "alice"},
+    )
+    assert r.status_code == 201
+    iid = r.json()["id"]
+    # Role, tenant and email are not updatable by anyone.
+    with pytest.raises(Exception, match="permission denied"):
+        with svc.begin() as c:
+            _as_invitee(c, "ivy", "ivy@example.com")
+            c.execute(text("update identity.invitations set role = 'owner' where id = :i"), {"i": iid})
+    # Accepting on someone else's behalf, or reviving it, is refused.
+    for status, by in (("accepted", "mallory"), ("revoked", "ivy")):
+        with pytest.raises(Exception, match="row-level security"):
+            with svc.begin() as c:
+                _as_invitee(c, "ivy", "ivy@example.com")
+                c.execute(
+                    text("update identity.invitations set status = :s, accepted_by = :b where id = :i"),
+                    {"s": status, "b": by, "i": iid},
+                )
