@@ -7,7 +7,7 @@ spec.loader.exec_module(float_guard)
 
 
 def run(tmp_path, code):
-    f = tmp_path / "pricing.py"
+    f = tmp_path / "anything.py"
     f.write_text(code)
     return float_guard.check(f)
 
@@ -33,8 +33,16 @@ def test_opt_out_comment(tmp_path):
     assert run(tmp_path, "RATIO = 0.5  # float-ok: chart scaling only, not money\n") == []
 
 
-def test_guard_covers_money_module():
-    assert any(p.name == "money.py" for p in float_guard.guarded_files())
+def test_opt_out_needs_a_reason(tmp_path):
+    assert len(run(tmp_path, "RATIO = 0.5  # float-ok:\n")) == 1
+
+
+def test_guard_covers_every_app_and_lib_module_but_not_tests():
+    files = [p.relative_to(float_guard.ROOT) for p in float_guard.guarded_files()]
+    assert any(p.name == "money.py" for p in files)
+    # Modules whose names say nothing about money are guarded too.
+    assert any(p.parts[0] == "services" and "money" not in p.stem for p in files)
+    assert not any("tests" in p.parts for p in files)
 
 
 def test_repo_is_clean_today():
