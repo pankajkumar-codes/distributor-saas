@@ -47,6 +47,14 @@ def test_local_file_mailer_writes_json_lines(monkeypatch, tmp_path):
     assert lines[0]["params"]["code"] == "042424"
 
 
+def test_local_file_mailer_defaults_to_ignored_build_folder(monkeypatch, tmp_path):
+    monkeypatch.setenv("PLATFORM_ENV", "local")
+    monkeypatch.chdir(tmp_path)
+    LocalFileMailer().send("password_changed", "a@example.com", {})
+    assert (tmp_path / "build" / "mail" / "outbox.jsonl").exists()
+    assert LocalFileMailer.DEFAULT_PATH.parts[0] == "build"  # build/ is in .gitignore
+
+
 @pytest.mark.parametrize("env", ["staging", "prod", ""])
 def test_local_file_mailer_refuses_outside_local_and_test(monkeypatch, tmp_path, env):
     monkeypatch.setenv("PLATFORM_ENV", env)

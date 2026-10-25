@@ -90,6 +90,8 @@ class FakeAuthProvider:
         return self._sign_in(u)
 
     def respond_totp(self, challenge: str, code: str) -> AuthResult:
+        # Unlimited tries on one challenge. The attempt limit is ours (rate.hit), so
+        # LLD-1's limit tests must exercise rate.hit, not rely on the provider.
         email, expires = self._challenges.get(challenge, (None, None))
         if email is None or self._clock.now() >= expires:
             self._challenges.pop(challenge, None)

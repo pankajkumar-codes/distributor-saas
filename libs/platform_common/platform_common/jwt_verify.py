@@ -10,6 +10,10 @@ from collections.abc import Mapping
 import jwt
 
 
+# Cognito signs on its own clock, so allow a little skew on exp/iat/nbf.
+LEEWAY_SECONDS = 30
+
+
 class TokenInvalid(Exception):
     pass
 
@@ -27,7 +31,7 @@ def verify_access_token(
     Checks the signature against `jwks` (RS256 only), the issuer, `token_use` and
     `client_id` (Cognito access tokens carry no `aud`). `allow_expired` skips only
     the expiry check, for sign-out after a long idle; the caller then checks the
-    session's absolute expiry.
+    session's absolute expiry. Time claims get LEEWAY_SECONDS of clock skew.
     """
     try:
         kid = jwt.get_unverified_header(token).get("kid")
@@ -42,6 +46,7 @@ def verify_access_token(
             jwt.PyJWK(dict(key)).key,
             algorithms=["RS256"],
             issuer=issuer,
+            leeway=LEEWAY_SECONDS,
             options={"verify_aud": False, "verify_exp": not allow_expired, "require": ["exp", "iss", "sub"]},
         )
     except jwt.PyJWTError as e:
