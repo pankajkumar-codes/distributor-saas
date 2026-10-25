@@ -30,7 +30,7 @@ send the Cognito **ID token** on these two calls, because access tokens carry no
 Audit events: `invitation.created`, `invitation.resent`, `invitation.revoked`,
 `invitation.accepted`.
 
-## Row-level security (migration 0003)
+## Row-level security (migration 0004)
 The service sets `app.user_email` (verified email or empty) next to `app.user_sub` at the
 start of every transaction. Invitations are visible to members of their tenant, and to
 the addressee by email. A tenant's name is visible to someone holding a pending
