@@ -15,7 +15,7 @@ DEBUG_ENVS = {"local", "test"}
 
 
 @dataclass(frozen=True)
-class Principal:
+class Caller:
     user_sub: str
     email: str | None = None
     # Only a verified email may be used to match invitations to the caller.
@@ -30,7 +30,7 @@ def platform_env() -> str:
     return os.environ.get("PLATFORM_ENV", "local")
 
 
-def current_principal(request: Request) -> Principal:
+def current_caller(request: Request) -> Caller:
     event = request.scope.get("aws.event") or {}
     claims = (
         event.get("requestContext", {}).get("authorizer", {}).get("jwt", {}).get("claims", {})
@@ -38,12 +38,12 @@ def current_principal(request: Request) -> Principal:
     if claims.get("sub"):
         # API Gateway passes JWT claims as strings, so the flag arrives as "true".
         verified = str(claims.get("email_verified", "")).lower() == "true"
-        return Principal(user_sub=claims["sub"], email=claims.get("email"), email_verified=verified)
+        return Caller(user_sub=claims["sub"], email=claims.get("email"), email_verified=verified)
 
     if platform_env() in DEBUG_ENVS:
         debug_user = request.headers.get("x-debug-user")
         if debug_user:
             debug_email = request.headers.get("x-debug-email")
-            return Principal(user_sub=debug_user, email=debug_email, email_verified=bool(debug_email))
+            return Caller(user_sub=debug_user, email=debug_email, email_verified=bool(debug_email))
 
     raise HTTPException(status.HTTP_401_UNAUTHORIZED, "authentication required")
