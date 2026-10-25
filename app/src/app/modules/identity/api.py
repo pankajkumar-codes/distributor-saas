@@ -3,7 +3,7 @@ from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from functools import lru_cache
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy import event, func, select, text
 from sqlalchemy.exc import IntegrityError
@@ -11,7 +11,8 @@ from sqlalchemy.orm import Session
 
 from platform_common.auth import Caller, current_caller
 from platform_common.db import engine, session_factory
-from platform_common.tenancy import not_found, parse_tenant_id
+from platform_common.errors import AppError, Conflict, Deny
+from platform_common.uow import parse_id
 
 from . import invites
 from .models import (
@@ -29,6 +30,11 @@ from .models import (
 )
 
 router = APIRouter(prefix="/identity", tags=["identity"])
+
+
+class Gone(AppError):
+    status = 410
+    code = "gone"
 
 
 @lru_cache(maxsize=1)
@@ -68,7 +74,7 @@ def active_membership(session: Session, tenant_id: uuid.UUID, user_sub: str) -> 
     )
     if membership is None:
         # Same answer whether the tenant is missing or simply not the caller's.
-        raise not_found()
+        raise Deny("not_member")
     return membership
 
 
@@ -154,7 +160,7 @@ class AuditOut(BaseModel):
     at: datetime
 
 
-@router.post("/tenants", status_code=status.HTTP_201_CREATED, response_model=TenantOut)
+@router.post("/tenants", status_code=201, response_model=TenantOut)
 def create_tenant(
     body: TenantIn,
     principal: Caller = Depends(current_caller),
@@ -189,7 +195,7 @@ def get_tenant(
     principal: Caller = Depends(current_caller),
     session: Session = Depends(db_session),
 ):
-    tid = parse_tenant_id(tenant_id)
+    tid = parse_id(tenant_id)
     membership = active_membership(session, tid, principal.user_sub)
     tenant = session.get(Tenant, tid)
     return TenantOut(id=tenant.id, name=tenant.name, role=membership.role)
@@ -201,7 +207,7 @@ def list_members(
     principal: Caller = Depends(current_caller),
     session: Session = Depends(db_session),
 ):
-    tid = parse_tenant_id(tenant_id)
+    tid = parse_id(tenant_id)
     active_membership(session, tid, principal.user_sub)
     members = session.scalars(
         select(Membership).where(Membership.tenant_id == tid).order_by(Membership.created_at)
@@ -211,7 +217,7 @@ def list_members(
 
 @router.post(
     "/tenants/{tenant_id}/members",
-    status_code=status.HTTP_201_CREATED,
+    status_code=201,
     response_model=MemberOut,
 )
 def add_member(
@@ -220,12 +226,12 @@ def add_member(
     principal: Caller = Depends(current_caller),
     session: Session = Depends(db_session),
 ):
-    tid = parse_tenant_id(tenant_id)
+    tid = parse_id(tenant_id)
     caller = active_membership(session, tid, principal.user_sub)
     if caller.role not in MANAGE_MEMBERS:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "not allowed to manage members")
+        raise Deny("role_denied")
     if body.role == Role.owner and caller.role != Role.owner:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "only an owner can add an owner")
+        raise Deny("role_denied")
 
     member = Membership(tenant_id=tid, user_sub=body.user_sub, role=body.role)
     session.add(member)
@@ -233,7 +239,7 @@ def add_member(
         session.flush()
     except IntegrityError:
         session.rollback()
-        raise HTTPException(status.HTTP_409_CONFLICT, "already a member")
+        raise Conflict("already_member", "already a member")
     audit(session, tid, principal.user_sub, "member.added", "membership", member.id, role=body.role.value)
     session.commit()
     return member_out(member)
@@ -264,10 +270,10 @@ def reactivate_member(
 def _change_member_status(
     session: Session, principal: Caller, tenant_id: str, user_sub: str, new_status: MembershipStatus, reason: str
 ) -> MemberOut:
-    tid = parse_tenant_id(tenant_id)
+    tid = parse_id(tenant_id)
     caller = active_membership(session, tid, principal.user_sub)
     if caller.role not in MANAGE_MEMBERS:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "not allowed to manage members")
+        raise Deny("role_denied")
     # Lock the tenant's active owners so two owners can't deactivate each other at once.
     owners = session.scalars(
         select(Membership)
@@ -285,14 +291,14 @@ def _change_member_status(
         .with_for_update()
     )
     if member is None:
-        raise not_found()
+        raise Deny("not_found")
     if member.status == new_status:
         # A retry of a change that already happened: same answer, no second audit event.
         return member_out(member)
     if member.role == Role.owner and caller.role != Role.owner:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "only an owner can change an owner's access")
+        raise Deny("role_denied")
     if new_status == MembershipStatus.disabled and member.role == Role.owner and len(owners) <= 1:
-        raise HTTPException(status.HTTP_409_CONFLICT, "cannot deactivate the last active owner")
+        raise Conflict("last_owner", "cannot deactivate the last active owner")
 
     member.status = new_status
     action = "member.deactivated" if new_status == MembershipStatus.disabled else "member.reactivated"
@@ -310,10 +316,10 @@ def audit_log(
     principal: Caller = Depends(current_caller),
     session: Session = Depends(db_session),
 ):
-    tid = parse_tenant_id(tenant_id)
+    tid = parse_id(tenant_id)
     caller = active_membership(session, tid, principal.user_sub)
     if caller.role not in READ_AUDIT:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "not allowed to read the audit log")
+        raise Deny("role_denied")
     events = session.scalars(
         select(AuditEvent).where(AuditEvent.tenant_id == tid).order_by(AuditEvent.at.desc())
     )
@@ -355,9 +361,9 @@ def invitation_out(inv: Invitation) -> InvitationOut:
 
 def check_can_invite(caller: Membership, role: Role) -> None:
     if caller.role not in MANAGE_MEMBERS:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "not allowed to manage members")
+        raise Deny("role_denied")
     if role == Role.owner and caller.role != Role.owner:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "only an owner can invite an owner")
+        raise Deny("role_denied")
 
 
 def _deliver(session: Session, inv: Invitation, *, resend: bool) -> None:
@@ -377,18 +383,18 @@ def _tenant_invitation(session: Session, tid: uuid.UUID, invitation_id: str) -> 
     try:
         iid = uuid.UUID(invitation_id)
     except ValueError:
-        raise not_found()
+        raise Deny("not_found") from None
     inv = session.scalar(
         select(Invitation).where(Invitation.id == iid, Invitation.tenant_id == tid).with_for_update()
     )
     if inv is None:
-        raise not_found()
+        raise Deny("not_found")
     return inv
 
 
 @router.post(
     "/tenants/{tenant_id}/invitations",
-    status_code=status.HTTP_201_CREATED,
+    status_code=201,
     response_model=InvitationOut,
 )
 def invite_member(
@@ -397,14 +403,14 @@ def invite_member(
     principal: Caller = Depends(current_caller),
     session: Session = Depends(db_session),
 ):
-    tid = parse_tenant_id(tenant_id)
+    tid = parse_id(tenant_id)
     check_can_invite(active_membership(session, tid, principal.user_sub), body.role)
     email = body.email.strip().lower()
 
     if session.scalar(
         select(Membership.id).where(Membership.tenant_id == tid, func.lower(Membership.email) == email)
     ):
-        raise HTTPException(status.HTTP_409_CONFLICT, "already a member")
+        raise Conflict("already_member", "already a member")
     open_invite = session.scalar(
         select(Invitation)
         .where(
@@ -414,7 +420,7 @@ def invite_member(
     )
     if open_invite is not None:
         # One open invitation per person; an expired one is renewed with "resend".
-        raise HTTPException(status.HTTP_409_CONFLICT, "already invited; use resend")
+        raise Conflict("already_invited", "already invited; use resend")
 
     inv = Invitation(
         tenant_id=tid,
@@ -429,7 +435,7 @@ def invite_member(
         session.flush()
     except IntegrityError:
         session.rollback()  # a concurrent invite for the same email won
-        raise HTTPException(status.HTTP_409_CONFLICT, "already invited; use resend")
+        raise Conflict("already_invited", "already invited; use resend")
     audit(session, tid, principal.user_sub, "invitation.created", "invitation", inv.id, role=body.role.value)
     session.commit()
     _deliver(session, inv, resend=False)
@@ -442,10 +448,10 @@ def list_invitations(
     principal: Caller = Depends(current_caller),
     session: Session = Depends(db_session),
 ):
-    tid = parse_tenant_id(tenant_id)
+    tid = parse_id(tenant_id)
     caller = active_membership(session, tid, principal.user_sub)
     if caller.role not in MANAGE_MEMBERS:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "not allowed to manage members")
+        raise Deny("role_denied")
     rows = session.scalars(
         select(Invitation).where(Invitation.tenant_id == tid).order_by(Invitation.created_at.desc())
     )
@@ -459,12 +465,12 @@ def resend_invitation(
     principal: Caller = Depends(current_caller),
     session: Session = Depends(db_session),
 ):
-    tid = parse_tenant_id(tenant_id)
+    tid = parse_id(tenant_id)
     caller = active_membership(session, tid, principal.user_sub)
     inv = _tenant_invitation(session, tid, invitation_id)
     check_can_invite(caller, inv.role)
     if inv.status != InvitationStatus.pending:
-        raise HTTPException(status.HTTP_409_CONFLICT, f"invitation is {inv.status.value}")
+        raise Conflict("invitation_not_pending", f"invitation is {inv.status.value}")
     inv.expires_at = datetime.now(UTC) + timedelta(days=INVITATION_DAYS)
     inv.delivery = Delivery.pending
     audit(session, tid, principal.user_sub, "invitation.resent", "invitation", inv.id)
@@ -480,14 +486,14 @@ def revoke_invitation(
     principal: Caller = Depends(current_caller),
     session: Session = Depends(db_session),
 ):
-    tid = parse_tenant_id(tenant_id)
+    tid = parse_id(tenant_id)
     caller = active_membership(session, tid, principal.user_sub)
     inv = _tenant_invitation(session, tid, invitation_id)
     check_can_invite(caller, inv.role)
     if inv.status == InvitationStatus.revoked:
         return invitation_out(inv)  # retry: same answer, no second audit event
     if inv.status != InvitationStatus.pending:
-        raise HTTPException(status.HTTP_409_CONFLICT, f"invitation is {inv.status.value}")
+        raise Conflict("invitation_not_pending", f"invitation is {inv.status.value}")
     inv.status = InvitationStatus.revoked
     audit(session, tid, principal.user_sub, "invitation.revoked", "invitation", inv.id)
     session.commit()
@@ -525,26 +531,26 @@ def accept_invitation(
     try:
         iid = uuid.UUID(invitation_id)
     except ValueError:
-        raise not_found()
+        raise Deny("not_found") from None
     # Only the addressee may see or accept it; anyone else gets the same 404.
     inv = None
     if email is not None:
         inv = session.scalar(select(Invitation).where(Invitation.id == iid, Invitation.email == email).with_for_update())
     if inv is None:
-        raise not_found()
+        raise Deny("not_found")
 
     if inv.status == InvitationStatus.accepted:
         if inv.accepted_by == principal.user_sub:
             tenant = session.get(Tenant, inv.tenant_id)
             return TenantOut(id=tenant.id, name=tenant.name, role=inv.role)  # retry
-        raise HTTPException(status.HTTP_409_CONFLICT, "invitation already used")
+        raise Conflict("invitation_used", "invitation already used")
     if inv.status == InvitationStatus.revoked or _expired(inv):
-        raise HTTPException(status.HTTP_410_GONE, "invitation is no longer valid; ask for a new one")
+        raise Gone("invitation_invalid", "invitation is no longer valid; ask for a new one")
     if session.scalar(
         select(Membership.id).where(Membership.tenant_id == inv.tenant_id, Membership.user_sub == principal.user_sub)
     ):
         # Includes a deactivated membership: rejoining needs reactivation, not an invite.
-        raise HTTPException(status.HTTP_409_CONFLICT, "already a member")
+        raise Conflict("already_member", "already a member")
 
     member = Membership(
         tenant_id=inv.tenant_id,

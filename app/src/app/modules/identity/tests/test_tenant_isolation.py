@@ -69,15 +69,15 @@ def test_viewer_cannot_add_members_or_read_audit(client):
     tid = make_tenant(client, ALICE, "Alice Co")
     client.post(f"/api/v1/identity/tenants/{tid}/members", json={"user_sub": BOB, "role": "viewer"}, headers=as_user(ALICE))
     r = client.post(f"/api/v1/identity/tenants/{tid}/members", json={"user_sub": CAROL, "role": "sales"}, headers=as_user(BOB))
-    assert r.status_code == 403
-    assert client.get(f"/api/v1/identity/tenants/{tid}/audit", headers=as_user(BOB)).status_code == 403
+    assert r.status_code == 404
+    assert client.get(f"/api/v1/identity/tenants/{tid}/audit", headers=as_user(BOB)).status_code == 404
 
 
 def test_admin_cannot_create_owner(client):
     tid = make_tenant(client, ALICE, "Alice Co")
     client.post(f"/api/v1/identity/tenants/{tid}/members", json={"user_sub": BOB, "role": "admin"}, headers=as_user(ALICE))
     r = client.post(f"/api/v1/identity/tenants/{tid}/members", json={"user_sub": CAROL, "role": "owner"}, headers=as_user(BOB))
-    assert r.status_code == 403
+    assert r.status_code == 404
 
 
 def test_duplicate_member_is_conflict(client):

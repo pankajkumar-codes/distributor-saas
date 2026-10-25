@@ -23,8 +23,8 @@ def disable(client, tid, user_sub):
 def test_non_admin_roles_cannot_manage_members_or_read_audit(client, role):
     tid = make_tenant(client, ALICE, "Alice Co")
     assert add_member(client, tid, ALICE, BOB, role).status_code == 201
-    assert add_member(client, tid, BOB, CAROL, "viewer").status_code == 403
-    assert client.get(f"/api/v1/identity/tenants/{tid}/audit", headers=as_user(BOB)).status_code == 403
+    assert add_member(client, tid, BOB, CAROL, "viewer").status_code == 404
+    assert client.get(f"/api/v1/identity/tenants/{tid}/audit", headers=as_user(BOB)).status_code == 404
 
 
 @pytest.mark.parametrize("role", ["sales", "inventory", "finance", "viewer"])

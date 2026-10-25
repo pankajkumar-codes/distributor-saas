@@ -9,7 +9,9 @@ other environment.
 import os
 from dataclasses import dataclass
 
-from fastapi import HTTPException, Request, status
+from fastapi import Request
+
+from .errors import Deny
 
 DEBUG_ENVS = {"local", "test"}
 
@@ -46,4 +48,5 @@ def current_caller(request: Request) -> Caller:
             debug_email = request.headers.get("x-debug-email")
             return Caller(user_sub=debug_user, email=debug_email, email_verified=bool(debug_email))
 
-    raise HTTPException(status.HTTP_401_UNAUTHORIZED, "authentication required")
+    # 401, so the web app knows to sign in; it says nothing about any business.
+    raise Deny("session_invalid")

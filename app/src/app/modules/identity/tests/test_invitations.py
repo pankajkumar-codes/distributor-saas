@@ -115,24 +115,24 @@ def test_revoked_invite_cannot_be_accepted(client, tenant, outbox):
 
 
 def test_roles_who_may_invite(client, tenant, outbox):
-    assert invite(client, tenant, email="a@x.io", role="viewer", by=SALES).status_code == 403
-    assert invite(client, tenant, email="b@x.io", role="owner", by=ADMIN).status_code == 403
+    assert invite(client, tenant, email="a@x.io", role="viewer", by=SALES).status_code == 404
+    assert invite(client, tenant, email="b@x.io", role="owner", by=ADMIN).status_code == 404
     assert invite(client, tenant, email="c@x.io", role="admin", by=ADMIN).status_code == 201
     assert invite(client, tenant, email="d@x.io", role="owner", by=OWNER).status_code == 201
     owner_invite = next(i for i in client.get(f"/api/v1/identity/tenants/{tenant}/invitations", headers=as_user(OWNER)).json()
                         if i["email"] == "d@x.io")
     # An admin can't revoke or resend an owner invitation either.
     base = f"/api/v1/identity/tenants/{tenant}/invitations/{owner_invite['id']}"
-    assert client.post(f"{base}/revoke", headers=as_user(ADMIN)).status_code == 403
-    assert client.post(f"{base}/resend", headers=as_user(ADMIN)).status_code == 403
-    assert client.get(f"/api/v1/identity/tenants/{tenant}/invitations", headers=as_user(SALES)).status_code == 403
+    assert client.post(f"{base}/revoke", headers=as_user(ADMIN)).status_code == 404
+    assert client.post(f"{base}/resend", headers=as_user(ADMIN)).status_code == 404
+    assert client.get(f"/api/v1/identity/tenants/{tenant}/invitations", headers=as_user(SALES)).status_code == 404
 
 
 def test_inviting_an_existing_member_is_refused(client, tenant, outbox):
     iid = invite(client, tenant).json()["id"]
     client.post(f"/api/v1/identity/invitations/{iid}/accept", headers=as_person(NEW, "priya@example.com"))
     r = invite(client, tenant, email="PRIYA@example.com")
-    assert r.status_code == 409 and r.json()["detail"] == "already a member"
+    assert r.status_code == 409 and r.json()["error"]["code"] == "already_member"
 
 
 def test_deactivated_member_cannot_rejoin_through_an_invite(client, tenant, outbox):

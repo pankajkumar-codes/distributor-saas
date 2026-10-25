@@ -84,7 +84,7 @@ def test_admin_can_reactivate_non_owner_but_not_owner(client):
     add_member(client, tid, ALICE, BOB, "admin")
     add_member(client, tid, ALICE, CAROL, "owner")
     change(client, tid, ALICE, CAROL, "deactivate")
-    assert change(client, tid, BOB, CAROL, "reactivate").status_code == 403
+    assert change(client, tid, BOB, CAROL, "reactivate").status_code == 404
     assert change(client, tid, ALICE, CAROL, "reactivate").status_code == 200
 
     change(client, tid, ALICE, CAROL, "deactivate")
@@ -98,7 +98,7 @@ def test_non_admin_roles_cannot_reactivate(client, role):
     tid = make_tenant(client, ALICE, "Alice Co")
     add_member(client, tid, ALICE, BOB, role)
     deactivated(client, tid, CAROL)
-    assert change(client, tid, BOB, CAROL, "reactivate").status_code == 403
+    assert change(client, tid, BOB, CAROL, "reactivate").status_code == 404
 
 
 def test_deactivated_member_cannot_reactivate_self(client):

@@ -1,13 +1,15 @@
 import csv
 import io
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 import pytest
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
 
+from platform_common.clock import FrozenClock, get_clock
 from platform_common.csv_export import safe_cell, to_csv
+from platform_common.errors import install_error_handlers
 from platform_common.paging import DateRange, PageParams, date_range, page_params
 
 
@@ -40,8 +42,14 @@ def test_to_csv_rejects_ragged_rows():
         to_csv(["a", "b"], [[1]])
 
 
+# 20:00 UTC on 23 Oct is already 24 Oct in India.
+NOW = datetime(2026, 10, 23, 20, 0, tzinfo=UTC)
+
+
 def _client():
     app = FastAPI()
+    install_error_handlers(app)
+    app.dependency_overrides[get_clock] = lambda: FrozenClock(NOW)
 
     @app.get("/x")
     def x(page: PageParams = Depends(page_params), dates: DateRange = Depends(date_range)):
@@ -52,7 +60,8 @@ def _client():
 
 def test_paging_defaults_and_bounds():
     c = _client()
-    assert c.get("/x").json() == {"limit": 50, "offset": 0, "from": None, "to": None}
+    # No dates given: the longest allowed window, ending today in India.
+    assert c.get("/x").json() == {"limit": 50, "offset": 0, "from": "2025-10-24", "to": "2026-10-24"}
     assert c.get("/x?limit=200&offset=10").status_code == 200
     for bad in ("limit=0", "limit=201", "offset=-1"):
         assert c.get(f"/x?{bad}").status_code == 422
@@ -65,3 +74,13 @@ def test_date_range_rules():
     assert c.get("/x?from=2025-04-01&to=2026-04-01").status_code == 200  # 366 days inclusive
     assert c.get("/x?from=2025-03-31&to=2026-04-01").status_code == 422  # 367
     assert c.get("/x?from=not-a-date").status_code == 422
+    r = c.get("/x?from=2026-04-02&to=2026-04-01")
+    assert r.json()["error"] == {"code": "date_range_reversed", "message": "'from' is after 'to'", "field": "from"}
+
+
+def test_date_range_fills_the_missing_end():
+    c = _client()
+    assert c.get("/x?from=2026-04-01").json()["to"] == "2026-10-24"
+    assert c.get("/x?to=2026-03-31").json()["from"] == "2025-03-31"
+    # An old 'from' with no 'to' is still refused rather than silently cut.
+    assert c.get("/x?from=2024-01-01").status_code == 422

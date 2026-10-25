@@ -16,7 +16,7 @@ instance. Everything in AWS is Terraform.
 | `app/src/app/worker.py` | worker Lambda: SQS jobs | skeleton |
 | `app/src/app/modules/identity` | tenants, memberships, roles, invitations, audit log | working, tested |
 | `app/src/app/modules/imports` | marketplace file parsing and validation | parsing only, tested |
-| `libs/platform_common` | shared helpers: auth, tenancy, money, idempotency, permissions | working, tested |
+| `libs/platform_common` | shared helpers: auth, unit of work, errors (Deny → 404), permissions, clock, paging, money, idempotency | working, tested |
 | `migrator/` | applies every module's SQL migrations once, as the RDS master user | working, tested |
 
 See `docs/ARCHITECTURE.md` for the reasoning and costs.

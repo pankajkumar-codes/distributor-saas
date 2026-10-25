@@ -6,9 +6,12 @@ Use as FastAPI dependencies:
 """
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 
-from fastapi import HTTPException, Query, status
+from fastapi import Depends, Query
+
+from .clock import Clock, get_clock
+from .errors import Invalid
 
 DEFAULT_LIMIT = 50
 MAX_LIMIT = 200
@@ -23,8 +26,8 @@ class PageParams:
 
 @dataclass(frozen=True)
 class DateRange:
-    date_from: date | None
-    date_to: date | None
+    date_from: date
+    date_to: date
 
 
 def page_params(
@@ -37,13 +40,17 @@ def page_params(
 def date_range(
     date_from: date | None = Query(None, alias="from"),
     date_to: date | None = Query(None, alias="to"),
+    clock: Clock = Depends(get_clock),
 ) -> DateRange:
-    """Inclusive on both ends. A bounded range may span at most MAX_RANGE_DAYS."""
-    if date_from and date_to:
-        if date_from > date_to:
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "'from' is after 'to'")
-        if (date_to - date_from).days + 1 > MAX_RANGE_DAYS:
-            raise HTTPException(
-                status.HTTP_422_UNPROCESSABLE_ENTITY, f"date range is limited to {MAX_RANGE_DAYS} days"
-            )
+    """Inclusive on both ends, and always bounded, so no list scans all of history.
+
+    A missing `to` is today's Indian date; a missing `from` is the start of the longest
+    allowed window ending at `to`. A range may span at most MAX_RANGE_DAYS.
+    """
+    date_to = date_to or clock.today()
+    date_from = date_from or date_to - timedelta(days=MAX_RANGE_DAYS - 1)
+    if date_from > date_to:
+        raise Invalid("date_range_reversed", "'from' is after 'to'", field="from")
+    if (date_to - date_from).days + 1 > MAX_RANGE_DAYS:
+        raise Invalid("date_range_too_long", f"date range is limited to {MAX_RANGE_DAYS} days", field="from")
     return DateRange(date_from=date_from, date_to=date_to)
