@@ -23,7 +23,8 @@ from sqlalchemy.orm import sessionmaker
 
 from platform_common import uow as uow_mod
 from platform_common.errors import Deny, install_error_handlers
-from platform_common.uow import BusinessUoW, MeUoW, Principal, UnitOfWork, business_uow, unit_of_work
+from platform_common.permissions import Permission, require
+from platform_common.uow import BusinessUoW, MeUoW, Principal, unit_of_work
 
 ADMIN_URL = os.environ.get("PG_ADMIN_URL")
 pytestmark = pytest.mark.skipif(not ADMIN_URL, reason="PG_ADMIN_URL not set")
@@ -107,16 +108,10 @@ def t(pg, monkeypatch):
     _member(owner, a, names["alice"], "owner")
     _member(owner, b, names["bob"], "owner")
     _member(owner, a, names["carol"], "owner", status="disabled")
-    _member(owner, a, names["vic"], "viewer")  # not an owner: refused by owner_only
+    _member(owner, a, names["vic"], "viewer")  # a stock-era role the 4-role matrix doesn't know
     yield {"a": a, "b": b, **names, "owner": owner}
     uow_mod.set_session_factory(None)
     uow_mod.set_principal_resolver(None)
-
-
-def owner_only(uow: UnitOfWork = Depends(business_uow, scope="function")) -> None:
-    # Stands in for permissions.require, which moves onto the 4-role matrix next.
-    if uow.principal.role != "owner":
-        raise Deny("role_denied")
 
 
 def _app(calls=None):
@@ -124,7 +119,7 @@ def _app(calls=None):
     install_error_handlers(app)
     calls = calls if calls is not None else []
 
-    @app.get("/b/{business_id}/notes", dependencies=[Depends(owner_only)])
+    @app.get("/b/{business_id}/notes", dependencies=[Depends(require(Permission.CATALOG_VIEW))])
     def notes(uow: BusinessUoW):
         calls.append(id(uow))
         settings = uow.tx.execute(
@@ -132,7 +127,7 @@ def _app(calls=None):
         ).one()
         return {"count": uow.tx.scalar(text("select count(*) from demo.notes")), "settings": list(settings)}
 
-    @app.post("/b/{business_id}/notes", dependencies=[Depends(owner_only)])
+    @app.post("/b/{business_id}/notes", dependencies=[Depends(require(Permission.CATALOG_EDIT))])
     def add(business_id: str, body: str, uow: BusinessUoW, fail: bool = False):
         calls.append(id(uow))
         uow.tx.execute(text("insert into demo.notes (tenant_id, body) values (:t, :b)"), {"t": business_id, "b": body})
@@ -141,19 +136,19 @@ def _app(calls=None):
             raise Deny("not_found")
         return {"ok": True}
 
-    @app.post("/b/{business_id}/fails-at-commit", dependencies=[Depends(owner_only)])
+    @app.post("/b/{business_id}/fails-at-commit", dependencies=[Depends(require(Permission.CATALOG_EDIT))])
     def fails_at_commit(uow: BusinessUoW):
         uow.tx.execute(text("insert into demo.once values (1), (1)"))
         return {"ok": True}
 
-    @app.post("/b/{business_id}/nested", dependencies=[Depends(owner_only)])
+    @app.post("/b/{business_id}/nested", dependencies=[Depends(require(Permission.CATALOG_EDIT))])
     def nested(business_id: str, uow: BusinessUoW):
         uow.tx.execute(text("insert into demo.notes (tenant_id, body) values (:t, 'outer')"), {"t": business_id})
         with unit_of_work(uow.principal):
             pass
         return {"ok": True}
 
-    @app.post("/b/{business_id}/nested-async", dependencies=[Depends(owner_only)])
+    @app.post("/b/{business_id}/nested-async", dependencies=[Depends(require(Permission.CATALOG_EDIT))])
     async def nested_async(business_id: str, uow: BusinessUoW):
         uow.tx.execute(text("insert into demo.notes (tenant_id, body) values (:t, 'outer')"), {"t": business_id})
         with unit_of_work(uow.principal):
@@ -185,7 +180,7 @@ def test_member_gets_role_and_context(t):
         ("unknown_business", "not_member"),
         ("malformed", "not_found"),
         ("disabled_member", "not_member"),
-        ("not_an_owner", "role_denied"),
+        ("role_unknown_to_matrix", "role_denied"),
     ],
 )
 def test_every_refusal_is_the_same_404(t, case, reason, caplog):
@@ -195,7 +190,7 @@ def test_every_refusal_is_the_same_404(t, case, reason, caplog):
         "unknown_business": (uuid.uuid4(), t["alice"]),
         "malformed": ("not-a-uuid", t["alice"]),
         "disabled_member": (t["a"], t["carol"]),
-        "not_an_owner": (t["a"], t["vic"]),
+        "role_unknown_to_matrix": (t["a"], t["vic"]),
     }[case]
     r = _app().get(f"/b/{business}/notes", headers={"x-debug-user": user})
     assert (r.status_code, r.json()) == (404, {"error": {"code": "not_found", "message": "not found"}})
@@ -220,7 +215,7 @@ def test_commits_before_the_response_and_once_per_request(t, monkeypatch):
     assert r.status_code == 200
     assert _count(t["owner"], t["a"]) == 1
     assert calls[-1] == "after_commit"
-    # owner_only and the endpoint share one unit of work: one transaction per request.
+    # require() and the endpoint share one unit of work: one transaction per request.
     assert len(opened) == 1
 
 

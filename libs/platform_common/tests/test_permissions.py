@@ -1,16 +1,17 @@
-"""E0-4 / T-002: every permission x role pair, reasons for ⚠ actions, cost stripping, doc sync.
+"""The role table, one test per cell, and the `require` dependency.
 
-EXPECTED is transcribed by hand from the Product Owner's roles matrix (PO-1), one row per
-matrix action, so changing what a role may do must change this table too and shows up in review.
-Columns: owner admin sales inventory finance viewer; "x" allowed, "." denied.
+EXPECTED is copied by hand from the BRD role table (team/lead/hld-inputs-brd-mocks.md
+section B), not read from the YAML, so an edit to the YAML that the Product Owner
+didn't make fails here.
 """
 
-import re
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
-from fastapi import HTTPException
 
+from platform_common.errors import Deny, Invalid
 from platform_common.permissions import (
     MAX_REASON_LENGTH,
     PERMISSION_ROLES,
@@ -19,193 +20,122 @@ from platform_common.permissions import (
     Permission,
     Role,
     has_permission,
-    require_permission,
-    roles_with,
-    without_cost_fields,
+    matrix,
+    require,
+    require_reason,
+    validate,
 )
+from platform_common.uow import Principal, UnitOfWork
 
+ROLES = [Role.owner, Role.admin, Role.billing, Role.ca]
 P = Permission
-ORDER = [Role.owner, Role.admin, Role.sales, Role.inventory, Role.finance, Role.viewer]
-
-EXPECTED = {
-    # Tenant and setup
-    P.PROFILE_VIEW: "xxxxxx",
-    P.PROFILE_EDIT: "xx....",
-    P.PROFILE_CHANGE_GSTIN_AFTER_FINALIZED: "x.....",
-    P.MEMBERS_INVITE: "xx....",
-    P.MEMBERS_MANAGE_OWNERS: "x.....",
-    P.MEMBERS_DEACTIVATE: "xx....",
-    P.AUDIT_VIEW: "xx....",
-    P.TENANT_SETTINGS_EDIT: "x.....",
-    # Catalog, suppliers, purchases
-    P.CATALOG_VIEW: "xxxxxx",
-    P.CATALOG_EDIT: "xx.x..",
-    P.CATALOG_IMPORT_CONFIRM: "xx.x..",
-    P.SKU_MAPPING_EDIT: "xx.x..",
-    P.SUPPLIERS_EDIT: "xx.xx.",
-    P.PURCHASE_DRAFT: "xx.xx.",
-    P.PURCHASE_POST: "xx.xx.",
-    P.STOCK_RECEIVE: "xx.x..",
-    P.STOCK_OVER_RECEIVE: "xx.x..",
-    P.SUPPLIER_PAYMENT_RECORD: "xx..x.",
-    # Stock
-    P.STOCK_VIEW: "xxxxxx",
-    P.OPENING_STOCK_POST: "xx.x..",
-    P.STOCK_ADJUST: "xx.x..",
-    P.STOCK_ADJUST_ABOVE_THRESHOLD: "xx....",
-    P.RETURNS_INSPECT: "xx.x..",
-    P.STOCK_POST_NEGATIVE: "xx....",
-    # Imports
-    P.IMPORT_ORDERS_UPLOAD: "xxxx..",
-    P.IMPORT_ORDERS_CONFIRM: "xx.x..",
-    P.IMPORT_SETTLEMENT: "xx..x.",
-    P.IMPORT_EXCEPTIONS_FIX: "xx.x..",
-    P.IMPORT_SETTLEMENT_EXCEPTIONS_FIX: "xx..x.",
-    P.IMPORT_RAW_DOWNLOAD: "xx....",
-    # Wholesale sales and money
-    P.CUSTOMERS_EDIT: "xxx.x.",
-    P.INVOICE_DRAFT: "xxx.x.",
-    P.INVOICE_FINALIZE: "xxx.x.",
-    P.CREDIT_DEBIT_NOTE: "xx..x.",
-    P.INVOICE_PDF_DOWNLOAD: "xxx.xx",
-    P.PAYMENT_RECORD: "xxx.x.",
-    P.PAYMENT_ALLOCATE: "xx..x.",
-    P.PAYMENT_REALLOCATE: "xx..x.",
-    P.SETTLEMENT_MANUAL_MATCH: "xx..x.",
-    P.EXPENSE_RECORD: "xx..x.",
-    # Reports and exports
-    P.COST_VIEW: "xx..x.",
-    P.SALES_REPORT_VIEW: "xxx.xx",
-    P.PURCHASE_REGISTER_VIEW: "xx.xx.",
-    P.SUPPLIER_BALANCES_VIEW: "xx..x.",
-    P.RECEIVABLES_VIEW: "xxx.x.",
-    P.GST_SUMMARY_VIEW: "xx..x.",
-    P.ACCOUNTANT_EXPORT: "xx..x.",
-}
-
-# The matrix's ⚠ rows.
-EXPECTED_REASON = {
-    P.PROFILE_CHANGE_GSTIN_AFTER_FINALIZED,
-    P.MEMBERS_DEACTIVATE,
-    P.TENANT_SETTINGS_EDIT,
-    P.STOCK_OVER_RECEIVE,
-    P.STOCK_ADJUST,
-    P.STOCK_ADJUST_ABOVE_THRESHOLD,
-    P.STOCK_POST_NEGATIVE,
-    P.CREDIT_DEBIT_NOTE,
-    P.PAYMENT_REALLOCATE,
-    P.SETTLEMENT_MANUAL_MATCH,
-}
+#                                owner admin billing ca
+EXPECTED: dict[Permission, str] = {
+    P.SETTINGS_EDIT:        "xx..",
+    P.MEMBERS_MANAGE:       "xx..",
+    P.CATALOG_VIEW:         "xxxx",
+    P.CATALOG_EDIT:         "xxx.",
+    P.DOCUMENTS_CREATE:     "xxx.",
+    P.DOCUMENTS_MARK_PAID:  "xxx.",
+    P.UPLOADS_CREATE:       "xx.x",
+    P.RETURNS_PREPARE:      "xx.x",
+    P.RETURNS_LOCK:         "xx.x",
+    P.RETURNS_UNLOCK:       "x...",
+    P.AUDIT_VIEW:           "xx..",
+    P.SUPPORT_GRANT:        "x...",
+}  # fmt: skip
+REPO = Path(__file__).resolve().parents[3]
 
 
-def _allowed(permission: Permission, role: Role) -> bool:
-    return EXPECTED[permission][ORDER.index(role)] == "x"
-
-
-def test_every_permission_is_in_the_expected_table():
+def test_every_permission_has_an_expected_row():
     assert set(EXPECTED) == set(Permission) == set(PERMISSION_ROLES)
 
 
-@pytest.mark.parametrize("role", ORDER, ids=lambda r: r.value)
-@pytest.mark.parametrize("permission", list(Permission), ids=lambda p: p.value)
-def test_permission_per_role(permission, role):
-    allowed = _allowed(permission, role)
+@pytest.mark.parametrize("permission", list(Permission))
+@pytest.mark.parametrize("role", ROLES)
+def test_cell(permission, role):
+    allowed = EXPECTED[permission][ROLES.index(role)] == "x"
     assert has_permission(role, permission) is allowed
-    reason = "counted twice" if permission in EXPECTED_REASON else None
-    if allowed:
-        require_permission(role, permission, reason=reason)
-    else:
-        with pytest.raises(HTTPException) as exc:
-            require_permission(role, permission, reason=reason)
-        assert exc.value.status_code == 403
+    assert has_permission(role.value, permission) is allowed
+    assert (permission in ROLE_PERMISSIONS[role]) is allowed
 
 
-def test_reason_required_set_matches_matrix():
-    assert REASON_REQUIRED == EXPECTED_REASON
-
-
-@pytest.mark.parametrize("permission", sorted(EXPECTED_REASON), ids=lambda p: p.value)
-@pytest.mark.parametrize("reason", [None, "", "   "])
-def test_reason_required_actions_reject_blank_reason(permission, reason):
-    with pytest.raises(HTTPException) as exc:
-        require_permission(Role.owner, permission, reason=reason)
-    assert exc.value.status_code == 422
-
-
-def test_reason_longer_than_limit_is_rejected():
-    require_permission(Role.owner, P.STOCK_ADJUST, reason="x" * MAX_REASON_LENGTH)
-    with pytest.raises(HTTPException) as exc:
-        require_permission(Role.owner, P.STOCK_ADJUST, reason="x" * (MAX_REASON_LENGTH + 1))
-    assert exc.value.status_code == 422
-
-
-def test_denied_role_gets_403_before_reason_is_checked():
-    with pytest.raises(HTTPException) as exc:
-        require_permission(Role.viewer, P.STOCK_ADJUST, reason=None)
-    assert exc.value.status_code == 403
-
-
-def test_owner_has_everything():
-    assert ROLE_PERMISSIONS[Role.owner] == frozenset(Permission)
-
-
-def test_admin_lacks_only_owner_powers():
-    assert frozenset(Permission) - ROLE_PERMISSIONS[Role.admin] == {
-        P.PROFILE_CHANGE_GSTIN_AFTER_FINALIZED,
-        P.MEMBERS_MANAGE_OWNERS,
-        P.TENANT_SETTINGS_EDIT,
-    }
-
-
-@pytest.mark.parametrize("role", ["owner", "viewer"])
-def test_role_given_as_stored_string(role):
-    assert has_permission(role, P.STOCK_VIEW)
-
-
-@pytest.mark.parametrize("role", ["superuser", "", "OWNER", None])
+@pytest.mark.parametrize("role", [None, "", "Owner", "sales", "viewer", "superuser"])
 def test_unknown_role_gets_nothing(role):
     assert not any(has_permission(role, p) for p in Permission)
-    with pytest.raises(HTTPException) as exc:
-        require_permission(role, P.STOCK_VIEW)
-    assert exc.value.status_code == 403
 
 
-def test_roles_with():
-    assert roles_with(P.MEMBERS_INVITE) == {Role.owner, Role.admin}
+def _uow(role, grant=None) -> UnitOfWork:
+    principal = Principal(user_sub="u", request_id="r", role=role, support_grant_id=grant)
+    return UnitOfWork(tx=None, principal=principal, read_only=False)
 
 
-COST_FIELDS = frozenset({"unit_cost", "stock_value", "margin"})
-
-
-@pytest.mark.parametrize("role", ORDER, ids=lambda r: r.value)
-def test_cost_fields_removed_for_sales_inventory_viewer(role):
-    row = {"sku": "SKU-1", "on_hand": 4, "unit_cost": "12.50", "stock_value": "50.00", "margin": "3.10"}
-    out = without_cost_fields(role, row, COST_FIELDS)
-    if role in (Role.owner, Role.admin, Role.finance):
-        assert out == row
+@pytest.mark.parametrize("permission", list(Permission))
+@pytest.mark.parametrize("role", ROLES)
+def test_require_refuses_with_role_denied(permission, role):
+    check = require(permission)
+    assert check.permission is permission
+    if EXPECTED[permission][ROLES.index(role)] == "x":
+        assert check(_uow(role.value)) is None
     else:
-        assert out == {"sku": "SKU-1", "on_hand": 4}
+        with pytest.raises(Deny) as exc:
+            check(_uow(role.value))
+        assert exc.value.reason == "role_denied"
 
 
-def _doc_matrix() -> tuple[dict[str, str], set[str]]:
-    doc = Path(__file__).resolve().parents[3] / "docs" / "PERMISSIONS.md"
-    lines = doc.read_text(encoding="utf-8").splitlines()
-    header = next(line for line in lines if line.startswith("| Permission |"))
-    roles = [c.strip() for c in header.strip("|").split("|")[2:]]
-    assert roles == [r.value for r in ORDER]
-    matrix, reasons = {}, set()
-    for line in lines:
-        m = re.match(r"\| `([a-z_.]+)` \|", line)
-        if m:
-            marks = [c.strip() for c in line.strip("|").split("|")[2:]]
-            assert set(marks) <= {"✅", "⚠", "❌"}, line
-            matrix[m.group(1)] = "".join("." if mark == "❌" else "x" for mark in marks)
-            if "⚠" in marks:
-                reasons.add(m.group(1))
-    return matrix, reasons
+@pytest.mark.parametrize("permission", list(Permission))
+def test_support_principal_may_only_view(permission):
+    check = require(permission)
+    if permission.value.endswith(".view"):
+        assert check(_uow("owner", grant="g")) is None
+    else:
+        with pytest.raises(Deny) as exc:
+            check(_uow("owner", grant="g"))
+        assert exc.value.reason == "support_no_grant"
 
 
-def test_docs_matrix_matches_code():
-    matrix, reasons = _doc_matrix()
-    assert matrix == {p.value: EXPECTED[p] for p in Permission}
-    assert reasons == {p.value for p in REASON_REQUIRED}
+def test_reason_required_actions():
+    assert "returns.unlock" in REASON_REQUIRED
+    assert require_reason("returns.unlock", "  wrong ARN ") == "wrong ARN"
+
+
+@pytest.mark.parametrize("reason", [None, "", "   ", "\n\t"])
+def test_blank_reason_is_invalid(reason):
+    with pytest.raises(Invalid) as exc:
+        require_reason("members.deactivate", reason)
+    assert exc.value.code == "reason_required" and exc.value.status == 422
+
+
+def test_long_reason_is_invalid():
+    require_reason("returns.unlock", "x" * MAX_REASON_LENGTH)
+    with pytest.raises(Invalid):
+        require_reason("returns.unlock", "x" * (MAX_REASON_LENGTH + 1))
+
+
+def test_unknown_reason_action_is_a_programming_error():
+    with pytest.raises(ValueError):
+        require_reason("catalog.edit", "why")
+
+
+@pytest.mark.parametrize(
+    "edit",
+    [
+        lambda d: d["roles"].append("viewer"),
+        lambda d: d["permissions"].pop("support.grant"),
+        lambda d: d["permissions"]["catalog.edit"]["roles"].append("sales"),
+    ],
+)
+def test_matrix_that_disagrees_with_the_enums_is_refused(edit):
+    import copy
+
+    data = copy.deepcopy(matrix())
+    edit(data)
+    with pytest.raises(RuntimeError):
+        validate(data)
+
+
+def test_permissions_doc_is_generated_from_the_matrix():
+    result = subprocess.run(
+        [sys.executable, str(REPO / "scripts" / "gen_permissions_doc.py"), "--check"], capture_output=True, text=True
+    )
+    assert result.returncode == 0, result.stdout

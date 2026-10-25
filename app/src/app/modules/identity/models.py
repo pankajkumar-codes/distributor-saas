@@ -5,8 +5,6 @@ from datetime import UTC, datetime
 from sqlalchemy import JSON, DateTime, Enum, ForeignKey, Index, String, UniqueConstraint, Uuid, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-from platform_common.permissions import Permission, Role, roles_with
-
 SCHEMA = "identity"
 
 
@@ -18,8 +16,25 @@ class Base(DeclarativeBase):
     pass
 
 
-MANAGE_MEMBERS = roles_with(Permission.MEMBERS_INVITE)
-READ_AUDIT = roles_with(Permission.AUDIT_VIEW)
+class Role(str, enum.Enum):
+    """The six stock-era roles that identity's grandfathered check constraints still allow.
+
+    LLD-1's reshape replaces them with platform_common.permissions.Role (owner, admin,
+    billing, CA) and moves identity onto `require`. Until then they stay here, inside
+    identity, so no other module can use them.
+    """
+
+    owner = "owner"
+    admin = "admin"
+    sales = "sales"
+    inventory = "inventory"
+    finance = "finance"
+    viewer = "viewer"
+
+
+# From the stock-era matrix: members.invite and audit.view were owner and admin.
+MANAGE_MEMBERS = frozenset({Role.owner, Role.admin})
+READ_AUDIT = frozenset({Role.owner, Role.admin})
 
 
 class MembershipStatus(str, enum.Enum):
