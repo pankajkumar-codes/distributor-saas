@@ -9,5 +9,9 @@ dependencies = ["fastapi>=0.121", "sqlalchemy>=2.0", "pyyaml>=6.0"]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
+# Only the package: migrations/ is SQL the migrator collects, not Python.
+[tool.setuptools]
+packages = ["platform_common"]
+
 [tool.setuptools.package-data]
 platform_common = ["*.yaml"]
