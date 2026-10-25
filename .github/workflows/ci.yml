@@ -78,6 +78,9 @@ jobs:
         run: python scripts/float_guard.py
       - name: Float guard self-test
         run: pytest -q tests/tools
+      - name: Destructive migrations carry an approval header
+        # LLD-0 §5; the CLI skips grandfathered NNNN_ files
+        run: PYTHONPATH=migrator python -m migrator.lint $(git ls-files 'app/src/app/modules/*/migrations/*.sql' 'libs/platform_common/migrations/*.sql')
 
   boundaries:
     # import-linter contracts in .importlinter (LLD-0 §7).
