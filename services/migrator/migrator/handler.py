@@ -1,5 +1,9 @@
 """Applies each service's SQL migrations in order, once, as the RDS master user.
 
+bootstrap.sql (the cluster-wide roles, LLD-0 §4.1) runs before the ledger files and
+again after them, on every run: the second pass adds grants to roles that the ledger
+files have just created.
+
 Invoked by the deploy step after Terraform apply. Migrations are packaged into the
 zip under migrations/<service>/NNNN_name.sql. A migration that was already applied
 with different content stops the run instead of being silently skipped.
@@ -7,6 +11,7 @@ with different content stops the run instead of being silently skipped.
 
 import hashlib
 import json
+import logging
 import os
 from pathlib import Path
 
@@ -14,6 +19,13 @@ import psycopg
 
 SERVICE_ORDER = ["identity", "commerce", "imports", "documents", "reports"]
 MIGRATIONS_DIR = Path(__file__).parent.parent / "migrations"
+BOOTSTRAP = Path(__file__).parent / "bootstrap.sql"
+log = logging.getLogger(__name__)
+
+
+def bootstrap(conn) -> None:
+    with conn.transaction():
+        conn.execute(BOOTSTRAP.read_text())
 
 
 def pending(conn, root: Path = MIGRATIONS_DIR):
@@ -41,6 +53,7 @@ def pending(conn, root: Path = MIGRATIONS_DIR):
 
 
 def migrate(conn, root: Path = MIGRATIONS_DIR) -> list[str]:
+    bootstrap(conn)
     done = []
     for service, name, sql, checksum in list(pending(conn, root)):
         with conn.transaction():
@@ -50,6 +63,12 @@ def migrate(conn, root: Path = MIGRATIONS_DIR) -> list[str]:
                 (service, name, checksum),
             )
         done.append(f"{service}/{name}")
+    try:
+        bootstrap(conn)
+    except Exception:
+        # The ledger is committed; only the grants of this pass are missing until the next run.
+        log.error("ledger applied (%s), bootstrap pass 2 failed", ", ".join(done) or "nothing new")
+        raise
     return done
 
 
