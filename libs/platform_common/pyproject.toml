@@ -3,8 +3,11 @@ name = "platform-common"
 version = "0.1.0"
 requires-python = ">=3.12"
 # fastapi 0.121 added Depends(scope="function"): units of work commit before the response.
-dependencies = ["fastapi>=0.121", "sqlalchemy>=2.0"]
+dependencies = ["fastapi>=0.121", "sqlalchemy>=2.0", "pyyaml>=6.0"]
 
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.package-data]
+platform_common = ["*.yaml"]

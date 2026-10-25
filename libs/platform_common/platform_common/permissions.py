@@ -1,179 +1,85 @@
-"""Roles and what each one may do (backlog E0-4, docs/PERMISSIONS.md).
+"""Roles, permissions and the `require` check (LLD-0 §3.3, docs/PERMISSIONS.md).
 
-The matrix is the Product Owner's decision (team roles matrix, PO-1); this module is its
-one table in code. Every service checks it on the server; the UI hiding a button is never
-the control. Permissions are fixed per role (no per-tenant overrides).
+The cells live in `permissions_matrix.yaml`, which the Product Owner owns. This module
+loads it and refuses to import if the YAML and the enums below disagree, so a role or
+permission can't exist in one and not the other.
 
-Order of checks in an endpoint:
-1. Resolve the caller's *active* membership for the tenant. Not a member, or the
-   tenant does not exist: 404 (platform_common.tenancy.not_found), so other tenants'
-   ids reveal nothing.
-2. `require_permission(membership.role, Permission.X, reason=...)`. A member without the
-   right: 403. For permissions in REASON_REQUIRED a blank reason is 422, and the endpoint
-   must write an audit event carrying the reason in the same transaction as the change.
+Every business route declares its permission:
+
+    @router.post("", dependencies=[Depends(require(Permission.CATALOG_EDIT))])
+    def create_product(uow: BusinessUoW, ...): ...
+
+`require` reads the role that the unit of work resolved from the caller's active
+membership. A role without the permission gets `Deny("role_denied")`, which renders as
+the same 404 as an unknown business (ON-2). The UI hiding a button is never the control.
 """
 
 import enum
+from collections.abc import Callable
+from functools import cache
+from pathlib import Path
 
-from fastapi import HTTPException, status
+import yaml
+from fastapi import Depends
+
+from .errors import Deny, Invalid
+from .uow import UnitOfWork, business_uow
+
+MATRIX_FILE = Path(__file__).with_name("permissions_matrix.yaml")
+MAX_REASON_LENGTH = 500
 
 
 class Role(str, enum.Enum):
     owner = "owner"
     admin = "admin"
-    sales = "sales"
-    inventory = "inventory"
-    finance = "finance"
-    viewer = "viewer"
+    billing = "billing"
+    ca = "ca"
 
 
 class Permission(str, enum.Enum):
-    # Tenant and setup
-    PROFILE_VIEW = "profile.view"
-    PROFILE_EDIT = "profile.edit"
-    PROFILE_CHANGE_GSTIN_AFTER_FINALIZED = "profile.change_gstin_after_finalized"
-    MEMBERS_INVITE = "members.invite"
-    MEMBERS_MANAGE_OWNERS = "members.manage_owners"
-    MEMBERS_DEACTIVATE = "members.deactivate"
-    AUDIT_VIEW = "audit.view"
-    TENANT_SETTINGS_EDIT = "tenant_settings.edit"
-
-    # Catalog, suppliers, purchases
+    SETTINGS_EDIT = "settings.edit"
+    MEMBERS_MANAGE = "members.manage"
     CATALOG_VIEW = "catalog.view"
     CATALOG_EDIT = "catalog.edit"
-    CATALOG_IMPORT_CONFIRM = "catalog.import_confirm"
-    SKU_MAPPING_EDIT = "sku_mapping.edit"
-    SUPPLIERS_EDIT = "suppliers.edit"
-    PURCHASE_DRAFT = "purchase.draft"
-    PURCHASE_POST = "purchase.post"
-    STOCK_RECEIVE = "stock.receive"
-    STOCK_OVER_RECEIVE = "stock.over_receive"
-    SUPPLIER_PAYMENT_RECORD = "supplier_payment.record"
-
-    # Stock
-    STOCK_VIEW = "stock.view"
-    OPENING_STOCK_POST = "opening_stock.post"
-    STOCK_ADJUST = "stock.adjust"
-    STOCK_ADJUST_ABOVE_THRESHOLD = "stock.adjust_above_threshold"
-    RETURNS_INSPECT = "returns.inspect"
-    STOCK_POST_NEGATIVE = "stock.post_negative"
-
-    # Imports
-    IMPORT_ORDERS_UPLOAD = "import.orders_upload"
-    IMPORT_ORDERS_CONFIRM = "import.orders_confirm"
-    IMPORT_SETTLEMENT = "import.settlement"
-    IMPORT_EXCEPTIONS_FIX = "import.exceptions_fix"
-    IMPORT_SETTLEMENT_EXCEPTIONS_FIX = "import.settlement_exceptions_fix"
-    IMPORT_RAW_DOWNLOAD = "import.raw_download"
-
-    # Wholesale sales and money
-    CUSTOMERS_EDIT = "customers.edit"
-    INVOICE_DRAFT = "invoice.draft"
-    INVOICE_FINALIZE = "invoice.finalize"
-    CREDIT_DEBIT_NOTE = "credit_debit_note.issue"
-    INVOICE_PDF_DOWNLOAD = "invoice.pdf_download"
-    PAYMENT_RECORD = "payment.record"
-    PAYMENT_ALLOCATE = "payment.allocate"
-    PAYMENT_REALLOCATE = "payment.reallocate"
-    SETTLEMENT_MANUAL_MATCH = "settlement.manual_match"
-    EXPENSE_RECORD = "expense.record"
-
-    # Reports and exports
-    COST_VIEW = "cost.view"
-    SALES_REPORT_VIEW = "sales_report.view"
-    PURCHASE_REGISTER_VIEW = "purchase_register.view"
-    SUPPLIER_BALANCES_VIEW = "supplier_balances.view"
-    RECEIVABLES_VIEW = "receivables.view"
-    GST_SUMMARY_VIEW = "gst_summary.view"
-    ACCOUNTANT_EXPORT = "accountant.export"
+    DOCUMENTS_CREATE = "documents.create"
+    DOCUMENTS_MARK_PAID = "documents.mark_paid"
+    UPLOADS_CREATE = "uploads.create"
+    RETURNS_PREPARE = "returns.prepare"
+    RETURNS_LOCK = "returns.lock"
+    RETURNS_UNLOCK = "returns.unlock"
+    AUDIT_VIEW = "audit.view"
+    SUPPORT_GRANT = "support.grant"
 
 
-P = Permission
-_ALL = frozenset(Role)
-_OA = frozenset({Role.owner, Role.admin})
+def validate(data: dict) -> dict:
+    """Refuse a matrix whose roles or permissions differ from the enums."""
+    if data["roles"] != [r.value for r in Role]:
+        raise RuntimeError("permissions_matrix.yaml roles differ from Role")
+    if list(data["permissions"]) != [p.value for p in Permission]:
+        raise RuntimeError("permissions_matrix.yaml permissions differ from Permission (names or order)")
+    for name, entry in data["permissions"].items():
+        unknown = set(entry["roles"]) - set(data["roles"])
+        if unknown:
+            raise RuntimeError(f"{name}: unknown roles {sorted(unknown)}")
+    return data
 
 
-def _r(*roles: Role) -> frozenset[Role]:
-    return _OA | frozenset(roles)
+@cache
+def matrix() -> dict:
+    return validate(yaml.safe_load(MATRIX_FILE.read_text()))
 
 
-# The one table: permission -> roles allowed. Owner and admin are included by _r().
 PERMISSION_ROLES: dict[Permission, frozenset[Role]] = {
-    P.PROFILE_VIEW: _ALL,
-    P.PROFILE_EDIT: _r(),
-    P.PROFILE_CHANGE_GSTIN_AFTER_FINALIZED: frozenset({Role.owner}),
-    P.MEMBERS_INVITE: _r(),
-    P.MEMBERS_MANAGE_OWNERS: frozenset({Role.owner}),
-    P.MEMBERS_DEACTIVATE: _r(),
-    P.AUDIT_VIEW: _r(),
-    P.TENANT_SETTINGS_EDIT: frozenset({Role.owner}),
-    P.CATALOG_VIEW: _ALL,
-    P.CATALOG_EDIT: _r(Role.inventory),
-    P.CATALOG_IMPORT_CONFIRM: _r(Role.inventory),
-    P.SKU_MAPPING_EDIT: _r(Role.inventory),
-    P.SUPPLIERS_EDIT: _r(Role.inventory, Role.finance),
-    P.PURCHASE_DRAFT: _r(Role.inventory, Role.finance),
-    P.PURCHASE_POST: _r(Role.inventory, Role.finance),
-    P.STOCK_RECEIVE: _r(Role.inventory),
-    P.STOCK_OVER_RECEIVE: _r(Role.inventory),
-    P.SUPPLIER_PAYMENT_RECORD: _r(Role.finance),
-    P.STOCK_VIEW: _ALL,
-    P.OPENING_STOCK_POST: _r(Role.inventory),
-    P.STOCK_ADJUST: _r(Role.inventory),
-    P.STOCK_ADJUST_ABOVE_THRESHOLD: _r(),
-    P.RETURNS_INSPECT: _r(Role.inventory),
-    P.STOCK_POST_NEGATIVE: _r(),
-    P.IMPORT_ORDERS_UPLOAD: _r(Role.sales, Role.inventory),
-    P.IMPORT_ORDERS_CONFIRM: _r(Role.inventory),
-    P.IMPORT_SETTLEMENT: _r(Role.finance),
-    P.IMPORT_EXCEPTIONS_FIX: _r(Role.inventory),
-    P.IMPORT_SETTLEMENT_EXCEPTIONS_FIX: _r(Role.finance),
-    P.IMPORT_RAW_DOWNLOAD: _r(),
-    P.CUSTOMERS_EDIT: _r(Role.sales, Role.finance),
-    P.INVOICE_DRAFT: _r(Role.sales, Role.finance),
-    P.INVOICE_FINALIZE: _r(Role.sales, Role.finance),
-    P.CREDIT_DEBIT_NOTE: _r(Role.finance),
-    P.INVOICE_PDF_DOWNLOAD: _r(Role.sales, Role.finance, Role.viewer),
-    P.PAYMENT_RECORD: _r(Role.sales, Role.finance),
-    P.PAYMENT_ALLOCATE: _r(Role.finance),
-    P.PAYMENT_REALLOCATE: _r(Role.finance),
-    P.SETTLEMENT_MANUAL_MATCH: _r(Role.finance),
-    P.EXPENSE_RECORD: _r(Role.finance),
-    P.COST_VIEW: _r(Role.finance),
-    P.SALES_REPORT_VIEW: _r(Role.sales, Role.finance, Role.viewer),
-    P.PURCHASE_REGISTER_VIEW: _r(Role.inventory, Role.finance),
-    P.SUPPLIER_BALANCES_VIEW: _r(Role.finance),
-    P.RECEIVABLES_VIEW: _r(Role.sales, Role.finance),
-    P.GST_SUMMARY_VIEW: _r(Role.finance),
-    P.ACCOUNTANT_EXPORT: _r(Role.finance),
+    Permission(name): frozenset(Role(r) for r in entry["roles"]) for name, entry in matrix()["permissions"].items()
 }
-
-# Reasons land in audit event details; same bound as other free-text audit fields.
-MAX_REASON_LENGTH = 500
-
-# The matrix's ⚠ actions: allowed only with a non-blank reason, recorded in an audit event.
-REASON_REQUIRED: frozenset[Permission] = frozenset(
-    {
-        P.PROFILE_CHANGE_GSTIN_AFTER_FINALIZED,
-        P.MEMBERS_DEACTIVATE,
-        P.TENANT_SETTINGS_EDIT,
-        P.STOCK_OVER_RECEIVE,
-        P.STOCK_ADJUST,
-        P.STOCK_ADJUST_ABOVE_THRESHOLD,
-        P.STOCK_POST_NEGATIVE,
-        P.CREDIT_DEBIT_NOTE,
-        P.PAYMENT_REALLOCATE,
-        P.SETTLEMENT_MANUAL_MATCH,
-    }
-)
-
 ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
     role: frozenset(p for p, roles in PERMISSION_ROLES.items() if role in roles) for role in Role
 }
+REASON_REQUIRED: frozenset[str] = frozenset(matrix()["reason_required"])
 
 
 def has_permission(role: Role | str | None, permission: Permission) -> bool:
-    """False for unknown roles: a role string from storage that we don't recognise gets nothing."""
+    """False for an unknown role: a stored role string we don't recognise gets nothing."""
     try:
         role = Role(role)
     except ValueError:
@@ -181,32 +87,34 @@ def has_permission(role: Role | str | None, permission: Permission) -> bool:
     return role in PERMISSION_ROLES[permission]
 
 
-def require_permission(role: Role | str | None, permission: Permission, reason: str | None = None) -> None:
-    """Call after the caller's active membership is resolved.
+def require(permission: Permission) -> Callable[[UnitOfWork], None]:
+    """FastAPI dependency: refuse the request unless the caller's role has `permission`.
 
-    403 if the role lacks the permission; 422 if the permission needs a reason and none was given,
-    or it is longer than MAX_REASON_LENGTH. 422 is a literal because Starlette renamed its constant.
+    A support user under a grant may only read, so anything but a `.view` permission is
+    `support_no_grant`. The function carries `.permission` so the route-coverage check
+    (LLD-0 §7) can find each route's permission.
     """
-    if not has_permission(role, permission):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "not allowed")
-    if permission in REASON_REQUIRED:
-        if not (reason and reason.strip()):
-            raise HTTPException(422, "a reason is required")
-        if len(reason) > MAX_REASON_LENGTH:
-            raise HTTPException(422, f"reason must be at most {MAX_REASON_LENGTH} characters")
+    permission = Permission(permission)
+
+    def check(uow: UnitOfWork = Depends(business_uow, scope="function")) -> None:
+        principal = uow.principal
+        if principal.support_grant_id is not None and not permission.value.endswith(".view"):
+            raise Deny("support_no_grant")
+        if not has_permission(principal.role, permission):
+            raise Deny("role_denied")
+
+    check.permission = permission
+    check.__name__ = f"require_{permission.name.lower()}"
+    return check
 
 
-def roles_with(permission: Permission) -> frozenset[Role]:
-    return PERMISSION_ROLES[permission]
-
-
-def without_cost_fields(role: Role | str | None, row: dict, cost_fields: frozenset[str] | set[str]) -> dict:
-    """Drop purchase-rate, cost, valuation, margin and profit fields for roles without COST_VIEW.
-
-    The fields are removed, not blanked, so a client can't tell a hidden cost from a zero one.
-    Exception per the matrix: the purchase register shows purchase rates to PURCHASE_REGISTER_VIEW,
-    so that endpoint does not call this for its rate columns.
-    """
-    if has_permission(role, Permission.COST_VIEW):
-        return row
-    return {k: v for k, v in row.items() if k not in cost_fields}
+def require_reason(action: str, reason: str | None) -> str:
+    """The reason for an action in REASON_REQUIRED, stripped; Invalid if blank or too long."""
+    if action not in REASON_REQUIRED:
+        raise ValueError(f"{action!r} is not a reason-required action")
+    text = (reason or "").strip()
+    if not text:
+        raise Invalid("reason_required", "a reason is required", field="reason")
+    if len(text) > MAX_REASON_LENGTH:
+        raise Invalid("reason_too_long", f"reason must be at most {MAX_REASON_LENGTH} characters", field="reason")
+    return text

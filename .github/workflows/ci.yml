@@ -82,6 +82,17 @@ jobs:
         # LLD-0 §5; the CLI skips grandfathered NNNN_ files
         run: PYTHONPATH=migrator python -m migrator.lint $(git ls-files 'app/src/app/modules/*/migrations/*.sql' 'libs/platform_common/migrations/*.sql')
 
+  permissions-doc:
+    # docs/PERMISSIONS.md must be the page generated from the role matrix (LLD-0 §7).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pyyaml
+      - run: python scripts/gen_permissions_doc.py --check
+
   boundaries:
     # import-linter contracts in .importlinter (LLD-0 §7).
     runs-on: ubuntu-latest

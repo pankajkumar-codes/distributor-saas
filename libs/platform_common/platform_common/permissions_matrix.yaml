@@ -1,0 +1,58 @@
+# The Release 1 role table (BRD under ON-5; team/lead/hld-inputs-brd-mocks.md section B).
+# The Product Owner owns the cells. This file is the only copy in code: permissions.py
+# loads it, the tests are generated from it, and docs/PERMISSIONS.md is generated from
+# it (scripts/gen_permissions_doc.py; CI fails when the page is stale).
+#
+# One permission per role-table row (LLD-0 §3.3), plus catalog.view for the CA's
+# "view only" cell. A permission missing a role here is refused for that role.
+
+roles: [owner, admin, billing, ca]
+
+permissions:
+  settings.edit:
+    row: Business settings and invoice prefix
+    roles: [owner, admin]
+  members.manage:
+    row: Invite, deactivate and reactivate members
+    roles: [owner, admin]
+    note: An admin can't invite, change or deactivate an owner. Identity enforces this on the target member.
+  catalog.view:
+    row: Products and customers (view)
+    roles: [owner, admin, billing, ca]
+  catalog.edit:
+    row: Products and customers
+    roles: [owner, admin, billing]
+  documents.create:
+    row: Create and finalize invoices and credit notes
+    roles: [owner, admin, billing]
+  documents.mark_paid:
+    row: Mark an invoice paid
+    roles: [owner, admin, billing]
+  uploads.create:
+    row: Upload marketplace reports
+    roles: [owner, admin, ca]
+  returns.prepare:
+    row: Prepare and export returns, TCS check
+    roles: [owner, admin, ca]
+  returns.lock:
+    row: Mark a period filed and lock it
+    roles: [owner, admin, ca]
+  returns.unlock:
+    row: Unlock a period (reason required)
+    roles: [owner]
+  audit.view:
+    row: View the audit log
+    roles: [owner, admin]
+  support.grant:
+    row: Grant time-limited support access
+    roles: [owner]
+
+# Actions that need a non-blank reason, which goes into their audit row (HLD list,
+# LLD-0 §3.3). audit.record refuses a blank one; these are its action names.
+reason_required:
+  - returns.unlock
+  - members.deactivate
+  - members.reactivate
+  - documents.s34_override
+  - filing.accept_warning
+  - imports.changed_line_choice
