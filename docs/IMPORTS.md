@@ -4,7 +4,7 @@ Backlog: E4-1 (import engine), generic part. Code: `app/src/app/modules/imports/
 
 `app/parsing` turns an uploaded report into a **preview**: every source row with its raw
 values, its normalized values when valid, its errors, and a de-duplication key.
-`app/staging.py` stores that preview as an import run (see "Storage" below). Neither
+`app/src/app/modules/imports/staging.py` stores that preview as an import run (see "Storage" below). Neither
 touches S3, stock or money. The upload/confirm API (needs the shared tenant check, plan
 task T-001) and handing confirmed rows to commerce (T-202) are later slices.
 

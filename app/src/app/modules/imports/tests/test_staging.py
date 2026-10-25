@@ -6,9 +6,9 @@ import pytest
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session
 
-from app import staging
-from app.models import Base, ImportRow, ImportRun, RunStatus, StagedRowStatus
-from app.parsing import FieldKind, FieldSpec, MappingProfile, read_table
+from app.modules.imports import staging
+from app.modules.imports.models import Base, ImportRow, ImportRun, RunStatus, StagedRowStatus
+from app.modules.imports.parsing import FieldKind, FieldSpec, MappingProfile, read_table
 
 PROFILE = MappingProfile(
     marketplace="flipkart",

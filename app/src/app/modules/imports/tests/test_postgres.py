@@ -14,9 +14,9 @@ from sqlalchemy import create_engine, make_url, select, text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
-from app import staging
-from app.models import ImportRow, ImportRun
-from app.parsing import FieldSpec, MappingProfile, read_table
+from app.modules.imports import staging
+from app.modules.imports.models import ImportRow, ImportRun
+from app.modules.imports.parsing import FieldSpec, MappingProfile, read_table
 
 ADMIN_URL = os.environ.get("PG_ADMIN_URL")
 pytestmark = pytest.mark.skipif(not ADMIN_URL, reason="PG_ADMIN_URL not set")
