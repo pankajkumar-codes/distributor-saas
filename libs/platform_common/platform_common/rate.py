@@ -49,12 +49,12 @@ def hit(bucket_key: str, limit: int, window: timedelta, *, clock: Clock | None =
     """Count one try; raise RateLimited (429 with Retry-After) once `limit` is passed."""
     from . import uow as _uow
 
-    if _uow._open.get():
+    if _uow.is_open():
         raise RuntimeError("rate.hit must run before the unit of work opens")
     now = (clock or Clock()).now()
     seconds = int(window.total_seconds())
     start = datetime.fromtimestamp(int(now.timestamp()) // seconds * seconds, UTC)
-    with (factory or _uow._session_factory())() as s, s.begin():
+    with (factory or _uow.session_factory())() as s, s.begin():
         count = s.execute(_HIT, {"b": bucket_key, "w": start}).scalar_one()
     if count > limit:
         raise RateLimited(retry_after=max(1, math.ceil((start + window - now).total_seconds())))

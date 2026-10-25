@@ -45,7 +45,7 @@ grant usage on schema platform to app_ro;
 grant select, insert on platform.audit_log to app_rw;
 grant select on platform.audit_log to app_ro;
 
--- Rate counters: global, no RLS (listed as global for the migrations lint). Buckets are
+-- Rate counters: global by design, no RLS (LLD-0 §4.5). Buckets are
 -- HMACs, never a raw email or IP, so the table holds no tenant or personal data.
 create table platform.rate_counters (
     bucket text not null,

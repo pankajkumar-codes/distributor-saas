@@ -16,7 +16,7 @@ from sqlalchemy.orm import sessionmaker
 from platform_common import audit, rate
 from platform_common import uow as uow_mod
 from platform_common.clock import FrozenClock
-from platform_common.errors import RateLimited
+from platform_common.errors import Invalid, RateLimited
 from platform_common.uow import Principal, unit_of_work
 
 ADMIN_URL = os.environ.get("PG_ADMIN_URL")
@@ -128,6 +128,24 @@ def test_audit_refuses_unregistered_actions_extra_data_and_anonymous_user_rows(f
     with unit_of_work(P(user=None)) as uow:
         with pytest.raises(ValueError, match="signed-in user"):
             audit.record(uow, "auth.signup", "user")
+
+
+@pytest.mark.parametrize("reason", [None, "", "  "])
+def test_reason_required_actions_refuse_a_blank_reason_and_write_nothing(factory, reason):
+    business = uuid.uuid4()
+    with unit_of_work(P(business=business)) as uow:
+        with pytest.raises(Invalid) as e:
+            audit.record(uow, "members.deactivate", "member", RAVI, reason=reason)
+    assert e.value.code == "reason_required"
+    assert actions(P(business=business)) == []
+
+
+def test_reason_required_actions_store_the_stripped_reason(factory):
+    business = uuid.uuid4()
+    with unit_of_work(P(business=business)) as uow:
+        audit.record(uow, "members.deactivate", "member", RAVI, reason="  left the firm ")
+    with unit_of_work(P(business=business)) as uow:
+        assert uow.tx.execute(text("select reason from platform.audit_log")).scalar_one() == "left the firm"
 
 
 def test_rate_hit_counts_in_its_own_transaction_and_resets_next_window(factory):

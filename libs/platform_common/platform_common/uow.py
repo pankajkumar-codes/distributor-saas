@@ -77,6 +77,16 @@ def _session_factory() -> sessionmaker:
     return _factory
 
 
+def is_open() -> bool:
+    """True inside a unit of work. Code that opens its own transaction (rate.hit) checks it."""
+    return _open.get()
+
+
+def session_factory() -> sessionmaker:
+    """The factory units of work use, for code that must commit on its own first (rate.hit)."""
+    return _session_factory()
+
+
 _SET_CONTEXT = text(
     "select set_config('app.user_id', :user_id, true), set_config('app.user_sub', :user_sub, true),"
     " set_config('app.tenant_id', :tenant_id, true), set_config('app.role', :role, true),"

@@ -3,7 +3,8 @@
 `record` inserts in the caller's transaction, so the audit row commits or rolls back
 with the change it describes. The business, user and support grant come from the unit
 of work, never from the caller. `data` passes through a per-action key allowlist:
-amounts, emails, phones, codes and tokens are never written to it.
+amounts, emails, phones, codes and tokens are never written to it. Actions in
+permissions.REASON_REQUIRED need a non-blank reason (LLD-0 §3.3).
 """
 
 import json
@@ -12,6 +13,7 @@ import uuid
 from sqlalchemy import text
 
 from .ids import uuid7
+from .permissions import REASON_REQUIRED, require_reason
 
 # action -> keys allowed in `data`. An action missing here can't be recorded.
 ALLOWED_DATA: dict[str, frozenset[str]] = {
@@ -23,6 +25,8 @@ ALLOWED_DATA: dict[str, frozenset[str]] = {
     "auth.totp_off": frozenset(),
     "auth.signout_all": frozenset({"sessions"}),
     "business.create": frozenset({"registration_kind"}),
+    # Reason-required actions (permissions.yaml); their data keys come with their slices.
+    **{action: frozenset() for action in REASON_REQUIRED},
 }
 
 _INSERT = text(
@@ -52,6 +56,8 @@ def record(
     extra = set(data or {}) - ALLOWED_DATA[action]
     if extra:
         raise ValueError(f"audit data keys not allowed for {action}: {sorted(extra)}")
+    if action in REASON_REQUIRED:
+        reason = require_reason(action, reason)
     p = uow.principal
     if p.user_id is None and (user_level or p.business_id is None):
         raise ValueError("a user-level audit row needs a signed-in user")
