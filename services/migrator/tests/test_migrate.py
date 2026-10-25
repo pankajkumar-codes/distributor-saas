@@ -46,3 +46,60 @@ def test_refuses_edited_migration(conn):
     f.write_text(f.read_text() + "\n-- edited")
     with pytest.raises(RuntimeError, match="changed after it was applied"):
         migrate(c, root)
+
+
+DESIGN_ROLES = {
+    "app_owner": False,
+    "app_rw": True,
+    "app_ro": False,
+    "app_retention": True,
+    "retention_owner": False,
+    "platform_ops": False,
+    "identity_auth": False,
+    "share_ops": False,
+}
+
+
+def test_bootstrap_creates_the_design_roles_without_rls_bypass(conn):
+    c, root = conn
+    migrate(c, root)
+    rows = {
+        r[0]: r[1:]
+        for r in c.execute(
+            "select rolname, rolcanlogin, rolsuper, rolbypassrls, rolcreaterole, rolcreatedb, rolreplication "
+            "from pg_roles where rolname = any(%s)",
+            (list(DESIGN_ROLES),),
+        )
+    }
+    assert set(rows) == set(DESIGN_ROLES)
+    for name, login in DESIGN_ROLES.items():
+        assert rows[name] == (login, False, False, False, False, False), name
+
+
+def test_bootstrap_memberships(conn):
+    c, root = conn
+    migrate(c, root)
+
+    def member(role, of):
+        return c.execute(
+            "select m.set_option, m.inherit_option from pg_auth_members m "
+            "join pg_roles r on r.oid = m.roleid join pg_roles g on g.oid = m.member "
+            "where r.rolname = %s and g.rolname = %s and not m.admin_option",
+            (of, role),
+        ).fetchone()
+
+    # The migrator can SET ROLE app_owner but doesn't inherit its rights.
+    assert member(c.execute("select current_user").fetchone()[0], "app_owner") == (True, False)
+    assert member("app_rw", "app_ro") is not None
+    # Bridge to the legacy identity roles, which the ledger files create (L0-5).
+    assert member("app_rw", "svc_identity") == (True, True)
+    assert member("app_rw", "tenant_auth") == (True, True)
+    assert c.execute("select has_database_privilege('app_owner', current_database(), 'CREATE')").fetchone()[0]
+
+
+def test_bootstrap_resets_a_role_that_gained_bypassrls(conn):
+    c, root = conn
+    migrate(c, root)
+    c.execute("alter role app_rw bypassrls")
+    migrate(c, root)
+    assert c.execute("select rolbypassrls from pg_roles where rolname = 'app_rw'").fetchone()[0] is False
