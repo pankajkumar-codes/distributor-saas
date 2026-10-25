@@ -63,6 +63,12 @@ def test_lld6_closure_trigger_replacement_needs_no_header():
         ),
         ("do $$ begin drop table t; end;", "unparseable (fails closed)"),
         ("/* never closed\ndrop table t;", "unparseable (fails closed)"),
+        # second review on PR #15 (Staff 2): quote characters inside quoted identifiers
+        ('create table "a\'b" (id int);\ndrop table t;\ncreate table "c\'d" (id int);', "DROP"),
+        ('create table "x$$" (id int);\ndrop table t;\ncreate table "y$$" (id int);', "DROP"),
+        ('alter table t drop "Phone No";', "ALTER ... DROP COLUMN"),
+        ('create table "never closed (id int);', "unparseable (fails closed)"),
+        ("delete from t returning (select 1 where true);", "DELETE without WHERE"),
     ],
 )
 def test_destructive_statements_need_the_header(sql, rule):
@@ -81,6 +87,8 @@ def test_destructive_statements_need_the_header(sql, rule):
         "insert into t values ('drop table x; truncate y');",
         "-- drop table t;\n/* truncate t; */ select 1;",
         "create function f() returns void language sql as $$ delete from t $$;",
+        'create table "it\'s" (id int);',
+        'create table "say ""drop"" here" (id int);',
     ],
 )
 def test_non_destructive_statements_pass(sql):

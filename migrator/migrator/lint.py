@@ -111,6 +111,25 @@ def statements(text: str) -> list[tuple[int, str]]:
             line += text.count("\n", i, j)
             i = j
             continue
+        if c == '"':
+            # A quoted identifier: '' and $$ inside it are part of the name. "" is an
+            # escaped quote. Keep the name (word characters only) so rules still see it.
+            j = i + 1
+            while j < n:
+                if text.startswith('""', j):
+                    j += 2
+                elif text[j] == '"':
+                    break
+                else:
+                    j += 1
+            if j >= n:
+                raise Unterminated(f"quoted identifier opened on line {line}")
+            if start is None:
+                start = line
+            line += text.count("\n", i, j)
+            buf.append('"' + (re.sub(r"\W", "_", text[i + 1 : j]) or "_") + '"')
+            i = j + 1
+            continue
         if c == "'":
             # E'...' strings take backslash escapes; '' is a quote in any string.
             escapes = i > 0 and text[i - 1] in "eE" and not (i > 1 and _IDENT_CHAR.match(text[i - 2]))
@@ -169,19 +188,20 @@ def leading_comments(text: str) -> str:
 
 
 def _delete_without_where(piece: str) -> bool:
-    """A DELETE anywhere in the statement (a CTE's included) whose own span, up to
-    the parenthesis that closes it or the end of the statement, has no WHERE."""
+    """A DELETE anywhere in the statement (a CTE's included) with no WHERE of its own:
+    one at its own nesting level, before the parenthesis that closes it or the end of
+    the statement. A WHERE inside a nested subquery doesn't count."""
     for m in _DELETE.finditer(piece):
-        depth, end = 0, len(piece)
+        depth, own = 0, []
         for k in range(m.end(), len(piece)):
             if piece[k] == "(":
                 depth += 1
             elif piece[k] == ")":
                 if depth == 0:
-                    end = k
                     break
                 depth -= 1
-        if not _WHERE.search(piece, m.end(), end):
+            own.append(piece[k] if depth == 0 else " ")
+        if not _WHERE.search("".join(own)):
             return True
     return False
 
