@@ -5,12 +5,15 @@
 --
 -- Login roles authenticate with IAM on RDS (rds_iam); NOLOGIN roles only own objects or
 -- are reached with SET ROLE. None of them may bypass RLS (QA role guards, build-readiness 2.6).
+-- On RDS this runs as the master user, which is rds_superuser but not a superuser, so it
+-- never names SUPERUSER, BYPASSRLS or REPLICATION in ALTER ROLE.
 -- The owner of platform.support_grant_active is identity_auth (proposed in build-readiness
 -- 2.8, to be confirmed in the S0a PR), so it needs no role of its own here.
 
 do $$
 declare
     r record;
+    a pg_roles%rowtype;
 begin
     for r in
         select * from (values
@@ -25,18 +28,30 @@ begin
         ) as t(name, login)
     loop
         if not exists (select from pg_roles where rolname = r.name) then
-            execute format('create role %I', r.name);
+            execute format('create role %I %s', r.name, case when r.login then 'login' else 'nologin' end);
         end if;
-        execute format(
-            'alter role %I %s nosuperuser nocreatedb nocreaterole noreplication nobypassrls',
-            r.name, case when r.login then 'login' else 'nologin' end);
+        select * into a from pg_roles where rolname = r.name;
+        -- Only a real superuser may change these, and the RDS master is not one. A design
+        -- role that has gained one of them is an incident for a person, not a repair.
+        if a.rolsuper or a.rolbypassrls or a.rolreplication then
+            raise exception 'role % has superuser, bypassrls or replication; refusing to continue', r.name
+                using errcode = 'insufficient_privilege';
+        end if;
+        -- The rest a CREATEROLE master may set on roles it administers. Alter only what is wrong.
+        if a.rolcanlogin <> r.login then
+            execute format('alter role %I %s', r.name, case when r.login then 'login' else 'nologin' end);
+        end if;
+        if a.rolcreatedb or a.rolcreaterole then
+            execute format('alter role %I nocreatedb nocreaterole', r.name);
+        end if;
     end loop;
 
     -- The migrator reaches app_owner with SET ROLE but doesn't hold its rights by default.
     execute format('grant app_owner to %I with set true, inherit false', current_user);
     execute format('grant create on database %I to app_owner', current_database());
 
-    grant app_ro to app_rw;
+    -- Read-only units of work SET LOCAL ROLE app_ro (L0-7); app_rw doesn't inherit its grants.
+    grant app_ro to app_rw with set true, inherit false;
 
     -- RDS provides rds_iam; plain PostgreSQL (CI, local) does not.
     if exists (select from pg_roles where rolname = 'rds_iam') then

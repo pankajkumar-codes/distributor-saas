@@ -11,6 +11,7 @@ with different content stops the run instead of being silently skipped.
 
 import hashlib
 import json
+import logging
 import os
 from pathlib import Path
 
@@ -19,6 +20,7 @@ import psycopg
 SERVICE_ORDER = ["identity", "commerce", "imports", "documents", "reports"]
 MIGRATIONS_DIR = Path(__file__).parent.parent / "migrations"
 BOOTSTRAP = Path(__file__).parent / "bootstrap.sql"
+log = logging.getLogger(__name__)
 
 
 def bootstrap(conn) -> None:
@@ -61,7 +63,12 @@ def migrate(conn, root: Path = MIGRATIONS_DIR) -> list[str]:
                 (service, name, checksum),
             )
         done.append(f"{service}/{name}")
-    bootstrap(conn)
+    try:
+        bootstrap(conn)
+    except Exception:
+        # The ledger is committed; only the grants of this pass are missing until the next run.
+        log.error("ledger applied (%s), bootstrap pass 2 failed", ", ".join(done) or "nothing new")
+        raise
     return done
 
 
