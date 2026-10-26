@@ -13,8 +13,26 @@ from sqlalchemy.pool import StaticPool
 from platform_common import db
 
 PG_ADMIN_URL = os.environ.get("PG_ADMIN_URL")
-MIGRATIONS = sorted((Path(__file__).parent.parent / "migrations").glob("*.sql"))
+# The current pg_client database as its owner (a superuser, so RLS doesn't apply), for seeding.
+PG_OWNER = {}
 REPO = Path(__file__).resolve().parents[6]
+
+
+def _migration_order(module_and_file):
+    # migrator.handler.ordered's rule: NNNN_ files first, then by timestamp, then module.
+    module, f = module_and_file
+    rank = 0 if module == "platform" else 1
+    return (1, f.name[:12], rank, f.name) if f.name[:12].isdigit() else (0, "", rank, f.name)
+
+
+MIGRATIONS = [
+    f
+    for _, f in sorted(
+        [("identity", f) for f in (Path(__file__).parent.parent / "migrations").glob("*.sql")]
+        + [("platform", f) for f in (REPO / "libs" / "platform_common" / "migrations").glob("*.sql")],
+        key=_migration_order,
+    )
+]
 BOOTSTRAP = REPO / "migrator" / "migrator" / "bootstrap.sql"
 LOCAL_ONLY = REPO / "migrator" / "local_only.sql"
 
@@ -64,6 +82,7 @@ def pg_client(monkeypatch):
         for sql in [BOOTSTRAP, *MIGRATIONS, BOOTSTRAP, LOCAL_ONLY]:
             raw.execute(sql.read_text())
         c.execute(text("alter role app_rw password 'test-only'"))
+    PG_OWNER["engine"] = owner
     svc = create_engine(admin_url.set(username="app_rw", password="test-only", database=dbname))
 
     from fastapi.testclient import TestClient

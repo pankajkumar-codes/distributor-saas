@@ -189,3 +189,55 @@ def test_bootstrap_runs_as_a_non_superuser_createrole_master(tmp_path):
             admin.execute(f"drop database {db} with (force)")
             admin.execute(f"drop owned by {master}")
             admin.execute(f"drop role {master}")
+
+
+def test_support_grant_active_sorts_after_the_identity_reshape(tmp_path):
+    # `language sql` checks its body at creation, so it must follow identity.support_grants
+    # (build-readiness 2.4); a same-minute tie would put platform first.
+    root = tmp_path / "migrations"
+    collect(root)
+    names = [f"{m}/{f.name}" for m, f in ordered(root)]
+    grant_create = names.index("identity/202610251659_identity_auth_schema_create.sql")
+    reshape = names.index("identity/202610251700_identity_r1_reshape.sql")
+    support = names.index("identity/202610261000_identity_support_and_resolve.sql")
+    assert grant_create < reshape < support
+    assert all(not n.startswith("platform/2026102610") for n in names[reshape:support])
+
+
+@needs_pg
+def test_every_migration_runs_as_a_non_superuser_createrole_master(tmp_path):
+    # The reshape hands functions to identity_auth, which only a superuser may do without
+    # CREATE on the schema; RDS's master isn't one. Runs the whole ledger as such a master.
+    db, master = f"m_{uuid.uuid4().hex[:10]}", f"master_{uuid.uuid4().hex[:6]}"
+    with psycopg.connect(DSN, autocommit=True) as admin:
+        admin.execute(f"create role {master} login createrole createdb")
+        admin.execute(f"create database {db} owner {master}")
+        admin.execute("do $$ begin if not exists (select from pg_roles where rolname='rds_iam') then create role rds_iam; end if; end $$")
+        admin.execute(f"grant rds_iam to {master} with admin true, inherit false, set false")
+        for role in [*DESIGN_ROLES, "svc_identity", "tenant_auth"]:
+            if admin.execute("select 1 from pg_roles where rolname = %s", (role,)).fetchone():
+                admin.execute(f"grant {role} to {master} with admin true, inherit false, set false")
+    root = tmp_path / "migrations"
+    collect(root)
+    try:
+        params = psycopg.conninfo.conninfo_to_dict(DSN) | {"dbname": db, "user": master}
+        with psycopg.connect(psycopg.conninfo.make_conninfo(**params), autocommit=True) as c:
+            assert "identity/202610261000_identity_support_and_resolve.sql" in migrate(c, root)
+            assert migrate(c, root) == []
+            owners = dict(
+                c.execute(
+                    "select p.proname, r.rolname from pg_proc p join pg_roles r on r.oid = p.proowner"
+                    " where p.proname in ('support_grant_active', 'auth_resolve', 'caller_has_role')"
+                ).fetchall()
+            )
+            assert set(owners.values()) == {"identity_auth"}
+            # The CREATE lent for the hand-over is taken back on both schemas.
+            assert c.execute(
+                "select has_schema_privilege('identity_auth', 'identity', 'create'),"
+                " has_schema_privilege('identity_auth', 'platform', 'create')"
+            ).fetchone() == (False, False)
+    finally:
+        with psycopg.connect(DSN, autocommit=True) as admin:
+            admin.execute(f"drop database {db} with (force)")
+            admin.execute(f"drop owned by {master}")
+            admin.execute(f"drop role {master}")

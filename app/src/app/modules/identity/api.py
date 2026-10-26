@@ -3,7 +3,7 @@ from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from functools import lru_cache
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import event, func, select, text
 from sqlalchemy.exc import IntegrityError
@@ -11,11 +11,12 @@ from sqlalchemy.orm import Session
 
 from platform_common.auth import Caller, current_caller, debug_env
 from platform_common.db import engine, session_factory
-from platform_common.errors import Conflict, Deny, Gone
+from platform_common.errors import Conflict, Deny, Gone, request_id
 from platform_common.permissions import Permission, Role, has_permission
 from platform_common.uow import parse_id
 
 from . import invites
+from .interface import resolve_principal
 from .models import (
     INVITATION_DAYS,
     AuditEvent,
@@ -47,8 +48,9 @@ def debug_user_id(session: Session, sub: str) -> uuid.UUID:
 
     Until S1 sign-up creates users, callers named by X-Debug-User get a row here. On
     PostgreSQL it goes through identity.dev_ensure_user, which only migrator.local
-    creates (migrator/local_only.sql), so it doesn't exist in AWS either. The row's
-    email is a placeholder: invitations match the caller's verified email, not this one.
+    creates (migrator/local_only.sql), so it doesn't exist in AWS either. The
+    route that adds a member by sub uses it too. The row's email is a placeholder:
+    invitations match the caller's verified email, not this one.
     """
     if not debug_env():
         raise RuntimeError("debug users exist only when PLATFORM_ENV is local or test")
@@ -62,14 +64,24 @@ def debug_user_id(session: Session, sub: str) -> uuid.UUID:
     return user.id
 
 
-def db_session(principal: Caller = Depends(current_caller)) -> Iterator[Session]:
+def caller_user_id(session: Session, caller: Caller, request_id: str) -> uuid.UUID:
+    """The caller's identity.users id, after the per-request session check.
+
+    On PostgreSQL this is the principal resolver (identity.auth_resolve), as in AWS. The
+    SQLite test database has no functions, so there an X-Debug-User caller gets a row
+    directly; SQLite never runs outside local and test.
+    """
+    if _postgres(session):
+        return resolve_principal(session, caller, None, request_id).user_id
     if not debug_env():
-        # No users row exists in AWS until S1 sign-up, and S0a (c2)'s principal resolver
-        # (identity.auth_resolve) is what finds one; until then every caller is unknown.
         raise Deny("session_invalid")
+    return debug_user_id(session, caller.user_sub)
+
+
+def db_session(request: Request, principal: Caller = Depends(current_caller)) -> Iterator[Session]:
     with _factory()() as session:
         with session.begin():
-            user_id = debug_user_id(session, principal.user_sub)
+            user_id = caller_user_id(session, principal, request_id(request))
         session.info.update(user_id=user_id, tenant_id=None)
         if _postgres(session):
 
