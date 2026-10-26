@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session
 
-from app.modules.refdata import RefdataMissing, state_name
+from app.modules.refdata import state_name
 from platform_common.errors import Invalid
 
 from ..fiscal import fy_of
@@ -76,13 +76,9 @@ def _blank_to_none(value: str | None) -> str | None:
 
 def _check_state(tx: Session, code: str, on: date, field: str) -> None:
     """A state code must be in refdata.state_codes, and 96 (other country) is only ever a
-    place of supply (gstin.md §3). Until S0b loads the codes the check can't be made, so
-    it is skipped rather than guessed (docs/OPEN_QUESTIONS.md)."""
-    try:
-        known = state_name(tx, code, on) is not None
-    except RefdataMissing:
-        return
-    if not known or code == "96":
+    place of supply (gstin.md §3). An unknown code is refused: the check never passes
+    for want of data."""
+    if state_name(tx, code, on) is None or code == "96":
         raise Invalid("state_code_unknown", "that isn't a GST state code", field=field)
 
 
