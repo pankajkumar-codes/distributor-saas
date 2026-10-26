@@ -347,3 +347,33 @@ def test_become_user_binds_a_public_unit_of_work_only(t):
         assert uow.principal.user_sub == "sub-new"
         with pytest.raises(RuntimeError, match="public"):
             uow.become_user(uuid.uuid4(), "another")
+
+
+def test_enter_new_business_binds_a_signed_in_me_unit_of_work_only(t):
+    me, new_business = uuid.uuid4(), uuid.uuid4()
+    with unit_of_work(Principal(user_sub="sub-me", request_id="r", user_id=me)) as uow:
+        uow.enter_new_business(new_business)
+        settings = uow.tx.execute(
+            text("select current_setting('app.tenant_id'), current_setting('app.role'), current_setting('app.user_id')")
+        ).one()
+        assert tuple(settings) == (str(new_business), "owner", str(me))
+        assert (uow.principal.business_id, uow.principal.role) == (new_business, "owner")
+        with pytest.raises(RuntimeError, match="/me"):
+            uow.enter_new_business(uuid.uuid4())  # already bound to a business
+    with unit_of_work(Principal(user_sub=None, request_id="r")) as uow:
+        with pytest.raises(RuntimeError, match="/me"):
+            uow.enter_new_business(new_business)  # no signed-in user
+    with unit_of_work(Principal(user_sub="s", request_id="r", user_id=me, support_grant_id=uuid.uuid4())) as uow:
+        with pytest.raises(RuntimeError, match="/me"):
+            uow.enter_new_business(new_business)
+
+
+def test_become_read_only_switches_to_app_ro_for_the_rest_of_the_transaction(t):
+    with unit_of_work(Principal(user_sub=None, request_id="r")) as uow:
+        before = uow.tx.execute(text("select current_user")).scalar()
+        uow.become_read_only()
+        uow.become_read_only()  # a second call changes nothing
+        assert uow.read_only
+        assert uow.tx.execute(text("select current_user")).scalar() == "app_ro"
+    with unit_of_work(Principal(user_sub=None, request_id="r")) as uow:
+        assert uow.tx.execute(text("select current_user")).scalar() == before  # transaction-local
