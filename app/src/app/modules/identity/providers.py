@@ -6,6 +6,7 @@ built yet, so asking for either there raises rather than falling back to a fake.
 Tests replace them through FastAPI's dependency_overrides.
 """
 
+import os
 from functools import cache
 
 from platform_common.auth import debug_env
@@ -27,3 +28,16 @@ def mailer() -> Mailer:
     if not debug_env():
         raise RuntimeError("no Mailer for this environment yet (SqsMailer is S0b)")
     return LocalFileMailer()
+
+
+def token_issuer_and_client() -> tuple[str, str]:
+    """What access tokens are verified against (LLD-1 §7.3): the pool's issuer and the
+    app client ID, from AUTH_ISSUER and AUTH_CLIENT_ID (set by Terraform, S0b/S1-d)."""
+    issuer, client = os.environ.get("AUTH_ISSUER"), os.environ.get("AUTH_CLIENT_ID")
+    if issuer and client:
+        return issuer, client
+    if not debug_env():
+        raise RuntimeError("AUTH_ISSUER and AUTH_CLIENT_ID are not set")
+    from platform_common.fake_auth import CLIENT_ID, ISSUER
+
+    return ISSUER, CLIENT_ID
