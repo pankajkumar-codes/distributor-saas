@@ -28,6 +28,8 @@ def test_long_uncommon_passwords_pass_with_no_class_rules(password):
         ("x" * (MAX_LENGTH + 1), "at most"),
         ("1234567890", "common"),
         ("QWERTYUIOP", "common"),  # the list is compared case-insensitively
+        (" correct horse battery", "spaces"),
+        ("correct horse battery\t", "spaces"),
     ],
 )
 def test_weak_passwords_are_refused_with_a_fix(password, fix_word):
@@ -36,6 +38,13 @@ def test_weak_passwords_are_refused_with_a_fix(password, fix_word):
     assert (e.value.code, e.value.status, e.value.field) == ("password_weak", 422, "password")
     assert fix_word in e.value.fix
     assert password not in str(e.value.body())  # the password is never echoed
+
+
+def test_the_licence_notice_ships_next_to_the_list():
+    from app.modules.identity.service import passwords
+
+    notice = passwords._LIST.with_suffix(".LICENSE").read_text()
+    assert "MIT License" in notice and "Daniel Miessler" in notice
 
 
 def test_new_codes_are_six_zero_padded_digits(monkeypatch):
