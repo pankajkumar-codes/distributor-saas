@@ -27,3 +27,19 @@ end $$;
 alter function identity.dev_ensure_user(text) owner to identity_auth;
 revoke all on function identity.dev_ensure_user(text) from public;
 grant execute on function identity.dev_ensure_user(text) to app_rw;
+
+-- dev_ensure_session stands in for S1 sign-in the same way: a live session keyed
+-- ('sid', 'debug:' || sub) for an X-Debug-User caller, so the principal resolver runs
+-- identity.auth_resolve unchanged. A revoked or lapsed debug session is reopened.
+create or replace function identity.dev_ensure_session(sub text) returns void
+language plpgsql security definer set search_path = pg_catalog, identity, pg_temp as $$
+begin
+    insert into identity.sessions (id, user_id, key_kind, key_value, auth_time, absolute_expires_at)
+    values (gen_random_uuid(), identity.dev_ensure_user(sub), 'sid', 'debug:' || sub, now(), now() + interval '30 days')
+    on conflict (key_kind, key_value) do update
+        set revoked_at = null, revoke_reason = null, last_activity_at = now(),
+            absolute_expires_at = greatest(identity.sessions.absolute_expires_at, now() + interval '1 day');
+end $$;
+alter function identity.dev_ensure_session(text) owner to identity_auth;
+revoke all on function identity.dev_ensure_session(text) from public;
+grant execute on function identity.dev_ensure_session(text) to app_rw;
