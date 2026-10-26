@@ -11,3 +11,4 @@ build/
 .terraform.lock.hcl
 .coverage
 *.egg-info/
+web/node_modules/

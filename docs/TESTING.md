@@ -31,6 +31,8 @@ GitHub Actions runs all of these on every pull request, plus:
 - `lint-imports` (contracts in `.importlinter`): modules don't import each other, the
   API or the worker; `platform_common` and the migrator import nothing from the app
 - gitleaks over the whole git history
+- `web`: exact pins in `web/package.json`, `npm ci` from the lockfile, and `npm audit`
+  with no high or critical advisory in a runtime dependency (`web/README.md`)
 - the end-to-end suite below, against identity on real PostgreSQL, after migrating twice
 - `tests/isolation`: role guards after every migration. No role but the migrating superuser
   has superuser, BYPASSRLS, CREATEROLE or replication; the app and owner roles from the
