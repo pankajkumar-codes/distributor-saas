@@ -6,7 +6,7 @@ Rows are compared against earlier *confirmed* runs of the same report type to te
 new record from one already imported, or one whose values changed since.
 
 The caller runs inside a business unit of work (LLD-0), which has checked the caller's
-active membership and set app.business_id for row-level security. Every query here still
+active membership and set app.tenant_id (the business id) for row-level security. Every query here still
 filters by business_id explicitly.
 """
 
@@ -19,6 +19,9 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+
+from platform_common.clock import Clock
+from platform_common.ids import uuid7
 
 from .models import ImportRow, ImportRun, RunStatus, StagedRowStatus
 from .parsing import MappingProfile, RowStatus, SourceTable, parse
@@ -43,7 +46,7 @@ def stage(
     previous = _latest_confirmed_hashes(session, business_id, profile, set(keys.values()))
 
     run = ImportRun(
-        id=uuid.uuid4(),
+        id=uuid7(),
         business_id=business_id,
         marketplace=profile.marketplace,
         report_type=profile.report_type,
@@ -64,7 +67,7 @@ def stage(
         counts[status.value] += 1
         rows.append(
             ImportRow(
-                id=uuid.uuid4(),
+                id=uuid7(),
                 run_id=run.id,
                 business_id=business_id,
                 row_number=parsed.row_number,
@@ -100,7 +103,9 @@ def stage(
     return run, True
 
 
-def confirm(session: Session, *, business_id: uuid.UUID, run_id: uuid.UUID, user_id: uuid.UUID) -> ImportRun:
+def confirm(
+    session: Session, *, business_id: uuid.UUID, run_id: uuid.UUID, user_id: uuid.UUID, clock: Clock | None = None
+) -> ImportRun:
     """Marks a staged run confirmed. Repeating it is a no-op.
 
     Handing confirmed rows to commerce is a separate, versioned contract (plan task
@@ -113,7 +118,7 @@ def confirm(session: Session, *, business_id: uuid.UUID, run_id: uuid.UUID, user
         raise RunStateError(f"run is {run.status.value}; only a staged run can be confirmed")
     run.status = RunStatus.confirmed
     run.confirmed_by = user_id
-    run.confirmed_at = dt.datetime.now(dt.UTC)
+    run.confirmed_at = (clock or Clock()).now()
     session.flush()
     return run
 

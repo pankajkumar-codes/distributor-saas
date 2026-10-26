@@ -1,10 +1,13 @@
 """Import runs on SQLite: idempotent staging and cross-file comparison."""
 
+import datetime as dt
 import uuid
 
 import pytest
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session
+
+from platform_common.clock import FrozenClock
 
 from app.modules.imports import staging
 from app.modules.imports.models import Base, ImportRow, ImportRun, RunStatus, StagedRowStatus
@@ -141,3 +144,12 @@ def test_discarded_file_can_be_staged_again(session):
     assert created and again.id != run.id
     with pytest.raises(staging.RunStateError):
         staging.confirm(session, business_id=BUSINESS_A, run_id=run.id, user_id=ALICE)
+
+
+def test_confirm_takes_its_time_from_the_clock(session):
+    run, _ = stage(session, "OI-1,shipped,10\n")
+    at = dt.datetime(2026, 10, 26, 9, 30, tzinfo=dt.UTC)
+    staging.confirm(session, business_id=BUSINESS_A, run_id=run.id, user_id=ALICE, clock=FrozenClock(at))
+    session.commit()
+    assert run.confirmed_at.replace(tzinfo=dt.UTC) == at
+    assert run.id.version == 7

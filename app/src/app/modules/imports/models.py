@@ -18,6 +18,8 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
+from platform_common.ids import uuid7
+
 SCHEMA = "imports"
 # jsonb on PostgreSQL (the migration), plain JSON for the SQLite unit tests.
 JSONType = JSON().with_variant(JSONB(), "postgresql")
@@ -63,7 +65,7 @@ class ImportRun(Base):
         {"schema": SCHEMA},
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid7)
     business_id: Mapped[uuid.UUID] = mapped_column(Uuid, index=True)
     marketplace: Mapped[str] = mapped_column(String(20))
     report_type: Mapped[str] = mapped_column(String(20))
@@ -89,7 +91,7 @@ class ImportRow(Base):
     __tablename__ = "import_rows"
     __table_args__ = (UniqueConstraint("run_id", "row_number"), {"schema": SCHEMA})
 
-    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid7)
     run_id: Mapped[uuid.UUID] = mapped_column(ForeignKey(f"{SCHEMA}.import_runs.id"))
     business_id: Mapped[uuid.UUID] = mapped_column(Uuid)
     row_number: Mapped[int] = mapped_column(Integer)
