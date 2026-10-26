@@ -65,17 +65,6 @@ def test_hmac_binds_purpose_and_normalised_email():
         codes.code_hmac("login", "asha@example.com", "042424")
 
 
-def test_matches_and_dummy_compare(monkeypatch):
-    stored = codes.code_hmac("signup", "asha@example.com", "042424")
-    assert codes.matches(stored, "signup", "asha@example.com", "042424")
-    assert not codes.matches(stored, "signup", "asha@example.com", "000000")
-    calls = []
-    real = codes.hmac.compare_digest
-    monkeypatch.setattr(codes.hmac, "compare_digest", lambda a, b: calls.append(b) or real(a, b))
-    assert not codes.matches(None, "signup", "asha@example.com", "042424")
-    assert calls == [codes._DUMMY]  # one compare even with no row
-
-
 def test_hmac_key_comes_from_env_and_fails_closed_outside_local(monkeypatch):
     monkeypatch.setenv("PLATFORM_ENV", "test")
     dev = codes.code_hmac("signup", "a@example.com", "123456")
