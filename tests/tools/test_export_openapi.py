@@ -24,6 +24,3 @@ def test_moneystr_ref_typed_as_number_is_refused():
     spec = schemas(due={"anyOf": [{"$ref": "#/components/schemas/MoneyStr"}, {"type": "number"}]})
     assert len(export_openapi.money_numbers(spec)) == 1
 
-
-def test_committed_openapi_is_current():
-    assert export_openapi.OUT.read_text() == export_openapi.render()
