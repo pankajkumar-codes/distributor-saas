@@ -82,6 +82,25 @@ jobs:
         # LLD-0 §5; the CLI skips grandfathered NNNN_ files
         run: PYTHONPATH=migrator python -m migrator.lint $(git ls-files 'app/src/app/modules/*/migrations/*.sql' 'libs/platform_common/migrations/*.sql')
 
+  web:
+    # Web dependencies (LLD-1 §11, RM41-5): exact pins, lockfile install, and no high or
+    # critical advisory in a runtime dependency.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Every dependency pinned exactly
+        run: node scripts/check-pins.mjs
+      - name: Install from the lockfile
+        run: npm ci --ignore-scripts
+      - name: npm audit (runtime dependencies, high and critical fail)
+        run: npm audit --omit=dev --audit-level=high
+
   permissions-doc:
     # docs/PERMISSIONS.md must be the page generated from the role matrix (LLD-0 §7).
     runs-on: ubuntu-latest
