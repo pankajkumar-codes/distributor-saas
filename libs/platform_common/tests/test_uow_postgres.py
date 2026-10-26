@@ -30,7 +30,18 @@ ADMIN_URL = os.environ.get("PG_ADMIN_URL")
 pytestmark = pytest.mark.skipif(not ADMIN_URL, reason="PG_ADMIN_URL not set")
 
 REPO = Path(__file__).resolve().parents[3]
-IDENTITY_MIGRATIONS = sorted((REPO / "app" / "src" / "app" / "modules" / "identity" / "migrations").glob("*.sql"))
+IDENTITY_DIR = REPO / "app" / "src" / "app" / "modules" / "identity" / "migrations"
+PLATFORM_DIR = REPO / "libs" / "platform_common" / "migrations"
+
+
+def _order(f: Path):
+    # migrator.handler.ordered: NNNN_ files first, then timestamp, platform before identity.
+    rank = 0 if f.parent == PLATFORM_DIR else 1
+    return (1, f.name[:12], rank, f.name) if f.name[:12].isdigit() else (0, "", rank, f.name)
+
+
+# Identity's later migrations use platform's (the audit log), so both run, in the migrator's order.
+IDENTITY_MIGRATIONS = sorted([*IDENTITY_DIR.glob("*.sql"), *PLATFORM_DIR.glob("*.sql")], key=_order)
 BOOTSTRAP = REPO / "migrator" / "migrator" / "bootstrap.sql"
 USERS: dict[str, uuid.UUID] = {}  # sub -> identity.users id, for the stand-in resolver
 

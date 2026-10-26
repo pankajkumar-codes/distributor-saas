@@ -27,6 +27,7 @@ from platform_common.mailer import Mailer, send_after_commit
 from platform_common.uow import Principal, unit_of_work
 
 from .. import codes
+from ..interface import session_key_from_claims
 from .passwords import check_password
 
 # Provisional limits (LLD-1 L1-10, §12); they move to refdata rows when refdata lands.
@@ -107,6 +108,9 @@ def verify(email: str, code: str, password: str, ip: str, request_id: str, idp: 
     tokens = idp.initiate_auth(email, password)  # a new user has no TOTP yet
     # Straight from the provider over our own server call, so the claims are trusted.
     claims = jwt.decode(tokens.access_token, options={"verify_signature": False})
+    key = session_key_from_claims(claims)  # the same key the resolver will look up (L1-6)
+    if key is None:
+        raise RuntimeError("the provider's access token names no session key")
 
     user_id = uuid7()
     with unit_of_work(_public(request_id)) as uow:  # tx 2
@@ -115,11 +119,12 @@ def verify(email: str, code: str, password: str, ip: str, request_id: str, idp: 
         uow.tx.execute(text("select identity.auth_create_user(:i, :s, :e)"), {"i": user_id, "s": sub, "e": email})
         uow.become_user(user_id, sub)
         uow.tx.execute(
-            text("select identity.auth_open_session(:i, :u, 'origin_jti', :k, :t, :d)"),
+            text("select identity.auth_open_session(:i, :u, :kind, :k, :t, :d)"),
             {
                 "i": uuid7(),
                 "u": user_id,
-                "k": claims["origin_jti"],
+                "kind": key[0],
+                "k": key[1],
                 "t": datetime.fromtimestamp(claims["auth_time"], UTC),
                 "d": SESSION_MAX_DAYS,
             },

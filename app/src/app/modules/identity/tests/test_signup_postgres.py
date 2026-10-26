@@ -13,6 +13,7 @@ import uuid
 from pathlib import Path
 from types import SimpleNamespace
 
+import jwt
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, make_url, text
@@ -166,3 +167,19 @@ def test_malformed_email_is_422(env, email):
     client, _, _, _ = env
     r = client.post("/api/v1/auth/signup", json={"email": email})
     assert (r.status_code, r.json()["error"]["code"]) == (422, "email_invalid")
+
+
+def test_session_key_falls_back_to_event_id_like_the_resolver(env, monkeypatch):  # L1-6
+    client, idp, mail, admin = env
+    code = sign_up(client, mail).params["code"]
+    real = idp._access
+
+    def without_origin_jti(sub, origin_jti, auth_time):
+        claims = jwt.decode(real(sub, origin_jti, auth_time), options={"verify_signature": False})
+        claims["event_id"] = claims.pop("origin_jti")
+        return jwt.encode(claims, idp._key, algorithm="RS256", headers={"kid": idp.jwks()["keys"][0]["kid"]})
+
+    monkeypatch.setattr(idp, "_access", without_origin_jti)
+    r = verify(client, code)
+    assert r.status_code == 200, r.text
+    assert one(admin, "select key_kind from identity.sessions") == "event_id"
