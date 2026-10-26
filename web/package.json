@@ -6,6 +6,9 @@
   "engines": {
     "node": ">=22"
   },
+  "scripts": {
+    "gen:api": "openapi-typescript ../app/openapi.json -o src/api/schema.d.ts"
+  },
   "dependencies": {
     "@tanstack/react-query": "5.104.2",
     "openapi-fetch": "0.17.0",

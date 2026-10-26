@@ -100,6 +100,10 @@ jobs:
         run: npm ci --ignore-scripts
       - name: npm audit (runtime dependencies, high and critical fail)
         run: npm audit --omit=dev --audit-level=high
+      - name: Generated API types match app/openapi.json
+        run: |
+          npm run gen:api
+          git diff --exit-code -- src/api/schema.d.ts
 
   permissions-doc:
     # docs/PERMISSIONS.md must be the page generated from the role matrix (LLD-0 §7).
@@ -111,6 +115,18 @@ jobs:
           python-version: "3.12"
       - run: pip install pyyaml
       - run: python scripts/gen_permissions_doc.py --check
+
+  openapi:
+    # app/openapi.json must be the API's current schema, with no money typed as a number
+    # (LLD-0 §7). The web job checks the generated types against it.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e libs/platform_common -e app
+      - run: python scripts/export_openapi.py --check
 
   boundaries:
     # import-linter contracts in .importlinter (LLD-0 §7).

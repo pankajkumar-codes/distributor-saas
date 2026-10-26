@@ -2,10 +2,14 @@
 PY ?= python3
 LOCAL_DB := postgresql://postgres:local-only@localhost:5432/saas
 
-.PHONY: setup test isolation-local e2e-local db-up db-down db-migrate run-api smoke-local build
+.PHONY: setup openapi test isolation-local e2e-local db-up db-down db-migrate run-api smoke-local build
 
 setup:            ## install the app, platform_common and the migrator with dev dependencies
 	$(PY) -m pip install -e libs/platform_common -e "app[dev]" -r migrator/requirements.txt
+
+openapi:          ## regenerate app/openapi.json and the web client types from it
+	$(PY) scripts/export_openapi.py
+	cd web && npm run gen:api
 
 test:             ## every unit test (add PG_ADMIN_URL/PG_DSN for the PostgreSQL ones)
 	cd libs/platform_common && $(PY) -m pytest -q
