@@ -18,7 +18,7 @@ from platform_common.errors import Deny, Invalid, deny_response, request_id
 from platform_common.mailer import Mailer
 
 from .providers import auth_provider, mailer
-from .service import sessions, signup
+from .service import sessions, signin, signup
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -36,6 +36,17 @@ class VerifyBody(BaseModel):
     email: str = Field(max_length=254)
     code: str = Field(max_length=16)
     password: str = Field(max_length=1024)  # the policy's own limit gives the friendly error
+
+
+class SigninBody(BaseModel):
+    email: str = Field(max_length=254)
+    password: str = Field(max_length=1024)
+
+
+class TotpBody(BaseModel):
+    email: str = Field(max_length=254)
+    challenge: str = Field(max_length=4096)
+    code: str = Field(max_length=16)
 
 
 def _email(raw: str) -> str:
@@ -75,20 +86,65 @@ def signup_verify(
 ):
     _check_origin(request)
     done = signup.verify(_email(body.email), body.code, body.password, _client_ip(request), request_id(request), idp)
+    _set_cookie(response, done.refresh_token)
+    return {
+        "access_token": done.access_token,
+        "expires_in": done.expires_in,
+        "user": {"id": str(done.user_id), "email": done.email},
+    }
+
+
+@router.post("/signin")
+def signin_password(
+    body: SigninBody,
+    request: Request,
+    response: Response,
+    idp: Annotated[AuthProvider, Depends(auth_provider)],
+):
+    _check_origin(request)
+    done = signin.sign_in(_email(body.email), body.password, _client_ip(request), request_id(request), idp)
+    if isinstance(done, signin.TotpStep):
+        return {"step": "totp", "challenge": done.challenge}
+    return _signed_in(response, done)
+
+
+@router.post("/signin/totp")
+def signin_totp(
+    body: TotpBody,
+    request: Request,
+    response: Response,
+    idp: Annotated[AuthProvider, Depends(auth_provider)],
+):
+    _check_origin(request)
+    done = signin.sign_in_totp(
+        _email(body.email), body.challenge, body.code, _client_ip(request), request_id(request), idp
+    )
+    return _signed_in(response, done)
+
+
+def _signed_in(response: Response, done: signin.SignedIn) -> dict:
+    _set_cookie(response, done.refresh_token)
+    return {
+        "access_token": done.access_token,
+        "expires_in": done.expires_in,
+        "user": {"id": str(done.user_id), "email": done.email},
+        "memberships": [
+            {"business_id": str(m.business_id), "display_name": m.display_name, "gstin": m.gstin, "role": m.role}
+            for m in done.memberships
+        ],
+    }
+
+
+def _set_cookie(response: Response, refresh_token: str) -> None:
     response.set_cookie(
         REFRESH_COOKIE,
-        done.refresh_token,
+        refresh_token,
         max_age=COOKIE_MAX_AGE,
         path=COOKIE_PATH,
         secure=True,
         httponly=True,
         samesite="strict",
     )
-    return {
-        "access_token": done.access_token,
-        "expires_in": done.expires_in,
-        "user": {"id": str(done.user_id), "email": done.email},
-    }
 
 
 def _clear_cookie(response: Response) -> None:

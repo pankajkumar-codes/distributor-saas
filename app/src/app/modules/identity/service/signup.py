@@ -14,7 +14,7 @@ a wrong, expired, voided, claimed or already-registered code alike.
 
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 import jwt
 from sqlalchemy import text
@@ -29,6 +29,7 @@ from platform_common.uow import Principal, unit_of_work
 from .. import codes
 from ..interface import session_key_from_claims
 from .passwords import check_password
+from .sessions import open_session
 
 # Provisional limits (LLD-1 L1-10, §12); they move to refdata rows when refdata lands.
 CODE_TTL = timedelta(minutes=10)  # auth.code_ttl_minutes
@@ -36,7 +37,6 @@ CODE_MAX_TRIES = 5  # auth.code_max_tries
 CODE_REQUESTS_PER_EMAIL_PER_HOUR = 5
 CODE_REQUESTS_PER_IP_PER_HOUR = 20
 CODE_CHECKS_PER_IP_PER_HOUR = 50
-SESSION_MAX_DAYS = 30  # auth.session_max_days (BRD)
 HOUR = timedelta(hours=1)
 
 
@@ -124,16 +124,6 @@ def verify(email: str, code: str, password: str, ip: str, request_id: str, idp: 
             raise CodeNotAccepted()
         uow.tx.execute(text("select identity.auth_create_user(:i, :s, :e)"), {"i": user_id, "s": sub, "e": email})
         uow.become_user(user_id, sub)
-        uow.tx.execute(
-            text("select identity.auth_open_session(:i, :u, :kind, :k, :t, :d)"),
-            {
-                "i": uuid7(),
-                "u": user_id,
-                "kind": key[0],
-                "k": key[1],
-                "t": datetime.fromtimestamp(claims["auth_time"], UTC),
-                "d": SESSION_MAX_DAYS,
-            },
-        )
+        open_session(uow, user_id, key, claims["auth_time"])
         audit.record(uow, "auth.signup", "user", user_id, user_level=True)
     return SignedUp(user_id, email, tokens.access_token, tokens.refresh_token, tokens.expires_in)

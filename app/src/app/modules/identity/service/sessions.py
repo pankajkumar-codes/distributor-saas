@@ -15,7 +15,8 @@ an expired token's, writes auth.signout in the same transaction, and always ends
 """
 
 import logging
-from datetime import timedelta
+import uuid
+from datetime import UTC, datetime, timedelta
 from typing import NoReturn
 
 from sqlalchemy import text
@@ -23,6 +24,7 @@ from sqlalchemy import text
 from platform_common import audit, rate
 from platform_common.authprovider import AuthProvider, AuthRefused, AuthResult
 from platform_common.errors import Deny
+from platform_common.ids import uuid7
 from platform_common.jwt_verify import TokenInvalid, verify_access_token
 from platform_common.uow import Principal, unit_of_work
 
@@ -32,10 +34,28 @@ from ..providers import token_issuer_and_client
 log = logging.getLogger(__name__)
 
 REFRESH_PER_IP_PER_HOUR = 600  # auth.refresh_per_ip_per_hour (provisional, L1-10)
+SESSION_MAX_DAYS = 30  # auth.session_max_days (BRD)
 HOUR = timedelta(hours=1)
 
 
-def _claims(token: str, idp: AuthProvider, *, allow_expired: bool = False) -> dict:
+def open_session(uow, user_id: uuid.UUID, key: tuple[str, str], auth_time: int) -> uuid.UUID:
+    """§5.6: the session row for a new sign-up or sign-in, keyed as the resolver looks it up."""
+    session_id = uuid7()
+    uow.tx.execute(
+        text("select identity.auth_open_session(:i, :u, :kind, :k, :t, :d)"),
+        {
+            "i": session_id,
+            "u": user_id,
+            "kind": key[0],
+            "k": key[1],
+            "t": datetime.fromtimestamp(auth_time, UTC),
+            "d": SESSION_MAX_DAYS,
+        },
+    )
+    return session_id
+
+
+def verified_claims(token: str, idp: AuthProvider, *, allow_expired: bool = False) -> dict:
     issuer, client_id = token_issuer_and_client()
     return verify_access_token(token, idp.jwks(), issuer=issuer, client_id=client_id, allow_expired=allow_expired)
 
@@ -47,7 +67,7 @@ def refresh(refresh_token: str | None, ip: str, request_id: str, idp: AuthProvid
         raise Deny("session_invalid")
     try:
         tokens = idp.refresh(refresh_token)
-        claims = _claims(tokens.access_token, idp)
+        claims = verified_claims(tokens.access_token, idp)
     except AuthRefused:
         raise Deny("session_invalid") from None
     except TokenInvalid:
@@ -67,11 +87,11 @@ def refresh(refresh_token: str | None, ip: str, request_id: str, idp: AuthProvid
 
 def _refuse(refresh_token: str, idp: AuthProvider, request_id: str) -> NoReturn:
     """The provider accepted a refresh token our session check refuses: revoke it there."""
-    _revoke_at_provider(refresh_token, idp, request_id)
+    revoke_at_provider(refresh_token, idp, request_id)
     raise Deny("session_invalid")
 
 
-def _revoke_at_provider(refresh_token: str, idp: AuthProvider, request_id: str) -> None:
+def revoke_at_provider(refresh_token: str, idp: AuthProvider, request_id: str) -> None:
     try:
         idp.revoke_refresh(refresh_token)
     except Exception:  # best effort: the session row already decides, and the reply doesn't change
@@ -88,7 +108,7 @@ def sign_out(bearer: str | None, refresh_token: str | None, request_id: str, idp
     key, sub = None, None
     if bearer:
         try:
-            claims = _claims(bearer, idp, allow_expired=True)
+            claims = verified_claims(bearer, idp, allow_expired=True)
             key, sub = session_key_from_claims(claims), claims.get("sub")
         except TokenInvalid:
             pass
@@ -102,4 +122,4 @@ def sign_out(bearer: str | None, refresh_token: str | None, request_id: str, idp
                 uow.become_user(ended.user_id, sub)
                 audit.record(uow, "auth.signout", "session", ended.session_id, user_level=True)
     if refresh_token:
-        _revoke_at_provider(refresh_token, idp, request_id)
+        revoke_at_provider(refresh_token, idp, request_id)
