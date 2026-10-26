@@ -23,7 +23,7 @@ import uuid
 from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Annotated
 
 from fastapi import Depends, Request
@@ -121,6 +121,13 @@ class UnitOfWork:
     def after_commit(self, fn: Callable[[], None]) -> None:
         """Run `fn` only once the transaction has committed (SQS sends, mail)."""
         self._after_commit.append(fn)
+
+    def become_user(self, user_id: uuid.UUID, user_sub: str) -> None:
+        """Bind a public unit of work to the user it just created (sign-up), so the
+        user-level audit row and later statements run as that user."""
+        if self.principal.user_id is not None or self.principal.business_id is not None:
+            raise RuntimeError("become_user is only for a public unit of work")
+        self._bind(replace(self.principal, user_id=user_id, user_sub=user_sub))
 
     def _bind(self, principal: Principal) -> None:
         self.principal = principal

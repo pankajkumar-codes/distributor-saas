@@ -24,16 +24,25 @@ _RESOLVE = text(
 )
 
 
+def session_key_from_claims(claims) -> tuple[str, str] | None:
+    """The (key_kind, key_value) an access token's claims name, or None. Sign-up opens
+    the session under this key and the resolver looks it up the same way."""
+    for kind in SESSION_KEY_CLAIMS:
+        value = claims.get(kind)
+        if value:
+            return kind, str(value)
+    return None
+
+
 def session_key(tx: Session, caller: Caller) -> tuple[str | None, str | None]:
     """The (key_kind, key_value) of the caller's session row, from the token's claims.
 
     A caller named by X-Debug-User has no token. Locally and in tests only, it gets a
     debug session from identity.dev_ensure_session, which only migrator.local creates.
     """
-    for kind in SESSION_KEY_CLAIMS:
-        value = caller.claims.get(kind)
-        if value:
-            return kind, str(value)
+    key = session_key_from_claims(caller.claims)
+    if key:
+        return key
     if debug_env() and not caller.claims:
         tx.execute(text("select identity.dev_ensure_session(:sub)"), {"sub": caller.user_sub})
         return "sid", f"debug:{caller.user_sub}"

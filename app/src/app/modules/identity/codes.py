@@ -6,8 +6,9 @@ separate from the rate-counter key, so a leaked backup can't be reversed by tryi
 all 10^6 codes. The HMAC also binds the purpose and the normalised email, so a sign-up
 code can't be replayed as a reset code or for another address.
 
-`matches` always computes one HMAC and one constant-time compare, against a dummy
-when there is no stored row, so every branch of a uniform reply takes the same work.
+The compare happens inside identity.auth_check_code, on the locked row. Callers
+compute exactly one HMAC per request whatever the branch, so a uniform reply takes
+the same work in every case (LLD-1 §5).
 """
 
 import hashlib
@@ -20,7 +21,6 @@ from platform_common.auth import debug_env
 PURPOSES = frozenset({"signup", "reset"})
 CODE_DIGITS = 6
 _DEV_KEY = b"local-only-code-key"
-_DUMMY = b"\x00" * 32
 
 
 def _key() -> bytes:
@@ -42,9 +42,3 @@ def code_hmac(purpose: str, email: str, code: str) -> bytes:
     message = "\x00".join((purpose, email.strip().lower(), code.strip()))
     return hmac.new(_key(), message.encode(), hashlib.sha256).digest()
 
-
-def matches(stored: bytes | None, purpose: str, email: str, code: str) -> bool:
-    """True only when `stored` is the HMAC of this code; same work when `stored` is None."""
-    candidate = code_hmac(purpose, email, code)
-    ok = hmac.compare_digest(candidate, stored if stored is not None else _DUMMY)
-    return ok and stored is not None

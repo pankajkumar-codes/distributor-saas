@@ -337,3 +337,13 @@ def test_support_principal_is_refused_until_grants_exist(t, caplog):
 def test_no_resolver_is_a_500(t):
     uow_mod.set_principal_resolver(None)
     assert _app().get(f"/b/{t['a']}/notes", headers={"x-debug-user": t["alice"]}).status_code == 500
+
+
+def test_become_user_binds_a_public_unit_of_work_only(t):
+    new_user = uuid.uuid4()
+    with unit_of_work(Principal(user_sub=None, request_id="r")) as uow:
+        uow.become_user(new_user, "sub-new")
+        assert uow.tx.execute(text("select current_setting('app.user_id')")).scalar() == str(new_user)
+        assert uow.principal.user_sub == "sub-new"
+        with pytest.raises(RuntimeError, match="public"):
+            uow.become_user(uuid.uuid4(), "another")
