@@ -2,10 +2,11 @@
 
 Backlog: E4-1 (import engine), generic part. Code: `app/src/app/modules/imports/parsing`.
 
-This layer turns an uploaded report into a **preview**: every source row with its raw
-values, its normalized values when valid, its errors, and a de-duplication key. It has
-no database, S3 or commerce side effects. Persisting import runs and rows, the upload
-API, and handing confirmed rows to commerce are the next slices.
+`app/parsing` turns an uploaded report into a **preview**: every source row with its raw
+values, its normalized values when valid, its errors, and a de-duplication key.
+`app/src/app/modules/imports/staging.py` stores that preview as an import run (see "Storage" below). Neither
+touches S3, stock or money. The upload/confirm API (needs the shared tenant check, plan
+task T-001) and handing confirmed rows to commerce (T-202) are later slices.
 
 ## Flow
 
@@ -53,11 +54,27 @@ Amounts are compared canonically, so `10` and `10.00` are the same value for
 de-duplication. Each valid row also carries a `content_hash` of its normalized values,
 so a later re-import can tell "same row again" from "same external ID, changed".
 
+## Storage (`imports` schema)
+
+- `import_runs`: one per uploaded file and report type: tenant, marketplace, report
+  type, profile id and whether it is verified, filename, checksum, header row, summary
+  counts, uploader and time, status `staged` → `confirmed` or `discarded`.
+- `import_rows`: one per non-blank source row: row number, status, raw values,
+  normalized values (amounts as strings), errors, key digest, content hash. Never
+  updated; the service role has no UPDATE or DELETE grant on it.
+- Staging the same bytes again for the same tenant and report type returns the existing
+  run, including when two uploads race (a partial unique index decides). A discarded
+  run frees the file to be staged again.
+- Each valid row is compared with the latest **confirmed** row carrying the same key for
+  that tenant, marketplace and report type: `new`, `already_imported` (same values) or
+  `changed` (for example a status moved from shipped to delivered). Staged but
+  unconfirmed runs are not compared against.
+- Row-level security keys off `app.tenant_id`; with no tenant set the service sees and
+  writes nothing. Rows can only reference a run of the same tenant (composite key).
+
 ## Limitations
 
 - `datetime` fields are kept as written, without a timezone. Whether a report's times
   are IST or UTC must be recorded per profile once samples arrive.
-- De-duplication here is within one file. Across files it needs the stored import rows
-  (next slice).
 - Raw file storage, retention (backlog default 3 years) and personal-data minimization
   are handled when files are persisted, not here.
