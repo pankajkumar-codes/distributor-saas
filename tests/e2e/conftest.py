@@ -68,3 +68,25 @@ def new_tenant(user, label="Co"):
     r = user.post("/api/v1/identity/tenants", json={"name": f"E2E {RUN} {label}"})
     assert r.status_code == 201, r.text
     return r.json()["id"]
+
+
+OUTBOX = os.environ.get("E2E_MAIL_OUTBOX", "build/mail/outbox.jsonl")
+
+
+def add_member(owner, tid, member, role):
+    """Invite `member` and accept as them (LLD-2 §4). Debug sign-in only: the link is read
+    from the local mailer's outbox, which the API writes under the repo's build/ folder."""
+    import json
+
+    email = f"{member.sub}@debug.invalid"
+    r = owner.post(
+        f"/api/v1/b/{tid}/invitations",
+        json={"email": email, "role": role},
+        headers={"idempotency-key": str(uuid.uuid4())},
+    )
+    assert r.status_code == 201, r.text
+    with open(OUTBOX, encoding="utf-8") as f:
+        sent = [json.loads(line) for line in f]
+    link = next(m for m in reversed(sent) if m["template"] == "invitation" and m["to"] == email)["params"]["link"]
+    r = member.post(f"/api/v1/me/invitations/{link.rsplit('/', 1)[1]}/accept")
+    assert r.status_code == 200, r.text
