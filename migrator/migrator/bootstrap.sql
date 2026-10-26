@@ -49,6 +49,8 @@ begin
     -- The migrator reaches app_owner with SET ROLE but doesn't hold its rights by default.
     execute format('grant app_owner to %I with set true, inherit false', current_user);
     execute format('grant create on database %I to app_owner', current_database());
+    -- identity_auth owns identity's definer functions; ALTER ... OWNER TO needs SET on it.
+    execute format('grant identity_auth to %I with set true, inherit false', current_user);
 
     -- Read-only units of work SET LOCAL ROLE app_ro (L0-7); app_rw doesn't inherit its grants.
     grant app_ro to app_rw with set true, inherit false;

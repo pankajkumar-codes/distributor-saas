@@ -27,36 +27,36 @@ def audit_events(client, tid, action="member.deactivated"):
 
 def test_owner_deactivates_member_who_then_loses_access(client):
     tid = make_tenant(client, ALICE, "Alice Co")
-    add_member(client, tid, ALICE, BOB, "sales")
+    add_member(client, tid, ALICE, BOB, "billing")
     assert client.get(f"/api/v1/identity/tenants/{tid}", headers=as_user(BOB)).status_code == 200
 
     r = deactivate(client, tid, ALICE, BOB)
     assert r.status_code == 200
-    assert r.json() == {"user_sub": BOB, "role": "sales", "status": "disabled", "email": None, "display_name": None}
+    assert r.json() == {"user_sub": BOB, "role": "billing", "status": "deactivated", "email": None, "display_name": None}
     assert client.get(f"/api/v1/identity/tenants/{tid}", headers=as_user(BOB)).status_code == 404
 
 
 def test_deactivation_is_audited_with_who_whom_and_why(client):
     tid = make_tenant(client, ALICE, "Alice Co")
-    add_member(client, tid, ALICE, BOB, "finance")
+    add_member(client, tid, ALICE, BOB, "billing")
     deactivate(client, tid, ALICE, BOB, reason="contract ended")
     [event] = audit_events(client, tid)
     assert event["actor_sub"] == ALICE
     assert event["entity_type"] == "membership"
-    assert event["details"] == {"user_sub": BOB, "role": "finance", "reason": "contract ended"}
+    assert event["details"] == {"user_sub": BOB, "role": "billing", "reason": "contract ended"}
 
 
 @pytest.mark.parametrize("reason", [None, "", "x" * 501])
 def test_reason_is_required_and_bounded(client, reason):
     tid = make_tenant(client, ALICE, "Alice Co")
-    add_member(client, tid, ALICE, BOB, "sales")
+    add_member(client, tid, ALICE, BOB, "billing")
     assert deactivate(client, tid, ALICE, BOB, reason=reason).status_code == 422
     assert client.get(f"/api/v1/identity/tenants/{tid}", headers=as_user(BOB)).status_code == 200
 
 
 def test_retry_returns_same_result_without_a_second_audit_event(client):
     tid = make_tenant(client, ALICE, "Alice Co")
-    add_member(client, tid, ALICE, BOB, "sales")
+    add_member(client, tid, ALICE, BOB, "billing")
     first = deactivate(client, tid, ALICE, BOB)
     second = deactivate(client, tid, ALICE, BOB)
     assert first.status_code == second.status_code == 200
@@ -90,16 +90,16 @@ def test_owner_may_deactivate_self_when_not_last(client):
 def test_admin_can_deactivate_non_owners_but_not_owners(client):
     tid = make_tenant(client, ALICE, "Alice Co")
     add_member(client, tid, ALICE, BOB, "admin")
-    add_member(client, tid, ALICE, CAROL, "inventory")
+    add_member(client, tid, ALICE, CAROL, "ca")
     assert deactivate(client, tid, BOB, CAROL).status_code == 200
     assert deactivate(client, tid, BOB, ALICE).status_code == 404
 
 
-@pytest.mark.parametrize("role", ["sales", "inventory", "finance", "viewer"])
+@pytest.mark.parametrize("role", ["billing", "ca"])
 def test_non_admin_roles_cannot_deactivate(client, role):
     tid = make_tenant(client, ALICE, "Alice Co")
     add_member(client, tid, ALICE, BOB, role)
-    add_member(client, tid, ALICE, CAROL, "viewer")
+    add_member(client, tid, ALICE, CAROL, "ca")
     assert deactivate(client, tid, BOB, CAROL).status_code == 404
     assert client.get(f"/api/v1/identity/tenants/{tid}", headers=as_user(CAROL)).status_code == 200
 
@@ -107,7 +107,7 @@ def test_non_admin_roles_cannot_deactivate(client, role):
 def test_deactivated_admin_can_no_longer_deactivate_others(client):
     tid = make_tenant(client, ALICE, "Alice Co")
     add_member(client, tid, ALICE, BOB, "admin")
-    add_member(client, tid, ALICE, CAROL, "sales")
+    add_member(client, tid, ALICE, CAROL, "billing")
     deactivate(client, tid, ALICE, BOB)
     assert deactivate(client, tid, BOB, CAROL).status_code == 404
 
@@ -119,7 +119,7 @@ def test_unknown_member_is_404(client):
 
 def test_other_tenant_looks_like_it_does_not_exist(client):
     alice_tid = make_tenant(client, ALICE, "Alice Co")
-    add_member(client, alice_tid, ALICE, CAROL, "sales")
+    add_member(client, alice_tid, ALICE, CAROL, "billing")
     make_tenant(client, BOB, "Bob Co")
     real = deactivate(client, alice_tid, BOB, CAROL)
     fake = deactivate(client, str(uuid.uuid4()), BOB, CAROL)
@@ -131,7 +131,7 @@ def test_other_tenant_looks_like_it_does_not_exist(client):
 def test_cannot_deactivate_a_member_of_another_tenant_through_own_tenant(client):
     alice_tid = make_tenant(client, ALICE, "Alice Co")
     bob_tid = make_tenant(client, BOB, "Bob Co")
-    add_member(client, bob_tid, BOB, CAROL, "sales")
+    add_member(client, bob_tid, BOB, CAROL, "billing")
     assert deactivate(client, alice_tid, ALICE, CAROL).status_code == 404
     assert client.get(f"/api/v1/identity/tenants/{bob_tid}", headers=as_user(CAROL)).status_code == 200
 

@@ -1,7 +1,9 @@
 """Proves the invariants in docs/adr/0001-commerce-data-model.md on real PostgreSQL.
 
-Applies the identity migrations and the commerce design sketch to a throwaway
-database, then exercises it as svc_commerce. Skipped unless PG_ADMIN_URL points at a
+Applies the stock-era identity migrations (the NNNN_ files the sketch was written
+against, before LLD-1's reshape) and the commerce design sketch to a throwaway
+database, then exercises it as svc_commerce. The sketch is a frozen ADR record; LLD-3's
+own migrations replace it. Skipped unless PG_ADMIN_URL points at a
 disposable server, e.g.
 PG_ADMIN_URL=postgresql+psycopg://postgres@localhost:5432/postgres
 """
@@ -19,7 +21,7 @@ ADMIN_URL = os.environ.get("PG_ADMIN_URL")
 pytestmark = pytest.mark.skipif(not ADMIN_URL, reason="PG_ADMIN_URL not set")
 
 REPO = Path(__file__).resolve().parents[2]
-IDENTITY_MIGRATIONS = sorted((REPO / "app" / "src" / "app" / "modules" / "identity" / "migrations").glob("*.sql"))
+IDENTITY_MIGRATIONS = sorted((REPO / "app" / "src" / "app" / "modules" / "identity" / "migrations").glob("[0-9][0-9][0-9][0-9]_*.sql"))
 SKETCH = REPO / "docs" / "adr" / "0001-commerce-schema-sketch.sql"
 
 

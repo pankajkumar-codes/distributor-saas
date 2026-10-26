@@ -10,9 +10,10 @@ authoritative design documents are in the project files, not in this repo:
 This page summarises them. Where it differs from them, they win.
 
 > **Code status.** The code is in the layout below (`app/`, `libs/platform_common`,
-> `migrator/`). It still connects as the old `svc_identity` login until the S0a
-> database-roles change moves it to `app_rw`. Terraform still deploys per-service
-> Lambdas until Staff 2's S0b change.
+> `migrator/`). Locally and in CI it connects as `app_rw` on the LLD-1 identity tables;
+> in AWS the DB user moves from `svc_identity` to `app_rw` with Staff 2's S0b change,
+> which also replaces the per-service Lambdas. Until S1 sign-up and S0a (c2)'s principal
+> resolver exist, no caller in AWS has an `identity.users` row, so identity answers 401.
 
 ## One app, split into modules
 

@@ -14,6 +14,9 @@ from platform_common import db
 
 PG_ADMIN_URL = os.environ.get("PG_ADMIN_URL")
 MIGRATIONS = sorted((Path(__file__).parent.parent / "migrations").glob("*.sql"))
+REPO = Path(__file__).resolve().parents[6]
+BOOTSTRAP = REPO / "migrator" / "migrator" / "bootstrap.sql"
+LOCAL_ONLY = REPO / "migrator" / "local_only.sql"
 
 
 @pytest.fixture()
@@ -45,8 +48,8 @@ def as_user(sub: str) -> dict:
 
 @pytest.fixture()
 def pg_client(monkeypatch):
-    """The identity API on a fresh PostgreSQL database with the real migrations,
-    connected as svc_identity so row-level security applies."""
+    """The identity API on a fresh PostgreSQL database with the real migrations, set up
+    the way migrator.local does it, connected as app_rw so row-level security applies."""
     from sqlalchemy import create_engine, make_url, text
 
     dbname = f"t_{uuid.uuid4().hex[:10]}"
@@ -57,10 +60,11 @@ def pg_client(monkeypatch):
     admin_url = make_url(PG_ADMIN_URL)
     owner = create_engine(admin_url.set(database=dbname), isolation_level="AUTOCOMMIT")
     with owner.connect() as c:
-        for m in MIGRATIONS:
-            c.exec_driver_sql(m.read_text())
-        c.execute(text("alter role svc_identity password 'test-only'"))
-    svc = create_engine(admin_url.set(username="svc_identity", password="test-only", database=dbname))
+        raw = c.connection.driver_connection  # psycopg, without placeholder parsing (bootstrap has %rowtype)
+        for sql in [BOOTSTRAP, *MIGRATIONS, BOOTSTRAP, LOCAL_ONLY]:
+            raw.execute(sql.read_text())
+        c.execute(text("alter role app_rw password 'test-only'"))
+    svc = create_engine(admin_url.set(username="app_rw", password="test-only", database=dbname))
 
     from fastapi.testclient import TestClient
 

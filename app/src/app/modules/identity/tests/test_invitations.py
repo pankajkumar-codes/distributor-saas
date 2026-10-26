@@ -28,13 +28,13 @@ def outbox(monkeypatch):
 @pytest.fixture()
 def tenant(client):
     tid = client.post("/api/v1/identity/tenants", json={"name": "Vashi"}, headers=as_user(OWNER)).json()["id"]
-    for sub, role in [(ADMIN, "admin"), (SALES, "sales")]:
+    for sub, role in [(ADMIN, "admin"), (SALES, "billing")]:
         assert client.post(f"/api/v1/identity/tenants/{tid}/members", json={"user_sub": sub, "role": role},
                            headers=as_user(OWNER)).status_code == 201
     return tid
 
 
-def invite(client, tid, email="Priya@Example.com", role="sales", by=OWNER, **extra):
+def invite(client, tid, email="Priya@Example.com", role="billing", by=OWNER, **extra):
     return client.post(f"/api/v1/identity/tenants/{tid}/invitations", json={"email": email, "role": role, **extra},
                        headers=as_user(by))
 
@@ -49,11 +49,11 @@ def test_invite_then_accept_creates_membership(client, tenant, outbox):
     assert timedelta(days=6, hours=23) < expires.replace(tzinfo=expires.tzinfo or UTC) - datetime.now(UTC) <= timedelta(days=7)
 
     mine = client.get("/api/v1/identity/invitations", headers=as_person(NEW, "PRIYA@example.com")).json()
-    assert [(m["tenant_name"], m["role"]) for m in mine] == [("Vashi", "sales")]
+    assert [(m["tenant_name"], m["role"]) for m in mine] == [("Vashi", "billing")]
 
     r = client.post(f"/api/v1/identity/invitations/{inv['id']}/accept", headers=as_person(NEW, "priya@example.com"))
     assert r.status_code == 200, r.text
-    assert r.json()["role"] == "sales"
+    assert r.json()["role"] == "billing"
     members = client.get(f"/api/v1/identity/tenants/{tenant}/members", headers=as_user(NEW)).json()
     me = next(m for m in members if m["user_sub"] == NEW)
     assert me["email"] == "priya@example.com" and me["display_name"] == "Priya S"
@@ -115,7 +115,7 @@ def test_revoked_invite_cannot_be_accepted(client, tenant, outbox):
 
 
 def test_roles_who_may_invite(client, tenant, outbox):
-    assert invite(client, tenant, email="a@x.io", role="viewer", by=SALES).status_code == 404
+    assert invite(client, tenant, email="a@x.io", role="ca", by=SALES).status_code == 404
     assert invite(client, tenant, email="b@x.io", role="owner", by=ADMIN).status_code == 404
     assert invite(client, tenant, email="c@x.io", role="admin", by=ADMIN).status_code == 201
     assert invite(client, tenant, email="d@x.io", role="owner", by=OWNER).status_code == 201
@@ -143,10 +143,10 @@ def test_deactivated_member_cannot_rejoin_through_an_invite(client, tenant, outb
 
 
 @pytest.mark.parametrize("body", [
-    {"email": "not-an-email", "role": "sales"},
+    {"email": "not-an-email", "role": "billing"},
     {"email": "a@b.co", "role": "superuser"},
-    {"email": "a@b.co", "role": "sales", "display_name": ""},
-    {"email": "x" * 250 + "@b.co", "role": "sales"},
+    {"email": "a@b.co", "role": "billing", "display_name": ""},
+    {"email": "x" * 250 + "@b.co", "role": "billing"},
 ])
 def test_input_validation(client, tenant, outbox, body):
     r = client.post(f"/api/v1/identity/tenants/{tenant}/invitations", json=body, headers=as_user(OWNER))

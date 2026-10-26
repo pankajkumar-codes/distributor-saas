@@ -15,7 +15,7 @@ from app.modules.identity.models import Membership, MembershipStatus
 from .conftest import as_user
 
 OWNER, OTHER = "user-owner", "user-outsider"
-ROLES = ["owner", "admin", "sales", "inventory", "finance", "viewer"]
+ROLES = ["owner", "admin", "billing", "ca"]
 CAN_MANAGE = {"owner", "admin"}
 
 
@@ -70,7 +70,7 @@ def test_who_can_grant_which_role(client, caller, new_role):
 
 @pytest.mark.parametrize("role", ["owner", "admin"])
 def test_refused_grant_leaves_no_member_and_no_audit(client, role):
-    tid, sub = tenant_with(client, "viewer")
+    tid, sub = tenant_with(client, "ca")
     before = client.get(f"/api/v1/identity/tenants/{tid}/audit", headers=as_user(OWNER)).json()
     assert add(client, tid, sub, "user-sneaky", role).status_code == 404
     members = [m["user_sub"] for m in client.get(f"/api/v1/identity/tenants/{tid}/members", headers=as_user(OWNER)).json()]
@@ -82,8 +82,8 @@ def _disable(sub, tid):
     with main._factory()() as s:
         s.execute(
             update(Membership)
-            .where(Membership.user_sub == sub, Membership.tenant_id == uuid.UUID(tid))
-            .values(status=MembershipStatus.disabled)
+            .where(Membership.user_sub == sub, Membership.business_id == uuid.UUID(tid))
+            .values(status=MembershipStatus.deactivated)
         )
         s.commit()
 
@@ -101,12 +101,12 @@ def test_disabled_member_loses_access_like_an_outsider(client, path):
 def test_disabled_member_cannot_add_members_or_list_the_tenant(client):
     tid, sub = tenant_with(client, "admin")
     _disable(sub, tid)
-    assert add(client, tid, sub, "user-new", "viewer").status_code == 404
+    assert add(client, tid, sub, "user-new", "ca").status_code == 404
     assert client.get("/api/v1/identity/tenants", headers=as_user(sub)).json() == []
 
 
 def test_disabled_member_cannot_be_readded_silently(client):
-    tid, sub = tenant_with(client, "viewer")
+    tid, sub = tenant_with(client, "ca")
     _disable(sub, tid)
     # Re-activation must be an explicit, audited operation, not a side effect of "add".
     assert add(client, tid, OWNER, sub, "admin").status_code == 409
@@ -116,17 +116,17 @@ def test_role_in_one_tenant_does_not_carry_to_another(client):
     """Owner of T1 who is only a viewer in T2 gets viewer rights in T2."""
     t1 = make_tenant(client, "user-dual", "T1")
     t2 = make_tenant(client, OWNER, "T2")
-    assert add(client, t2, OWNER, "user-dual", "viewer").status_code == 201
-    assert add(client, t2, "user-dual", "user-new", "sales").status_code == 404
+    assert add(client, t2, OWNER, "user-dual", "ca").status_code == 201
+    assert add(client, t2, "user-dual", "user-new", "billing").status_code == 404
     assert client.get(f"/api/v1/identity/tenants/{t2}/audit", headers=as_user("user-dual")).status_code == 404
-    assert add(client, t1, "user-dual", "user-new", "sales").status_code == 201
+    assert add(client, t1, "user-dual", "user-new", "billing").status_code == 201
 
 
 def test_member_list_and_audit_are_scoped_to_the_requested_tenant(client):
     t1 = make_tenant(client, OWNER, "T1")
     t2 = make_tenant(client, OWNER, "T2")
-    add(client, t1, OWNER, "only-in-t1", "sales")
-    add(client, t2, OWNER, "only-in-t2", "sales")
+    add(client, t1, OWNER, "only-in-t1", "billing")
+    add(client, t2, OWNER, "only-in-t2", "billing")
     m1 = {m["user_sub"] for m in client.get(f"/api/v1/identity/tenants/{t1}/members", headers=as_user(OWNER)).json()}
     assert m1 == {OWNER, "only-in-t1"}
     a1 = client.get(f"/api/v1/identity/tenants/{t1}/audit", headers=as_user(OWNER)).json()
@@ -169,7 +169,7 @@ def test_tenant_name_is_validated(client, body):
 
 @pytest.mark.parametrize(
     "body",
-    [{"user_sub": "", "role": "viewer"}, {"user_sub": "x" * 129, "role": "viewer"}, {"user_sub": "a", "role": "superuser"}],
+    [{"user_sub": "", "role": "ca"}, {"user_sub": "x" * 129, "role": "ca"}, {"user_sub": "a", "role": "superuser"}],
 )
 def test_member_body_is_validated(client, body):
     tid = make_tenant(client, OWNER)

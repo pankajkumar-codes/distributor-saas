@@ -3,7 +3,7 @@
 Carries over #9's bind_tenant tests. Runs the identity migrations on a throwaway
 database and connects as svc_commerce, which has no grants on identity tables and sees
 a demo table only through RLS. The resolver below stands in for identity's: it asks
-`identity.caller_role()`, which answers only for the user in `app.user_sub`.
+`identity.caller_role()`, which answers only for the user in `app.user_id`.
 
 Skipped unless PG_ADMIN_URL points at a disposable server, e.g.
 PG_ADMIN_URL=postgresql+psycopg://postgres@localhost:5432/postgres
@@ -31,6 +31,8 @@ pytestmark = pytest.mark.skipif(not ADMIN_URL, reason="PG_ADMIN_URL not set")
 
 REPO = Path(__file__).resolve().parents[3]
 IDENTITY_MIGRATIONS = sorted((REPO / "app" / "src" / "app" / "modules" / "identity" / "migrations").glob("*.sql"))
+BOOTSTRAP = REPO / "migrator" / "migrator" / "bootstrap.sql"
+USERS: dict[str, uuid.UUID] = {}  # sub -> identity.users id, for the stand-in resolver
 
 # A stand-in for a module table protected the way ADR 0001 prescribes.
 DEMO_TABLE = """
@@ -67,7 +69,7 @@ def pg():
     owner = create_engine(url.set(database=dbname), isolation_level="AUTOCOMMIT")
     with owner.connect() as c:
         raw = c.connection.driver_connection
-        for m in IDENTITY_MIGRATIONS:
+        for m in [BOOTSTRAP, *IDENTITY_MIGRATIONS, BOOTSTRAP]:
             raw.execute(m.read_text())
         raw.execute(DEMO_TABLE)
         raw.execute("alter role svc_commerce password 'test-only'")
@@ -80,21 +82,37 @@ def pg():
 
 
 def _member(owner, tenant_id, user, role, status="active"):
+    uid = USERS.setdefault(user, uuid.uuid4())
     with owner.connect() as c:
-        c.execute(text("insert into identity.tenants (id, name) values (:t, 'T') on conflict do nothing"), {"t": tenant_id})
         c.execute(
-            text("insert into identity.memberships (id, tenant_id, user_sub, role, status) values (:i, :t, :u, :r, :s)"),
-            {"i": uuid.uuid4(), "t": tenant_id, "u": user, "r": role, "s": status},
+            text("insert into identity.users (id, cognito_sub, email) values (:u, :s, :s || '@example.com') on conflict do nothing"),
+            {"u": uid, "s": user},
+        )
+        c.execute(
+            text("insert into identity.businesses (id, name, created_by) values (:t, 'T', :u) on conflict do nothing"),
+            {"t": tenant_id, "u": uid},
+        )
+        c.execute(
+            text(
+                "insert into identity.memberships (id, business_id, user_id, user_sub, role, status) "
+                "values (:i, :t, :u, :s, :r, :st)"
+            ),
+            {"i": uuid.uuid4(), "t": tenant_id, "u": uid, "s": user, "r": role, "st": status},
         )
 
 
 def resolver(tx, caller, business_id, request_id):
+    """A stand-in for identity's resolver (S0a c2's auth_resolve) over the reshaped tables."""
+    user_id = USERS.get(caller.user_sub)
+    if user_id is None:
+        raise Deny("session_invalid")
     if business_id is None:
-        return Principal(user_sub=caller.user_sub, request_id=request_id)
+        return Principal(user_sub=caller.user_sub, request_id=request_id, user_id=user_id)
+    tx.execute(text("select set_config('app.user_id', :u, true)"), {"u": str(user_id)})
     role = tx.scalar(text("select identity.caller_role(:t)"), {"t": business_id})
     if role is None:
         raise Deny("not_member")
-    return Principal(user_sub=caller.user_sub, request_id=request_id, business_id=business_id, role=role)
+    return Principal(user_sub=caller.user_sub, request_id=request_id, user_id=user_id, business_id=business_id, role=role)
 
 
 @pytest.fixture()
@@ -107,8 +125,8 @@ def t(pg, monkeypatch):
     names = {n: f"{n}_{uuid.uuid4().hex[:6]}" for n in ("alice", "bob", "carol", "vic")}
     _member(owner, a, names["alice"], "owner")
     _member(owner, b, names["bob"], "owner")
-    _member(owner, a, names["carol"], "owner", status="disabled")
-    _member(owner, a, names["vic"], "viewer")  # a stock-era role the 4-role matrix doesn't know
+    _member(owner, a, names["carol"], "owner", status="deactivated")
+    _member(owner, a, names["vic"], "ca")  # may view the catalog, not edit it
     yield {"a": a, "b": b, **names, "owner": owner}
     uow_mod.set_session_factory(None)
     uow_mod.set_principal_resolver(None)
@@ -180,7 +198,7 @@ def test_member_gets_role_and_context(t):
         ("unknown_business", "not_member"),
         ("malformed", "not_found"),
         ("disabled_member", "not_member"),
-        ("role_unknown_to_matrix", "role_denied"),
+        ("role_without_the_permission", "role_denied"),
     ],
 )
 def test_every_refusal_is_the_same_404(t, case, reason, caplog):
@@ -190,9 +208,12 @@ def test_every_refusal_is_the_same_404(t, case, reason, caplog):
         "unknown_business": (uuid.uuid4(), t["alice"]),
         "malformed": ("not-a-uuid", t["alice"]),
         "disabled_member": (t["a"], t["carol"]),
-        "role_unknown_to_matrix": (t["a"], t["vic"]),
+        "role_without_the_permission": (t["a"], t["vic"]),
     }[case]
-    r = _app().get(f"/b/{business}/notes", headers={"x-debug-user": user})
+    if case == "role_without_the_permission":
+        r = _app().post(f"/b/{business}/notes", params={"body": "x"}, headers={"x-debug-user": user})
+    else:
+        r = _app().get(f"/b/{business}/notes", headers={"x-debug-user": user})
     assert (r.status_code, r.json()) == (404, {"error": {"code": "not_found", "message": "not found"}})
     assert [rec.reason for rec in caplog.records if getattr(rec, "event", None) == "deny"] == [reason]
 
