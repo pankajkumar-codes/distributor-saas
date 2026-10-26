@@ -25,6 +25,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "*" = ["migrations/*.sql"]
+"app.modules.identity" = ["common_passwords.txt", "common_passwords.LICENSE"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src", "../libs/platform_common"]

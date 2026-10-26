@@ -11,7 +11,7 @@ import uuid
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from platform_common.auth import DEBUG_ENVS, Caller, platform_env
+from platform_common.auth import Caller, debug_env
 from platform_common.errors import Deny
 from platform_common.uow import Principal
 
@@ -34,7 +34,7 @@ def session_key(tx: Session, caller: Caller) -> tuple[str | None, str | None]:
         value = caller.claims.get(kind)
         if value:
             return kind, str(value)
-    if platform_env() in DEBUG_ENVS and not caller.claims:
+    if debug_env() and not caller.claims:
         tx.execute(text("select identity.dev_ensure_session(:sub)"), {"sub": caller.user_sub})
         return "sid", f"debug:{caller.user_sub}"
     return None, None

@@ -68,7 +68,10 @@ The same suite runs against staging with two Cognito tokens:
 third user skip there. You can also open http://localhost:8000/docs to
 try each endpoint in the browser. Locally there is no Cognito: the `X-Debug-User`
 header plays the signed-in user, for example `X-Debug-User: alice`. That header is
-ignored everywhere except local and test runs.
+ignored everywhere except local and test runs, and always on Lambda. A local run must
+export `PLATFORM_ENV=local` (`make run-api` and `scripts/run_local.sh` do): a bare
+`uvicorn app.api:app` starts with `PLATFORM_ENV` unset, which fails closed, so debug
+login is off.
 
 `make db-down` deletes the local database when you want a fresh start.
 

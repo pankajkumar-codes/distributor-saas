@@ -9,7 +9,7 @@ from sqlalchemy import event, func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from platform_common.auth import DEBUG_ENVS, Caller, current_caller, platform_env
+from platform_common.auth import Caller, current_caller, debug_env
 from platform_common.db import engine, session_factory
 from platform_common.errors import Conflict, Deny, Gone, request_id
 from platform_common.permissions import Permission, Role, has_permission
@@ -49,9 +49,10 @@ def debug_user_id(session: Session, sub: str) -> uuid.UUID:
     Until S1 sign-up creates users, callers named by X-Debug-User get a row here. On
     PostgreSQL it goes through identity.dev_ensure_user, which only migrator.local
     creates (migrator/local_only.sql), so it doesn't exist in AWS either. The
-    route that adds a member by sub uses it too. The row's email is a placeholder: invitations match the caller's verified email, not this one.
+    route that adds a member by sub uses it too. The row's email is a placeholder:
+    invitations match the caller's verified email, not this one.
     """
-    if platform_env() not in DEBUG_ENVS:
+    if not debug_env():
         raise RuntimeError("debug users exist only when PLATFORM_ENV is local or test")
     if _postgres(session):
         return session.scalar(text("select identity.dev_ensure_user(:sub)"), {"sub": sub})
@@ -72,7 +73,7 @@ def caller_user_id(session: Session, caller: Caller, request_id: str) -> uuid.UU
     """
     if _postgres(session):
         return resolve_principal(session, caller, None, request_id).user_id
-    if platform_env() not in DEBUG_ENVS:
+    if not debug_env():
         raise Deny("session_invalid")
     return debug_user_id(session, caller.user_sub)
 

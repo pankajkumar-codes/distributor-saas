@@ -18,7 +18,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import text
 
-from .auth import DEBUG_ENVS, platform_env
+from .auth import debug_env
 from .clock import Clock
 from .errors import RateLimited
 
@@ -34,7 +34,7 @@ def _key() -> bytes:
     key = os.environ.get("RATE_HMAC_KEY")  # from Secrets Manager in AWS (S0b)
     if key:
         return key.encode()
-    if platform_env() in DEBUG_ENVS:
+    if debug_env():  # never on Lambda, even if PLATFORM_ENV wrongly says local or test
         return _DEV_KEY
     raise RuntimeError("RATE_HMAC_KEY is not set")
 
