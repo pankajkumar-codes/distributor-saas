@@ -40,6 +40,9 @@ begin
         set revoked_at = null, revoke_reason = null, last_activity_at = now(),
             absolute_expires_at = greatest(identity.sessions.absolute_expires_at, now() + interval '1 day');
 end $$;
+-- Handing these functions to identity_auth works here only because migrator.local runs
+-- as a superuser: the ledger revokes identity_auth's CREATE on identity after c2's
+-- migration, which an RDS master would need (see 202610251659). Never packaged.
 alter function identity.dev_ensure_session(text) owner to identity_auth;
 revoke all on function identity.dev_ensure_session(text) from public;
 grant execute on function identity.dev_ensure_session(text) to app_rw;
