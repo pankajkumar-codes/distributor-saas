@@ -1,0 +1,12 @@
+# Business limits (LLD-1 §8 create business, §12). Product rule, provisional until the PO confirms.
+
+- key: identity.max_owned_businesses
+  value: "5"
+  type: integer
+  kind: product
+  valid_from: 2026-10-24
+  source_url: team/docs/lld-1.md
+  source_title: "LLD-1 §8 business endpoints (create business) and §12 refdata rows"
+  last_checked: 2026-10-26
+  status: provisional
+  note: "Active businesses one user may own. Not in the BRD; PO to confirm."

@@ -101,6 +101,21 @@ jobs:
       - name: npm audit (runtime dependencies, high and critical fail)
         run: npm audit --omit=dev --audit-level=high
 
+  refdata:
+    # LLD-0 §7: every refdata/ file passes the loader's checks (sources, types, dates,
+    # statuses, template SHA-256s). The dry-run load into PostgreSQL is in the migrator
+    # job's tests (migrator/tests/test_refdata.py).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r migrator/requirements.txt
+      - name: Check refdata files
+        working-directory: migrator
+        run: python -m migrator.refdata check ../refdata
+
   permissions-doc:
     # docs/PERMISSIONS.md must be the page generated from the role matrix (LLD-0 §7).
     runs-on: ubuntu-latest

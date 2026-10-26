@@ -18,6 +18,15 @@ modules =
     app.modules.identity
     app.modules.imports
 
+[importlinter:contract:refdata-leaf]
+name = refdata imports no other module (every module may import refdata, LLD-0 §2)
+type = forbidden
+source_modules =
+    app.modules.refdata
+forbidden_modules =
+    app.modules.identity
+    app.modules.imports
+
 [importlinter:contract:modules-not-entrypoints]
 name = Modules do not import the API or worker entry points
 type = forbidden
