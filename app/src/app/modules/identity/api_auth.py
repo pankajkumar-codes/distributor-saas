@@ -14,11 +14,11 @@ from pydantic import BaseModel, Field
 
 from platform_common.auth import debug_env
 from platform_common.authprovider import AuthProvider
-from platform_common.errors import Deny, Invalid, request_id
+from platform_common.errors import Deny, Invalid, deny_response, request_id
 from platform_common.mailer import Mailer
 
 from .providers import auth_provider, mailer
-from .service import signup
+from .service import sessions, signup
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -48,6 +48,9 @@ def _email(raw: str) -> str:
 
 
 def _client_ip(request: Request) -> str:
+    # API Gateway's sourceIp, through Mangum. If CloudFront is ever put in front of
+    # /api, this becomes CloudFront's address and every per-IP bucket is shared by
+    # all users; read CloudFront-Viewer-Address then (infra review item).
     return request.client.host if request.client else "-"
 
 
@@ -86,3 +89,36 @@ def signup_verify(
         "expires_in": done.expires_in,
         "user": {"id": str(done.user_id), "email": done.email},
     }
+
+
+def _clear_cookie(response: Response) -> None:
+    response.delete_cookie(REFRESH_COOKIE, path=COOKIE_PATH, secure=True, httponly=True, samesite="strict")
+
+
+@router.post("/refresh")
+def refresh(request: Request, idp: Annotated[AuthProvider, Depends(auth_provider)]):
+    try:
+        _check_origin(request)
+        tokens = sessions.refresh(
+            request.cookies.get(REFRESH_COOKIE),
+            _client_ip(request),
+            request_id(request),
+            idp,
+            background=request.headers.get("x-background") == "1",
+        )
+    except Deny as e:
+        failed = deny_response(request, e)
+        _clear_cookie(failed)
+        return failed
+    # The refresh token isn't rotated (L1-5), so the cookie is left as it is.
+    return {"access_token": tokens.access_token, "expires_in": tokens.expires_in}
+
+
+@router.post("/signout", status_code=204)
+def signout(request: Request, idp: Annotated[AuthProvider, Depends(auth_provider)]):
+    auth = request.headers.get("authorization", "")
+    bearer = auth[7:] if auth.lower().startswith("bearer ") else None
+    sessions.sign_out(bearer, request.cookies.get(REFRESH_COOKIE), request_id(request), idp)
+    done = Response(status_code=204)
+    _clear_cookie(done)
+    return done

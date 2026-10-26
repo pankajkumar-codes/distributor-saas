@@ -33,6 +33,9 @@ GitHub Actions runs all of these on every pull request, plus:
 - gitleaks over the whole git history
 - `openapi`: `app/openapi.json` matches the API (`make openapi` regenerates it and the web
   client types), and no money field is typed as a number
+- `refdata`: every file under `refdata/` passes the loader's checks
+  (`python -m migrator.refdata check ../refdata` from `migrator/`); the migrator tests
+  also load them into PostgreSQL
 - `web`: exact pins in `web/package.json`, `npm ci` from the lockfile, and `npm audit`
   with no high or critical advisory in a runtime dependency (`web/README.md`)
 - the end-to-end suite below, against identity on real PostgreSQL, after migrating twice

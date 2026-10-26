@@ -1,0 +1,135 @@
+# Sign-up, sign-in and session limits (LLD-0 §6.5, LLD-1 §12). Product rules, not tax:
+# provisional until the PO confirms them (RM-4.0). BRD rows quote ON-1; the others
+# are LLD-1's numbers, which the BRD doesn't give.
+
+- key: auth.code_ttl_minutes
+  value: "10"
+  type: integer
+  kind: product
+  valid_from: 2026-10-24
+  source_url: https://claude.ai/artifact/F48P7oLdrB1cNp6WqZbQcA
+  source_title: "BRD v1.1, ON-1 Self sign-up with email"
+  last_checked: 2026-10-26
+  status: provisional
+  note: "A code is valid for 10 minutes."
+
+- key: auth.code_max_tries
+  value: "5"
+  type: integer
+  kind: product
+  valid_from: 2026-10-24
+  source_url: https://claude.ai/artifact/F48P7oLdrB1cNp6WqZbQcA
+  source_title: "BRD v1.1, ON-1 Self sign-up with email"
+  last_checked: 2026-10-26
+  status: provisional
+  note: "5 wrong tries void a code."
+
+- key: auth.code_requests_per_email_per_hour
+  value: "5"
+  type: integer
+  kind: product
+  valid_from: 2026-10-24
+  source_url: https://claude.ai/artifact/F48P7oLdrB1cNp6WqZbQcA
+  source_title: "BRD v1.1, ON-1 Self sign-up with email"
+  last_checked: 2026-10-26
+  status: provisional
+  note: "At most 5 code requests per email per hour."
+
+- key: auth.code_requests_per_ip_per_hour
+  value: "20"
+  type: integer
+  kind: product
+  valid_from: 2026-10-24
+  source_url: https://claude.ai/artifact/F48P7oLdrB1cNp6WqZbQcA
+  source_title: "BRD v1.1, ON-1 Self sign-up with email"
+  last_checked: 2026-10-26
+  status: provisional
+  note: "At most 20 code requests per IP address per hour."
+
+- key: auth.idle_hours
+  value: "24"
+  type: integer
+  kind: product
+  valid_from: 2026-10-24
+  source_url: https://claude.ai/artifact/F48P7oLdrB1cNp6WqZbQcA
+  source_title: "BRD v1.1, ON-1 Self sign-up with email"
+  last_checked: 2026-10-26
+  status: provisional
+  note: "A session ends after 24 hours idle."
+
+- key: auth.session_max_days
+  value: "30"
+  type: integer
+  kind: product
+  valid_from: 2026-10-24
+  source_url: https://claude.ai/artifact/F48P7oLdrB1cNp6WqZbQcA
+  source_title: "BRD v1.1, ON-1 Self sign-up with email"
+  last_checked: 2026-10-26
+  status: provisional
+  note: "A session ends after 30 days."
+
+- key: auth.code_checks_per_ip_per_hour
+  value: "50"
+  type: integer
+  kind: product
+  valid_from: 2026-10-24
+  source_url: team/docs/lld-1.md
+  source_title: "LLD-1 §12 Audit, events and refdata added (L1-10 for the sign-in limits)"
+  last_checked: 2026-10-26
+  status: provisional
+  note: "Not in the BRD; LLD-1 L1-10. PO to confirm."
+
+- key: auth.signin_per_email_per_15min
+  value: "10"
+  type: integer
+  kind: product
+  valid_from: 2026-10-24
+  source_url: team/docs/lld-1.md
+  source_title: "LLD-1 §12 Audit, events and refdata added (L1-10 for the sign-in limits)"
+  last_checked: 2026-10-26
+  status: provisional
+  note: "Not in the BRD; LLD-1 L1-10. PO to confirm."
+
+- key: auth.signin_per_ip_per_hour
+  value: "100"
+  type: integer
+  kind: product
+  valid_from: 2026-10-24
+  source_url: team/docs/lld-1.md
+  source_title: "LLD-1 §12 Audit, events and refdata added (L1-10 for the sign-in limits)"
+  last_checked: 2026-10-26
+  status: provisional
+  note: "Not in the BRD; LLD-1 L1-10. PO to confirm."
+
+- key: auth.totp_tries_per_email_per_15min
+  value: "5"
+  type: integer
+  kind: product
+  valid_from: 2026-10-24
+  source_url: team/docs/lld-1.md
+  source_title: "LLD-1 §12 Audit, events and refdata added (L1-10 for the sign-in limits)"
+  last_checked: 2026-10-26
+  status: provisional
+  note: "Not in the BRD; LLD-1 L1-10. PO to confirm."
+
+- key: auth.refresh_per_ip_per_hour
+  value: "600"
+  type: integer
+  kind: product
+  valid_from: 2026-10-24
+  source_url: team/docs/lld-1.md
+  source_title: "LLD-1 §12 Audit, events and refdata added (L1-10 for the sign-in limits)"
+  last_checked: 2026-10-26
+  status: provisional
+  note: "Not in the BRD; LLD-1 §12. PO to confirm."
+
+- key: auth.stepup_minutes
+  value: "10"
+  type: integer
+  kind: product
+  valid_from: 2026-10-24
+  source_url: team/docs/lld-1.md
+  source_title: "LLD-1 §12 Audit, events and refdata added (L1-10 for the sign-in limits)"
+  last_checked: 2026-10-26
+  status: provisional
+  note: "Not in the BRD; LLD-1 §12. PO to confirm."

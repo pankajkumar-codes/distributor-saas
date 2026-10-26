@@ -5,8 +5,8 @@ migrator Lambda does in AWS.
 
 Locally there is no IAM database auth, so this also gives each login role
 (svc_<service>, app_rw, app_retention) the password "local-only", and applies
-migrator/local_only.sql (debug-only helpers that never exist in AWS). Never run this
-against AWS.
+migrator/local_only.sql (debug-only helpers that never exist in AWS). It loads
+refdata/ as the Lambda does (LLD-0 §6). Never run this against AWS.
 """
 
 import sys
@@ -22,6 +22,7 @@ REPO = Path(__file__).resolve().parents[2]
 MODULES_DIR = REPO / "app" / "src" / "app" / "modules"
 PLATFORM_DIR = REPO / "libs" / "platform_common" / "migrations"
 LOCAL_ONLY = REPO / "migrator" / "local_only.sql"
+REFDATA = REPO / "refdata"
 LOCAL_PASSWORD = "local-only"
 
 
@@ -52,7 +53,7 @@ def main(dsn: str) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             collect(root)
-            applied = migrate(conn, root)
+            applied = migrate(conn, root, REFDATA)
         conn.execute(LOCAL_ONLY.read_text())
         roles = [
             r
