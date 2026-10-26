@@ -1,0 +1,12 @@
+# GSTR-1 offline tool limits (LLD-0 §6.1, HLD §12.1 item 5). Tax row, provisional.
+
+- key: gstr1.offline_tool.max_lines
+  value: "10000"
+  type: integer
+  kind: tax
+  valid_from: 2017-07-01
+  source_url: https://tutorial.gst.gov.in/offlineutilities/returns/gst_offline_tool.zip
+  source_title: "Returns Offline Tool V3.2.4, GSTR-1 Excel template help row 3"
+  last_checked: 2026-10-24
+  status: provisional
+  note: "Help row 3 says approximately 19,000 line items per upload; the stricter 10,000 split (team/gst/gstr1-examples.md Part D) is used until the GST expert confirms (team/gst/gstr1-offline-template.md)."
