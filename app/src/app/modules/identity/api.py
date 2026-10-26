@@ -9,7 +9,7 @@ from sqlalchemy import event, func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from platform_common.auth import DEBUG_ENVS, Caller, current_caller, platform_env
+from platform_common.auth import Caller, current_caller, debug_env
 from platform_common.db import engine, session_factory
 from platform_common.errors import Conflict, Deny, Gone
 from platform_common.permissions import Permission, Role, has_permission
@@ -50,7 +50,7 @@ def debug_user_id(session: Session, sub: str) -> uuid.UUID:
     creates (migrator/local_only.sql), so it doesn't exist in AWS either. The row's
     email is a placeholder: invitations match the caller's verified email, not this one.
     """
-    if platform_env() not in DEBUG_ENVS:
+    if not debug_env():
         raise RuntimeError("debug users exist only when PLATFORM_ENV is local or test")
     if _postgres(session):
         return session.scalar(text("select identity.dev_ensure_user(:sub)"), {"sub": sub})
@@ -63,7 +63,7 @@ def debug_user_id(session: Session, sub: str) -> uuid.UUID:
 
 
 def db_session(principal: Caller = Depends(current_caller)) -> Iterator[Session]:
-    if platform_env() not in DEBUG_ENVS:
+    if not debug_env():
         # No users row exists in AWS until S1 sign-up, and S0a (c2)'s principal resolver
         # (identity.auth_resolve) is what finds one; until then every caller is unknown.
         raise Deny("session_invalid")

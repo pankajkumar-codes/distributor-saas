@@ -24,6 +24,7 @@ pytestmark = pytest.mark.skipif(not ADMIN_URL, reason="PG_ADMIN_URL not set")
 MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
 A, B = uuid.uuid4(), uuid.uuid4()
 ASHA, RAVI = uuid.uuid4(), uuid.uuid4()
+STATE = {}
 
 
 @pytest.fixture(scope="module")
@@ -32,7 +33,7 @@ def factory():
     admin = create_engine(ADMIN_URL, isolation_level="AUTOCOMMIT")
     with admin.connect() as c:
         c.execute(text(f"create database {dbname}"))
-        for role in ("app_rw", "app_ro"):
+        for role in ("app_rw", "app_ro", "retention_owner"):
             c.execute(
                 text(
                     f"do $$ begin if not exists (select from pg_roles where rolname = '{role}') "
@@ -40,7 +41,7 @@ def factory():
                 )
             )
         c.execute(text("grant app_ro to app_rw"))
-    url = make_url(ADMIN_URL).set(database=dbname)
+    url = STATE["url"] = make_url(ADMIN_URL).set(database=dbname)
     with create_engine(url).begin() as c:
         for f in sorted(MIGRATIONS.glob("*.sql")):
             c.exec_driver_sql(f.read_text())
@@ -101,6 +102,34 @@ def test_user_level_rows_belong_to_their_user(factory):
                 ),
                 {"i": uuid.uuid4(), "u": RAVI},
             )
+
+
+def test_a_business_row_cannot_name_another_user_as_actor(factory):
+    with pytest.raises(ProgrammingError, match="row-level security"):
+        with unit_of_work(P(user=ASHA, business=A)) as uow:
+            uow.tx.execute(
+                text(
+                    "insert into platform.audit_log (id, business_id, user_id, action, target_kind, request_id)"
+                    " values (:i, :b, :u, 'business.create', 'business', 'r')"
+                ),
+                {"i": uuid.uuid4(), "b": A, "u": RAVI},
+            )
+
+
+def test_retention_owner_purges_only_while_retention_is_active(factory):
+    scope, bucket = uuid.uuid4(), f"test:{uuid.uuid4()}"
+    with create_engine(STATE["url"]).begin() as c:  # as the superuser, to seed
+        c.execute(
+            text("insert into platform.idempotency_keys (scope, key, request_hash) values (:s, 'k', repeat('0', 64))"),
+            {"s": scope},
+        )
+        c.execute(text("insert into platform.rate_counters values (:b, now(), 1)"), {"b": bucket})
+    with create_engine(STATE["url"]).begin() as c:
+        c.execute(text("set local role retention_owner"))
+        assert c.execute(text("delete from platform.idempotency_keys where scope = :s"), {"s": scope}).rowcount == 0
+        c.execute(text("select set_config('retention.active', 'on', true)"))
+        assert c.execute(text("delete from platform.idempotency_keys where scope = :s"), {"s": scope}).rowcount == 1
+        assert c.execute(text("delete from platform.rate_counters where bucket = :b"), {"b": bucket}).rowcount == 1
 
 
 def test_a_support_grant_sees_and_writes_no_business_rows(factory):
