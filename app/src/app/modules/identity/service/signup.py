@@ -74,6 +74,9 @@ def request_code(email: str, ip: str, request_id: str, mail: Mailer) -> None:
     digest = codes.code_hmac("signup", email, code)
     with unit_of_work(_public(request_id)) as uow:
         if uow.tx.execute(text("select identity.auth_user_by_email(:e)"), {"e": email}).scalar() is not None:
+            # The same advisory lock auth_issue_code takes, so both branches do
+            # comparable work (Staff 2, #33).
+            uow.tx.execute(text("select pg_advisory_xact_lock(hashtextextended('signup:' || :e, 0))"), {"e": email})
             send_after_commit(uow, mail, "already_registered", email, {})
             return
         uow.tx.execute(
@@ -102,7 +105,10 @@ def verify(email: str, code: str, password: str, ip: str, request_id: str, idp: 
         if e.code != "user_exists":
             raise
         # An earlier verify created the Cognito user and then failed before tx 2
-        # (HLD §6.1). Only reachable with a valid claimed code.
+        # (HLD §6.1). Only reachable with a valid claimed code, which proves the caller
+        # holds the inbox. An invitee whose Cognito user an invitation pre-created
+        # (invites.CognitoSender) and who signs up instead of accepting comes here too,
+        # by design: the code proves the same thing.
         sub = idp.get_sub(email)
         idp.set_password(sub, password)
     tokens = idp.initiate_auth(email, password)  # a new user has no TOTP yet
