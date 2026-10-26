@@ -33,6 +33,8 @@ LLD-2 part A (slice S2). The code is in `app/src/app/modules/identity/api_team.p
 
 **Deactivation.** It takes effect on the member's next request to that business. Their sessions and their other businesses are untouched (L2-8).
 
+**Invite status.** A BEFORE UPDATE trigger (`identity.guard_invitation_update`) allows only pending to cancelled, pending to expired (once the expiry has passed) and pending to accepted (only as `identity_auth`, inside `auth_accept_invitation`). Business, email and role never change, and the link and expiry change only while pending. `app_rw` can update only `status`, `expires_at`, `token_hash`, `last_sent_at`, `cancelled_at` and `cancelled_by`.
+
 **Tokens.** Invite tokens are 32 random bytes and are stored only as their sha256. No email, token or code goes into audit `data`.
 
 ## Audit log

@@ -80,7 +80,12 @@ create policy m_auth_update on identity.memberships for update to identity_auth 
 create policy audit_auth_insert on platform.audit_log for insert to identity_auth
     with check (action = 'member.accept' and business_id is not null and support_grant_id is null);
 
-grant update (token_hash, last_sent_at, cancelled_at, cancelled_by) on identity.invitations to app_rw;
+-- 0005 and 202610251700 granted UPDATE on the legacy columns (delivery, accepted_by, ...)
+-- to svc_identity and app_rw; they go, and app_rw gets back only what resend, cancel and
+-- the lapse write use. Which status moves are allowed is the trigger's job (section 6).
+revoke update on identity.invitations from svc_identity, app_rw;
+grant update (status, expires_at, token_hash, last_sent_at, cancelled_at, cancelled_by)
+    on identity.invitations to app_rw;
 grant select on identity.invitations to app_ro;
 grant select, update (status, accepted_by_user, accepted_at) on identity.invitations to identity_auth;
 grant insert, update on identity.memberships to identity_auth;
@@ -189,3 +194,42 @@ revoke all on function identity.member_profiles(uuid[]), identity.auth_invitatio
 grant execute on function identity.member_profiles(uuid[]) to app_rw, app_ro;
 grant execute on function identity.auth_invitation_preview(text),
     identity.auth_accept_invitation(text, uuid, uuid) to app_rw;
+
+-- 6. ------------------------------------------------------------------------------
+-- Status moves, whoever writes (Staff 2 on #39). Only identity_auth, inside
+-- auth_accept_invitation, can accept; nothing leaves accepted, cancelled or expired;
+-- a lapse needs a past expires_at; the link and expiry change only while pending.
+create function identity.guard_invitation_update() returns trigger
+    language plpgsql set search_path = pg_catalog, identity, pg_temp as $$
+begin
+    if (new.business_id, new.email, new.role) is distinct from (old.business_id, old.email, old.role) then
+        raise exception 'invitation business, email and role are fixed' using errcode = 'check_violation';
+    end if;
+    if new.status is distinct from old.status then
+        if old.status <> 'pending'
+           or (new.status = 'accepted' and (current_user <> 'identity_auth' or new.accepted_by_user is null))
+           or (new.status = 'cancelled' and (new.cancelled_at is null or new.cancelled_by is null))
+           or (new.status = 'expired' and old.expires_at > now())
+           or new.status not in ('accepted', 'cancelled', 'expired') then
+            raise exception 'invitation cannot move from % to %', old.status, new.status
+                using errcode = 'check_violation';
+        end if;
+    end if;
+    if (new.token_hash, new.expires_at, new.last_sent_at)
+           is distinct from (old.token_hash, old.expires_at, old.last_sent_at)
+       and (old.status <> 'pending' or new.status <> 'pending') then
+        raise exception 'only a pending invitation can be resent' using errcode = 'check_violation';
+    end if;
+    if (new.accepted_by_user, new.accepted_at) is distinct from (old.accepted_by_user, old.accepted_at)
+       and not (old.status = 'pending' and new.status = 'accepted') then
+        raise exception 'acceptance is set only by accepting' using errcode = 'check_violation';
+    end if;
+    if (new.cancelled_at, new.cancelled_by) is distinct from (old.cancelled_at, old.cancelled_by)
+       and not (old.status = 'pending' and new.status = 'cancelled') then
+        raise exception 'cancellation is set only by cancelling' using errcode = 'check_violation';
+    end if;
+    return new;
+end $$;
+revoke all on function identity.guard_invitation_update() from public;
+create trigger invitations_guard before update on identity.invitations
+    for each row execute function identity.guard_invitation_update();

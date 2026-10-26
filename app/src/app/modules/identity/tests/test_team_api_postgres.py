@@ -146,6 +146,45 @@ def test_resent_cancelled_and_expired_tokens_cannot_be_accepted(team):
     assert invite(client, tid, "carol").status_code == 201
 
 
+def test_app_rw_cannot_accept_or_revive_an_invite_directly(team):
+    """Staff 2 on #39: with the route checks bypassed, app_rw bound as the owner still can't
+    accept, revive or re-extend an invite; only the routes' own moves go through."""
+    client, svc, mail, tid = team
+    bob = invite(client, tid, "bob").json()["id"]
+    join(client, mail, tid, "carol")
+
+    def as_owner(sql, **params):
+        with svc.begin() as c:
+            c.execute(
+                text("select set_config('app.user_id', :u, true), set_config('app.tenant_id', :t, true)"),
+                {"u": uid("alice"), "t": str(tid)},
+            )
+            return c.execute(text(sql), params).rowcount
+
+    def refused(sql, sqlstate="23514", **params):
+        with pytest.raises(Exception) as e:
+            as_owner(sql, **params)
+        assert getattr(e.value.orig, "sqlstate", None) == sqlstate, e.value
+
+    me = uid("alice")
+    # The acceptance columns aren't granted at all; status is, and the trigger stops the move.
+    refused("update identity.invitations set accepted_by_user = :u, accepted_at = now() where id = :i",
+            sqlstate="42501", u=me, i=bob)
+    refused("update identity.invitations set status = 'accepted' where id = :i", i=bob)
+    refused("update identity.invitations set delivery = 'sent' where id = :i", sqlstate="42501", i=bob)
+    refused("update identity.invitations set status = 'expired' where id = :i", i=bob)  # not lapsed yet
+
+    assert client.post(f"/api/v1/b/{tid}/invitations/{bob}/cancel", headers=H("alice")).status_code == 200
+    refused("update identity.invitations set status = 'pending', cancelled_at = null, cancelled_by = null"
+            " where id = :i", i=bob)
+    refused("update identity.invitations set expires_at = now() + interval '7 days' where id = :i", i=bob)
+    carol = "select id from identity.invitations where email = :e"
+    refused(f"update identity.invitations set status = 'cancelled', cancelled_at = now(), cancelled_by = :u"
+            f" where id = ({carol})", u=me, e=email("carol"))
+    refused(f"update identity.invitations set email = :x where id = ({carol})", sqlstate="42501", e=email("carol"), x=email("eve"))
+    assert [s for (s,) in owner_sql("select status from identity.invitations order by email")] == ["cancelled", "accepted"]
+
+
 def test_two_concurrent_accepts_make_one_membership(team):
     """AC2-8, on two connections: the second waits on the invite's row lock."""
     client, svc, mail, tid = team
