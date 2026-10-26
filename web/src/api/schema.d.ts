@@ -72,6 +72,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** New Business */
+        post: operations["new_business_api_v1_b_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/health": {
         parameters: {
             query?: never;
@@ -279,10 +296,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/businesses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My Businesses */
+        get: operations["my_businesses_api_v1_me_businesses_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** Address */
+        Address: {
+            /** City */
+            city?: string | null;
+            /** Line1 */
+            line1?: string | null;
+            /** Line2 */
+            line2?: string | null;
+            /** Pin */
+            pin?: string | null;
+            /** State Code */
+            state_code?: string | null;
+        };
         /** AuditOut */
         AuditOut: {
             /** Action */
@@ -402,10 +449,46 @@ export interface components {
             /** Tenant Name */
             tenant_name: string;
         };
+        /**
+         * NewBusinessProfile
+         * @description The body of POST /api/v1/b (LLD-1 §5.10).
+         */
+        NewBusinessProfile: {
+            address?: components["schemas"]["Address"] | null;
+            /**
+             * Einvoice History
+             * @enum {string}
+             */
+            einvoice_history: "no" | "yes" | "not_sure";
+            /** Legal Name */
+            legal_name?: string | null;
+            registration: components["schemas"]["Registration"];
+            /** Trade Name */
+            trade_name?: string | null;
+            /**
+             * Turnover Band
+             * @enum {string}
+             */
+            turnover_band: "up_to_threshold" | "above_threshold";
+        };
         /** ReasonIn */
         ReasonIn: {
             /** Reason */
             reason: string;
+        };
+        /** Registration */
+        Registration: {
+            /** Enrolment Number */
+            enrolment_number?: string | null;
+            /** Gstin */
+            gstin?: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "gstin" | "enrolment";
+            /** State Code */
+            state_code?: string | null;
         };
         /**
          * Role
@@ -545,6 +628,41 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    new_business_api_v1_b_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewBusinessProfile"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1013,6 +1131,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_businesses_api_v1_me_businesses_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };

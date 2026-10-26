@@ -1,6 +1,72 @@
 {
   "components": {
     "schemas": {
+      "Address": {
+        "properties": {
+          "city": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "line1": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line1"
+          },
+          "line2": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line2"
+          },
+          "pin": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{6}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pin"
+          },
+          "state_code": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{2}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State Code"
+          }
+        },
+        "title": "Address",
+        "type": "object"
+      },
       "AuditOut": {
         "properties": {
           "action": {
@@ -281,6 +347,72 @@
         "title": "MyInvitationOut",
         "type": "object"
       },
+      "NewBusinessProfile": {
+        "description": "The body of POST /api/v1/b (LLD-1 \u00a75.10).",
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Address"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "einvoice_history": {
+            "enum": [
+              "no",
+              "yes",
+              "not_sure"
+            ],
+            "title": "Einvoice History",
+            "type": "string"
+          },
+          "legal_name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Legal Name"
+          },
+          "registration": {
+            "$ref": "#/components/schemas/Registration"
+          },
+          "trade_name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trade Name"
+          },
+          "turnover_band": {
+            "enum": [
+              "up_to_threshold",
+              "above_threshold"
+            ],
+            "title": "Turnover Band",
+            "type": "string"
+          }
+        },
+        "required": [
+          "registration",
+          "turnover_band",
+          "einvoice_history"
+        ],
+        "title": "NewBusinessProfile",
+        "type": "object"
+      },
       "ReasonIn": {
         "properties": {
           "reason": {
@@ -294,6 +426,59 @@
           "reason"
         ],
         "title": "ReasonIn",
+        "type": "object"
+      },
+      "Registration": {
+        "properties": {
+          "enrolment_number": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enrolment Number"
+          },
+          "gstin": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gstin"
+          },
+          "kind": {
+            "enum": [
+              "gstin",
+              "enrolment"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "state_code": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{2}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State Code"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "Registration",
         "type": "object"
       },
       "Role": {
@@ -526,6 +711,63 @@
         "summary": "Signup Verify",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/api/v1/b": {
+      "post": {
+        "operationId": "new_business_api_v1_b_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewBusinessProfile"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "New Business",
+        "tags": [
+          "me"
         ]
       }
     },
@@ -1177,6 +1419,25 @@
         "summary": "Reactivate Member",
         "tags": [
           "identity"
+        ]
+      }
+    },
+    "/api/v1/me/businesses": {
+      "get": {
+        "operationId": "my_businesses_api_v1_me_businesses_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "My Businesses",
+        "tags": [
+          "me"
         ]
       }
     }
