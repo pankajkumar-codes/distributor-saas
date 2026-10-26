@@ -57,10 +57,11 @@ def add_row(admin, key, value, type_, valid_from, valid_to=None, status="provisi
         c.execute(
             text(
                 "insert into refdata.values (key, value, type, kind, valid_from, valid_to, source_url, source_title,"
-                " last_checked, status, loaded_from) values (:k, :v, :t, :kind, :f, :to, 'https://example.org',"
-                " 'test', '2026-10-26', :s, 'test')"
+                " last_checked, status, loaded_from, confirmed_by, confirmed_on) values (:k, :v, :t, :kind, :f, :to,"
+                " 'https://example.org', 'test', '2026-10-26', :s, 'test', :by, :on)"
             ),
-            {"k": key, "v": value, "t": type_, "kind": kind, "f": valid_from, "to": valid_to, "s": status},
+            {"k": key, "v": value, "t": type_, "kind": kind, "f": valid_from, "to": valid_to, "s": status,
+             "by": None if status == "provisional" else "test", "on": None if status == "provisional" else "2026-10-26"},
         )
         c.execute(
             text(

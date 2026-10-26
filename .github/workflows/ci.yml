@@ -71,16 +71,43 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install ruff==0.17.0 pytest
-      - name: Ruff
+      - run: pip install ruff==0.17.0 pytest pyyaml
+      - name: Ruff (includes the clock rule, TID251 in ruff.toml)
         run: ruff check app migrator libs tests scripts
       - name: No floats in app or library code
         run: python scripts/float_guard.py
-      - name: Float guard self-test
+      - name: CI check self-tests (float guard; AC-13 planted fixtures in tests/ci_fixtures)
         run: pytest -q tests/tools
       - name: Destructive migrations carry an approval header
         # LLD-0 §5; the CLI skips grandfathered NNNN_ files
         run: PYTHONPATH=migrator python -m migrator.lint $(git ls-files 'app/src/app/modules/*/migrations/*.sql' 'libs/platform_common/migrations/*.sql')
+
+  migrations:
+    # LLD-0 §7 structural rules for timestamped migrations: names and prefixes, no
+    # business dates in SQL, ENABLE + FORCE RLS on every table not in
+    # migrator/migrator/global_tables.yaml, NO FORCE re-forced, security_invoker views.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pyyaml
+      - name: Migration structure
+        run: PYTHONPATH=migrator python -m migrator.checks $(git ls-files 'app/src/app/modules/*/migrations/*.sql' 'libs/platform_common/migrations/*.sql')
+
+  tax-literals:
+    # LLD-0 §7, CLAUDE.md rule 12: no tax number or date in sales, filing, catalog or
+    # imports code; it belongs in refdata/. Exceptions need a reason in
+    # scripts/ci_checks/tax_literals_allowlist.yaml.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pyyaml
+      - run: python scripts/ci_checks/tax_literals.py
 
   web:
     # Web dependencies (LLD-1 §11, RM41-5): exact pins, lockfile install, and no high or
@@ -128,7 +155,8 @@ jobs:
       - run: python scripts/gen_permissions_doc.py --check
 
   boundaries:
-    # import-linter contracts in .importlinter (LLD-0 §7).
+    # import-linter contracts in .importlinter, and SQL that reads another module's
+    # schema only through its v_* views or functions (LLD-0 §7).
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -140,6 +168,8 @@ jobs:
         env:
           PYTHONPATH: app/src:libs/platform_common:migrator
         run: lint-imports
+      - name: SQL reads other modules only through v_* views
+        run: python scripts/ci_checks/sql_boundaries.py
 
   secrets:
     runs-on: ubuntu-latest

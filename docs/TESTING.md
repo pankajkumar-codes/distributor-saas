@@ -22,7 +22,23 @@ PG_DSN=postgresql://postgres:local-only@localhost:5432/postgres make test
 
 GitHub Actions runs all of these on every pull request, plus:
 
-- `ruff check app migrator libs tests scripts` (rules in `ruff.toml`)
+- `ruff check app migrator libs tests scripts` (rules in `ruff.toml`), including the
+  clock rule: business code calls `Clock.now()` / `Clock.today()`, never
+  `datetime.now()`, `date.today()` or `time.time()` (TID251; the few legacy files that
+  still do are listed in `ruff.toml` with a reason)
+- `migrations`: `python -m migrator.checks` on every timestamped migration. Names are
+  `YYYYMMDDHHMM_snake_name.sql` with no shared prefix in a module; no business date in
+  SQL (`current_date`, `now()::date`); every new table has ENABLE and FORCE row-level
+  security unless `migrator/migrator/global_tables.yaml` lists it with a reason; a
+  `NO FORCE` is forced again in the same file; every view is `security_invoker`
+- `tax-literals`: `python scripts/ci_checks/tax_literals.py`. No number but 0, 1 and
+  100, no `Decimal` but `"0.01"`, and no date in sales, filing, catalog or imports code
+  (tests excluded): rates, thresholds and dates belong in `refdata/`. A finding that
+  isn't a tax rule goes in `scripts/ci_checks/tax_literals_allowlist.yaml` with a reason
+- `python scripts/ci_checks/sql_boundaries.py` (in `boundaries`): SQL in one module
+  names another module's schema only as `<schema>.v_<view>` or `<schema>.<function>(`
+- `pytest tests/tools`: each check above fails on its planted fixture in
+  `tests/ci_fixtures/` and passes on the repository (AC-13)
 - `python scripts/float_guard.py`: no float literals, `float()` or `float` types in any
   module under `app/`, `migrator/` or `libs/` (tests excluded); a real exception needs a
   `# float-ok: <reason>` comment on the line, which reviewers must agree with
@@ -41,6 +57,14 @@ GitHub Actions runs all of these on every pull request, plus:
   has superuser, BYPASSRLS, CREATEROLE or replication; the app and owner roles from the
   design can't reach a privileged role; NOLOGIN roles can't log in; no login role owns
   objects. Run it locally with `make isolation-local`
+
+LLD-0 §7 checks not in CI yet, and why:
+- `route-coverage` (every route declares its permission and has a tenant test): waits
+  for the LLD-1 routes to settle; the stock-era routes in `identity/api.py` go first.
+- `openapi` (the generated schema matches the committed one): Junior's PR #38.
+- "every tenant table calls `platform.apply_tenant_policies`": no such function yet;
+  tenant migrations write the policy pair out, and `migrations` checks ENABLE/FORCE.
+- "only allow-listed files run as the master": every migration runs as the master today.
 
 Some tests are marked `xfail(strict=True)`. Each one is a known defect with an ID
 (`QA-DEF-…`) in the QA plan. When the fix lands the test passes, pytest reports it as an
