@@ -22,6 +22,10 @@ modules =
 ; identity creates the profile with a new business and shows business cards (LLD-1 §9).
 ignore_imports =
     app.modules.identity.** -> app.modules.business.interface
+; Module tests drive the mounted app and may call other modules' interfaces, the
+; same surface any module may use.
+    app.modules.*.tests.** -> app.api
+    app.modules.*.tests.** -> app.modules.*.interface
 
 [importlinter:contract:refdata-standalone]
 name = Reference data imports no other module
