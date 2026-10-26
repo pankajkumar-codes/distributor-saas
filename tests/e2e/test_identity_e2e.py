@@ -2,7 +2,7 @@
 
 import uuid
 
-from conftest import RUN, new_tenant
+from conftest import add_member, new_tenant
 
 
 def test_health(anon):
@@ -23,49 +23,52 @@ def test_onboarding_creator_is_owner_and_it_is_audited(alice):
     tid = new_tenant(alice, "Onboard")
     assert alice.get(f"/api/v1/identity/tenants/{tid}").json()["role"] == "owner"
     assert tid in [t["id"] for t in alice.get("/api/v1/identity/tenants").json()]
-    actions = [e["action"] for e in alice.get(f"/api/v1/identity/tenants/{tid}/audit").json()]
-    assert actions == ["tenant.created"]
+    actions = [e["action"] for e in alice.get(f"/api/v1/b/{tid}/audit-log").json()["items"]]
+    assert actions == ["business.create"]
 
 
 def test_other_tenant_is_indistinguishable_from_missing(alice, bob):
     tid = new_tenant(alice, "Private")
     missing = str(uuid.uuid4())
-    for suffix in ("", "/members", "/audit"):
-        real = bob.get(f"/api/v1/identity/tenants/{tid}{suffix}")
-        fake = bob.get(f"/api/v1/identity/tenants/{missing}{suffix}")
-        assert real.status_code == fake.status_code == 404, suffix
+    for path in ("/api/v1/identity/tenants/{}", "/api/v1/b/{}/members", "/api/v1/b/{}/audit-log"):
+        real = bob.get(path.format(tid))
+        fake = bob.get(path.format(missing))
+        assert real.status_code == fake.status_code == 404, path
         assert real.json() == fake.json()
     assert tid not in [t["id"] for t in bob.get("/api/v1/identity/tenants").json()]
 
 
-def test_outsider_cannot_join_by_guessing_the_id(alice, bob):
+def test_outsider_cannot_invite_into_a_guessed_business(alice, bob):
     tid = new_tenant(alice, "Guarded")
-    r = bob.post(f"/api/v1/identity/tenants/{tid}/members", json={"user_sub": bob.sub, "role": "owner"})
+    r = bob.post(
+        f"/api/v1/b/{tid}/invitations",
+        json={"email": "bob@example.com", "role": "admin"},
+        headers={"idempotency-key": str(uuid.uuid4())},
+    )
     assert r.status_code == 404
-    subs = [m["user_sub"] for m in alice.get(f"/api/v1/identity/tenants/{tid}/members").json()]
-    assert subs == [alice.sub]
+    emails = [m["email"] for m in alice.get(f"/api/v1/b/{tid}/members").json()["members"]]
+    assert len(emails) == 1
 
 
-def test_added_ca_reads_but_cannot_manage(alice, debug_user):
+def test_invited_ca_reads_but_cannot_manage(alice, debug_user):
     tid = new_tenant(alice, "Team")
     ca = debug_user("ca")
-    assert alice.post(f"/api/v1/identity/tenants/{tid}/members", json={"user_sub": ca.sub, "role": "ca"}).status_code == 201
+    add_member(alice, tid, ca, "ca")
     assert ca.get(f"/api/v1/identity/tenants/{tid}").json()["role"] == "ca"
-    assert ca.get(f"/api/v1/identity/tenants/{tid}/audit").status_code == 404
-    r = ca.post(f"/api/v1/identity/tenants/{tid}/members", json={"user_sub": f"e2e-{RUN}-x", "role": "admin"})
-    assert r.status_code == 404
-    actions = sorted(e["action"] for e in alice.get(f"/api/v1/identity/tenants/{tid}/audit").json())
-    assert actions == ["member.added", "tenant.created"]
+    assert ca.get(f"/api/v1/b/{tid}/audit-log").status_code == 404
+    assert ca.get(f"/api/v1/b/{tid}/members").status_code == 404
+    actions = sorted(e["action"] for e in alice.get(f"/api/v1/b/{tid}/audit-log").json()["items"])
+    assert actions == ["business.create", "member.accept", "member.invite"]
 
 
 def test_user_in_two_tenants_gets_each_tenants_role(alice, debug_user):
     dual = debug_user("dual")
     own = new_tenant(dual, "Dual own")
     theirs = new_tenant(alice, "Dual theirs")
-    alice.post(f"/api/v1/identity/tenants/{theirs}/members", json={"user_sub": dual.sub, "role": "billing"})
+    add_member(alice, theirs, dual, "billing")
     roles = {t["id"]: t["role"] for t in dual.get("/api/v1/identity/tenants").json()}
     assert roles == {own: "owner", theirs: "billing"}
-    assert dual.post(f"/api/v1/identity/tenants/{theirs}/members", json={"user_sub": "x", "role": "ca"}).status_code == 404
+    assert dual.get(f"/api/v1/b/{theirs}/members").status_code == 404
 
 
 def test_debug_header_is_ignored_when_real_auth_is_on(anon, debug_mode):

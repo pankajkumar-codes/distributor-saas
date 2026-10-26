@@ -60,6 +60,23 @@ def client(monkeypatch):
     main._factory.cache_clear()
 
 
+def seed_member(business_id, sub: str, role: str, status: str = "active") -> uuid.UUID:
+    """A membership written as the database owner, past RLS: test setup only. The
+    API adds members only through invitations (LLD-2 §4)."""
+    from sqlalchemy import text
+
+    with PG_OWNER["engine"].begin() as c:
+        uid = c.execute(text("select identity.dev_ensure_user(:s)"), {"s": sub}).scalar()
+        c.execute(
+            text(
+                "insert into identity.memberships (id, business_id, user_id, user_sub, role, status)"
+                " values (:i, :b, :u, :s, :r, :st)"
+            ),
+            {"i": uuid.uuid4(), "b": business_id, "u": uid, "s": sub, "r": role, "st": status},
+        )
+    return uid
+
+
 def as_user(sub: str) -> dict:
     return {"x-debug-user": sub}
 
@@ -93,7 +110,14 @@ def pg_client(monkeypatch):
     monkeypatch.setattr(main, "engine", lambda: svc)
     monkeypatch.setattr("platform_common.db.engine", lambda: svc)
     main._factory.cache_clear()
+    # Units of work (the /b/{id} and /me routes) keep their own factory; point it here too.
+    from sqlalchemy.orm import sessionmaker
+
+    from platform_common import uow as uow_mod
+
+    uow_mod.set_session_factory(sessionmaker(bind=svc, expire_on_commit=False))
     yield TestClient(app_api.app), svc
+    uow_mod.set_session_factory(None)
     main._factory.cache_clear()
     svc.dispose()
     owner.dispose()

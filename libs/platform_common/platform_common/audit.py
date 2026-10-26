@@ -25,6 +25,12 @@ ALLOWED_DATA: dict[str, frozenset[str]] = {
     "auth.totp_off": frozenset(),
     "auth.signout_all": frozenset({"sessions"}),
     "business.create": frozenset({"registration_kind"}),
+    # Team (LLD-2 §4). member.accept is written by identity.auth_accept_invitation.
+    "member.invite": frozenset({"role"}),
+    "member.invite_resend": frozenset(),
+    "member.invite_cancel": frozenset(),
+    "member.accept": frozenset({"role"}),
+    "member.role_change": frozenset({"from", "to"}),
     # Reason-required actions (permissions.yaml); their data keys come with their slices.
     **{action: frozenset() for action in REASON_REQUIRED},
 }
