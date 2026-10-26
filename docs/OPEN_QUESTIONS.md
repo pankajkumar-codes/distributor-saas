@@ -46,5 +46,13 @@ Listed in `team/docs/build-readiness.md` §2 and §3 in the project files, with 
 - The presigned POST policy and bucket-default KMS (D-036) behave as designed on staging.
 - WeasyPrint runs on Lambda within the cold-start and render-time targets (TD-9). Fallback: ReportLab.
 
+## Values hard-coded until refdata exists
+Each becomes a `refdata.values` row when refdata lands (LLD-0 §6, LLD-1 §12); until then the code says which row it stands for.
+| Value | Where | Refdata row |
+|---|---|---|
+| 24 h session idle limit | `identity.auth_resolve` (S0a c2) | `auth.idle_hours` |
+| 30-day session lifetime | `identity/service/signup.py` | `auth.session_max_days` |
+| Code TTL, tries and request/check limits | `identity/service/signup.py` | `auth.code_*` (LLD-1 L1-10) |
+
 ## Decision handling
 For each answer, update `docs/DECISIONS.md` with the decision, rationale, trade-offs, and approval status. Do not silently turn assumptions into requirements.
