@@ -1,8 +1,9 @@
 ; Module boundaries for the single app (LLD-0 §7, D-027). Run from the repo root:
 ;   PYTHONPATH=app/src:libs/platform_common:migrator lint-imports
 ; LLD-0's rule is that a module imports other modules only through their
-; `interface` package. No module has an interface yet, so today they are fully
-; independent; the first interface package relaxes this contract in its own PR.
+; `interface` package, and any module may import app.modules.refdata. Each allowed
+; interface import is listed under ignore_imports below; everything else between
+; modules is refused.
 
 [importlinter]
 root_packages =
@@ -16,7 +17,15 @@ name = Modules do not import each other
 type = independence
 modules =
     app.modules.identity
+    app.modules.business
     app.modules.imports
+; identity creates the profile with a new business and shows business cards (LLD-1 §9).
+ignore_imports =
+    app.modules.identity.** -> app.modules.business.interface
+; Module tests drive the mounted app and may call other modules' interfaces, the
+; same surface any module may use.
+    app.modules.*.tests.** -> app.api
+    app.modules.*.tests.** -> app.modules.*.interface
 
 [importlinter:contract:refdata-leaf]
 name = refdata imports no other module (every module may import refdata, LLD-0 §2)
@@ -25,6 +34,7 @@ source_modules =
     app.modules.refdata
 forbidden_modules =
     app.modules.identity
+    app.modules.business
     app.modules.imports
 
 [importlinter:contract:modules-not-entrypoints]
