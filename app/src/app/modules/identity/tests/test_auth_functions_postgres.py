@@ -162,18 +162,41 @@ def test_open_session_sets_the_absolute_expiry(dbs):
     assert days == 30
 
 
-def test_two_concurrent_checks_with_the_right_code_claim_once(dbs):  # AC-4
-    app_rw, _ = dbs
-    issue(app_rw)
-    results, barrier = [], threading.Barrier(2)
+def concurrently(n, fn):
+    """Run fn on n connections at once; return results and raised exceptions."""
+    results, barrier = [], threading.Barrier(n)
 
-    def run():
+    def run(i):
         barrier.wait()
-        results.append(check(app_rw))
+        try:
+            results.append(fn(i))
+        except Exception as e:  # noqa: BLE001 - the test asserts on it
+            results.append(e)
 
-    threads = [threading.Thread(target=run) for _ in range(2)]
+    threads = [threading.Thread(target=run, args=(i,)) for i in range(n)]
     for t in threads:
         t.start()
     for t in threads:
         t.join()
+    return results
+
+
+def test_two_concurrent_checks_with_the_right_code_claim_once(dbs):  # AC-4
+    app_rw, _ = dbs
+    issue(app_rw)
+    results = concurrently(2, lambda _: check(app_rw))
     assert sorted(r is not None for r in results) == [False, True]
+
+
+@pytest.mark.parametrize("purpose", ["reset", "signup"])
+def test_concurrent_code_requests_for_one_email_all_succeed(dbs, purpose):
+    app_rw, admin = dbs
+    if purpose == "reset":
+        create_user(app_rw)
+    results = concurrently(4, lambda i: issue(app_rw, f"{i:06d}", purpose=purpose))
+    assert results == [None] * 4  # no UniqueViolation, so no 500 that reveals the account
+    with admin.connect() as c:
+        live = c.execute(
+            text("select count(*) from identity.verification_codes where consumed_at is null and voided_at is null")
+        ).scalar()
+    assert live == 1

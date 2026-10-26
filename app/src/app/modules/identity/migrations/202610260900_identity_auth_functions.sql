@@ -10,7 +10,10 @@ language sql stable security definer set search_path = pg_catalog, identity, pg_
 $$;
 
 -- Voids any live code for this email and purpose and stores the new one. A sign-up
--- also upserts the pending sign-up (purged 24 h after created_at by retention).
+-- also upserts the pending sign-up (purged 24 h after created_at by retention). The
+-- advisory lock serialises concurrent requests for one email and purpose: without it
+-- two resets both void nothing, and the second insert breaks codes_one_live with a 500
+-- that only an existing account can produce.
 create function identity.auth_issue_code(
     p_id uuid, p_purpose text, p_email text, p_hmac bytea, p_ttl interval, p_max_tries int
 ) returns void
@@ -18,6 +21,7 @@ language plpgsql security definer set search_path = pg_catalog, identity, pg_tem
 declare
     e text := lower(btrim(p_email));
 begin
+    perform pg_advisory_xact_lock(hashtextextended(p_purpose || ':' || e, 0));
     if p_purpose = 'signup' then
         insert into identity.pending_signups (email, last_code_at) values (e, now())
         on conflict (email) do update set last_code_at = now();
