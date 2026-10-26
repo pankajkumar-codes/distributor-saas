@@ -12,8 +12,11 @@ This page summarises them. Where it differs from them, they win.
 > **Code status.** The code is in the layout below (`app/`, `libs/platform_common`,
 > `migrator/`). Locally and in CI it connects as `app_rw` on the LLD-1 identity tables;
 > in AWS the DB user moves from `svc_identity` to `app_rw` with Staff 2's S0b change,
-> which also replaces the per-service Lambdas. Until S1 sign-up and S0a (c2)'s principal
-> resolver exist, no caller in AWS has an `identity.users` row, so identity answers 401.
+> which also replaces the per-service Lambdas. Every request is checked by identity's
+> principal resolver (`identity.auth_resolve`: a live session, then membership or a support
+> grant). Until S1 sign-up and sign-in create `identity.users` and `identity.sessions`
+> rows, no caller in AWS has either, so identity answers 401 there. Locally and in tests,
+> X-Debug-User callers get a debug user and session from `migrator/local_only.sql`.
 
 ## One app, split into modules
 
