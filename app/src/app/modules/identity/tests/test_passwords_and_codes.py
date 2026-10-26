@@ -85,3 +85,26 @@ def test_hmac_key_comes_from_env_and_fails_closed_outside_local(monkeypatch):
     monkeypatch.setenv("PLATFORM_ENV", "prod")
     with pytest.raises(RuntimeError, match="CODE_HMAC_KEY"):
         codes.code_hmac("signup", "a@example.com", "123456")
+
+
+@pytest.mark.parametrize("env", [None, "local", "test"])
+def test_hmac_key_never_falls_back_to_the_dev_key_on_lambda(monkeypatch, env):
+    monkeypatch.setenv("AWS_LAMBDA_FUNCTION_NAME", "saas-staging-api")
+    monkeypatch.delenv("CODE_HMAC_KEY", raising=False)
+    if env is None:
+        monkeypatch.delenv("PLATFORM_ENV", raising=False)
+    else:
+        monkeypatch.setenv("PLATFORM_ENV", env)
+    with pytest.raises(RuntimeError):
+        codes.code_hmac("signup", "a@example.com", "123456")
+    monkeypatch.setenv("CODE_HMAC_KEY", "real-key")
+    monkeypatch.setenv("PLATFORM_ENV", "staging")
+    assert codes.code_hmac("signup", "a@example.com", "123456")
+
+
+def test_hmac_key_fails_closed_when_platform_env_is_unset(monkeypatch):
+    monkeypatch.delenv("PLATFORM_ENV", raising=False)
+    monkeypatch.delenv("AWS_LAMBDA_FUNCTION_NAME", raising=False)
+    monkeypatch.delenv("CODE_HMAC_KEY", raising=False)
+    with pytest.raises(RuntimeError, match="CODE_HMAC_KEY"):
+        codes.code_hmac("signup", "a@example.com", "123456")

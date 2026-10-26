@@ -12,7 +12,7 @@ import logging
 import os
 from dataclasses import dataclass, field
 
-from platform_common.auth import DEBUG_ENVS, platform_env
+from platform_common.auth import debug_env
 
 log = logging.getLogger(__name__)
 
@@ -76,6 +76,6 @@ def sender():
     pool = os.environ.get("COGNITO_USER_POOL_ID")
     if pool:
         return CognitoSender(pool)
-    if platform_env() in DEBUG_ENVS:
+    if debug_env():
         return _recording
     raise DeliveryFailed("COGNITO_USER_POOL_ID is not configured")

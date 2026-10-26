@@ -3,7 +3,7 @@
 import pytest
 from starlette.requests import Request
 
-from platform_common.auth import current_caller, set_local_verifier
+from platform_common.auth import UNSET_ENV, current_caller, debug_env, platform_env, set_local_verifier
 from platform_common.errors import Deny
 from platform_common.fake_auth import CLIENT_ID, ISSUER, FakeAuthProvider
 
@@ -71,15 +71,39 @@ def test_empty_debug_header_is_401(monkeypatch):
         current_caller(request({"x-debug-user": ""}))
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="QA-DEF-004: PLATFORM_ENV defaults to 'local', so a Lambda deployed without it "
-    "would accept X-Debug-User. Terraform sets it today; the code should still fail closed.",
-)
 def test_unset_platform_env_fails_closed(monkeypatch):
+    # QA-DEF-004: unset used to mean "local", so a deployment missing it accepted X-Debug-User.
     monkeypatch.delenv("PLATFORM_ENV", raising=False)
+    monkeypatch.delenv("AWS_LAMBDA_FUNCTION_NAME", raising=False)
+    assert platform_env() == UNSET_ENV
     with pytest.raises(Deny):
         current_caller(request({"x-debug-user": "alice"}))
+
+
+@pytest.mark.parametrize("value", [None, "", "  "])
+def test_unset_platform_env_on_lambda_raises(monkeypatch, value):
+    monkeypatch.setenv("AWS_LAMBDA_FUNCTION_NAME", "saas-staging-api")
+    if value is None:
+        monkeypatch.delenv("PLATFORM_ENV", raising=False)
+    else:
+        monkeypatch.setenv("PLATFORM_ENV", value)
+    with pytest.raises(RuntimeError, match="PLATFORM_ENV"):
+        current_caller(request({"x-debug-user": "alice"}))
+
+
+@pytest.mark.parametrize("env", ["local", "test"])
+def test_debug_login_is_off_on_lambda_whatever_platform_env_says(monkeypatch, env):
+    monkeypatch.setenv("AWS_LAMBDA_FUNCTION_NAME", "saas-staging-api")
+    monkeypatch.setenv("PLATFORM_ENV", env)
+    assert not debug_env()
+    with pytest.raises(Deny):
+        current_caller(request({"x-debug-user": "alice"}))
+
+
+def test_set_platform_env_on_lambda_is_used(monkeypatch):
+    monkeypatch.setenv("AWS_LAMBDA_FUNCTION_NAME", "saas-staging-api")
+    monkeypatch.setenv("PLATFORM_ENV", "staging")
+    assert platform_env() == "staging"
 
 
 # --- Local bearer tokens (LLD-0 §3.11): verified against FakeAuthProvider's keys -----

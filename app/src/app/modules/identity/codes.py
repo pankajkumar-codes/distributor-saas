@@ -15,7 +15,7 @@ import hmac
 import os
 import secrets
 
-from platform_common.auth import DEBUG_ENVS, platform_env
+from platform_common.auth import debug_env
 
 PURPOSES = frozenset({"signup", "reset"})
 CODE_DIGITS = 6
@@ -27,7 +27,7 @@ def _key() -> bytes:
     key = os.environ.get("CODE_HMAC_KEY")
     if key:
         return key.encode()
-    if platform_env() in DEBUG_ENVS:
+    if debug_env():  # never on Lambda, even if PLATFORM_ENV wrongly says local or test
         return _DEV_KEY
     raise RuntimeError("CODE_HMAC_KEY is not set")
 

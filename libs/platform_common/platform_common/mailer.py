@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
-from .auth import DEBUG_ENVS, platform_env
+from .auth import debug_env
 
 # Templates the mailer Lambda will render (LLD-1 §2 mailer/templates/).
 TEMPLATES = frozenset(
@@ -52,7 +52,7 @@ class LocalFileMailer:
     DEFAULT_PATH = Path("build/mail/outbox.jsonl")
 
     def __init__(self, path: Path = DEFAULT_PATH):
-        if platform_env() not in DEBUG_ENVS:
+        if not debug_env():
             raise RuntimeError("LocalFileMailer is for local and test only")
         self.path = path
 

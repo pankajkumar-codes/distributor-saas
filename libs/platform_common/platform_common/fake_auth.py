@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 import jwt
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-from .auth import DEBUG_ENVS, platform_env
+from .auth import debug_env
 from .authprovider import AuthRefused, AuthResult
 from .clock import Clock
 
@@ -48,7 +48,7 @@ class _Refresh:
 
 class FakeAuthProvider:
     def __init__(self, clock: Clock | None = None):
-        if platform_env() not in DEBUG_ENVS:
+        if not debug_env():
             raise RuntimeError("FakeAuthProvider is for local and test only")
         self._clock = clock or Clock()
         self._key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
