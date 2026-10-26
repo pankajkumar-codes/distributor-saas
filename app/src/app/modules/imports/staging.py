@@ -1,13 +1,13 @@
 """Stores a parsed report as an import run with one row per source row.
 
-Staging is idempotent: the same bytes for the same tenant and report type always map
+Staging is idempotent: the same bytes for the same business and report type always map
 to one run, so a retried upload (or two concurrent ones) returns the existing run.
 Rows are compared against earlier *confirmed* runs of the same report type to tell a
 new record from one already imported, or one whose values changed since.
 
-The caller has already resolved the tenant from the caller's active membership
-(plan task T-001) and, on PostgreSQL, set app.tenant_id for row-level security.
-Every query here still filters by tenant_id explicitly.
+The caller runs inside a business unit of work (LLD-0), which has checked the caller's
+active membership and set app.business_id for row-level security. Every query here still
+filters by business_id explicitly.
 """
 
 import datetime as dt
@@ -31,20 +31,20 @@ class RunStateError(ValueError):
 
 
 def stage(
-    session: Session, *, tenant_id: uuid.UUID, user_sub: str, table: SourceTable, profile: MappingProfile
+    session: Session, *, business_id: uuid.UUID, user_id: uuid.UUID, table: SourceTable, profile: MappingProfile
 ) -> tuple[ImportRun, bool]:
     """Returns (run, created). created is False when this file was already staged."""
-    existing = _find_run(session, tenant_id, profile, table.checksum_sha256)
+    existing = _find_run(session, business_id, profile, table.checksum_sha256)
     if existing is not None:
         return existing, False
 
     result = parse(table, profile)
     keys = {r.row_number: _key_digest(r.dedup_key) for r in result.rows if r.dedup_key is not None}
-    previous = _latest_confirmed_hashes(session, tenant_id, profile, set(keys.values()))
+    previous = _latest_confirmed_hashes(session, business_id, profile, set(keys.values()))
 
     run = ImportRun(
         id=uuid.uuid4(),
-        tenant_id=tenant_id,
+        business_id=business_id,
         marketplace=profile.marketplace,
         report_type=profile.report_type,
         profile_id=profile.profile_id,
@@ -54,7 +54,7 @@ def stage(
         sheet=table.sheet,
         header_row_number=result.header_row_number,
         status=RunStatus.staged,
-        uploaded_by=user_sub,
+        uploaded_by=user_id,
     )
     rows = []
     counts = {s.value: 0 for s in StagedRowStatus}
@@ -66,7 +66,7 @@ def stage(
             ImportRow(
                 id=uuid.uuid4(),
                 run_id=run.id,
-                tenant_id=tenant_id,
+                business_id=business_id,
                 row_number=parsed.row_number,
                 status=status,
                 raw=parsed.raw,
@@ -79,7 +79,11 @@ def stage(
         )
     counts["total"] = len(rows)
     counts["skipped_blank"] = result.skipped_blank_rows
-    run.summary = counts
+    run.summary = {
+        **counts,
+        # Header names only: personal and unmapped columns are read but never stored.
+        "columns_not_stored": result.personal_headers + result.unmapped_headers,
+    }
 
     try:
         with session.begin_nested():
@@ -89,33 +93,33 @@ def stage(
             session.flush()
     except IntegrityError:
         # A concurrent upload of the same file won the race; use its run.
-        existing = _find_run(session, tenant_id, profile, table.checksum_sha256)
+        existing = _find_run(session, business_id, profile, table.checksum_sha256)
         if existing is None:
             raise
         return existing, False
     return run, True
 
 
-def confirm(session: Session, *, tenant_id: uuid.UUID, run_id: uuid.UUID, user_sub: str) -> ImportRun:
+def confirm(session: Session, *, business_id: uuid.UUID, run_id: uuid.UUID, user_id: uuid.UUID) -> ImportRun:
     """Marks a staged run confirmed. Repeating it is a no-op.
 
     Handing confirmed rows to commerce is a separate, versioned contract (plan task
     T-202); until it exists, confirming only records the decision.
     """
-    run = _get_run(session, tenant_id, run_id)
+    run = _get_run(session, business_id, run_id)
     if run.status == RunStatus.confirmed:
         return run
     if run.status != RunStatus.staged:
         raise RunStateError(f"run is {run.status.value}; only a staged run can be confirmed")
     run.status = RunStatus.confirmed
-    run.confirmed_by = user_sub
+    run.confirmed_by = user_id
     run.confirmed_at = dt.datetime.now(dt.UTC)
     session.flush()
     return run
 
 
-def discard(session: Session, *, tenant_id: uuid.UUID, run_id: uuid.UUID) -> ImportRun:
-    run = _get_run(session, tenant_id, run_id)
+def discard(session: Session, *, business_id: uuid.UUID, run_id: uuid.UUID) -> ImportRun:
+    run = _get_run(session, business_id, run_id)
     if run.status == RunStatus.discarded:
         return run
     if run.status != RunStatus.staged:
@@ -125,19 +129,19 @@ def discard(session: Session, *, tenant_id: uuid.UUID, run_id: uuid.UUID) -> Imp
     return run
 
 
-def _get_run(session: Session, tenant_id: uuid.UUID, run_id: uuid.UUID) -> ImportRun:
+def _get_run(session: Session, business_id: uuid.UUID, run_id: uuid.UUID) -> ImportRun:
     run = session.scalar(
-        select(ImportRun).where(ImportRun.id == run_id, ImportRun.tenant_id == tenant_id).with_for_update()
+        select(ImportRun).where(ImportRun.id == run_id, ImportRun.business_id == business_id).with_for_update()
     )
     if run is None:
         raise LookupError("import run not found")
     return run
 
 
-def _find_run(session, tenant_id, profile, checksum) -> ImportRun | None:
+def _find_run(session, business_id, profile, checksum) -> ImportRun | None:
     return session.scalar(
         select(ImportRun).where(
-            ImportRun.tenant_id == tenant_id,
+            ImportRun.business_id == business_id,
             ImportRun.marketplace == profile.marketplace,
             ImportRun.report_type == profile.report_type,
             ImportRun.checksum_sha256 == checksum,
@@ -146,7 +150,7 @@ def _find_run(session, tenant_id, profile, checksum) -> ImportRun | None:
     )
 
 
-def _latest_confirmed_hashes(session, tenant_id, profile, keys: set[str]) -> dict[str, str]:
+def _latest_confirmed_hashes(session, business_id, profile, keys: set[str]) -> dict[str, str]:
     latest: dict[str, str] = {}
     ordered = sorted(keys)
     for start in range(0, len(ordered), _LOOKUP_BATCH):
@@ -155,8 +159,8 @@ def _latest_confirmed_hashes(session, tenant_id, profile, keys: set[str]) -> dic
             select(ImportRow.dedup_key, ImportRow.content_hash)
             .join(ImportRun, ImportRun.id == ImportRow.run_id)
             .where(
-                ImportRow.tenant_id == tenant_id,
-                ImportRun.tenant_id == tenant_id,
+                ImportRow.business_id == business_id,
+                ImportRun.business_id == business_id,
                 ImportRun.marketplace == profile.marketplace,
                 ImportRun.report_type == profile.report_type,
                 ImportRun.status == RunStatus.confirmed,

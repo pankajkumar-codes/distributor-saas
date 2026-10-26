@@ -1,4 +1,4 @@
-"""Runs the real migration on PostgreSQL as the svc_imports role.
+"""Runs the real migration on PostgreSQL as app_rw, so row-level security applies.
 
 Skipped unless PG_ADMIN_URL points at a disposable server, e.g.
 PG_ADMIN_URL=postgresql+psycopg://postgres@localhost:5432/postgres
@@ -10,7 +10,7 @@ import uuid
 from pathlib import Path
 
 import pytest
-from sqlalchemy import create_engine, make_url, select, text
+from sqlalchemy import create_engine, event, make_url, select, text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
@@ -21,6 +21,7 @@ from app.modules.imports.parsing import FieldSpec, MappingProfile, read_table
 ADMIN_URL = os.environ.get("PG_ADMIN_URL")
 pytestmark = pytest.mark.skipif(not ADMIN_URL, reason="PG_ADMIN_URL not set")
 MIGRATIONS = sorted((Path(__file__).parent.parent / "migrations").glob("*.sql"))
+USER = uuid.uuid4()
 PROFILE = MappingProfile(
     marketplace="meesho",
     report_type="orders",
@@ -36,19 +37,27 @@ def svc():
     admin = create_engine(ADMIN_URL, isolation_level="AUTOCOMMIT")
     with admin.connect() as c:
         c.execute(text(f"create database {dbname}"))
-        c.execute(
-            text(
-                "do $$ begin if not exists (select from pg_roles where rolname='rds_iam') "
-                "then create role rds_iam; end if; end $$"
+        # The migrator's bootstrap.sql creates these on a real run.
+        for role in ("app_rw", "app_ro"):
+            c.execute(
+                text(
+                    f"do $$ begin if not exists (select from pg_roles where rolname = '{role}') "
+                    f"then create role {role} nologin; end if; end $$"
+                )
             )
-        )
-    url = make_url(ADMIN_URL)
-    owner = create_engine(url.set(database=dbname), isolation_level="AUTOCOMMIT")
+    url = make_url(ADMIN_URL).set(database=dbname)
+    owner = create_engine(url, isolation_level="AUTOCOMMIT")
     with owner.connect() as c:
         for m in MIGRATIONS:
             c.exec_driver_sql(m.read_text())
-        c.execute(text("alter role svc_imports password 'test-only'"))
-    eng = create_engine(url.set(username="svc_imports", password="test-only", database=dbname))
+    eng = create_engine(url)
+
+    @event.listens_for(eng, "connect")
+    def _as_app_rw(dbapi_conn, _):
+        with dbapi_conn.cursor() as cur:
+            cur.execute("set role app_rw")
+        dbapi_conn.commit()
+
     yield eng
     eng.dispose()
     owner.dispose()
@@ -57,63 +66,63 @@ def svc():
     admin.dispose()
 
 
-def tenant_session(eng, tenant_id):
+def business_session(eng, business_id):
     s = Session(eng)
-    s.execute(text("select set_config('app.tenant_id', :t, true)"), {"t": str(tenant_id)})
+    s.execute(text("select set_config('app.tenant_id', :t, true)"), {"t": str(business_id)})
     return s
 
 
-def do_stage(eng, tenant_id, body=b"Sub Order No,Status\nS1,shipped\n"):
-    with tenant_session(eng, tenant_id) as s:
+def do_stage(eng, business_id, body=b"Sub Order No,Status\nS1,shipped\n"):
+    with business_session(eng, business_id) as s:
         run, created = staging.stage(
-            s, tenant_id=tenant_id, user_sub="u", table=read_table(body, "m.csv"), profile=PROFILE
+            s, business_id=business_id, user_id=USER, table=read_table(body, "m.csv"), profile=PROFILE
         )
         run_id = run.id
         s.commit()  # ends the transaction, so app.tenant_id is cleared again
         return run_id, created
 
 
-def test_rls_hides_other_tenants_runs(svc):
+def test_rls_hides_other_businesses_runs(svc):
     a, b = uuid.uuid4(), uuid.uuid4()
     run_a, _ = do_stage(svc, a)
-    with tenant_session(svc, b) as s:
+    with business_session(svc, b) as s:
         assert s.scalars(select(ImportRun)).all() == []
         assert s.scalars(select(ImportRow)).all() == []
         with pytest.raises(LookupError):
-            staging.confirm(s, tenant_id=a, run_id=run_a, user_sub="mallory")  # even naming tenant A
-    with tenant_session(svc, a) as s:
+            staging.confirm(s, business_id=a, run_id=run_a, user_id=uuid.uuid4())  # even naming business A
+    with business_session(svc, a) as s:
         assert [r.id for r in s.scalars(select(ImportRun))] == [run_a]
 
 
-def test_no_tenant_context_sees_nothing_and_cannot_write(svc):
+def test_no_business_context_sees_nothing_and_cannot_write(svc):
     do_stage(svc, uuid.uuid4())
     with Session(svc) as s:
         assert s.scalars(select(ImportRun)).all() == []
     with pytest.raises(DBAPIError):
         with Session(svc) as s:
             staging.stage(
-                s, tenant_id=uuid.uuid4(), user_sub="u", table=read_table(b"Sub Order No,Status\nS9,x\n", "m.csv"),
+                s, business_id=uuid.uuid4(), user_id=USER, table=read_table(b"Sub Order No,Status\nS9,x\n", "m.csv"),
                 profile=PROFILE,
             )
             s.commit()
 
 
 def test_rows_are_append_only(svc):
-    tenant = uuid.uuid4()
-    do_stage(svc, tenant)
-    with tenant_session(svc, tenant) as s, pytest.raises(DBAPIError, match="permission denied"):
+    business = uuid.uuid4()
+    do_stage(svc, business)
+    with business_session(svc, business) as s, pytest.raises(DBAPIError, match="permission denied"):
         s.execute(text("update imports.import_rows set status = 'new'"))
-    with tenant_session(svc, tenant) as s, pytest.raises(DBAPIError, match="permission denied"):
+    with business_session(svc, business) as s, pytest.raises(DBAPIError, match="permission denied"):
         s.execute(text("delete from imports.import_runs"))
 
 
 def test_concurrent_uploads_of_one_file_make_one_run(svc):
-    tenant = uuid.uuid4()
+    business = uuid.uuid4()
     results, barrier = [], threading.Barrier(4)
 
     def upload():
         barrier.wait()
-        results.append(do_stage(svc, tenant))
+        results.append(do_stage(svc, business))
 
     threads = [threading.Thread(target=upload) for _ in range(4)]
     for t in threads:
@@ -122,3 +131,47 @@ def test_concurrent_uploads_of_one_file_make_one_run(svc):
         t.join()
     assert len({run_id for run_id, _ in results}) == 1
     assert sum(created for _, created in results) == 1
+
+
+def test_run_update_is_limited_to_the_status_columns(svc):
+    business = uuid.uuid4()
+    run_id, _ = do_stage(svc, business)
+    with business_session(svc, business) as s, pytest.raises(DBAPIError, match="permission denied"):
+        s.execute(text("update imports.import_runs set filename = 'x' where id = :i"), {"i": run_id})
+    with business_session(svc, business) as s:
+        staging.confirm(s, business_id=business, run_id=run_id, user_id=USER)
+        s.commit()
+
+
+def test_row_cannot_point_at_another_business_run(svc):
+    a, b = uuid.uuid4(), uuid.uuid4()
+    run_a, _ = do_stage(svc, a)
+    with business_session(svc, b) as s, pytest.raises(DBAPIError):
+        s.execute(
+            text(
+                "insert into imports.import_rows (id, run_id, business_id, row_number, status, raw) "
+                "values (:i, :r, :b, 99, 'new', '{}')"
+            ),
+            {"i": uuid.uuid4(), "r": run_a, "b": b},
+        )
+
+
+def test_a_support_session_sees_no_rows_until_support_read_exists(svc):
+    business = uuid.uuid4()
+    do_stage(svc, business)
+    with business_session(svc, business) as s:
+        s.execute(text("select set_config('app.support_grant_id', :g, true)"), {"g": str(uuid.uuid4())})
+        assert s.scalars(select(ImportRun)).all() == []
+
+
+def test_columns_are_jsonb(svc):
+    with Session(svc) as s:
+        types = dict(
+            s.execute(
+                text(
+                    "select column_name, data_type from information_schema.columns "
+                    "where table_schema = 'imports' and data_type like 'json%'"
+                )
+            ).all()
+        )
+    assert set(types.values()) == {"jsonb"} and {"raw", "normalized", "errors", "summary"} <= set(types)

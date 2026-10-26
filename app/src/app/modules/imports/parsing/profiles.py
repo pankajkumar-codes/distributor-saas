@@ -43,6 +43,9 @@ class FieldSpec:
     # strptime formats tried in order; required for date and datetime fields.
     formats: tuple[str, ...] = ()
     max_length: int = 500
+    # Buyer name, address, phone or email: recognised so the header row is found and
+    # the column is accounted for, but never stored, raw or normalized (LLD-7 L7-2).
+    personal: bool = False
 
     def __post_init__(self):
         if not _NAME.match(self.name):
@@ -108,6 +111,8 @@ class MappingProfile:
                 raise ProfileError(f"de-duplication key field {name!r} is not defined")
             if not by_name[name].required:
                 raise ProfileError(f"de-duplication key field {name!r} must be required")
+            if by_name[name].personal:
+                raise ProfileError(f"de-duplication key field {name!r} cannot be personal")
         if not 1 <= self.header_search_rows <= 50:
             raise ProfileError("header_search_rows must be between 1 and 50")
         object.__setattr__(self, "by_name", by_name)
@@ -127,6 +132,7 @@ class MappingProfile:
                     required=bool(f.get("required", True)),
                     formats=tuple(f.get("formats", ())),
                     max_length=int(f.get("max_length", 500)),
+                    personal=bool(f.get("personal", False)),
                 )
                 for f in data["fields"]
             )

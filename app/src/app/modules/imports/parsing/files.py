@@ -107,14 +107,19 @@ def _read_xlsx(content: bytes, sheet: str | None) -> tuple[list[list[str]], str]
         elif sheet not in workbook.sheetnames:
             raise FileRejected(f"sheet {sheet!r} not found; available: " + ", ".join(workbook.sheetnames))
 
+        worksheet = workbook[sheet]
+        # Read-only mode trusts the sheet's stored <dimension>, and some marketplace
+        # workbooks (Meesho, Flipkart) have none or a wrong one, so every row after the
+        # first would be lost. Re-measure from the cells instead (LLD-7 L7-1, RM47-J16).
+        worksheet.reset_dimensions()
         rows: list[list[str]] = []
-        for values in workbook[sheet].iter_rows(values_only=True):
+        for values in worksheet.iter_rows(values_only=True):
             _check_shape(len(rows) + 1, len(values))
             rows.append([_cell_text(v) for v in values])
     finally:
         workbook.close()
 
-    # read_only mode pads rows to the sheet's used width; trailing empty rows are noise.
+    # Trailing empty rows are noise.
     while rows and not any(rows[-1]):
         rows.pop()
     return rows, sheet

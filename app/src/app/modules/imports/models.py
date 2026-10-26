@@ -15,9 +15,12 @@ from sqlalchemy import (
     Uuid,
     text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 SCHEMA = "imports"
+# jsonb on PostgreSQL (the migration), plain JSON for the SQLite unit tests.
+JSONType = JSON().with_variant(JSONB(), "postgresql")
 
 
 def _now() -> datetime:
@@ -49,10 +52,10 @@ class StagedRowStatus(str, enum.Enum):
 class ImportRun(Base):
     __tablename__ = "import_runs"
     __table_args__ = (
-        # Mirrors migrations/0001_imports.sql: one live run per file and report type.
+        # Mirrors migrations/202610261000_imports_staging.sql: one live run per file and report type.
         Index(
             "import_runs_one_live_per_file",
-            "tenant_id", "marketplace", "report_type", "checksum_sha256",
+            "business_id", "marketplace", "report_type", "checksum_sha256",
             unique=True,
             postgresql_where=text("status <> 'discarded'"),
             sqlite_where=text("status <> 'discarded'"),
@@ -61,7 +64,7 @@ class ImportRun(Base):
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[uuid.UUID] = mapped_column(Uuid, index=True)
+    business_id: Mapped[uuid.UUID] = mapped_column(Uuid, index=True)
     marketplace: Mapped[str] = mapped_column(String(20))
     report_type: Mapped[str] = mapped_column(String(20))
     profile_id: Mapped[str] = mapped_column(String(120))
@@ -73,10 +76,10 @@ class ImportRun(Base):
     status: Mapped[RunStatus] = mapped_column(
         Enum(RunStatus, native_enum=False, length=20), default=RunStatus.staged
     )
-    summary: Mapped[dict] = mapped_column(JSON, default=dict)
-    uploaded_by: Mapped[str] = mapped_column(String(128))
+    summary: Mapped[dict] = mapped_column(JSONType, default=dict)
+    uploaded_by: Mapped[uuid.UUID] = mapped_column(Uuid)
     uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
-    confirmed_by: Mapped[str | None] = mapped_column(String(128))
+    confirmed_by: Mapped[uuid.UUID | None] = mapped_column(Uuid)
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
@@ -88,12 +91,12 @@ class ImportRow(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     run_id: Mapped[uuid.UUID] = mapped_column(ForeignKey(f"{SCHEMA}.import_runs.id"))
-    tenant_id: Mapped[uuid.UUID] = mapped_column(Uuid)
+    business_id: Mapped[uuid.UUID] = mapped_column(Uuid)
     row_number: Mapped[int] = mapped_column(Integer)
     status: Mapped[StagedRowStatus] = mapped_column(Enum(StagedRowStatus, native_enum=False, length=20))
-    raw: Mapped[dict] = mapped_column(JSON)
-    normalized: Mapped[dict | None] = mapped_column(JSON)
-    errors: Mapped[list] = mapped_column(JSON, default=list)
-    dedup_values: Mapped[list | None] = mapped_column(JSON)
+    raw: Mapped[dict] = mapped_column(JSONType)
+    normalized: Mapped[dict | None] = mapped_column(JSONType)
+    errors: Mapped[list] = mapped_column(JSONType, default=list)
+    dedup_values: Mapped[list | None] = mapped_column(JSONType)
     dedup_key: Mapped[str | None] = mapped_column(String(64))
     content_hash: Mapped[str | None] = mapped_column(String(64))

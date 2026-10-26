@@ -2,11 +2,11 @@
 
 Backlog: E4-1 (import engine), generic part. Code: `app/src/app/modules/imports/parsing`.
 
-`app/parsing` turns an uploaded report into a **preview**: every source row with its raw
-values, its normalized values when valid, its errors, and a de-duplication key.
+`parsing` turns an uploaded report into a **preview**: every source row with the raw
+values of its mapped, non-personal columns, its normalized values when valid, its
+errors, and a de-duplication key.
 `app/src/app/modules/imports/staging.py` stores that preview as an import run (see "Storage" below). Neither
-touches S3, stock or money. The upload/confirm API (needs the shared tenant check, plan
-task T-001) and handing confirmed rows to commerce (T-202) are later slices.
+touches S3, stock or money. The upload/confirm API (in a business unit of work, LLD-0) and handing confirmed rows to commerce (T-202) are later slices.
 
 ## Flow
 
@@ -23,7 +23,7 @@ A `MappingProfile` (marketplace, report type, version) lists the fields we want,
 header spellings that may carry each one, its kind (`text`, `integer`, `decimal`,
 `date`, `datetime`), whether it is required, the explicit date formats, and which
 fields form the de-duplication key. Profiles are plain data (`MappingProfile.from_dict`)
-so they can later be stored per tenant.
+so they can later be stored per business.
 
 **No marketplace profiles exist yet.** They are written by the channel-adapter owner
 from real, redacted sample reports (OPEN_QUESTIONS.md question 2) and set
@@ -56,25 +56,41 @@ so a later re-import can tell "same row again" from "same external ID, changed".
 
 ## Storage (`imports` schema)
 
-- `import_runs`: one per uploaded file and report type: tenant, marketplace, report
+Migration: `app/src/app/modules/imports/migrations/202610261000_imports_staging.sql`.
+
+- `import_runs`: one per uploaded file and report type: business, marketplace, report
   type, profile id and whether it is verified, filename, checksum, header row, summary
-  counts, uploader and time, status `staged` → `confirmed` or `discarded`.
-- `import_rows`: one per non-blank source row: row number, status, raw values,
-  normalized values (amounts as strings), errors, key digest, content hash. Never
-  updated; the service role has no UPDATE or DELETE grant on it.
-- Staging the same bytes again for the same tenant and report type returns the existing
+  (counts, and the names of the columns not stored), uploader's user id and time,
+  status `staged` → `confirmed` or `discarded`. `app_rw` may update only `status`,
+  `confirmed_by` and `confirmed_at`.
+- `import_rows`: one per non-blank source row: row number, status, raw values of the
+  mapped non-personal columns, normalized values (amounts as strings), errors, key
+  digest, content hash, all `jsonb`. Insert-only: `app_rw` has no UPDATE or DELETE.
+- **Personal and unmapped columns are never stored** (LLD-7 L7-2, AC7-12). A profile
+  field marked `personal` (buyer name, address, phone, email) is matched so the header
+  is found, then dropped from both raw and normalized values; columns the profile
+  doesn't map, and cells beyond the header, are dropped too. Only their header names
+  are kept, in the run summary, so the preview can say what was not stored. A key
+  field can't be personal.
+- Staging the same bytes again for the same business and report type returns the existing
   run, including when two uploads race (a partial unique index decides). A discarded
   run frees the file to be staged again.
 - Each valid row is compared with the latest **confirmed** row carrying the same key for
-  that tenant, marketplace and report type: `new`, `already_imported` (same values) or
+  that business, marketplace and report type: `new`, `already_imported` (same values) or
   `changed` (for example a status moved from shipped to delivered). Staged but
   unconfirmed runs are not compared against.
-- Row-level security keys off `app.tenant_id`; with no tenant set the service sees and
-  writes nothing. Rows can only reference a run of the same tenant (composite key).
+- Row-level security (enabled and forced) keys off `app.tenant_id`, which the unit of
+  work sets to the business id; with none set, `app_rw` sees and writes nothing, and a
+  support session (`app.support_grant_id` set) sees nothing until the `support_read`
+  policy arrives with `platform.support_grant_active` (S0a c2). `app_ro` reads only.
+  Rows can only reference a run of the same business (composite key).
 
 ## Limitations
 
 - `datetime` fields are kept as written, without a timezone. Whether a report's times
   are IST or UTC must be recorded per profile once samples arrive.
-- Raw file storage, retention (backlog default 3 years) and personal-data minimization
-  are handled when files are persisted, not here.
+- Raw file storage and retention are handled when files are persisted (S8 `uploads`),
+  not here.
+- `.xlsx` files are read in openpyxl's read-only mode after `reset_dimensions()`, because
+  some marketplace workbooks store no or a wrong sheet dimension and would otherwise
+  read as the header row only.
