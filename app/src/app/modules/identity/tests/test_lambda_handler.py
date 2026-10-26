@@ -26,7 +26,9 @@ def api_event(method, path, sub=None, body=None):
 
 
 def test_lambda_entry_point_uses_authorizer_claims(client, monkeypatch):
-    monkeypatch.setenv("PLATFORM_ENV", "staging")
+    # "test", because outside local and test a caller needs an identity.users row, which
+    # only S1 sign-up creates (see test_tenant_isolation for staging and prod).
+    monkeypatch.setenv("PLATFORM_ENV", "test")
     from app.api import handler
 
     created = handler(api_event("POST", "/api/v1/identity/tenants", sub="cognito-sub-1", body={"name": "Lambda Co"}), None)

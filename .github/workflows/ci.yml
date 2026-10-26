@@ -201,7 +201,7 @@ jobs:
       - name: Start the API
         env:
           PLATFORM_ENV: local
-          DATABASE_URL: postgresql+psycopg://svc_identity:local-only@localhost:5432/saas
+          DATABASE_URL: postgresql+psycopg://app_rw:local-only@localhost:5432/saas
         run: |
           python -m uvicorn app.api:app --app-dir app/src --port 8000 > api.log 2>&1 &
           for i in $(seq 30); do curl -sf http://localhost:8000/api/v1/health && exit 0; sleep 1; done

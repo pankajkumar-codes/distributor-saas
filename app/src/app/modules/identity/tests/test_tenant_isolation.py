@@ -1,6 +1,10 @@
 import uuid
 
 import pytest
+from sqlalchemy import func, select
+
+from app.modules.identity import api as main
+from app.modules.identity.models import Business, User
 
 from .conftest import as_user
 
@@ -59,16 +63,16 @@ def test_garbage_tenant_id_is_404(client):
 def test_multi_tenant_user_sees_each_tenant_with_its_own_role(client):
     t1 = make_tenant(client, ALICE, "Alice Co")
     t2 = make_tenant(client, BOB, "Bob Co")
-    r = client.post(f"/api/v1/identity/tenants/{t2}/members", json={"user_sub": ALICE, "role": "viewer"}, headers=as_user(BOB))
+    r = client.post(f"/api/v1/identity/tenants/{t2}/members", json={"user_sub": ALICE, "role": "ca"}, headers=as_user(BOB))
     assert r.status_code == 201
     roles = {t["id"]: t["role"] for t in client.get("/api/v1/identity/tenants", headers=as_user(ALICE)).json()}
-    assert roles == {t1: "owner", t2: "viewer"}
+    assert roles == {t1: "owner", t2: "ca"}
 
 
 def test_viewer_cannot_add_members_or_read_audit(client):
     tid = make_tenant(client, ALICE, "Alice Co")
-    client.post(f"/api/v1/identity/tenants/{tid}/members", json={"user_sub": BOB, "role": "viewer"}, headers=as_user(ALICE))
-    r = client.post(f"/api/v1/identity/tenants/{tid}/members", json={"user_sub": CAROL, "role": "sales"}, headers=as_user(BOB))
+    client.post(f"/api/v1/identity/tenants/{tid}/members", json={"user_sub": BOB, "role": "ca"}, headers=as_user(ALICE))
+    r = client.post(f"/api/v1/identity/tenants/{tid}/members", json={"user_sub": CAROL, "role": "billing"}, headers=as_user(BOB))
     assert r.status_code == 404
     assert client.get(f"/api/v1/identity/tenants/{tid}/audit", headers=as_user(BOB)).status_code == 404
 
@@ -82,14 +86,14 @@ def test_admin_cannot_create_owner(client):
 
 def test_duplicate_member_is_conflict(client):
     tid = make_tenant(client, ALICE, "Alice Co")
-    body = {"user_sub": BOB, "role": "sales"}
+    body = {"user_sub": BOB, "role": "billing"}
     assert client.post(f"/api/v1/identity/tenants/{tid}/members", json=body, headers=as_user(ALICE)).status_code == 201
     assert client.post(f"/api/v1/identity/tenants/{tid}/members", json=body, headers=as_user(ALICE)).status_code == 409
 
 
 def test_sensitive_actions_are_audited(client):
     tid = make_tenant(client, ALICE, "Alice Co")
-    client.post(f"/api/v1/identity/tenants/{tid}/members", json={"user_sub": BOB, "role": "sales"}, headers=as_user(ALICE))
+    client.post(f"/api/v1/identity/tenants/{tid}/members", json={"user_sub": BOB, "role": "billing"}, headers=as_user(ALICE))
     actions = [e["action"] for e in client.get(f"/api/v1/identity/tenants/{tid}/audit", headers=as_user(ALICE)).json()]
     assert sorted(actions) == ["member.added", "tenant.created"]
 
@@ -99,8 +103,10 @@ def test_debug_header_is_ignored_outside_local_and_test(client, monkeypatch):
     assert client.get("/api/v1/identity/tenants", headers=as_user(ALICE)).status_code == 401
 
 
-def test_jwt_claims_from_api_gateway_are_used(client, monkeypatch):
-    monkeypatch.setenv("PLATFORM_ENV", "prod")
+@pytest.mark.parametrize("env", ["staging", "prod"])
+def test_verified_caller_without_a_user_row_is_session_invalid_outside_local_and_test(client, monkeypatch, env):
+    """In AWS only S1 sign-up creates identity.users rows; the X-Debug-User upsert never runs."""
+    monkeypatch.setenv("PLATFORM_ENV", env)
     from app import api as app_api
 
     event = {"requestContext": {"authorizer": {"jwt": {"claims": {"sub": ALICE}}}}}
@@ -116,5 +122,14 @@ def test_jwt_claims_from_api_gateway_are_used(client, monkeypatch):
     from fastapi.testclient import TestClient
 
     r = TestClient(InjectEvent(app_api.app)).post("/api/v1/identity/tenants", json={"name": "Via JWT"})
-    assert r.status_code == 201
-    assert r.json()["role"] == "owner"
+    assert r.status_code == 401 and r.json()["error"]["code"] == "session_invalid"
+    with main._factory()() as s:
+        assert s.scalar(select(func.count()).select_from(User)) == 0
+        assert s.scalar(select(func.count()).select_from(Business)) == 0
+
+
+@pytest.mark.parametrize("env", ["staging", "prod", ""])
+def test_debug_user_upsert_refuses_outside_local_and_test(client, monkeypatch, env):
+    monkeypatch.setenv("PLATFORM_ENV", env)
+    with main._factory()() as s, pytest.raises(RuntimeError, match="local or test"):
+        main.debug_user_id(s, ALICE)

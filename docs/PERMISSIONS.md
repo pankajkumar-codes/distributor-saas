@@ -44,6 +44,5 @@ A blank or whitespace-only reason is refused (422 `reason_required`). The reason
 - A support user under an owner's grant may only read (`*.view`); any other permission
   is refused (`support_no_grant`).
 - An unknown role string gets no permissions.
-- Until LLD-1's identity reshape, identity's own member and audit routes still check the
-  six stock-era roles its tables allow (`app.modules.identity.models.Role`). No other
-  module can use them.
+- Identity's member, invitation and audit routes use this table too (`members.manage`,
+  `audit.view`); the database allows only these four roles since the LLD-1 reshape.

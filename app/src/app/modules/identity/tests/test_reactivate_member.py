@@ -20,7 +20,7 @@ def change(client, tid, actor, user_sub, action, reason="back from leave"):
     return client.post(f"/api/v1/identity/tenants/{tid}/members/{user_sub}/{action}", json=body, headers=as_user(actor))
 
 
-def deactivated(client, tid, user_sub, role="sales"):
+def deactivated(client, tid, user_sub, role="billing"):
     add_member(client, tid, ALICE, user_sub, role)
     assert change(client, tid, ALICE, user_sub, "deactivate").status_code == 200
 
@@ -32,13 +32,13 @@ def reactivations(client, tid):
 
 def test_reactivated_member_regains_access_with_same_role(client):
     tid = make_tenant(client, ALICE, "Alice Co")
-    deactivated(client, tid, BOB, role="finance")
+    deactivated(client, tid, BOB, role="billing")
     assert client.get(f"/api/v1/identity/tenants/{tid}", headers=as_user(BOB)).status_code == 404
 
     r = change(client, tid, ALICE, BOB, "reactivate")
     assert r.status_code == 200
-    assert r.json() == {"user_sub": BOB, "role": "finance", "status": "active", "email": None, "display_name": None}
-    assert client.get(f"/api/v1/identity/tenants/{tid}", headers=as_user(BOB)).json()["role"] == "finance"
+    assert r.json() == {"user_sub": BOB, "role": "billing", "status": "active", "email": None, "display_name": None}
+    assert client.get(f"/api/v1/identity/tenants/{tid}", headers=as_user(BOB)).json()["role"] == "billing"
 
 
 def test_reactivation_is_audited_with_reason(client):
@@ -47,7 +47,7 @@ def test_reactivation_is_audited_with_reason(client):
     change(client, tid, ALICE, BOB, "reactivate", reason="rehired")
     [event] = reactivations(client, tid)
     assert event["actor_sub"] == ALICE
-    assert event["details"] == {"user_sub": BOB, "role": "sales", "reason": "rehired"}
+    assert event["details"] == {"user_sub": BOB, "role": "billing", "reason": "rehired"}
 
 
 @pytest.mark.parametrize("reason", [None, "", "x" * 501])
@@ -60,7 +60,7 @@ def test_reason_is_required_and_bounded(client, reason):
 
 def test_retry_and_already_active_member_are_no_ops(client):
     tid = make_tenant(client, ALICE, "Alice Co")
-    add_member(client, tid, ALICE, BOB, "sales")
+    add_member(client, tid, ALICE, BOB, "billing")
     assert change(client, tid, ALICE, BOB, "reactivate").json()["status"] == "active"
     assert reactivations(client, tid) == []
 
@@ -88,12 +88,12 @@ def test_admin_can_reactivate_non_owner_but_not_owner(client):
     assert change(client, tid, ALICE, CAROL, "reactivate").status_code == 200
 
     change(client, tid, ALICE, CAROL, "deactivate")
-    add_member(client, tid, ALICE, "user-dave", "viewer")
+    add_member(client, tid, ALICE, "user-dave", "ca")
     change(client, tid, ALICE, "user-dave", "deactivate")
     assert change(client, tid, BOB, "user-dave", "reactivate").status_code == 200
 
 
-@pytest.mark.parametrize("role", ["sales", "inventory", "finance", "viewer"])
+@pytest.mark.parametrize("role", ["billing", "ca"])
 def test_non_admin_roles_cannot_reactivate(client, role):
     tid = make_tenant(client, ALICE, "Alice Co")
     add_member(client, tid, ALICE, BOB, role)
@@ -121,7 +121,7 @@ def test_other_tenant_looks_like_it_does_not_exist(client):
 def test_cannot_reactivate_a_member_of_another_tenant_through_own_tenant(client):
     alice_tid = make_tenant(client, ALICE, "Alice Co")
     bob_tid = make_tenant(client, BOB, "Bob Co")
-    add_member(client, bob_tid, BOB, CAROL, "sales")
+    add_member(client, bob_tid, BOB, CAROL, "billing")
     change(client, bob_tid, BOB, CAROL, "deactivate")
     assert change(client, alice_tid, ALICE, CAROL, "reactivate").status_code == 404
     assert client.get(f"/api/v1/identity/tenants/{bob_tid}", headers=as_user(CAROL)).status_code == 404

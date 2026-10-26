@@ -46,13 +46,13 @@ def test_outsider_cannot_join_by_guessing_the_id(alice, bob):
     assert subs == [alice.sub]
 
 
-def test_invited_viewer_reads_but_cannot_manage(alice, debug_user):
+def test_added_ca_reads_but_cannot_manage(alice, debug_user):
     tid = new_tenant(alice, "Team")
-    viewer = debug_user("viewer")
-    assert alice.post(f"/api/v1/identity/tenants/{tid}/members", json={"user_sub": viewer.sub, "role": "viewer"}).status_code == 201
-    assert viewer.get(f"/api/v1/identity/tenants/{tid}").json()["role"] == "viewer"
-    assert viewer.get(f"/api/v1/identity/tenants/{tid}/audit").status_code == 404
-    r = viewer.post(f"/api/v1/identity/tenants/{tid}/members", json={"user_sub": f"e2e-{RUN}-x", "role": "admin"})
+    ca = debug_user("ca")
+    assert alice.post(f"/api/v1/identity/tenants/{tid}/members", json={"user_sub": ca.sub, "role": "ca"}).status_code == 201
+    assert ca.get(f"/api/v1/identity/tenants/{tid}").json()["role"] == "ca"
+    assert ca.get(f"/api/v1/identity/tenants/{tid}/audit").status_code == 404
+    r = ca.post(f"/api/v1/identity/tenants/{tid}/members", json={"user_sub": f"e2e-{RUN}-x", "role": "admin"})
     assert r.status_code == 404
     actions = sorted(e["action"] for e in alice.get(f"/api/v1/identity/tenants/{tid}/audit").json())
     assert actions == ["member.added", "tenant.created"]
@@ -62,10 +62,10 @@ def test_user_in_two_tenants_gets_each_tenants_role(alice, debug_user):
     dual = debug_user("dual")
     own = new_tenant(dual, "Dual own")
     theirs = new_tenant(alice, "Dual theirs")
-    alice.post(f"/api/v1/identity/tenants/{theirs}/members", json={"user_sub": dual.sub, "role": "sales"})
+    alice.post(f"/api/v1/identity/tenants/{theirs}/members", json={"user_sub": dual.sub, "role": "billing"})
     roles = {t["id"]: t["role"] for t in dual.get("/api/v1/identity/tenants").json()}
-    assert roles == {own: "owner", theirs: "sales"}
-    assert dual.post(f"/api/v1/identity/tenants/{theirs}/members", json={"user_sub": "x", "role": "viewer"}).status_code == 404
+    assert roles == {own: "owner", theirs: "billing"}
+    assert dual.post(f"/api/v1/identity/tenants/{theirs}/members", json={"user_sub": "x", "role": "ca"}).status_code == 404
 
 
 def test_debug_header_is_ignored_when_real_auth_is_on(anon, debug_mode):

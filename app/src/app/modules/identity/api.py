@@ -9,24 +9,23 @@ from sqlalchemy import event, func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from platform_common.auth import Caller, current_caller
+from platform_common.auth import DEBUG_ENVS, Caller, current_caller, platform_env
 from platform_common.db import engine, session_factory
 from platform_common.errors import Conflict, Deny, Gone
+from platform_common.permissions import Permission, Role, has_permission
 from platform_common.uow import parse_id
 
 from . import invites
 from .models import (
     INVITATION_DAYS,
-    MANAGE_MEMBERS,
-    READ_AUDIT,
     AuditEvent,
+    Business,
     Delivery,
     Invitation,
     InvitationStatus,
     Membership,
     MembershipStatus,
-    Role,
-    Tenant,
+    User,
 )
 
 router = APIRouter(prefix="/identity", tags=["identity"])
@@ -39,38 +38,90 @@ def _factory():
     return session_factory(translate)
 
 
+def _postgres(session: Session) -> bool:
+    return session.bind.dialect.name == "postgresql"
+
+
+def debug_user_id(session: Session, sub: str) -> uuid.UUID:
+    """The identity.users id for `sub`, creating the row: local and test only.
+
+    Until S1 sign-up creates users, callers named by X-Debug-User get a row here. On
+    PostgreSQL it goes through identity.dev_ensure_user, which only migrator.local
+    creates (migrator/local_only.sql), so it doesn't exist in AWS either. The row's
+    email is a placeholder: invitations match the caller's verified email, not this one.
+    """
+    if platform_env() not in DEBUG_ENVS:
+        raise RuntimeError("debug users exist only when PLATFORM_ENV is local or test")
+    if _postgres(session):
+        return session.scalar(text("select identity.dev_ensure_user(:sub)"), {"sub": sub})
+    user = session.scalar(select(User).where(User.cognito_sub == sub))
+    if user is None:
+        user = User(cognito_sub=sub, email=f"{sub}@debug.invalid".lower())
+        session.add(user)
+        session.flush()
+    return user.id
+
+
 def db_session(principal: Caller = Depends(current_caller)) -> Iterator[Session]:
+    if platform_env() not in DEBUG_ENVS:
+        # No users row exists in AWS until S1 sign-up, and S0a (c2)'s principal resolver
+        # (identity.auth_resolve) is what finds one; until then every caller is unknown.
+        raise Deny("session_invalid")
     with _factory()() as session:
-        if session.bind.dialect.name == "postgresql":
+        with session.begin():
+            user_id = debug_user_id(session, principal.user_sub)
+        session.info.update(user_id=user_id, tenant_id=None)
+        if _postgres(session):
 
             @event.listens_for(session, "after_begin")
             def _rls_context(sess, transaction, connection):
-                # Row-level security policies read these; see migrations/0002, 0004 and 0005.
-                # Set at the start of every transaction, since set_config(..., true)
-                # ends with it and a request may commit more than once.
+                # The LLD-1 §3.4 policies read these. Set at the start of every transaction,
+                # since set_config(..., true) ends with it and a request may commit twice.
                 connection.execute(
                     text(
-                        "select set_config('app.user_sub', :sub, true), "
-                        "set_config('app.user_email', :email, true)"
+                        "select set_config('app.user_id', :uid, true), set_config('app.user_sub', :sub, true), "
+                        "set_config('app.user_email', :email, true), set_config('app.tenant_id', :tid, true)"
                     ),
-                    {"sub": principal.user_sub, "email": principal.verified_email or ""},
+                    {
+                        "uid": str(user_id),
+                        "sub": principal.user_sub,
+                        "email": principal.verified_email or "",
+                        "tid": str(sess.info["tenant_id"] or ""),
+                    },
                 )
 
         yield session
 
 
-def active_membership(session: Session, tenant_id: uuid.UUID, user_sub: str) -> Membership:
+def me(session: Session) -> uuid.UUID:
+    return session.info["user_id"]
+
+
+def bind_business(session: Session, business_id: uuid.UUID) -> None:
+    """Scope the rest of the request to one business (app.tenant_id)."""
+    session.info["tenant_id"] = business_id
+    if _postgres(session) and session.in_transaction():
+        session.execute(text("select set_config('app.tenant_id', :t, true)"), {"t": str(business_id)})
+
+
+def active_membership(session: Session, business_id: uuid.UUID) -> Membership:
+    bind_business(session, business_id)
     membership = session.scalar(
         select(Membership).where(
-            Membership.tenant_id == tenant_id,
-            Membership.user_sub == user_sub,
+            Membership.business_id == business_id,
+            Membership.user_id == me(session),
             Membership.status == MembershipStatus.active,
         )
     )
     if membership is None:
-        # Same answer whether the tenant is missing or simply not the caller's.
+        # Same answer whether the business is missing or simply not the caller's.
         raise Deny("not_member")
     return membership
+
+
+def require_permission(membership: Membership, permission: Permission) -> None:
+    if not has_permission(membership.role, permission):
+        raise Deny("role_denied")
 
 
 def audit(session: Session, tenant_id, actor: str, action: str, entity_type: str, entity_id, **details):
@@ -161,13 +212,22 @@ def create_tenant(
     principal: Caller = Depends(current_caller),
     session: Session = Depends(db_session),
 ):
-    tenant = Tenant(name=body.name)
-    session.add(tenant)
+    business_id = uuid.uuid4()
+    bind_business(session, business_id)
+    session.add(Business(id=business_id, name=body.name, created_by=me(session)))
     session.flush()
-    session.add(Membership(tenant_id=tenant.id, user_sub=principal.user_sub, role=Role.owner))
-    audit(session, tenant.id, principal.user_sub, "tenant.created", "tenant", tenant.id)
+    session.add(
+        Membership(
+            business_id=business_id,
+            user_id=me(session),
+            user_sub=principal.user_sub,
+            role=Role.owner,
+            email=principal.verified_email,
+        )
+    )
+    audit(session, business_id, principal.user_sub, "tenant.created", "tenant", business_id)
     session.commit()
-    return TenantOut(id=tenant.id, name=tenant.name, role=Role.owner)
+    return TenantOut(id=business_id, name=body.name, role=Role.owner)
 
 
 @router.get("/tenants", response_model=list[TenantOut])
@@ -175,11 +235,15 @@ def my_tenants(
     principal: Caller = Depends(current_caller),
     session: Session = Depends(db_session),
 ):
+    if _postgres(session):
+        # Every business the caller belongs to: only app_ro's biz_member_ro policy shows
+        # more than the one bound business (LLD-1 §3.4).
+        session.execute(text("set local role app_ro"))
     rows = session.execute(
-        select(Tenant, Membership.role)
-        .join(Membership, Membership.tenant_id == Tenant.id)
-        .where(Membership.user_sub == principal.user_sub, Membership.status == MembershipStatus.active)
-        .order_by(Tenant.name)
+        select(Business, Membership.role)
+        .join(Membership, Membership.business_id == Business.id)
+        .where(Membership.user_id == me(session), Membership.status == MembershipStatus.active)
+        .order_by(Business.name)
     ).all()
     return [TenantOut(id=t.id, name=t.name, role=role) for t, role in rows]
 
@@ -191,8 +255,8 @@ def get_tenant(
     session: Session = Depends(db_session),
 ):
     tid = parse_id(tenant_id)
-    membership = active_membership(session, tid, principal.user_sub)
-    tenant = session.get(Tenant, tid)
+    membership = active_membership(session, tid)
+    tenant = session.get(Business, tid)
     return TenantOut(id=tenant.id, name=tenant.name, role=membership.role)
 
 
@@ -203,9 +267,9 @@ def list_members(
     session: Session = Depends(db_session),
 ):
     tid = parse_id(tenant_id)
-    active_membership(session, tid, principal.user_sub)
+    active_membership(session, tid)
     members = session.scalars(
-        select(Membership).where(Membership.tenant_id == tid).order_by(Membership.created_at)
+        select(Membership).where(Membership.business_id == tid).order_by(Membership.created_at)
     )
     return [member_out(m) for m in members]
 
@@ -222,13 +286,9 @@ def add_member(
     session: Session = Depends(db_session),
 ):
     tid = parse_id(tenant_id)
-    caller = active_membership(session, tid, principal.user_sub)
-    if caller.role not in MANAGE_MEMBERS:
-        raise Deny("role_denied")
-    if body.role == Role.owner and caller.role != Role.owner:
-        raise Deny("role_denied")
-
-    member = Membership(tenant_id=tid, user_sub=body.user_sub, role=body.role)
+    check_can_invite(active_membership(session, tid), body.role)
+    user_id = debug_user_id(session, body.user_sub)  # LLD-2 replaces adding by sub with invitations
+    member = Membership(business_id=tid, user_id=user_id, user_sub=body.user_sub, role=body.role)
     session.add(member)
     try:
         session.flush()
@@ -248,7 +308,7 @@ def deactivate_member(
     principal: Caller = Depends(current_caller),
     session: Session = Depends(db_session),
 ):
-    return _change_member_status(session, principal, tenant_id, user_sub, MembershipStatus.disabled, body.reason)
+    return _change_member_status(session, principal, tenant_id, user_sub, MembershipStatus.deactivated, body.reason)
 
 
 @router.post("/tenants/{tenant_id}/members/{user_sub}/reactivate", response_model=MemberOut)
@@ -266,14 +326,13 @@ def _change_member_status(
     session: Session, principal: Caller, tenant_id: str, user_sub: str, new_status: MembershipStatus, reason: str
 ) -> MemberOut:
     tid = parse_id(tenant_id)
-    caller = active_membership(session, tid, principal.user_sub)
-    if caller.role not in MANAGE_MEMBERS:
-        raise Deny("role_denied")
+    caller = active_membership(session, tid)
+    require_permission(caller, Permission.MEMBERS_MANAGE)
     # Lock the tenant's active owners so two owners can't deactivate each other at once.
     owners = session.scalars(
         select(Membership)
         .where(
-            Membership.tenant_id == tid,
+            Membership.business_id == tid,
             Membership.role == Role.owner,
             Membership.status == MembershipStatus.active,
         )
@@ -282,7 +341,7 @@ def _change_member_status(
     # Lock the target too, so two concurrent changes to one member write one audit event.
     member = session.scalar(
         select(Membership)
-        .where(Membership.tenant_id == tid, Membership.user_sub == user_sub)
+        .where(Membership.business_id == tid, Membership.user_sub == user_sub)
         .with_for_update()
     )
     if member is None:
@@ -292,11 +351,15 @@ def _change_member_status(
         return member_out(member)
     if member.role == Role.owner and caller.role != Role.owner:
         raise Deny("role_denied")
-    if new_status == MembershipStatus.disabled and member.role == Role.owner and len(owners) <= 1:
+    if new_status == MembershipStatus.deactivated and member.role == Role.owner and len(owners) <= 1:
         raise Conflict("last_owner", "cannot deactivate the last active owner")
 
     member.status = new_status
-    action = "member.deactivated" if new_status == MembershipStatus.disabled else "member.reactivated"
+    deactivating = new_status == MembershipStatus.deactivated
+    member.deactivated_at = datetime.now(UTC) if deactivating else None
+    member.deactivated_by = me(session) if deactivating else None
+    member.deactivation_reason = reason if deactivating else None
+    action = "member.deactivated" if deactivating else "member.reactivated"
     audit(
         session, tid, principal.user_sub, action, "membership", member.id,
         user_sub=member.user_sub, role=member.role.value, reason=reason,
@@ -312,9 +375,7 @@ def audit_log(
     session: Session = Depends(db_session),
 ):
     tid = parse_id(tenant_id)
-    caller = active_membership(session, tid, principal.user_sub)
-    if caller.role not in READ_AUDIT:
-        raise Deny("role_denied")
+    require_permission(active_membership(session, tid), Permission.AUDIT_VIEW)
     events = session.scalars(
         select(AuditEvent).where(AuditEvent.tenant_id == tid).order_by(AuditEvent.at.desc())
     )
@@ -355,8 +416,7 @@ def invitation_out(inv: Invitation) -> InvitationOut:
 
 
 def check_can_invite(caller: Membership, role: Role) -> None:
-    if caller.role not in MANAGE_MEMBERS:
-        raise Deny("role_denied")
+    require_permission(caller, Permission.MEMBERS_MANAGE)
     if role == Role.owner and caller.role != Role.owner:
         raise Deny("role_denied")
 
@@ -399,11 +459,11 @@ def invite_member(
     session: Session = Depends(db_session),
 ):
     tid = parse_id(tenant_id)
-    check_can_invite(active_membership(session, tid, principal.user_sub), body.role)
+    check_can_invite(active_membership(session, tid), body.role)
     email = body.email.strip().lower()
 
     if session.scalar(
-        select(Membership.id).where(Membership.tenant_id == tid, func.lower(Membership.email) == email)
+        select(Membership.id).where(Membership.business_id == tid, func.lower(Membership.email) == email)
     ):
         raise Conflict("already_member", "already a member")
     open_invite = session.scalar(
@@ -444,9 +504,7 @@ def list_invitations(
     session: Session = Depends(db_session),
 ):
     tid = parse_id(tenant_id)
-    caller = active_membership(session, tid, principal.user_sub)
-    if caller.role not in MANAGE_MEMBERS:
-        raise Deny("role_denied")
+    require_permission(active_membership(session, tid), Permission.MEMBERS_MANAGE)
     rows = session.scalars(
         select(Invitation).where(Invitation.tenant_id == tid).order_by(Invitation.created_at.desc())
     )
@@ -461,7 +519,7 @@ def resend_invitation(
     session: Session = Depends(db_session),
 ):
     tid = parse_id(tenant_id)
-    caller = active_membership(session, tid, principal.user_sub)
+    caller = active_membership(session, tid)
     inv = _tenant_invitation(session, tid, invitation_id)
     check_can_invite(caller, inv.role)
     if inv.status != InvitationStatus.pending:
@@ -482,7 +540,7 @@ def revoke_invitation(
     session: Session = Depends(db_session),
 ):
     tid = parse_id(tenant_id)
-    caller = active_membership(session, tid, principal.user_sub)
+    caller = active_membership(session, tid)
     inv = _tenant_invitation(session, tid, invitation_id)
     check_can_invite(caller, inv.role)
     if inv.status == InvitationStatus.revoked:
@@ -504,8 +562,8 @@ def my_invitations(
     if email is None:
         return []
     rows = session.execute(
-        select(Invitation, Tenant.name)
-        .join(Tenant, Tenant.id == Invitation.tenant_id)
+        select(Invitation, Business.name)
+        .join(Business, Business.id == Invitation.tenant_id)
         .where(Invitation.email == email, Invitation.status == InvitationStatus.pending)
         .order_by(Invitation.created_at)
     ).all()
@@ -530,25 +588,32 @@ def accept_invitation(
     # Only the addressee may see or accept it; anyone else gets the same 404.
     inv = None
     if email is not None:
-        inv = session.scalar(select(Invitation).where(Invitation.id == iid, Invitation.email == email).with_for_update())
+        mine = select(Invitation).where(Invitation.id == iid, Invitation.email == email)
+        inv = session.scalar(mine)
+        if inv is not None and inv.status == InvitationStatus.pending:
+            # Lock only a pending one: FOR UPDATE goes through inv_accept, which (rightly)
+            # shows the invitee nothing else, and a retry after accepting must still answer.
+            inv = session.scalar(mine.with_for_update())
     if inv is None:
         raise Deny("not_found")
 
     if inv.status == InvitationStatus.accepted:
         if inv.accepted_by == principal.user_sub:
-            tenant = session.get(Tenant, inv.tenant_id)
+            bind_business(session, inv.tenant_id)
+            tenant = session.get(Business, inv.tenant_id)
             return TenantOut(id=tenant.id, name=tenant.name, role=inv.role)  # retry
         raise Conflict("invitation_used", "invitation already used")
     if inv.status == InvitationStatus.revoked or _expired(inv):
         raise Gone("invitation_invalid", "invitation is no longer valid; ask for a new one")
     if session.scalar(
-        select(Membership.id).where(Membership.tenant_id == inv.tenant_id, Membership.user_sub == principal.user_sub)
+        select(Membership.id).where(Membership.business_id == inv.tenant_id, Membership.user_id == me(session))
     ):
         # Includes a deactivated membership: rejoining needs reactivation, not an invite.
         raise Conflict("already_member", "already a member")
 
     member = Membership(
-        tenant_id=inv.tenant_id,
+        business_id=inv.tenant_id,
+        user_id=me(session),
         user_sub=principal.user_sub,
         role=inv.role,
         email=email,
@@ -559,8 +624,9 @@ def accept_invitation(
     inv.accepted_by = principal.user_sub
     inv.accepted_at = datetime.now(UTC)
     session.flush()
-    # Read only now: row-level security shows a tenant to its members.
-    tenant = session.get(Tenant, inv.tenant_id)
+    # Bound only now, once the caller is a member (m_accept needs no business).
+    bind_business(session, inv.tenant_id)
+    tenant = session.get(Business, inv.tenant_id)
     audit(
         session, inv.tenant_id, principal.user_sub, "invitation.accepted", "invitation", inv.id,
         membership_id=str(member.id), role=inv.role.value,
