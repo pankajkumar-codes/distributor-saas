@@ -4,16 +4,25 @@
 (`set_principal_resolver`) at start-up: one call to identity.auth_resolve per unit of
 work checks the caller's session and, for a business route, their membership or a
 support grant.
+
+The business functions (S1-d1) create a business with its owner and profile, and list
+the caller's memberships for /me and the sign-in reply.
 """
 
 import uuid
+from dataclasses import dataclass
+from datetime import date
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.modules.business import interface as business
+from app.modules.refdata import value_on
+from platform_common import audit
 from platform_common.auth import Caller, debug_env
-from platform_common.errors import Deny
-from platform_common.uow import Principal
+from platform_common.errors import Deny, Invalid
+from platform_common.ids import uuid7
+from platform_common.uow import Principal, UnitOfWork
 
 # LLD-1 L1-6: the access token's origin_jti, with event_id as the fallback.
 SESSION_KEY_CLAIMS = ("origin_jti", "event_id")
@@ -71,3 +80,85 @@ def resolve_principal(
         role=row.role,
         support_grant_id=row.support_grant_id,
     )
+
+
+# businesses (S1-d1) ------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class MembershipCard:
+    business_id: uuid.UUID
+    display_name: str
+    gstin: str | None
+    role: str
+
+
+@dataclass(frozen=True)
+class CreatedBusiness:
+    business_id: uuid.UUID
+    warnings: list[str]
+
+
+_OWNED = text(
+    "select count(*) from identity.memberships"
+    " where user_id = :me and role = 'owner' and status = 'active' and identity.is_active_member(business_id)"
+)
+
+
+def create_business(uow: UnitOfWork, profile_in: business.NewBusinessProfile, *, today: date) -> CreatedBusiness:
+    """LLD-1 §5.10, in the caller's /me unit of work. It takes the unit of work, not just
+    its transaction, because it binds it to the new business as owner."""
+    tx, me = uow.tx, uow.principal.user_id
+    if me is None:
+        raise RuntimeError("create_business needs a signed-in user")
+    # One create at a time per user, so two concurrent requests can't both pass the limit [RM41-8].
+    tx.execute(text("select pg_advisory_xact_lock(hashtextextended('identity.create_business:' || :me, 0))"),
+               {"me": str(me)})
+    limit = value_on(tx, "identity.max_owned_businesses", today)
+    if tx.execute(_OWNED, {"me": me}).scalar() >= limit:
+        raise Invalid("business_limit", f"you can own at most {limit} businesses")
+    business_id = uuid7()
+    uow.enter_new_business(business_id)
+    tx.execute(text("insert into identity.businesses (id, created_by) values (:b, :me)"), {"b": business_id, "me": me})
+    # Passes m_insert only through identity.is_bootstrap_owner: the creator, no member yet.
+    tx.execute(
+        text("insert into identity.memberships (id, business_id, user_id, role, status)"
+             " values (:id, :b, :me, 'owner', 'active')"),
+        {"id": uuid7(), "b": business_id, "me": me},
+    )
+    warnings = business.create_profile(tx, business_id, profile_in, by=me, today=today)
+    audit.record(uow, "business.create", "business", business_id,
+                 data={"registration_kind": profile_in.registration.kind})
+    return CreatedBusiness(business_id, warnings)
+
+
+_MEMBERSHIPS = text(
+    "select m.business_id, m.role from identity.memberships m"
+    " join identity.businesses b on b.id = m.business_id"
+    " where m.user_id = :u and m.status = 'active' and b.status <> 'closed'"
+)
+
+
+def list_my_businesses(tx: Session, user_id: uuid.UUID) -> list[MembershipCard]:
+    """The user's active memberships with each business's card, by display name.
+
+    Runs as app_ro (UnitOfWork.become_read_only first): biz_member_ro and the business
+    profile's profile_card_ro are app_ro policies (LLD-1 §3.4, §4), so under app_rw only
+    the bound business would show. app.user_id must be `user_id`.
+    """
+    if tx.execute(text("select current_user")).scalar() != "app_ro":
+        raise RuntimeError("list_my_businesses reads as app_ro; call uow.become_read_only() first")
+    roles = {r.business_id: r.role for r in tx.execute(_MEMBERSHIPS, {"u": user_id})}
+    cards = business.business_card(tx, list(roles))
+    return sorted(
+        (MembershipCard(c.business_id, c.display_name, c.gstin, roles[c.business_id]) for c in cards),
+        key=lambda m: (m.display_name.casefold(), str(m.business_id)),
+    )
+
+
+def member_role(tx: Session, business_id: uuid.UUID, user_id: uuid.UUID) -> str | None:
+    """The user's active role in the bound business, or None."""
+    return tx.execute(
+        text("select role from identity.memberships where business_id = :b and user_id = :u and status = 'active'"),
+        {"b": business_id, "u": user_id},
+    ).scalar()

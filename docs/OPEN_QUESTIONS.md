@@ -55,6 +55,17 @@ number and moves to `value_on` in its owner's next PR.
 | 30-day session lifetime | `identity/service/signup.py` | `auth.session_max_days` |
 | Code TTL, tries and request/check limits | `identity/service/signup.py` | `auth.code_*` (LLD-1 L1-10) |
 
+POST /b already reads `identity.max_owned_businesses` (5, provisional; **Pankaj / PO** to confirm) and the GSTIN and address state codes through `value_on` and `state_name`.
+
+## Business profile (S1-d) items waiting on the GST expert or PO
+| Item | What the code does until then | Source needed |
+|---|---|---|
+| Enrolment number pattern (LLD-1 §15) | Accepts any non-blank value, stored trimmed | A cited pattern for the Notification 34/2023 enrolment number |
+| What an enrolment-number business may do in R1 | Stored; `ready_for_documents` will report `gstin` missing (S1-d2) | PO and GST expert |
+| Rule 61A window rows `qrmp.option_window.*`, `einvoice.aato_threshold` | The related warnings report "unknown" instead of guessing (S1-d2) | GST expert, with citation |
+| Address state different from GSTIN state | A warning, `address_state_mismatch` (L1-12, BRD ON-3); `gstin.md` §4 says refuse | GST expert confirms |
+| 14th GSTIN character not `Z` on the business's own GSTIN | A warning, `gstin_not_z` (`gstin.md` §1, §4 item 5) | none |
+
 ## Refdata rows to confirm (S0b)
 Every row in `refdata/` is `provisional`. Before go-live:
 - **PO:** the `auth.*` and `identity.max_owned_businesses` rows (`kind: product`). The

@@ -129,6 +129,24 @@ class UnitOfWork:
             raise RuntimeError("become_user is only for a public unit of work")
         self._bind(replace(self.principal, user_id=user_id, user_sub=user_sub))
 
+    def enter_new_business(self, business_id: uuid.UUID) -> None:
+        """Bind a /me unit of work to the business it is creating (LLD-1 §5.10), as its
+        owner, so the business and membership inserts pass their policies and the
+        business-level audit row names it. The membership insert itself is still checked
+        by the database (identity.is_bootstrap_owner)."""
+        p = self.principal
+        if p.user_id is None or p.business_id is not None or p.support_grant_id is not None:
+            raise RuntimeError("enter_new_business is only for a signed-in user's /me unit of work")
+        self._bind(replace(p, business_id=business_id, role="owner"))
+
+    def become_read_only(self) -> None:
+        """Switch to app_ro for the rest of the transaction (L0-7). A unit of work resolves
+        its caller as app_rw, because identity.auth_resolve is app_rw only; reads that
+        policies allow only to app_ro (the /me business cards) come after this."""
+        if not self.read_only:
+            self.tx.execute(text("set local role app_ro"))
+            self.read_only = True
+
     def _bind(self, principal: Principal) -> None:
         self.principal = principal
         _set_context(self.tx, principal)
