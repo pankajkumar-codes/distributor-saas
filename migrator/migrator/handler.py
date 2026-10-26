@@ -23,11 +23,14 @@ from pathlib import Path
 
 import psycopg
 
+from . import refdata
+
 # Ties between timestamped files from different modules break in this order.
 MODULE_ORDER = [
     "platform", "refdata", "identity", "business", "catalog", "sales", "documents", "filing", "insights", "imports",
 ]
 MIGRATIONS_DIR = Path(__file__).parent.parent / "migrations"
+REFDATA_DIR = Path(__file__).parent.parent / "refdata"
 BOOTSTRAP = Path(__file__).parent / "bootstrap.sql"
 log = logging.getLogger(__name__)
 
@@ -78,7 +81,8 @@ def pending(conn, root: Path = MIGRATIONS_DIR):
         yield service, path.name, sql, checksum
 
 
-def migrate(conn, root: Path = MIGRATIONS_DIR) -> list[str]:
+def migrate(conn, root: Path = MIGRATIONS_DIR, refdata_root: Path | None = None) -> list[str]:
+    """Applies pending files; then, given `refdata_root`, loads refdata (LLD-0 §5)."""
     bootstrap(conn)
     done = []
     for service, name, sql, checksum in list(pending(conn, root)):
@@ -95,6 +99,10 @@ def migrate(conn, root: Path = MIGRATIONS_DIR) -> list[str]:
         # The ledger is committed; only the grants of this pass are missing until the next run.
         log.error("ledger applied (%s), bootstrap pass 2 failed", ", ".join(done) or "nothing new")
         raise
+    if refdata_root is not None:
+        # Its own transaction: a refused load leaves the applied migrations in place.
+        counts = refdata.load(conn, refdata_root)
+        log.info("refdata loaded: %s", counts)
     return done
 
 
@@ -117,5 +125,5 @@ def _master_connection():
 
 def handler(event, context):  # noqa: ARG001
     with _master_connection() as conn:
-        applied = migrate(conn)
+        applied = migrate(conn, MIGRATIONS_DIR, REFDATA_DIR)
     return {"applied": applied}

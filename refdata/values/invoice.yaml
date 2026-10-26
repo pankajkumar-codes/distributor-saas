@@ -1,0 +1,26 @@
+# Invoice and note numbering (LLD-0 §6.5). Tax rows: provisional until the GST expert or
+# the CA confirms them. The figures are from CGST Rule 46(b) as summarised in
+# team/gst/document-fields.md; uniqueness per FY per GSTIN (case-insensitive) is the
+# numbering code's rule, not a refdata row.
+
+- key: invoice.number.max_length
+  value: "16"
+  type: integer
+  kind: tax
+  valid_from: 2017-07-01
+  source_url: https://gstzen.in/a/tax-invoice-cgst-rule-46.html
+  source_title: "CGST Rule 46(b): consecutive serial number not exceeding sixteen characters (text via GSTZen)"
+  last_checked: 2026-10-14
+  status: provisional
+  note: "valid_from is the GST start date; the GST expert to confirm the rule's own date."
+
+- key: invoice.number.charset
+  value: "^[A-Za-z0-9/-]+$"
+  type: pattern
+  kind: tax
+  valid_from: 2017-07-01
+  source_url: https://gstzen.in/a/tax-invoice-cgst-rule-46.html
+  source_title: "CGST Rule 46(b): alphabets or numerals, hyphen or dash and slash (text via GSTZen)"
+  last_checked: 2026-10-14
+  status: provisional
+  note: "Length is invoice.number.max_length. team/gst/document-fields.md row 3 writes A-Z; the rule says alphabets, so lower case is allowed here and uniqueness is case-insensitive."
