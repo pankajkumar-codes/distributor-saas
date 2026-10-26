@@ -3,6 +3,8 @@ a made-up layout for tests, not any marketplace's real report format."""
 
 import datetime as dt
 import io
+import re
+import zipfile
 from decimal import Decimal
 
 import openpyxl
@@ -133,6 +135,31 @@ def test_xlsx_formula_cells_are_rejected():
     assert [e.code for e in row.errors] == ["formula"]
 
 
+def _claim_dimension(content: bytes, ref: str | None) -> bytes:
+    """Rewrites sheet1's stored <dimension>, as some marketplace exports have it."""
+    src, out = zipfile.ZipFile(io.BytesIO(content)), io.BytesIO()
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as dst:
+        for info in src.infolist():
+            data = src.read(info)
+            if info.filename == "xl/worksheets/sheet1.xml":
+                new = f'<dimension ref="{ref}"/>' if ref else ""
+                data, n = re.subn(rb'<dimension ref="[^"]*" ?/>', new.encode(), data)
+                assert n == 1
+            dst.writestr(info, data)
+    return out.getvalue()
+
+
+@pytest.mark.parametrize("ref", ["A1", None])
+def test_xlsx_with_a_wrong_or_missing_dimension_reads_every_row(ref):
+    # Meesho and Flipkart workbooks: read-only openpyxl used to return the header only (RM47-J16).
+    rows = [["Order ID", "Line ID", "SKU", "Qty", "Amount", "Order Date"]]
+    rows += [[f"A{i}", "1", "S", "1", "10", "01-10-2026"] for i in range(1, 4)]
+    content = _claim_dimension(xlsx_bytes(rows), ref)
+    table = read_table(content, "orders.xlsx")
+    assert len(table.rows) == 4
+    assert [r.raw["Order ID"] for r in parse(table, PROFILE).rows] == ["A1", "A2", "A3"]
+
+
 def test_xlsx_with_several_sheets_needs_a_choice():
     content = xlsx_bytes([["Order ID"]], sheets=("Orders", "Summary"))
     with pytest.raises(FileRejected, match="several sheets"):
@@ -156,7 +183,7 @@ def test_header_found_below_preamble_and_matched_loosely():
     assert result.header_row_number == 3
     assert result.rows[0].row_number == 4
     assert result.unmapped_headers == ["Extra"]
-    assert result.rows[0].raw["Extra"] == "x"
+    assert "Extra" not in result.rows[0].raw  # unmapped columns are never stored (LLD-7 L7-2)
 
 
 def test_missing_required_column_names_it():
@@ -197,7 +224,8 @@ def test_one_bad_row_does_not_touch_the_others():
     assert bad.normalized is None and bad.dedup_key is None
     assert result.rows[2].errors[0].code == "required"
     assert result.summary() == {
-        "valid": 2, "invalid": 2, "duplicate": 0, "conflict": 0, "total": 4, "skipped_blank": 0
+        "valid": 2, "invalid": 2, "duplicate": 0, "conflict": 0, "total": 4, "skipped_blank": 0,
+        "columns_not_stored": 0,
     }
 
 
@@ -263,7 +291,7 @@ def test_text_length_limit_and_extra_cells():
     result = parse(csv_table(f"A1,1,{long},1,10,01-10-2026,\nA2,1,S,1,10,01-10-2026,,surprise\n"), PROFILE)
     assert [e.code for e in result.rows[0].errors] == ["too_long"]
     assert [e.code for e in result.rows[1].errors] == ["extra_cells"]
-    assert result.rows[1].raw["column_8"] == "surprise"
+    assert "surprise" not in result.rows[1].raw.values()
 
 
 def test_blank_rows_are_skipped_and_counted():
@@ -347,9 +375,65 @@ def test_invalid_profiles_are_refused(change, message):
         MappingProfile.from_dict(data)
 
 
-def test_repeated_unmapped_headers_keep_both_raw_values():
+def test_repeated_unmapped_headers_are_listed_but_not_stored():
     header = "Order ID,Line ID,SKU,Qty,Amount,Order Date,Remark,Remark,\n"
-    (row,) = parse(csv_table("A1,1,S,1,10,01-10-2026,a,b,c\n", header=header), PROFILE).rows
-    assert row.raw["Remark"] == "a"
-    assert row.raw["Remark (column 8)"] == "b"
-    assert row.raw["column_9"] == "c"
+    result = parse(csv_table("A1,1,S,1,10,01-10-2026,a,b,c\n", header=header), PROFILE)
+    assert result.unmapped_headers == ["Remark", "Remark"]
+    assert set(result.rows[0].raw) == {"Order ID", "Line ID", "SKU", "Qty", "Amount", "Order Date"}
+
+
+# --- personal data (LLD-7 L7-2, AC7-12) ------------------------------------------
+
+PERSONAL_PROFILE = MappingProfile(
+    marketplace="amazon",
+    report_type="orders",
+    version="test-p",
+    fields=(
+        FieldSpec("order_id", ("Order ID",)),
+        FieldSpec("buyer_name", ("Buyer Name",), personal=True),
+        FieldSpec("ship_address", ("Ship To Address",), personal=True, required=False),
+        FieldSpec("ship_state", ("Ship To State",)),
+        FieldSpec("ship_pin", ("Ship To Postal Code",)),
+    ),
+    dedup_key=("order_id",),
+)
+
+
+def test_personal_and_unmapped_columns_are_never_stored():
+    header = "Order ID,Buyer Name,Ship To Address,Ship To State,Ship To Postal Code,Buyer Phone\n"
+    body = "A1,Asha Rao,12 MG Road,WEST BENGAL,700001,9800000000\n"
+    result = parse(csv_table(body, header=header), PERSONAL_PROFILE)
+    (row,) = result.rows
+    assert row.status == RowStatus.valid
+    assert row.raw == {"Order ID": "A1", "Ship To State": "WEST BENGAL", "Ship To Postal Code": "700001"}
+    assert row.normalized == {"order_id": "A1", "ship_state": "WEST BENGAL", "ship_pin": "700001"}
+    stored = repr((row.raw, row.normalized, row.errors))
+    for value in ("Asha", "MG Road", "9800000000"):
+        assert value not in stored
+    assert result.personal_headers == ["Buyer Name", "Ship To Address"]
+    assert result.unmapped_headers == ["Buyer Phone"]
+    assert result.summary()["columns_not_stored"] == 3
+
+
+def test_a_personal_field_cannot_be_part_of_the_key():
+    with pytest.raises(ProfileError, match="cannot be personal"):
+        MappingProfile(
+            marketplace="amazon",
+            report_type="orders",
+            version="x",
+            fields=(FieldSpec("buyer", ("Buyer",), personal=True),),
+            dedup_key=("buyer",),
+        )
+
+
+def test_from_dict_reads_the_personal_flag():
+    profile = MappingProfile.from_dict(
+        {
+            "marketplace": "meesho",
+            "report_type": "orders",
+            "version": "1",
+            "fields": [{"name": "id", "headers": ["ID"]}, {"name": "name", "headers": ["Name"], "personal": True}],
+            "dedup_key": ["id"],
+        }
+    )
+    assert profile.by_name["name"].personal and not profile.by_name["id"].personal

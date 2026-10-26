@@ -51,7 +51,8 @@ class RowError:
 @dataclass
 class ParsedRow:
     row_number: int
-    # Every source column, keyed by its header as written in the file.
+    # The profile's mapped, non-personal cells, keyed by their header as written in the
+    # file. Personal and unmapped columns are never kept (LLD-7 L7-2).
     raw: dict[str, str]
     normalized: dict[str, object] | None
     errors: list[RowError] = field(default_factory=list)
@@ -74,6 +75,8 @@ class ParseResult:
     header_row_number: int
     headers: list[str]
     unmapped_headers: list[str]
+    # Mapped columns the profile marks personal; read for the header match only.
+    personal_headers: list[str]
     rows: list[ParsedRow]
     skipped_blank_rows: int
 
@@ -83,6 +86,8 @@ class ParseResult:
             counts[row.status.value] += 1
         counts["total"] = len(self.rows)
         counts["skipped_blank"] = self.skipped_blank_rows
+        # Header names only, so the preview can say which columns were not stored.
+        counts["columns_not_stored"] = len(self.unmapped_headers) + len(self.personal_headers)
         return counts
 
 
@@ -110,6 +115,7 @@ def parse(table: SourceTable, profile: MappingProfile) -> ParseResult:
         header_row_number=header_index + 1,
         headers=headers,
         unmapped_headers=[h for i, h in enumerate(headers) if i not in mapped and h.strip()],
+        personal_headers=[headers[columns[s.name]] for s in profile.fields if s.personal and s.name in columns],
         rows=rows,
         skipped_blank_rows=skipped,
     )
@@ -155,19 +161,22 @@ def _locate_header(table: SourceTable, profile: MappingProfile):
 
 
 def _parse_row(row_number, cells, labels, columns, profile) -> ParsedRow:
-    raw = {label: cells[i] if i < len(cells) else "" for i, label in enumerate(labels)}
+    raw: dict[str, str] = {}
     errors: list[RowError] = []
 
+    # Cells beyond the header are flagged but, being unmapped, never stored.
     extra = [c for c in cells[len(labels) :] if c.strip()]
     if extra:
         errors.append(RowError(None, "extra_cells", f"row has {len(extra)} value(s) beyond the header columns"))
-        for i, value in enumerate(cells[len(labels) :], start=len(labels)):
-            raw[f"column_{i + 1}"] = value
 
     normalized: dict[str, object] = {}
     for spec in profile.fields:
+        if spec.personal:
+            continue
         col = columns.get(spec.name)
         value = cells[col] if col is not None and col < len(cells) else ""
+        if col is not None:
+            raw[labels[col]] = value
         try:
             normalized[spec.name] = _convert(spec, value)
         except _FieldInvalid as exc:
