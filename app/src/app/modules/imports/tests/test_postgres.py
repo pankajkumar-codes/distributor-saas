@@ -20,7 +20,28 @@ from app.modules.imports.parsing import FieldSpec, MappingProfile, read_table
 
 ADMIN_URL = os.environ.get("PG_ADMIN_URL")
 pytestmark = pytest.mark.skipif(not ADMIN_URL, reason="PG_ADMIN_URL not set")
-MIGRATIONS = sorted((Path(__file__).parent.parent / "migrations").glob("*.sql"))
+REPO = Path(__file__).resolve().parents[6]
+MODULE_RANK = {"platform": 0, "identity": 1, "imports": 2}  # migrator.handler.MODULE_ORDER
+
+
+def _migration_order(module_and_file):
+    # migrator.handler.ordered's rule: NNNN_ files first, then by timestamp, then module.
+    module, f = module_and_file
+    rank = MODULE_RANK[module]
+    return (1, f.name[:12], rank, f.name) if f.name[:12].isdigit() else (0, "", rank, f.name)
+
+
+# support_read needs identity's platform.support_grant_active, so the whole ledger runs.
+MIGRATIONS = [
+    f
+    for _, f in sorted(
+        [("imports", f) for f in (Path(__file__).parent.parent / "migrations").glob("*.sql")]
+        + [("identity", f) for f in (REPO / "app/src/app/modules/identity/migrations").glob("*.sql")]
+        + [("platform", f) for f in (REPO / "libs/platform_common/migrations").glob("*.sql")],
+        key=_migration_order,
+    )
+]
+BOOTSTRAP = REPO / "migrator" / "migrator" / "bootstrap.sql"
 USER = uuid.uuid4()
 PROFILE = MappingProfile(
     marketplace="meesho",
@@ -37,20 +58,18 @@ def svc():
     admin = create_engine(ADMIN_URL, isolation_level="AUTOCOMMIT")
     with admin.connect() as c:
         c.execute(text(f"create database {dbname}"))
-        # The migrator's bootstrap.sql creates these on a real run.
-        for role in ("app_rw", "app_ro"):
-            c.execute(
-                text(
-                    f"do $$ begin if not exists (select from pg_roles where rolname = '{role}') "
-                    f"then create role {role} nologin; end if; end $$"
-                )
+        c.execute(
+            text(
+                "do $$ begin if not exists (select from pg_roles where rolname='rds_iam') "
+                "then create role rds_iam; end if; end $$"
             )
+        )
     url = make_url(ADMIN_URL).set(database=dbname)
     owner = create_engine(url, isolation_level="AUTOCOMMIT")
     with owner.connect() as c:
-        for m in MIGRATIONS:
-            # Straight to psycopg with no parameters, as the migrator runs it, so the
-            # '%' in RAISE messages is not read as a placeholder.
+        # As migrator.local does it, straight to psycopg with no parameters, so a '%'
+        # in RAISE messages or %rowtype is not read as a placeholder.
+        for m in [BOOTSTRAP, *MIGRATIONS, BOOTSTRAP]:
             c.connection.driver_connection.execute(m.read_text())
     eng = create_engine(url)
 
@@ -60,6 +79,7 @@ def svc():
             cur.execute("set role app_rw")
         dbapi_conn.commit()
 
+    eng.owner = owner  # for seeding identity rows past RLS
     yield eng
     eng.dispose()
     owner.dispose()
@@ -158,12 +178,23 @@ def test_row_cannot_point_at_another_business_run(svc):
         )
 
 
-def test_a_support_session_sees_no_rows_until_support_read_exists(svc):
+def test_a_support_session_without_a_live_grant_sees_no_rows(svc):
     business = uuid.uuid4()
     do_stage(svc, business)
     with business_session(svc, business) as s:
+        # The tenant policies step aside for support sessions; support_read then needs
+        # the named grant to exist and be active, which this made-up one is not.
         s.execute(text("select set_config('app.support_grant_id', :g, true)"), {"g": str(uuid.uuid4())})
         assert s.scalars(select(ImportRun)).all() == []
+        assert s.scalars(select(ImportRow)).all() == []
+
+
+def test_support_read_is_select_only_and_on_both_tables(svc):
+    with Session(svc) as s:
+        rows = s.execute(
+            text("select tablename, cmd from pg_policies where schemaname = 'imports' and policyname = 'support_read'")
+        ).all()
+    assert sorted(rows) == [("import_rows", "SELECT"), ("import_runs", "SELECT")]
 
 
 def test_columns_are_jsonb(svc):
@@ -216,3 +247,43 @@ def test_concurrent_confirms_of_overlapping_files_import_a_record_once(svc):
     for th in threads:
         th.join()
     assert sorted(outcomes) == ["confirmed", "stale"]
+
+
+def test_a_support_user_with_a_live_grant_reads_but_cannot_write(svc):
+    business, owner, support, grant = uuid.uuid4(), uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    run_id, _ = do_stage(svc, business)
+    with svc.owner.connect() as c:
+        for uid, is_support in ((owner, False), (support, True)):
+            c.execute(
+                text("insert into identity.users (id, cognito_sub, email, is_support) values (:i, :s, :e, :f)"),
+                {"i": uid, "s": f"sub-{uid}", "e": f"{uid}@example.com", "f": is_support},
+            )
+        c.execute(
+            text("insert into identity.businesses (id, name, created_by) values (:b, 'Co', :u)"),
+            {"b": business, "u": owner},
+        )
+        c.execute(
+            text(
+                "insert into identity.support_grants (id, business_id, granted_by, expires_at) "
+                "values (:g, :b, :u, now() + interval '1 hour')"
+            ),
+            {"g": grant, "b": business, "u": owner},
+        )
+    with Session(svc) as s:
+        s.execute(
+            text("select set_config('app.user_id', :u, true), set_config('app.support_grant_id', :g, true)"),
+            {"u": str(support), "g": str(grant)},
+        )
+        assert [r.id for r in s.scalars(select(ImportRun))] == [run_id]
+        assert len(s.scalars(select(ImportRow)).all()) == 1
+        # No write policy covers a support session: an update finds nothing, an insert is refused.
+        result = s.execute(text("update imports.import_runs set status = 'discarded' where id = :i"), {"i": run_id})
+        assert result.rowcount == 0
+        with pytest.raises(DBAPIError):
+            s.execute(
+                text(
+                    "insert into imports.import_rows (id, run_id, business_id, row_number, status, raw) "
+                    "values (gen_random_uuid(), :r, :b, 99, 'new', '{}')"
+                ),
+                {"r": run_id, "b": business},
+            )
