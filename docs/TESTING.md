@@ -31,6 +31,8 @@ GitHub Actions runs all of these on every pull request, plus:
 - `lint-imports` (contracts in `.importlinter`): modules don't import each other, the
   API or the worker; `platform_common` and the migrator import nothing from the app
 - gitleaks over the whole git history
+- `openapi`: `app/openapi.json` matches the API (`make openapi` regenerates it and the web
+  client types), and no money field is typed as a number
 - `refdata`: every file under `refdata/` passes the loader's checks
   (`python -m migrator.refdata check ../refdata` from `migrator/`); the migrator tests
   also load them into PostgreSQL
