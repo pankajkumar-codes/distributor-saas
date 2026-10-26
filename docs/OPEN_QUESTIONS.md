@@ -53,6 +53,18 @@ Each becomes a `refdata.values` row when refdata lands (LLD-0 §6, LLD-1 §12); 
 | 24 h session idle limit | `identity.auth_resolve` (S0a c2) | `auth.idle_hours` |
 | 30-day session lifetime | `identity/service/signup.py` | `auth.session_max_days` |
 | Code TTL, tries and request/check limits | `identity/service/signup.py` | `auth.code_*` (LLD-1 L1-10) |
+| **Pankaj / PO:** at most 5 owned businesses per user (provisional, LLD-1 §5.10) | `app/modules/refdata/__init__.py` placeholder, read with `value_on` | `identity.max_owned_businesses` (kind product; Staff 2's S0b loads it) |
+
+Until S0b's refdata loader lands (Staff 2), `app/modules/refdata` is a placeholder with the same API. Its `state_name` has no rows, so POST /b skips the GSTIN and address state-code check (it never guesses one); the check runs as soon as S0b loads the state codes from `team/gst/gstin.md` §3, and its test runs today against a stubbed lookup.
+
+## Business profile (S1-d) items waiting on the GST expert or PO
+| Item | What the code does until then | Source needed |
+|---|---|---|
+| Enrolment number pattern (LLD-1 §15) | Accepts any non-blank value, stored trimmed | A cited pattern for the Notification 34/2023 enrolment number |
+| What an enrolment-number business may do in R1 | Stored; `ready_for_documents` will report `gstin` missing (S1-d2) | PO and GST expert |
+| Rule 61A window rows `qrmp.option_window.*`, `einvoice.aato_threshold` | The related warnings report "unknown" instead of guessing (S1-d2) | GST expert, with citation |
+| Address state different from GSTIN state | A warning, `address_state_mismatch` (L1-12, BRD ON-3); `gstin.md` §4 says refuse | GST expert confirms |
+| 14th GSTIN character not `Z` on the business's own GSTIN | A warning, `gstin_not_z` (`gstin.md` §1, §4 item 5) | none |
 
 ## Decision handling
 For each answer, update `docs/DECISIONS.md` with the decision, rationale, trade-offs, and approval status. Do not silently turn assumptions into requirements.
