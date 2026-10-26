@@ -81,8 +81,9 @@ Migration: `app/src/app/modules/imports/migrations/202610261000_imports_staging.
   unconfirmed runs are not compared against.
 - Row-level security (enabled and forced) keys off `app.tenant_id`, which the unit of
   work sets to the business id; with none set, `app_rw` sees and writes nothing, and a
-  support session (`app.support_grant_id` set) sees nothing until the `support_read`
-  policy arrives with `platform.support_grant_active` (S0a c2). `app_ro` reads only.
+  support session (`app.support_grant_id` set) gets no tenant access. Under a live grant
+  (`platform.support_grant_active`), the `support_read` policy lets it read that
+  business's runs and rows, never write them. `app_ro` reads only.
   Rows can only reference a run of the same business (composite key).
 
 ## Limitations
