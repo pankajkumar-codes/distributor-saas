@@ -6,6 +6,10 @@ the keys set with `set_local_verifier` (FakeAuthProvider's JWKS), producing the 
 claims the authorizer would (LLD-0 §3.11). The older X-Debug-User header (and
 X-Debug-Email for a verified email) still stands in for a token there. All of this is
 ignored in every other environment.
+
+`PLATFORM_ENV` fails closed (QA-DEF-004): unset means "unset", which is not a debug
+environment, and on Lambda an unset value raises, so a deployment that forgot it errors
+instead of running with local behaviour. `run_local.sh`, CI and the tests set it.
 """
 
 import os
@@ -18,6 +22,7 @@ from .errors import Deny
 from .jwt_verify import TokenInvalid, verify_access_token
 
 DEBUG_ENVS = {"local", "test"}
+UNSET_ENV = "unset"
 
 
 @dataclass(frozen=True)
@@ -34,8 +39,18 @@ class Caller:
         return self.email.strip().lower() if self.email and self.email_verified else None
 
 
+def on_lambda() -> bool:
+    """The Lambda runtime sets this for every function; nothing local does."""
+    return bool(os.environ.get("AWS_LAMBDA_FUNCTION_NAME"))
+
+
 def platform_env() -> str:
-    return os.environ.get("PLATFORM_ENV", "local")
+    env = os.environ.get("PLATFORM_ENV", "").strip()
+    if env:
+        return env
+    if on_lambda():
+        raise RuntimeError("PLATFORM_ENV is not set on this Lambda")
+    return UNSET_ENV
 
 
 @dataclass(frozen=True)
