@@ -49,7 +49,9 @@ def svc():
     owner = create_engine(url, isolation_level="AUTOCOMMIT")
     with owner.connect() as c:
         for m in MIGRATIONS:
-            c.exec_driver_sql(m.read_text())
+            # Straight to psycopg with no parameters, as the migrator runs it, so the
+            # '%' in RAISE messages is not read as a placeholder.
+            c.connection.driver_connection.execute(m.read_text())
     eng = create_engine(url)
 
     @event.listens_for(eng, "connect")
@@ -175,3 +177,42 @@ def test_columns_are_jsonb(svc):
             ).all()
         )
     assert set(types.values()) == {"jsonb"} and {"raw", "normalized", "errors", "summary"} <= set(types)
+
+
+def test_a_confirmed_run_cannot_be_reopened(svc):
+    business = uuid.uuid4()
+    run_id, _ = do_stage(svc, business)
+    with business_session(svc, business) as s:
+        staging.confirm(s, business_id=business, run_id=run_id, user_id=USER)
+        s.commit()
+    for sql in (
+        "update imports.import_runs set status = 'discarded' where id = :i",
+        "update imports.import_runs set status = 'staged', confirmed_by = null, confirmed_at = null where id = :i",
+        "update imports.import_runs set confirmed_at = now() where id = :i",
+    ):
+        with business_session(svc, business) as s, pytest.raises(DBAPIError, match="import run|only when"):
+            s.execute(text(sql), {"i": run_id})
+
+
+def test_concurrent_confirms_of_overlapping_files_import_a_record_once(svc):
+    business = uuid.uuid4()
+    run_a, _ = do_stage(svc, business, body=b"Sub Order No,Status\nS1,shipped\n")
+    run_b, _ = do_stage(svc, business, body=b"Sub Order No,Status\nS1,shipped\nS2,shipped\n")
+    outcomes, barrier = [], threading.Barrier(2)
+
+    def confirm(run_id):
+        with business_session(svc, business) as s:
+            barrier.wait()
+            try:
+                staging.confirm(s, business_id=business, run_id=run_id, user_id=USER)
+                s.commit()
+                outcomes.append("confirmed")
+            except staging.StaleRun:
+                outcomes.append("stale")
+
+    threads = [threading.Thread(target=confirm, args=(r,)) for r in (run_a, run_b)]
+    for th in threads:
+        th.start()
+    for th in threads:
+        th.join()
+    assert sorted(outcomes) == ["confirmed", "stale"]

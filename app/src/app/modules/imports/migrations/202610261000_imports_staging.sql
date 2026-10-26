@@ -60,6 +60,28 @@ create table imports.import_rows (
 -- Finds earlier confirmed rows for the same source record across files.
 create index import_rows_business_dedup on imports.import_rows (business_id, dedup_key) where dedup_key is not null;
 
+-- A run moves only staged -> confirmed or staged -> discarded, and records who confirmed
+-- it only then. Without this, app_rw could turn a confirmed run back to discarded and so
+-- re-open its rows for a later import.
+create function imports.guard_run_transition() returns trigger
+language plpgsql set search_path = imports, pg_temp as $$
+begin
+    if new.status is distinct from old.status
+       and not (old.status = 'staged' and new.status in ('confirmed', 'discarded')) then
+        raise exception 'import run % cannot move from % to %', old.id, old.status, new.status
+            using errcode = 'check_violation';
+    end if;
+    if (new.confirmed_by is distinct from old.confirmed_by or new.confirmed_at is distinct from old.confirmed_at)
+       and not (old.status = 'staged' and new.status = 'confirmed') then
+        raise exception 'confirmed_by and confirmed_at are set only when a run is confirmed'
+            using errcode = 'check_violation';
+    end if;
+    return new;
+end $$;
+revoke all on function imports.guard_run_transition() from public;
+create trigger guard_run_transition before update on imports.import_runs
+    for each row execute function imports.guard_run_transition();
+
 alter table imports.import_runs enable row level security;
 alter table imports.import_runs force row level security;
 alter table imports.import_rows enable row level security;

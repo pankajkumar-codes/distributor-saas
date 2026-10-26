@@ -153,3 +153,19 @@ def test_confirm_takes_its_time_from_the_clock(session):
     session.commit()
     assert run.confirmed_at.replace(tzinfo=dt.UTC) == at
     assert run.id.version == 7
+
+
+def test_confirming_a_stale_run_is_refused_until_it_is_staged_again(session):
+    # Two files staged before either is confirmed both see OI-1 as new (Staff 2, #14).
+    a, _ = stage(session, "OI-1,shipped,10\n", name="a.csv")
+    b, _ = stage(session, "OI-1,shipped,10\nOI-2,shipped,5\n", name="b.csv")
+    assert row_statuses(session, b) == [StagedRowStatus.new, StagedRowStatus.new]
+    staging.confirm(session, business_id=BUSINESS_A, run_id=a.id, user_id=ALICE)
+    session.commit()
+    with pytest.raises(staging.StaleRun, match="1 row"):
+        staging.confirm(session, business_id=BUSINESS_A, run_id=b.id, user_id=ALICE)
+    session.rollback()
+    staging.discard(session, business_id=BUSINESS_A, run_id=b.id)
+    again, created = stage(session, "OI-1,shipped,10\nOI-2,shipped,5\n", name="b.csv")
+    assert created and row_statuses(session, again) == [StagedRowStatus.already_imported, StagedRowStatus.new]
+    staging.confirm(session, business_id=BUSINESS_A, run_id=again.id, user_id=ALICE)
