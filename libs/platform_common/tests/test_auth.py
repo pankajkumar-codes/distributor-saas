@@ -3,7 +3,7 @@
 import pytest
 from starlette.requests import Request
 
-from platform_common.auth import UNSET_ENV, current_caller, platform_env, set_local_verifier
+from platform_common.auth import UNSET_ENV, current_caller, debug_env, platform_env, set_local_verifier
 from platform_common.errors import Deny
 from platform_common.fake_auth import CLIENT_ID, ISSUER, FakeAuthProvider
 
@@ -88,6 +88,15 @@ def test_unset_platform_env_on_lambda_raises(monkeypatch, value):
     else:
         monkeypatch.setenv("PLATFORM_ENV", value)
     with pytest.raises(RuntimeError, match="PLATFORM_ENV"):
+        current_caller(request({"x-debug-user": "alice"}))
+
+
+@pytest.mark.parametrize("env", ["local", "test"])
+def test_debug_login_is_off_on_lambda_whatever_platform_env_says(monkeypatch, env):
+    monkeypatch.setenv("AWS_LAMBDA_FUNCTION_NAME", "saas-staging-api")
+    monkeypatch.setenv("PLATFORM_ENV", env)
+    assert not debug_env()
+    with pytest.raises(Deny):
         current_caller(request({"x-debug-user": "alice"}))
 
 

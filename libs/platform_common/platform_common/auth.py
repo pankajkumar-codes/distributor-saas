@@ -53,6 +53,15 @@ def platform_env() -> str:
     return UNSET_ENV
 
 
+def debug_env() -> bool:
+    """Local or test, and never on Lambda whatever PLATFORM_ENV says.
+
+    Every debug-only path (debug login, fake auth, dev keys, recording mailers) asks this,
+    never `platform_env() in DEBUG_ENVS` directly (tests/tools/test_debug_env_guard.py).
+    """
+    return platform_env() in DEBUG_ENVS and not on_lambda()
+
+
 @dataclass(frozen=True)
 class _LocalVerifier:
     jwks: Mapping
@@ -79,7 +88,7 @@ def current_caller(request: Request) -> Caller:
         verified = str(claims.get("email_verified", "")).lower() == "true"
         return Caller(user_sub=claims["sub"], email=claims.get("email"), email_verified=verified, claims=claims)
 
-    if platform_env() in DEBUG_ENVS:
+    if debug_env():
         bearer = request.headers.get("authorization", "")
         if bearer.lower().startswith("bearer ") and _local_verifier is not None:
             v = _local_verifier
