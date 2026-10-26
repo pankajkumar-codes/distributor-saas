@@ -1,0 +1,13 @@
+# Filing rules that are platform-wide, never a business setting (HLD §5.4, H-2).
+
+- key: filing.locked_return_treatment
+  value: "refuse"
+  type: enum
+  allowed: [refuse, roll_forward]
+  kind: tax
+  valid_from: 2017-07-01
+  source_url: team/docs/hld.md
+  source_title: "HLD H-2: document dated in a locked return (CEO interim decision; CA question CA-1)"
+  last_checked: 2026-10-26
+  status: provisional
+  note: "Interim CEO default: invoices and marketplace rows dated in a locked return are refused (409); credit notes roll forward regardless. Changes only by a dated row after the CA answers CA-1 (team/product/ca-questions.md)."

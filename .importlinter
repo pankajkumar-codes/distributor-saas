@@ -27,8 +27,8 @@ ignore_imports =
     app.modules.*.tests.** -> app.api
     app.modules.*.tests.** -> app.modules.*.interface
 
-[importlinter:contract:refdata-standalone]
-name = Reference data imports no other module
+[importlinter:contract:refdata-leaf]
+name = refdata imports no other module (every module may import refdata, LLD-0 §2)
 type = forbidden
 source_modules =
     app.modules.refdata

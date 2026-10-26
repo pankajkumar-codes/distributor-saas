@@ -31,6 +31,9 @@ GitHub Actions runs all of these on every pull request, plus:
 - `lint-imports` (contracts in `.importlinter`): modules don't import each other, the
   API or the worker; `platform_common` and the migrator import nothing from the app
 - gitleaks over the whole git history
+- `refdata`: every file under `refdata/` passes the loader's checks
+  (`python -m migrator.refdata check ../refdata` from `migrator/`); the migrator tests
+  also load them into PostgreSQL
 - `web`: exact pins in `web/package.json`, `npm ci` from the lockfile, and `npm audit`
   with no high or critical advisory in a runtime dependency (`web/README.md`)
 - the end-to-end suite below, against identity on real PostgreSQL, after migrating twice

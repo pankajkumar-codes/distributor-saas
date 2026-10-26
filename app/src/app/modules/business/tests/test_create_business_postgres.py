@@ -283,3 +283,14 @@ def test_display_name_reads_only_the_bound_business(pg):
     with pg.app_rw.begin() as c:
         ctx(c, alice)
         assert display_name(Session(bind=c)) is None
+
+
+def test_state_codes_come_from_the_loaded_refdata(pg):
+    """No stub: the state codes S0b loads from gstin.md §3."""
+    from app.modules.business.gstin import check_character
+
+    first = "28AAPFU0939F1Z"  # Andhra Pradesh before 2014; not in the e-invoice master
+    r = create(pg.client, body={**BODY, "registration": {"kind": "gstin", "gstin": first + check_character(first)},
+                                "address": None})
+    assert (r.status_code, r.json()["error"]["code"]) == (422, "state_code_unknown")
+    assert create(pg.client).status_code == 201  # 19, West Bengal

@@ -1,0 +1,313 @@
+# GST state and UT codes (GST-2, team/gst/gstin.md §3), from the e-invoice state master.
+# Tax rows, provisional until the GST expert confirms them. valid_from is the GST start
+# date for every code; the codes that began later (26, 38) say so in their note.
+# last_checked is when the GST expert read the source (gstin.md, 2026-10-14).
+
+- code: "01"
+  name: "Jammu and Kashmir"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+
+- code: "02"
+  name: "Himachal Pradesh"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+
+- code: "03"
+  name: "Punjab"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+
+- code: "04"
+  name: "Chandigarh"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+
+- code: "05"
+  name: "Uttarakhand"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+
+- code: "06"
+  name: "Haryana"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+
+- code: "07"
+  name: "Delhi"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+
+- code: "08"
+  name: "Rajasthan"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+
+- code: "09"
+  name: "Uttar Pradesh"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+
+- code: "10"
+  name: "Bihar"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+
+- code: "11"
+  name: "Sikkim"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+
+- code: "12"
+  name: "Arunachal Pradesh"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+
+- code: "13"
+  name: "Nagaland"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+
+- code: "14"
+  name: "Manipur"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+
+- code: "15"
+  name: "Mizoram"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+
+- code: "16"
+  name: "Tripura"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+
+- code: "17"
+  name: "Meghalaya"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+
+- code: "18"
+  name: "Assam"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+
+- code: "19"
+  name: "West Bengal"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+
+- code: "20"
+  name: "Jharkhand"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+
+- code: "21"
+  name: "Odisha"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+
+- code: "22"
+  name: "Chhattisgarh"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+
+- code: "23"
+  name: "Madhya Pradesh"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+
+- code: "24"
+  name: "Gujarat"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+
+- code: "26"
+  name: "Dadra and Nagar Haveli and Daman and Diu"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+  note: "Code for the merged UT from 2020 (old code 25 merged into it). valid_from not verified; the GST expert to confirm. 25 is not listed: reject it for new entries, keep it on old records."
+
+- code: "27"
+  name: "Maharashtra"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+
+- code: "29"
+  name: "Karnataka"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+
+- code: "30"
+  name: "Goa"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+
+- code: "31"
+  name: "Lakshadweep"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+
+- code: "32"
+  name: "Kerala"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+
+- code: "33"
+  name: "Tamil Nadu"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+
+- code: "34"
+  name: "Puducherry"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+
+- code: "35"
+  name: "Andaman and Nicobar Islands"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+
+- code: "36"
+  name: "Telangana"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+
+- code: "37"
+  name: "Andhra Pradesh"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+  note: "Andhra Pradesh. 28 (Andhra Pradesh before 2014) is not in the e-invoice master and is not listed; keep it on old records."
+
+- code: "38"
+  name: "Ladakh"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+  note: "Ladakh UT. valid_from not verified; the GST expert to confirm."
+
+- code: "96"
+  name: "Other Country"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+  note: "Place of supply for exports only; never in a GSTIN."
+
+- code: "97"
+  name: "Other Territory"
+  valid_from: 2017-07-01
+  source_url: https://docs.cleartax.in/cleartax-docs/e-invoicing-api/e-invoicing-api-reference/resources-and-master/state-master
+  source_title: "E-invoice state master (ClearTax API docs), cross-checked with Masters India"
+  last_checked: 2026-10-14
+  status: provisional
+  note: "Other Territory."

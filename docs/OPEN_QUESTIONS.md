@@ -46,16 +46,16 @@ Listed in `team/docs/build-readiness.md` §2 and §3 in the project files, with 
 - The presigned POST policy and bucket-default KMS (D-036) behave as designed on staging.
 - WeasyPrint runs on Lambda within the cold-start and render-time targets (TD-9). Fallback: ReportLab.
 
-## Values hard-coded until refdata exists
-Each becomes a `refdata.values` row when refdata lands (LLD-0 §6, LLD-1 §12); until then the code says which row it stands for.
+## Values hard-coded until code reads refdata
+The rows now exist in `refdata/` (S0b, LLD-0 §6); each place below still holds the
+number and moves to `value_on` in its owner's next PR.
 | Value | Where | Refdata row |
 |---|---|---|
 | 24 h session idle limit | `identity.auth_resolve` (S0a c2) | `auth.idle_hours` |
 | 30-day session lifetime | `identity/service/signup.py` | `auth.session_max_days` |
 | Code TTL, tries and request/check limits | `identity/service/signup.py` | `auth.code_*` (LLD-1 L1-10) |
-| **Pankaj / PO:** at most 5 owned businesses per user (provisional, LLD-1 §5.10) | `app/modules/refdata/__init__.py` placeholder, read with `value_on` | `identity.max_owned_businesses` (kind product; Staff 2's S0b loads it) |
 
-Until S0b's refdata loader lands (Staff 2), `app/modules/refdata` is a placeholder with the same API. Its `state_name` has no rows, so POST /b skips the GSTIN and address state-code check (it never guesses one); the check runs as soon as S0b loads the state codes from `team/gst/gstin.md` §3, and its test runs today against a stubbed lookup.
+POST /b already reads `identity.max_owned_businesses` (5, provisional; **Pankaj / PO** to confirm) and the GSTIN and address state codes through `value_on` and `state_name`.
 
 ## Business profile (S1-d) items waiting on the GST expert or PO
 | Item | What the code does until then | Source needed |
@@ -65,6 +65,19 @@ Until S0b's refdata loader lands (Staff 2), `app/modules/refdata` is a placehold
 | Rule 61A window rows `qrmp.option_window.*`, `einvoice.aato_threshold` | The related warnings report "unknown" instead of guessing (S1-d2) | GST expert, with citation |
 | Address state different from GSTIN state | A warning, `address_state_mismatch` (L1-12, BRD ON-3); `gstin.md` §4 says refuse | GST expert confirms |
 | 14th GSTIN character not `Z` on the business's own GSTIN | A warning, `gstin_not_z` (`gstin.md` §1, §4 item 5) | none |
+
+## Refdata rows to confirm (S0b)
+Every row in `refdata/` is `provisional`. Before go-live:
+- **PO:** the `auth.*` and `identity.max_owned_businesses` rows (`kind: product`). The
+  BRD gives the ON-1 numbers; the sign-in, refresh, step-up and business-limit numbers
+  are LLD-1's.
+- **GST expert or CA:** `invoice.number.*` (CGST Rule 46(b) via GSTZen; the rule's
+  own start date), `gstr1.offline_tool.max_lines` (10,000 used, the tool's help says
+  about 19,000), `filing.locked_return_treatment` (interim `refuse`, CA-1), and the
+  state codes. Every code is dated from 2017-07-01; **26** (merged UT, 2020) and **38**
+  (Ladakh) began later and their start dates are not verified; 25 and 28 are not loaded.
+- The sandbox could not reach gstzen.in or docs.cleartax.in, so those rows'
+  `last_checked` is the date the GST expert read them (2026-10-14), not a fresh check.
 
 ## Decision handling
 For each answer, update `docs/DECISIONS.md` with the decision, rationale, trade-offs, and approval status. Do not silently turn assumptions into requirements.
