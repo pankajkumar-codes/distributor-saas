@@ -264,3 +264,22 @@ def test_list_my_businesses_refuses_to_run_as_app_rw(pg):
         from sqlalchemy.orm import Session
 
         list_my_businesses(Session(bind=c), uuid.uuid4())
+
+
+def test_display_name_reads_only_the_bound_business(pg):
+    from sqlalchemy.orm import Session
+
+    from app.modules.business.interface import display_name
+
+    a = create(pg.client).json()["business_id"]
+    b = create(pg.client, sub="bob", body={**BODY, "trade_name": None}).json()["business_id"]
+    alice, bob = user_id(pg.owner, "alice"), user_id(pg.owner, "bob")
+    with pg.app_rw.begin() as c:
+        ctx(c, alice, tenant=a)
+        assert display_name(Session(bind=c)) == "Vashi Essentials"
+    with pg.app_rw.begin() as c:
+        ctx(c, bob, tenant=b)
+        assert display_name(Session(bind=c)) == "Vashi Essentials LLP"  # legal name when no trade name
+    with pg.app_rw.begin() as c:
+        ctx(c, alice)
+        assert display_name(Session(bind=c)) is None

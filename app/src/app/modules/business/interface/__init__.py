@@ -29,6 +29,7 @@ __all__ = [
     "business_card",
     "check_gstin",
     "create_profile",
+    "display_name",
 ]
 
 STATE = r"^[0-9]{2}$"
@@ -173,3 +174,13 @@ def business_card(tx: Session, business_ids: list[uuid.UUID]) -> list[BusinessCa
         BusinessCard(r.business_id, r.display_name, r.gstin, r.state_code)
         for r in tx.execute(_CARDS, {"ids": list(business_ids)})
     ]
+
+
+def display_name(tx: Session) -> str | None:
+    """The bound business's name as members see it (trade name, else legal name, else
+    the GSTIN or enrolment number), read under the tenant policy. None if it has no
+    profile. For invitation mails and previews, which snapshot it (LLD-2)."""
+    return tx.execute(
+        text("select coalesce(trade_name, legal_name, gstin, enrolment_number) from business.profiles"
+             " where business_id = nullif(current_setting('app.tenant_id', true), '')::uuid")
+    ).scalar()
