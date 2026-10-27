@@ -1,6 +1,6 @@
 # Catalog rules (LLD-3 §3, §4, §11). The product rows are LLD-3's proposals, provisional
 # until the PO confirms them; the tax row is the GST expert's rate-change warning
-# window. Rows for customers and the CSV import come with their PRs (S3-b, S3-c).
+# window. Rows for the CSV import come with S3-c.
 
 - key: catalog.rate_change_warning_days
   value: "30"
@@ -33,3 +33,24 @@
   last_checked: 2026-10-27
   status: provisional
   note: "The column holds at most 40, so a PO value above 40 needs a migration first."
+
+- key: customer.credit_days_max
+  value: "365"
+  type: integer
+  kind: product
+  valid_from: 2017-07-01
+  source_url: team/docs/lld-3.md
+  source_title: "LLD-3 §4 and §11: the most credit days a customer may have (proposal 365)"
+  last_checked: 2026-10-27
+  status: provisional
+
+- key: address.pin_pattern
+  value: "^[1-9][0-9]{5}$"
+  type: pattern
+  kind: product
+  valid_from: 2017-07-01
+  source_url: team/docs/lld-3.md
+  source_title: "LLD-3 §4 and §11: the shape of an Indian PIN code (proposal: six digits, not starting with 0)"
+  last_checked: 2026-10-27
+  status: provisional
+  note: "Shape only; it never says whether a PIN exists or matches the state."

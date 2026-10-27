@@ -201,6 +201,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/customers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Customers */
+        get: operations["list_customers_api_v1_b__business_id__customers_get"];
+        put?: never;
+        /** Create Customer */
+        post: operations["create_customer_api_v1_b__business_id__customers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/customers/{customer_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Customer */
+        get: operations["get_customer_api_v1_b__business_id__customers__customer_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Customer */
+        delete: operations["delete_customer_api_v1_b__business_id__customers__customer_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Customer */
+        patch: operations["update_customer_api_v1_b__business_id__customers__customer_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/customers/{customer_id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Archive Customer */
+        post: operations["archive_customer_api_v1_b__business_id__customers__customer_id__archive_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/customers/{customer_id}/unarchive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Unarchive Customer */
+        post: operations["unarchive_customer_api_v1_b__business_id__customers__customer_id__unarchive_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/filing-profile": {
         parameters: {
             query?: never;
@@ -797,6 +868,19 @@ export interface components {
             /** State Code */
             state_code?: string | null;
         };
+        /** AddressIn */
+        AddressIn: {
+            /** City */
+            city?: string | null;
+            /** Line1 */
+            line1?: string | null;
+            /** Line2 */
+            line2?: string | null;
+            /** Pin */
+            pin?: string | null;
+            /** State Code */
+            state_code?: string | null;
+        };
         /** AddressOut */
         AddressOut: {
             /** City */
@@ -914,6 +998,71 @@ export interface components {
              * @enum {string}
              */
             frequency: "monthly" | "quarterly";
+        };
+        /** CustomerIn */
+        CustomerIn: {
+            /** @default {} */
+            billing: components["schemas"]["AddressIn"];
+            /**
+             * Credit Days
+             * @default 0
+             */
+            credit_days: number;
+            delivery?: components["schemas"]["AddressIn"] | null;
+            /**
+             * Delivery Same As Billing
+             * @default true
+             */
+            delivery_same_as_billing: boolean;
+            /** Gstin */
+            gstin?: string | null;
+            /** Name */
+            name: string;
+        };
+        /** CustomerOut */
+        CustomerOut: {
+            billing: components["schemas"]["AddressOut"];
+            /** Credit Days */
+            credit_days: number;
+            delivery: components["schemas"]["AddressOut"] | null;
+            /** Delivery Same As Billing */
+            delivery_same_as_billing: boolean;
+            /** Gstin */
+            gstin: string | null;
+            /** Gstin State Code */
+            gstin_state_code: string | null;
+            /** Id */
+            id: string;
+            /** In Use */
+            in_use: boolean;
+            /** Name */
+            name: string;
+            /** Status */
+            status: string;
+            /** Version */
+            version: number;
+            /** Warnings */
+            warnings: components["schemas"]["Warning"][];
+        };
+        /** CustomerPageOut */
+        CustomerPageOut: {
+            /** Has More */
+            has_more: boolean;
+            /** Items */
+            items: components["schemas"]["CustomerOut"][];
+        };
+        /** CustomerPatch */
+        CustomerPatch: {
+            billing?: components["schemas"]["AddressIn"] | null;
+            /** Credit Days */
+            credit_days?: number | null;
+            delivery?: components["schemas"]["AddressIn"] | null;
+            /** Delivery Same As Billing */
+            delivery_same_as_billing?: boolean | null;
+            /** Gstin */
+            gstin?: string | null;
+            /** Name */
+            name?: string | null;
         };
         /** EmailBody */
         EmailBody: {
@@ -2125,6 +2274,245 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ChannelsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_customers_api_v1_b__business_id__customers_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                status?: "active" | "archived" | "all";
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerPageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_customer_api_v1_b__business_id__customers_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_customer_api_v1_b__business_id__customers__customer_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                customer_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_customer_api_v1_b__business_id__customers__customer_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+            };
+            path: {
+                customer_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_customer_api_v1_b__business_id__customers__customer_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+            };
+            path: {
+                customer_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    archive_customer_api_v1_b__business_id__customers__customer_id__archive_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                customer_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unarchive_customer_api_v1_b__business_id__customers__customer_id__unarchive_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                customer_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerOut"];
                 };
             };
             /** @description Validation Error */
