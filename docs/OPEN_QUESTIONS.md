@@ -71,13 +71,17 @@ Every row in `refdata/` is `provisional`. Before go-live:
 - **PO:** the `auth.*` and `identity.max_owned_businesses` rows (`kind: product`). The
   BRD gives the ON-1 numbers; the sign-in, refresh, step-up and business-limit numbers
   are LLD-1's.
-- **GST expert or CA:** `invoice.number.*` (CGST Rule 46(b) via GSTZen; the rule's
-  own start date), `gstr1.offline_tool.max_lines` (10,000 used, the tool's help says
+- **GST expert or CA:** `invoice.number.max_length` (CGST Rule 46(b) via GSTZen; the
+  rule's own start date); `invoice.number.charset`, which allows lower-case letters
+  because the rule says "alphabets" while team/gst/document-fields.md row 3 writes A-Z
+  (the expert to confirm which, and whether uniqueness is case-insensitive); `gstr1.offline_tool.max_lines` (10,000 used, the tool's help says
   about 19,000), `filing.locked_return_treatment` (interim `refuse`, CA-1), and the
   state codes. Every code is dated from 2017-07-01; **26** (merged UT, 2020) and **38**
   (Ladakh) began later and their start dates are not verified; 25 and 28 are not loaded.
 - The sandbox could not reach gstzen.in or docs.cleartax.in, so those rows'
   `last_checked` is the date the GST expert read them (2026-10-14), not a fresh check.
+- Confirming a row means changing its `status` and adding `confirmed_by` (who, and the
+  question or message it answers) and `confirmed_on` in the same PR (D-038).
 
 ## Decision handling
 For each answer, update `docs/DECISIONS.md` with the decision, rationale, trade-offs, and approval status. Do not silently turn assumptions into requirements.

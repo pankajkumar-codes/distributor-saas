@@ -19,6 +19,7 @@ REPO_REFDATA = Path(__file__).resolve().parents[2] / "refdata"
 DSN = os.environ.get("PG_DSN")
 needs_pg = pytest.mark.skipif(not DSN, reason="PG_DSN not set")
 
+CONFIRMED = '  confirmed_by: "GST expert, RS-9"\n  confirmed_on: 2026-10-20\n'
 ENTRY = """\
 - key: test.limit
   value: "{value}"
@@ -93,7 +94,40 @@ def test_an_invalid_entry_fails_the_whole_file_check(tmp_path, change, message):
 def test_tax_rows_take_expert_or_ca_status_only(tmp_path):
     tax = ENTRY.format(value="5", valid_from="2026-01-01").replace("kind: product", "kind: tax")
     assert "not allowed for kind tax" in problems(tree(tmp_path, tax.replace("provisional", "po_confirmed")))
-    read_files(tree(tmp_path, tax.replace("provisional", "ca_confirmed")))
+    read_files(tree(tmp_path, tax.replace("provisional", "ca_confirmed") + CONFIRMED))
+
+
+@pytest.mark.parametrize(
+    ("extra", "message"),
+    [
+        ("", "needs confirmed_by"),
+        ('  confirmed_by: "GST expert"\n', "needs confirmed_on"),
+        ('  confirmed_by: "  "\n  confirmed_on: 2026-10-20\n', "needs confirmed_by"),
+        ('  confirmed_by: "GST expert"\n  confirmed_on: 2999-01-01\n', "is in the future"),
+    ],
+)
+def test_a_confirmed_row_names_who_confirmed_it_and_when(tmp_path, extra, message):
+    tax = ENTRY.format(value="5", valid_from="2026-01-01").replace("kind: product", "kind: tax")
+    assert message in problems(tree(tmp_path, tax.replace("provisional", "expert_confirmed") + extra))
+
+
+def test_a_provisional_row_names_nobody(tmp_path):
+    entry = ENTRY.format(value="5", valid_from="2026-01-01") + CONFIRMED
+    assert "a provisional row has no confirmed_by" in problems(tree(tmp_path, entry))
+
+
+def test_a_confirmed_template_names_who_confirmed_it(tmp_path):
+    root = tree(tmp_path, ENTRY.format(value="5", valid_from="2026-01-01"))
+    (root / "templates" / "t.xlsx").write_bytes(b"template bytes")
+    index = (
+        "- key: t\n  version: \"1\"\n  file: t.xlsx\n  sha256: \"{sha}\"\n  source_url: https://example.org/t\n"
+        "  last_checked: 2026-10-26\n  status: expert_confirmed\n"
+    ).format(sha=hashlib.sha256(b"template bytes").hexdigest())
+    (root / "templates" / "index.yaml").write_text(index)
+    assert "needs confirmed_by" in problems(root)
+    (root / "templates" / "index.yaml").write_text(index + CONFIRMED)
+    t = read_files(root).templates[0]
+    assert (t.confirmed_by, str(t.confirmed_on)) == ("GST expert, RS-9", "2026-10-20")
 
 
 def test_patterns_must_compile_and_enums_need_their_allowed_list(tmp_path):
@@ -204,9 +238,25 @@ def test_a_removed_row_is_refused(db, tmp_path):
 @needs_pg
 def test_status_and_source_changes_are_updates_counted_in_the_load(db, tmp_path):
     load(db, tree(tmp_path, ENTRY.format(value="5", valid_from="2026-01-01")))
-    confirmed = ENTRY.format(value="5", valid_from="2026-01-01").replace("provisional", "po_confirmed")
+    confirmed = ENTRY.format(value="5", valid_from="2026-01-01").replace("provisional", "po_confirmed") + CONFIRMED
     assert load(db, tree(tmp_path, confirmed))["rows_updated"] == 1
     assert rows(db)[0][3] == "po_confirmed"
+    who = "select confirmed_by, confirmed_on::text from refdata.values where key = 'test.limit'"
+    assert db.execute(who).fetchone() == ("GST expert, RS-9", "2026-10-20")
+
+
+@needs_pg
+def test_the_database_refuses_a_confirmed_row_that_names_nobody(db):
+    insert = (
+        "insert into refdata.values (key, value, type, kind, valid_from, source_url, source_title, last_checked,"
+        " status, loaded_from, confirmed_by, confirmed_on) values ('x.y', '1', 'integer', 'tax', '2026-01-01',"
+        " 'https://e', 't', '2026-01-01', %s, 'test', %s, %s)"
+    )
+    for status, by, on in (("ca_confirmed", None, None), ("ca_confirmed", " ", "2026-10-20"),
+                           ("ca_confirmed", "CA", None), ("provisional", "CA", "2026-10-20")):
+        with pytest.raises(psycopg.errors.CheckViolation), db.transaction():
+            db.execute(insert, (status, by, on))
+    db.execute(insert, ("ca_confirmed", "CA, CA-1", "2026-10-20"))
 
 
 @needs_pg
