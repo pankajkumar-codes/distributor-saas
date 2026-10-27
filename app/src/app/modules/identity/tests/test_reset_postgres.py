@@ -71,13 +71,34 @@ def test_reset_sets_the_password_and_ends_every_session(env):  # AC-6
     assert [tuple(r) for r in rows] == [("user", None, True)]
 
 
-def test_reset_for_an_unknown_email_looks_the_same_and_sends_nothing(env):  # AC-2
+def test_reset_for_an_unknown_email_looks_the_same_and_sends_a_notice(env):  # AC-2
     client, _, mail, admin = env
     sent = len(mail.sent)
     known, unknown = ask(client), ask(client, "nobody@example.com")
     assert (known.status_code, known.json()) == (unknown.status_code, unknown.json())
-    assert len(mail.sent) == sent + 1 and last(mail).to == EMAIL
+    assert [(t, to) for t, to, _ in mail.sent[sent:]] == [
+        ("reset_code", EMAIL),
+        ("reset_no_account", "nobody@example.com"),
+    ]
+    assert mail.sent[-1][2] == {}  # the notice carries no code
     assert one(admin, "select count(*) from identity.verification_codes where email = 'nobody@example.com'") == 0
+
+
+def test_both_reset_branches_queue_exactly_one_after_commit_mail(env, monkeypatch):  # Staff 2, #48
+    client, _, _, _ = env
+    from app.modules.identity.service import reset as reset_mod
+
+    real, queued = reset_mod.send_after_commit, []
+
+    def counting(uow, mailer, template, to, params):
+        queued.append(template)
+        real(uow, mailer, template, to, params)
+
+    monkeypatch.setattr(reset_mod, "send_after_commit", counting)
+    for email in (EMAIL, "nobody@example.com"):
+        queued.clear()
+        assert ask(client, email).status_code == 202
+        assert len(queued) == 1, (email, queued)
 
 
 def test_a_wrong_or_signup_code_is_not_accepted_and_changes_nothing(env):

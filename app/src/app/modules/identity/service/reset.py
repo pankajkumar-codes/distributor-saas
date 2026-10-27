@@ -2,13 +2,15 @@
 
 The same shape as sign-up (service/signup.py): rate.hit, then short transactions.
   request: rate.hit (the per-email bucket is shared with sign-up) -> one tx: a code
-           for a registered email, nothing for an unknown one; the reply is the same.
+           for a registered email, a reset_no_account notice for an unknown one. Both
+           send one mail, so neither the reply nor its timing tells them apart.
   verify:  policy check -> rate.hit -> tx 1 check the code (committed whatever happens)
            -> provider set_password -> tx 2 consume, revoke every session, audit
            -> after commit: provider global sign-out, mail password_changed.
 The user then signs in, so a TOTP challenge still applies.
 """
 
+import logging
 from datetime import date, timedelta
 
 from sqlalchemy import text
@@ -24,13 +26,16 @@ from . import limits
 from .passwords import check_password
 from .signup import HOUR, CodeNotAccepted, CodeTerms, normalise
 
+log = logging.getLogger(__name__)
+
 
 def _public(request_id: str) -> Principal:
     return Principal(user_sub=None, request_id=request_id)
 
 
 def request_reset(email: str, ip: str, request_id: str, mail: Mailer, today: date) -> CodeTerms:
-    """§5.8. Mails a reset code to a registered email; an unknown one gets nothing."""
+    """§5.8. Mails a reset code to a registered email, and a no-account notice to an
+    unknown one (as sign-up mails already_registered), so both branches do the same work."""
     email = normalise(email)
     lim = limits.read(
         (
@@ -49,8 +54,10 @@ def request_reset(email: str, ip: str, request_id: str, mail: Mailer, today: dat
     digest = codes.code_hmac("reset", email, code)
     with unit_of_work(_public(request_id)) as uow:
         if uow.tx.execute(text("select identity.auth_user_by_email(:e)"), {"e": email}).scalar() is None:
-            # The lock auth_issue_code takes, so both branches do comparable work.
+            # The lock auth_issue_code takes and one mail, so both branches do the same
+            # work and take the same time (Staff 2, #48).
             uow.tx.execute(text("select pg_advisory_xact_lock(hashtextextended('reset:' || :e, 0))"), {"e": email})
+            send_after_commit(uow, mail, "reset_no_account", email, {})
             return terms
         uow.tx.execute(
             text("select identity.auth_issue_code(:i, 'reset', :e, :h, :t, :m)"),
@@ -87,7 +94,8 @@ def verify_reset(
         user = uow.tx.execute(
             text("select user_id, revoked from identity.auth_revoke_user_sessions(:s, 'password_reset')"), {"s": sub}
         ).first()
-        if user is None:
+        if user is None:  # the provider knows this sub but we have no users row: a bug
+            log.error("reset: no users row for the provider's sub", extra={"request_id": request_id})
             raise CodeNotAccepted()
         uow.become_user(user.user_id, sub)
         audit.record(uow, "auth.password_reset", "user", user.user_id, user_level=True)
