@@ -5,7 +5,6 @@
 #   migrator.zip  migrator.handler.handler, with every module's migrations,
 #                 platform_common's (as module "platform") and refdata/ (LLD-0 §6)
 # Usage: scripts/build_lambda.sh app   (or: migrator, all)
-# Terraform still names the old per-service zips until Staff 2's S0b change.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TARGETS=(app migrator)

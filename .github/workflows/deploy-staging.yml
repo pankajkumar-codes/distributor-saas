@@ -1,0 +1,145 @@
+name: deploy-staging
+
+# TD-20: GitHub Actions with OIDC into AWS. Manual only: nothing runs this on a push or
+# merge. It stays inert until Pankaj (the account owner) completes the setup checklist
+# in docs/DEPLOYMENT.md, and no deploy happens before the CEO approves the first staging
+# deploy.
+#
+# Two jobs, each in the `staging` environment, so each waits for its required reviewer:
+#   plan   builds the zips and web files, writes a saved plan, and shows it in the run
+#          summary. The plan and the exact files it was made from go to the state
+#          bucket under plans/staging/<run>/: a plan file holds the prior state, secrets
+#          included, so it never becomes a GitHub artifact.
+#   apply  runs `terraform apply` on that saved plan and nothing else, so what is
+#          applied is what the reviewer read. The migrator runs inside the apply, before
+#          the API and worker change (HLD §11; aws_lambda_invocation in the stack).
+#
+# No third-party action runs here, because these jobs can mint AWS credentials:
+# Terraform is downloaded and checked against HashiCorp's SHA-256, and the OIDC sign-in
+# uses the preinstalled AWS CLI (scripts/deploy/). Only GitHub's own actions/* are used.
+#
+# Repository variables (Settings > Secrets and variables > Actions > Variables):
+#   AWS_DEPLOY_ROLE_ARN   the OIDC role this workflow assumes
+#   TF_STATE_BUCKET       the state_bucket output of infra/bootstrap
+#   STAGING_WEB_ORIGINS   JSON list, the app origin first, e.g. ["https://app.example.in"]
+#   BUDGET_ALERT_EMAILS   JSON list of addresses for budget and alarm emails
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-south-1
+  AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+  TF_IN_AUTOMATION: "1"
+  TF_VAR_git_sha: ${{ github.sha }}
+  TF_VAR_web_origins: ${{ vars.STAGING_WEB_ORIGINS }}
+  TF_VAR_budget_alert_emails: ${{ vars.BUDGET_ALERT_EMAILS }}
+  PLAN_PREFIX: s3://${{ vars.TF_STATE_BUCKET }}/plans/staging/${{ github.run_id }}
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    environment: staging
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Refuse without the setup
+        if: vars.AWS_DEPLOY_ROLE_ARN == '' || vars.TF_STATE_BUCKET == '' || vars.STAGING_WEB_ORIGINS == '' || vars.BUDGET_ALERT_EMAILS == ''
+        run: |
+          echo "A repository variable listed at the top of this workflow is not set; nothing to deploy to." >&2
+          exit 1
+      - name: Main only
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "Staging deploys run from main only." >&2
+          exit 1
+
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: scripts/deploy/install_terraform.sh
+
+      - name: Build Lambda zips
+        run: make build
+      - name: Build web files
+        working-directory: web
+        run: npm ci && npm run build
+
+      - run: scripts/deploy/aws_oidc_login.sh
+
+      - name: Plan
+        working-directory: infra/envs/staging
+        run: |
+          terraform init -input=false -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+          terraform plan -input=false -out=tfplan
+          { echo '```'; terraform show -no-color tfplan; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Keep the plan and its files for the apply job
+        run: |
+          aws s3 cp infra/envs/staging/tfplan "$PLAN_PREFIX/tfplan"
+          aws s3 cp infra/envs/staging/.terraform.lock.hcl "$PLAN_PREFIX/terraform.lock.hcl"
+          aws s3 cp build/app.zip "$PLAN_PREFIX/app.zip"
+          aws s3 cp build/migrator.zip "$PLAN_PREFIX/migrator.zip"
+          aws s3 sync web/dist "$PLAN_PREFIX/web/"
+
+  apply:
+    needs: plan
+    runs-on: ubuntu-24.04
+    environment: staging
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - run: scripts/deploy/install_terraform.sh
+      - run: scripts/deploy/aws_oidc_login.sh
+
+      - name: Fetch the reviewed plan and its files
+        run: |
+          mkdir -p build web/dist
+          aws s3 cp "$PLAN_PREFIX/tfplan" infra/envs/staging/tfplan
+          aws s3 cp "$PLAN_PREFIX/terraform.lock.hcl" infra/envs/staging/.terraform.lock.hcl
+          aws s3 cp "$PLAN_PREFIX/app.zip" build/app.zip
+          aws s3 cp "$PLAN_PREFIX/migrator.zip" build/migrator.zip
+          aws s3 sync "$PLAN_PREFIX/web/" web/dist
+
+      # The plan's provider lock file comes with it, so init installs the same versions.
+      # Terraform refuses a saved plan whose state has changed since it was made.
+      - name: Apply the saved plan
+        working-directory: infra/envs/staging
+        run: |
+          terraform init -input=false -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+          terraform apply -input=false tfplan
+
+      # Old hashed files stay, so a browser still holding the previous index.html can
+      # load its scripts; only index.html is replaced and invalidated.
+      - name: Publish web files
+        run: |
+          bucket=$(terraform -chdir=infra/envs/staging output -raw web_bucket)
+          dist=$(terraform -chdir=infra/envs/staging output -raw cdn_distribution_id)
+          aws s3 sync web/dist "s3://$bucket" --exclude index.html \
+            --cache-control "public, max-age=31536000, immutable"
+          aws s3 cp web/dist/index.html "s3://$bucket/index.html" --cache-control "no-cache"
+          aws cloudfront create-invalidation --distribution-id "$dist" --paths /index.html
+
+      - name: Remove the saved plan
+        if: always()
+        run: aws s3 rm --recursive "$PLAN_PREFIX/"
