@@ -51,6 +51,8 @@ begin
     execute format('grant create on database %I to app_owner', current_database());
     -- identity_auth owns identity's definer functions; ALTER ... OWNER TO needs SET on it.
     execute format('grant identity_auth to %I with set true, inherit false', current_user);
+    -- platform_ops owns the outbox and job definer functions (LLD-0 §4.1 [RM4-2]); same reason.
+    execute format('grant platform_ops to %I with set true, inherit false', current_user);
 
     -- Read-only units of work SET LOCAL ROLE app_ro (L0-7); app_rw doesn't inherit its grants.
     grant app_ro to app_rw with set true, inherit false;

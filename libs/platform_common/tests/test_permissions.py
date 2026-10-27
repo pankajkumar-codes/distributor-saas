@@ -43,6 +43,7 @@ EXPECTED: dict[Permission, str] = {
     P.RETURNS_UNLOCK:       "x...",
     P.AUDIT_VIEW:           "xx..",
     P.SUPPORT_GRANT:        "x...",
+    P.JOBS_VIEW:            "xxxx",
 }  # fmt: skip
 REPO = Path(__file__).resolve().parents[3]
 
