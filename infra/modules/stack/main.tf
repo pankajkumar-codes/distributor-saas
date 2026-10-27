@@ -156,10 +156,15 @@ locals {
     DB_PORT      = tostring(module.database.port)
     DB_NAME      = module.database.db_name
   }
-  app_env = merge(local.db_env, {
-    JOBS_QUEUE_URL       = module.jobs.url
-    MAIL_QUEUE_URL       = module.mail.url
-    UPLOADS_BUCKET       = module.storage.bucket
+  # Read by nothing in the app: referencing the migrator's invocation is what makes
+  # Terraform update the API and worker only after the migrations ran (HLD §11).
+  after_migrations = { MIGRATION_RUN = substr(sha256(aws_lambda_invocation.migrate.result), 0, 12) }
+  queue_env = {
+    JOBS_QUEUE_URL = module.jobs.url
+    MAIL_QUEUE_URL = module.mail.url
+    UPLOADS_BUCKET = module.storage.bucket
+  }
+  api_env = merge(local.db_env, local.queue_env, local.after_migrations, {
     AUTH_ISSUER          = module.auth.issuer
     AUTH_CLIENT_ID       = module.auth.client_id
     COGNITO_USER_POOL_ID = module.auth.user_pool_id
@@ -167,8 +172,11 @@ locals {
     CODE_HMAC_KEY_PARAM  = aws_ssm_parameter.app_key["code-hmac-key"].name
     RATE_HMAC_KEY_PARAM  = aws_ssm_parameter.app_key["rate-hmac-key"].name
   })
+  # Jobs sign nothing today, so the worker gets no keys and no Parameter Store access.
+  worker_env = merge(local.db_env, local.queue_env, local.after_migrations)
   object_statements = [
-    { Effect = "Allow", Action = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"], Resource = ["${module.storage.bucket_arn}/b/*"] },
+    # No DeleteObject: nothing in the app deletes a file yet.
+    { Effect = "Allow", Action = ["s3:GetObject", "s3:PutObject"], Resource = ["${module.storage.bucket_arn}/b/*"] },
     # Without ListBucket a missing key reads as 403, not 404 (S3ObjectStore.head).
     { Effect = "Allow", Action = ["s3:ListBucket"], Resource = [module.storage.bucket_arn], Condition = { StringLike = { "s3:prefix" = ["b/*"] } } },
     { Effect = "Allow", Action = ["kms:GenerateDataKey", "kms:Decrypt"], Resource = [module.storage.kms_key_arn] },
@@ -189,7 +197,7 @@ module "api_function" {
   vpc                  = local.vpc
   db_user              = "app_rw"
   db_resource_id       = module.database.resource_id
-  environment          = local.app_env
+  environment          = local.api_env
   policy_statements = concat(local.object_statements, local.send_statements, [
     { Effect = "Allow", Action = ["ssm:GetParameter"], Resource = [for p in aws_ssm_parameter.app_key : p.arn] },
     # The admin calls LLD-1 §7 lists, plus AdminUpdateUserAttributes to mark the email
@@ -243,7 +251,7 @@ module "worker" {
   vpc                  = local.vpc
   db_user              = "app_rw"
   db_resource_id       = module.database.resource_id
-  environment          = local.app_env
+  environment          = local.worker_env
   sqs_trigger          = { arn = module.jobs.arn, batch_size = 1 }
   policy_statements    = concat(local.object_statements, local.send_statements)
 }
@@ -280,6 +288,18 @@ module "migrator" {
   policy_statements = [
     { Effect = "Allow", Action = ["ssm:GetParameter"], Resource = [module.database.master_password_parameter_arn] },
   ]
+}
+
+# Migrations run inside the apply, before the API and worker change (HLD §11). The
+# invocation runs again whenever the migrator's code or the deployed commit changes, and
+# a function error fails the apply, so a saved plan applies in the right order.
+resource "aws_lambda_invocation" "migrate" {
+  function_name = module.migrator.function_name
+  input         = jsonencode({})
+  triggers = {
+    code    = module.migrator.source_code_hash
+    git_sha = var.git_sha
+  }
 }
 
 # Worker schedules (TD-25, HLD §4). Only the outbox sweep has a handler today; the purge

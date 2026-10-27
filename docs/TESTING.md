@@ -144,23 +144,24 @@ rule follow it.
 
 ### Deploy
 
-`.github/workflows/deploy-staging.yml` does these steps once Pankaj has created the OIDC
-deploy role. Run by hand, they are:
+`.github/workflows/deploy-staging.yml` does these steps (a reviewed plan, then that plan
+applied; docs/DEPLOYMENT.md) once Pankaj has finished the deploy setup. Run by hand,
+they are:
 
 ```bash
 cd ../../..                       # repo root
 make build                        # build/app.zip and build/migrator.zip
 (cd web && npm ci && npm run build)
 cd infra/envs/staging
-terraform plan                    # review what will be created
-terraform apply -target=module.stack.module.migrator    # migrator first (HLD §11)
-aws lambda invoke --function-name "$(terraform output -raw migrator_function)" out.json && cat out.json
-terraform apply                   # API, worker, mailer, queues, schedules, CloudFront
-aws s3 sync ../../../web/dist "s3://$(terraform output -raw web_bucket)" --delete
+terraform plan -out=tfplan        # review what will be created
+terraform apply tfplan            # runs the migrator before updating the API and worker
+aws s3 sync ../../../web/dist "s3://$(terraform output -raw web_bucket)"
 aws cloudfront create-invalidation --distribution-id "$(terraform output -raw cdn_distribution_id)" --paths /index.html
 ```
 
-The migrator's output lists every migration it applied and the refdata it loaded.
+The apply fails if a migration fails. The migrator's log
+(`aws logs tail /aws/lambda/distsaas-staging-migrator`) lists what it applied and the
+refdata it loaded.
 
 ### Create two test users and run the smoke test
 

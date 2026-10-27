@@ -50,9 +50,49 @@ the CEO's approval (TD-20, TD-21). How to deploy and test: `docs/TESTING.md` §3
   Prod reserves TD-6's caps (api 40, worker 10, mailer 5, migrator 1 = 56), and Lambda
   keeps 100 of the account quota unreserved, so the apply fails on a smaller quota. The
   increase is requested in Service Quotas and costs nothing. Staging leaves the caps off.
-- The OIDC deploy role and the repository variables listed in the deploy workflow.
+- The deploy setup below.
 - A domain, its ACM certificate in us-east-1 (CloudFront), and SES production access for
   that domain (tech plan §0, §4.5).
+
+## How a staging deploy runs (`.github/workflows/deploy-staging.yml`)
+Started by hand from `main` only. Two jobs, both in the `staging` environment, so each
+waits for its required reviewer:
+1. **plan** builds `app.zip`, `migrator.zip` and the web files, runs `terraform plan
+   -out=tfplan`, and shows the plan in the run summary (sensitive values hidden). The
+   plan, its provider lock file and the built files go to the state bucket under
+   `plans/staging/<run id>/`. A plan file contains state, secrets included, so it never
+   becomes a GitHub artifact; a 7-day lifecycle rule removes any plan whose apply never
+   ran.
+2. **apply** fetches exactly those files and runs `terraform apply tfplan`, so what is
+   applied is what the reviewer read. Terraform refuses the plan if the state changed
+   after it was made. The migrator runs inside the apply, before the API and worker
+   change (`aws_lambda_invocation.migrate` in the stack), and a migration error fails
+   the apply. Then the web files are published and only `index.html` is invalidated;
+   older hashed files stay, so an open browser can still load its scripts.
+
+No third-party action runs in these jobs, because they can mint AWS credentials:
+Terraform is installed from HashiCorp and checked against its published SHA-256
+(`scripts/deploy/install_terraform.sh`), and the sign-in uses the preinstalled AWS CLI
+(`scripts/deploy/aws_oidc_login.sh`). Only GitHub's own `actions/*` are used.
+
+## Deploy setup checklist (Pankaj, once, after the staging decision)
+1. Apply `infra/bootstrap` once from your machine (`docs/TESTING.md` §3) and note its
+   `state_bucket` output.
+2. IAM: add GitHub as an OIDC identity provider (`token.actions.githubusercontent.com`,
+   audience `sts.amazonaws.com`), and a deploy role that trusts it with these conditions:
+   - `token.actions.githubusercontent.com:aud` equals `sts.amazonaws.com`;
+   - `token.actions.githubusercontent.com:sub` equals
+     `repo:pankajkumar-codes/distributor-saas:environment:staging`, exactly, with no
+     wildcard, so only jobs in the `staging` environment of this repository can assume it.
+
+   The role needs rights to create everything in `infra/modules` and to read and write
+   the state bucket. Narrowing them to a least-privilege policy is a follow-up.
+3. GitHub, Settings > Environments: create `staging` with **required reviewers** (you,
+   or whoever you name) and **deployment branches limited to `main`**.
+4. GitHub, Settings > Secrets and variables > Actions > Variables: set
+   `AWS_DEPLOY_ROLE_ARN`, `TF_STATE_BUCKET`, `STAGING_WEB_ORIGINS` and
+   `BUDGET_ALERT_EMAILS`.
+5. Confirm each budget and alarm email subscription that AWS sends.
 
 ## Go-live checklist
 - All critical tests pass.
