@@ -1,17 +1,18 @@
 """The auth provider and mailer the auth routes use (LLD-0 §3.11).
 
 Locally and in tests these are FakeAuthProvider and LocalFileMailer, so nothing real
-is called or sent. In AWS, CognitoAuthProvider (S1-d) and SqsMailer (S0b) are not
-built yet, so asking for either there raises rather than falling back to a fake.
+is called or sent. In AWS the mailer is QueueMailer on the SQS mail queue
+(MAIL_QUEUE_URL, Lambda only); CognitoAuthProvider (S1-c4) is not built yet, so asking
+for an auth provider there raises rather than falling back to a fake.
 Tests replace them through FastAPI's dependency_overrides.
 """
 
 import os
 from functools import cache
 
-from platform_common.auth import debug_env
+from platform_common.auth import debug_env, on_lambda
 from platform_common.authprovider import AuthProvider
-from platform_common.mailer import LocalFileMailer, Mailer
+from platform_common.mailer import LocalFileMailer, Mailer, QueueMailer
 
 
 @cache
@@ -25,8 +26,15 @@ def auth_provider() -> AuthProvider:
 
 @cache
 def mailer() -> Mailer:
+    queue_url = os.environ.get("MAIL_QUEUE_URL")
+    if queue_url:
+        if not on_lambda():
+            raise RuntimeError("MAIL_QUEUE_URL is for Lambda only; unset it here")
+        from platform_common.aws import SqsQueue
+
+        return QueueMailer(SqsQueue(queue_url))
     if not debug_env():
-        raise RuntimeError("no Mailer for this environment yet (SqsMailer is S0b)")
+        raise RuntimeError("MAIL_QUEUE_URL is not set")
     return LocalFileMailer()
 
 

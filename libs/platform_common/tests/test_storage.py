@@ -21,10 +21,12 @@ def store(tmp_path):
 def test_keys_are_made_under_the_business_prefix_and_checked_against_it():
     obj = uuid.uuid4()
     key = key_for(A, "uploads", obj)
-    assert key == f"b/{A}/uploads/{obj}"
+    assert key == f"uploads/b/{A}/{obj}"
     assert key_for(A, "branding", obj, "clean.png").endswith("/clean.png")
     assert check_key(A, key) == key
-    for bad in (key_for(B, "uploads", obj), f"b/{A}/uploads/{obj}/../x", f"b/{A}/uploads/{obj}/..", f"b/{A}/uploads/../../{obj}", "", None):
+    for bad in (key_for(B, "uploads", obj), f"uploads/b/{A}/{obj}/../x", f"uploads/b/{A}/{obj}/..",
+                f"uploads/b/{A}/../../{obj}", f"secrets/b/{A}/{obj}", f"b/{A}/uploads/{obj}",
+                f"uploads/b/{str(A).upper()}/{obj}", f"uploads/b/{B}/{obj}/{A}", "", None):
         with pytest.raises(Deny):
             check_key(A, bad)
     with pytest.raises(ValueError):
@@ -55,7 +57,7 @@ def test_an_upload_within_the_policy_is_stored(store):
     [
         ({"size": 101}, "size"),  # the limit + 1 byte
         ({"size": 0}, "size"),
-        ({"key": f"b/{A}/uploads/{uuid.uuid4()}"}, "key"),  # a different key than the one signed
+        ({"key": f"uploads/b/{A}/{uuid.uuid4()}"}, "key"),  # a different key than the one signed
         ({"Content-Type": "text/html"}, "content_type"),
         ({"policy": "e30"}, "signature"),  # a policy the client wrote
     ],

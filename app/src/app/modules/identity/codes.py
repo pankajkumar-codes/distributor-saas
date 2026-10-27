@@ -13,10 +13,10 @@ the same work in every case (LLD-1 §5).
 
 import hashlib
 import hmac
-import os
 import secrets
 
 from platform_common.auth import debug_env
+from platform_common.secrets import secret
 
 PURPOSES = frozenset({"signup", "reset"})
 CODE_DIGITS = 6
@@ -24,7 +24,7 @@ _DEV_KEY = b"local-only-code-key"
 
 
 def _key() -> bytes:
-    key = os.environ.get("CODE_HMAC_KEY")
+    key = secret("CODE_HMAC_KEY")  # Parameter Store in AWS (D-040)
     if key:
         return key.encode()
     if debug_env():  # never on Lambda, even if PLATFORM_ENV wrongly says local or test

@@ -1,5 +1,6 @@
-# The one private bucket for business files (D-036, D-039): uploads, documents, exports
-# and branding, each under b/<business>/<area>/. Files are only ever reached through
+# The one private bucket for business files (D-036, D-039). Keys are
+# <area>/b/<business>/<object>, with the areas of platform_common.storage.AREAS (kept in
+# step by tests/tools/test_infra_areas.py). Files are only ever reached through
 # short-lived presigned URLs that the API issues after checking the caller's business.
 #
 # Default encryption is SSE-KMS with our own key (H-4), so a presigned POST names no
@@ -16,6 +17,21 @@ variable "noncurrent_version_days" {
   description = "How long an overwritten or deleted object's old version is kept"
   type        = number
   default     = 30
+}
+variable "upload_retention_days" {
+  description = "TD-18: raw uploads are deleted this many days after upload (90, a setting the CA may change)"
+  type        = number
+  default     = 90
+}
+
+locals {
+  # One lifecycle rule per area, so no two rules ever cover the same key.
+  areas = {
+    uploads   = { expire_days = var.upload_retention_days, noncurrent_days = 1 }
+    documents = { expire_days = null, noncurrent_days = var.noncurrent_version_days }
+    exports   = { expire_days = null, noncurrent_days = var.noncurrent_version_days }
+    branding  = { expire_days = null, noncurrent_days = var.noncurrent_version_days }
+  }
 }
 
 data "aws_caller_identity" "current" {}
@@ -68,21 +84,32 @@ resource "aws_s3_bucket_versioning" "objects" {
   }
 }
 
-# The 90-day deletion of raw uploads (TD-18) is not here: keys start with the business,
-# so no prefix filter selects every upload. See docs/OPEN_QUESTIONS.md (S0b infra).
+# Raw uploads go 90 days after upload (TD-18), and their old version a day later, so
+# nothing of them outlives day 91. The other areas keep files and drop old versions.
 resource "aws_s3_bucket_lifecycle_configuration" "objects" {
   bucket     = aws_s3_bucket.objects.id
   depends_on = [aws_s3_bucket_versioning.objects]
 
-  rule {
-    id     = "old-versions-and-abandoned-uploads"
-    status = "Enabled"
-    filter {}
-    noncurrent_version_expiration {
-      noncurrent_days = var.noncurrent_version_days
-    }
-    abort_incomplete_multipart_upload {
-      days_after_initiation = 1
+  dynamic "rule" {
+    for_each = local.areas
+    content {
+      id     = rule.key
+      status = "Enabled"
+      filter {
+        prefix = "${rule.key}/"
+      }
+      dynamic "expiration" {
+        for_each = rule.value.expire_days == null ? [] : [rule.value.expire_days]
+        content {
+          days = expiration.value
+        }
+      }
+      noncurrent_version_expiration {
+        noncurrent_days = rule.value.noncurrent_days
+      }
+      abort_incomplete_multipart_upload {
+        days_after_initiation = 1
+      }
     }
   }
 }
@@ -118,3 +145,4 @@ resource "aws_s3_bucket_cors_configuration" "objects" {
 output "bucket" { value = aws_s3_bucket.objects.bucket }
 output "bucket_arn" { value = aws_s3_bucket.objects.arn }
 output "kms_key_arn" { value = aws_kms_key.objects.arn }
+output "areas" { value = keys(local.areas) }

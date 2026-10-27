@@ -64,8 +64,10 @@ GitHub Actions runs all of these on every pull request, plus:
   design can't reach a privileged role; NOLOGIN roles can't log in; no login role owns
   objects. Run it locally with `make isolation-local`
 
-Jobs and storage never touch AWS in CI: tests use `FakeQueue` and `LocalObjectStore`,
-and only `platform_common/aws.py` imports boto3, which no test loads. Locally, a job
+Jobs, storage, mail and keys never touch AWS in CI: tests use `FakeQueue`,
+`LocalObjectStore`, `FakeMailer` and environment keys, and only `platform_common/aws.py`
+imports boto3, which no test loads. On Lambda the HMAC keys come from Parameter Store
+(`*_PARAM`), and mail goes through `QueueMailer` to the mailer Lambda and SES. Locally, a job
 runs as soon as its request commits (`InlineQueue`), and presigned uploads and
 downloads go to `/api/v1/dev/objects/*`, which exist only in a debug environment.
 
@@ -118,9 +120,9 @@ login is off.
 ## 3. Test on AWS (staging)
 
 > Written, not yet run. Nothing in AWS exists until Pankaj decides on staging (D-040),
-> and the first staging deploy needs the CEO's approval (TD-20). The app still lacks
-> `app.mailer.handler` and the Parameter Store key reads (docs/OPEN_QUESTIONS.md), so
-> sign-up email won't work on a stack built from this commit.
+> and the first staging deploy needs the CEO's approval (TD-20). Email needs a domain
+> verified in SES (`mail_domain`); until then the mailer sends nothing, and each
+> message ends in the mail DLQ with an alarm.
 
 Needs an AWS account in Mumbai, the AWS CLI v2 signed in to it, and Terraform 1.10 or
 newer. Staging costs about USD 49 a month while it exists (tech plan §7): mostly the
