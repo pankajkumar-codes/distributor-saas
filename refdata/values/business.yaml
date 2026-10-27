@@ -1,0 +1,12 @@
+# Business-profile product limits (LLD-1 §8.2). Product rows, provisional until the PO confirms.
+
+- key: business.frequency_max_quarters_ahead
+  value: "4"
+  type: integer
+  kind: product
+  valid_from: 2017-07-01
+  source_url: team/docs/lld-1.md
+  source_title: "LLD-1 §8.2 filing frequency; EM review of #47 (2026-10-27): cap how far ahead a frequency may start"
+  last_checked: 2026-10-27
+  status: provisional
+  note: "A frequency row may start at most this many quarters after the current one (422 effective_from_too_far). Not a GST rule; PO to confirm."
