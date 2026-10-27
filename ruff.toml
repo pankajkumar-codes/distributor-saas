@@ -17,9 +17,17 @@ extend-select = ["TID251"]
 "datetime.datetime.today".msg = "use Clock.now() / Clock.today() (platform_common.clock)"
 "datetime.date.today".msg = "use Clock.today() (IST), not the system date"
 "time.time".msg = "use Clock.now() (platform_common.clock), not the system clock"
+# AWS SDKs only in the files listed under per-file-ignores (D-039): platform_common/aws.py,
+# which only app/runtime.py loads and only on Lambda, and the two RDS connection paths.
+# Tests and CI can't reach AWS.
+"boto3".msg = "boto3 is for platform_common/aws.py (SQS, S3) only; use the Queue / ObjectStore ports"
+"botocore".msg = "botocore is for platform_common/aws.py (SQS, S3) only; use the Queue / ObjectStore ports"
 
 [lint.per-file-ignores]
 "libs/platform_common/platform_common/clock.py" = ["TID251"]  # the one place that reads it
+"libs/platform_common/platform_common/aws.py" = ["TID251"]  # SQS and S3 adapters
+"libs/platform_common/platform_common/db.py" = ["TID251"]  # RDS IAM token, only when DB_HOST is set (Lambda)
+"migrator/migrator/handler.py" = ["TID251"]  # master secret from Secrets Manager, Lambda only
 "**/tests/**" = ["TID251"]
 "tests/**" = ["TID251"]
 "scripts/**" = ["TID251"]

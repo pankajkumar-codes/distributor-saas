@@ -306,6 +306,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recent Jobs */
+        get: operations["recent_jobs_api_v1_b__business_id__jobs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Job */
+        get: operations["get_job_api_v1_b__business_id__jobs__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/members": {
         parameters: {
             query?: never;
@@ -897,6 +931,42 @@ export interface components {
             /** Role */
             role: string;
         };
+        /** JobOut */
+        JobOut: {
+            /** Attempt */
+            attempt: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Error Code */
+            error_code: string | null;
+            /** Id */
+            id: string;
+            progress: components["schemas"]["ProgressOut"] | null;
+            /** Result */
+            result: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "done" | "failed" | "failed_retryable";
+            /** Type */
+            type: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** JobsOut */
+        JobsOut: {
+            /** Items */
+            items: components["schemas"]["JobOut"][];
+        };
         /** MeMembership */
         MeMembership: {
             /** Business Id */
@@ -1076,6 +1146,13 @@ export interface components {
             profile: components["schemas"]["ProfileOut"];
             /** Warnings */
             warnings: string[];
+        };
+        /** ProgressOut */
+        ProgressOut: {
+            /** Done */
+            done: number;
+            /** Out Of */
+            out_of: number | null;
         };
         /** ReadinessOut */
         ReadinessOut: {
@@ -1976,6 +2053,71 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InviteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recent_jobs_api_v1_b__business_id__jobs_get: {
+        parameters: {
+            query?: {
+                recent?: boolean;
+            };
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_job_api_v1_b__business_id__jobs__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
                 };
             };
             /** @description Validation Error */

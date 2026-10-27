@@ -27,7 +27,7 @@ def factory():
     admin = create_engine(ADMIN_URL, isolation_level="AUTOCOMMIT")
     with admin.connect() as c:
         c.execute(text(f"create database {dbname}"))
-        for role in ("app_rw", "app_ro", "retention_owner"):  # the platform migrations grant to all three
+        for role in ("app_rw", "app_ro", "retention_owner", "platform_ops"):  # the platform migrations grant to all four
             c.execute(text(
                 f"do $$ begin if not exists (select from pg_roles where rolname = '{role}') "
                 f"then create role {role} nologin; end if; end $$"
