@@ -29,6 +29,7 @@ LLD-3 part S3-a. The code is in `app/src/app/modules/catalog/`, and the migratio
   - A rate ends where the next live rate starts, and that end is computed, never stored.
   - A wrong rate is voided, with a reason, and a correct one is added.
   - The last live rate of a taxable product can't be voided.
+  - Voiding the earliest live rate leaves the dates before the next one with no rate, so a back-dated line gets `no_rate_on_date`. That fails closed: nothing guesses a rate.
 - **Recent change.** A rate warns when it replaced an earlier one at most `catalog.rate_change_warning_days` (30, inclusive) days before the date it is read for.
 - **Confirmed with CA** is the owner's or admin's own statement, recorded as an event with who and when. It never blocks anything.
 - **HSN** is optional ("Missing HSN"). When given, it must match refdata `hsn.pattern` (4, 6 or 8 digits, provisional; the 8-digit cap is open in `OPEN_QUESTIONS.md`).
@@ -37,7 +38,7 @@ LLD-3 part S3-a. The code is in `app/src/app/modules/catalog/`, and the migratio
 - **Tax category.** Only `taxable` products have rates. A product can't move between taxable and the other categories; to fix one, create a new product, or delete the old one if it was never used.
 - **Money and rates** are decimal strings in and out. A JSON number is refused.
 - **Tenant isolation.**
-  - Every table has forced row-level security.
+  - Every table has forced row-level security, and every query also filters on the bound business explicitly.
   - The rate tables use composite `(id, business_id)` foreign keys, so a row can't point at another business's product. Foreign key checks don't see row-level security, so the policies alone wouldn't stop that.
 
 ## For other modules (`catalog.interface`)
@@ -52,3 +53,5 @@ LLD-3 part S3-a. The code is in `app/src/app/modules/catalog/`, and the migratio
 - The HSN-digits-by-turnover warning (`hsn_min_digits`), which needs business refdata.
 - Usage events (`setup.first_product`): there is no usage-event table yet.
 - Lists use `limit` and `offset`, the platform's paging, rather than the cursor LLD-3 §6 mentions.
+- The product list computes `current_rates` for the whole business before paging, which is fine at R1 sizes; revisit with the NF-6 load check (S7).
+- A rate that has dropped off `gst.rate_values` by the date it is read for comes back unflagged; LLD-4 decides the flag (`OPEN_QUESTIONS.md`).

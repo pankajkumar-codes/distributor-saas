@@ -1,0 +1,26 @@
+# The QRMP option window (CGST rule 61A(1)), read by business/rule61a.py as months from
+# the start of the quarter opted for. Supplied by the GST expert with citation
+# (team/gst/refdata-lld4.md §5, 2026-10-27). Provisional until the CBIC page is re-read
+# (its open item 6) and the expert confirms.
+
+- key: qrmp.option_window.open_offset_months
+  value: "-2"
+  type: integer
+  kind: tax
+  valid_from: 2021-01-01
+  source_url: https://taxinformation.cbic.gov.in/content/html/tax_repository/gst/rules/cgst_rules/active/chapter8/rule61a_v1.00.html
+  source_title: "CGST Rules 2017, rule 61A(1) (CBIC tax repository), inserted by Notification 82/2020-Central Tax dated 10-11-2020"
+  last_checked: 2026-10-27
+  status: provisional
+  note: "Window opens on the first day of the 2nd month of the preceding quarter. Worked example in GST Council Circular 143/13/2020-GST (10-11-2020): for Jul–Sep, 1 May to 31 Jul. valid_from = QRMP start 01-01-2021 (UNVERIFIED on the primary text)."
+
+- key: qrmp.option_window.close_offset_months
+  value: "1"
+  type: integer
+  kind: tax
+  valid_from: 2021-01-01
+  source_url: https://taxinformation.cbic.gov.in/content/html/tax_repository/gst/rules/cgst_rules/active/chapter8/rule61a_v1.00.html
+  source_title: "CGST Rules 2017, rule 61A(1) (CBIC tax repository), inserted by Notification 82/2020-Central Tax dated 10-11-2020"
+  last_checked: 2026-10-27
+  status: provisional
+  note: "Window closes on the last day of the 1st month of the quarter opted for (day before Q + 1 month)."

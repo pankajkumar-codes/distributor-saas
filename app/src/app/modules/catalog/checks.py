@@ -42,7 +42,7 @@ def hsn(tx: Session, raw: str | None, today: date) -> str | None:
     if not value:
         return None
     if not value_on(tx, "hsn.pattern", today).fullmatch(value):
-        raise Invalid("hsn_invalid", "HSN is 4, 6 or 8 digits, with no spaces", field="hsn")
+        raise Invalid("hsn_invalid", "That isn't a valid HSN: use digits only, with no spaces", field="hsn")
     return value
 
 

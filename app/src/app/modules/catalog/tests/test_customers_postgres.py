@@ -76,6 +76,8 @@ def test_create_derives_the_state_from_the_gstin_and_reads_back(shop):
     assert c["warnings"] == []
     got = pg.client.get(url(biz, f"/{c['id']}"), headers=as_user("alice")).json()
     assert got == c
+    assert post(pg, url(biz), customer(colour="red")).status_code == 422  # unknown fields are refused
+    assert post(pg, url(biz), customer(billing={"state_code": "27", "country": "IN"})).status_code == 422
 
 
 def test_an_unregistered_customer_needs_a_billing_state(shop):

@@ -61,9 +61,9 @@ def _me(uow: UnitOfWork) -> uuid.UUID:
 
 def _get(uow: UnitOfWork, product_id: uuid.UUID, *, lock: bool = False) -> Product:
     row = uow.tx.execute(
-        text(f"select {_COLUMNS} from catalog.products where id = :p and status <> 'deleted'"
+        text(f"select {_COLUMNS} from catalog.products where id = :p and business_id = :b and status <> 'deleted'"
              + (" for update" if lock else "")),
-        {"p": product_id},
+        {"p": product_id, "b": _business(uow)},
     ).one_or_none()
     if row is None:
         raise Deny("not_found")  # unknown, another business's, or deleted (§2.1)
@@ -79,9 +79,10 @@ def rate_rows(uow: UnitOfWork, product_id: uuid.UUID) -> list[RateRow]:
                 " exists (select 1 from catalog.product_rate_voids v where v.rate_id = r.id),"
                 " coalesce((select c.action = 'confirm' from catalog.product_rate_confirmations c"
                 "           where c.rate_id = r.id order by c.created_at desc, c.id desc limit 1), false)"
-                " from catalog.product_rates r where r.product_id = :p order by r.valid_from, r.created_at"
+                " from catalog.product_rates r where r.product_id = :p and r.business_id = :b"
+                " order by r.valid_from, r.created_at"
             ),
-            {"p": product_id},
+            {"p": product_id, "b": _business(uow)},
         )
     ]
 
@@ -120,9 +121,9 @@ def confirmations(uow: UnitOfWork, product_id: uuid.UUID) -> dict:
         text(
             "select distinct on (c.rate_id) c.rate_id, c.action, c.created_by, c.created_at, c.note"
             " from catalog.product_rate_confirmations c join catalog.product_rates r on r.id = c.rate_id"
-            " where r.product_id = :p order by c.rate_id, c.created_at desc, c.id desc"
+            " where r.product_id = :p and r.business_id = :b order by c.rate_id, c.created_at desc, c.id desc"
         ),
-        {"p": product_id},
+        {"p": product_id, "b": _business(uow)},
     ):
         out[rate_id] = {"state": "confirmed" if action == "confirm" else "unconfirmed", "by": by, "at": at,
                         "note": note}
@@ -132,14 +133,14 @@ def confirmations(uow: UnitOfWork, product_id: uuid.UUID) -> dict:
 def search(uow: UnitOfWork, *, q: str | None, status: str, filter_: str | None, on: date, limit: int,
            offset: int) -> tuple[list[tuple[Product, dict | None]], bool]:
     """Name fragment, code prefix or exact barcode (L3-10), the business's rows only."""
-    where = ["p.status <> 'deleted'"]
-    params: dict = {"on": on, "limit": limit + 1, "offset": offset}
+    where = ["p.business_id = :b", "p.status <> 'deleted'"]
+    params: dict = {"b": _business(uow), "on": on, "limit": limit + 1, "offset": offset}
     if status in ("active", "archived"):
         where.append("p.status = :status")
         params["status"] = status
     if q and q.strip():
         needle = q.strip().lower().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-        where.append("(lower(p.name) like :frag or lower(p.code) like :prefix or lower(p.barcode) = :exact)")
+        where.append("(p.name ilike :frag or lower(p.code) like :prefix or lower(p.barcode) = :exact)")
         params.update(frag=f"%{needle}%", prefix=f"{needle}%", exact=q.strip().lower())
     if filter_ == "no_hsn":
         where.append("p.hsn is null")
@@ -208,7 +209,9 @@ def _check_fields(uow: UnitOfWork, fields: dict, today: date) -> dict:
         elif key == "tax_category":
             out[key] = checks.tax_category(value)
         elif key == "has_cess":
-            out[key] = bool(value)
+            if not isinstance(value, bool):  # null would quietly clear cess (and its block)
+                raise Invalid("has_cess_invalid", "Say true or false", field="has_cess")
+            out[key] = value
     return out
 
 
@@ -277,8 +280,8 @@ def update(uow: UnitOfWork, product_id: uuid.UUID, changes: dict, if_match: int 
     _write(
         uow,
         f"update catalog.products set {sets}, version = version + 1, updated_at = now(), updated_by = :me"
-        " where id = :p",
-        {**changed, "me": _me(uow), "p": product_id},
+        " where id = :p and business_id = :b",
+        {**changed, "me": _me(uow), "p": product_id, "b": _business(uow)},
     )
     audit.record(uow, "product.updated", "product", product_id,
                  data={"code": changed.get("code", p.code), "fields": sorted(changed)})
@@ -293,8 +296,8 @@ def set_archived(uow: UnitOfWork, product_id: uuid.UUID, archived: bool) -> None
     _write(
         uow,
         "update catalog.products set status = :s, version = version + 1, updated_at = now(), updated_by = :me"
-        " where id = :p",
-        {"s": target, "me": _me(uow), "p": product_id},
+        " where id = :p and business_id = :b",
+        {"s": target, "me": _me(uow), "p": product_id, "b": _business(uow)},
     )
     audit.record(uow, "product.archived" if archived else "product.unarchived", "product", product_id,
                  data={"code": p.code})
@@ -308,10 +311,10 @@ def delete(uow: UnitOfWork, product_id: uuid.UUID, if_match: int | None) -> None
     done = uow.tx.execute(
         text(
             "update catalog.products set status = 'deleted', version = version + 1, updated_at = now(),"
-            " updated_by = :me where id = :p and version = :v and first_used_at is null and status <> 'deleted'"
-            " returning code"
+            " updated_by = :me where id = :p and business_id = :b and version = :v and first_used_at is null"
+            " and status <> 'deleted' returning code"
         ),
-        {"me": _me(uow), "p": product_id, "v": if_match},
+        {"me": _me(uow), "p": product_id, "b": _business(uow), "v": if_match},
     ).one_or_none()
     if done is None:
         p = _get(uow, product_id)  # 404 if gone
@@ -335,10 +338,19 @@ def add_rate(uow: UnitOfWork, product_id: uuid.UUID, raw_rate: str, valid_from: 
         raise Conflict("rate_exists_on_date", f"This product already has a rate from {valid_from:%d-%m-%Y}",
                        fix="Void that rate first if it was wrong")
     rate_id = _insert_rate(uow, product_id, value, valid_from)
-    uow.tx.execute(text("update catalog.products set version = version + 1 where id = :p"), {"p": product_id})
+    _bump(uow, product_id)
     audit.record(uow, "product.rate_added", "product", product_id,
                  data={"rate_id": str(rate_id), "rate": f"{value.normalize():f}", "valid_from": valid_from.isoformat()})
     return rate_id
+
+
+def _bump(uow: UnitOfWork, product_id: uuid.UUID) -> None:
+    """A rate add or void changes the product as an edit started earlier saw it (L3-9)."""
+    uow.tx.execute(
+        text("update catalog.products set version = version + 1, updated_at = now(), updated_by = :me"
+             " where id = :p and business_id = :b"),
+        {"me": _me(uow), "p": product_id, "b": _business(uow)},
+    )
 
 
 def _rate(uow: UnitOfWork, product_id: uuid.UUID, rate_id: uuid.UUID) -> RateRow:
@@ -363,7 +375,7 @@ def void_rate(uow: UnitOfWork, product_id: uuid.UUID, rate_id: uuid.UUID, reason
              " values (:r, :b, :reason, :me)"),
         {"r": rate_id, "b": _business(uow), "reason": reason, "me": _me(uow)},
     )
-    uow.tx.execute(text("update catalog.products set version = version + 1 where id = :p"), {"p": product_id})
+    _bump(uow, product_id)
     audit.record(uow, "product.rate_voided", "product", product_id, reason=reason,
                  data={"rate_id": str(rate_id), "rate": f"{target.rate.normalize():f}",
                        "valid_from": target.valid_from.isoformat()})

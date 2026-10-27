@@ -154,7 +154,8 @@ language sql stable security invoker set search_path = pg_catalog, catalog, pg_t
            coalesce((select c.action = 'confirm' from catalog.product_rate_confirmations c
                      where c.rate_id = r.id order by c.created_at desc, c.id desc limit 1), false)
     from catalog.product_rates r
-    where r.valid_from <= p_on
+    where r.business_id = nullif(current_setting('app.tenant_id', true), '')::uuid  -- as well as RLS
+      and r.valid_from <= p_on
       and not exists (select 1 from catalog.product_rate_voids v where v.rate_id = r.id)
     order by r.product_id, r.valid_from desc
 $$;

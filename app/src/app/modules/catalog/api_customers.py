@@ -9,7 +9,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi import status as http
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from platform_common.clock import Clock, get_clock
 from platform_common.paging import PageParams, page_params
@@ -22,6 +22,8 @@ router = APIRouter(tags=["catalog"])
 
 
 class AddressIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     line1: Text | None = None
     line2: Text | None = None
     city: Text | None = None
@@ -30,6 +32,8 @@ class AddressIn(BaseModel):
 
 
 class CustomerIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: Text
     gstin: Text | None = None
     billing: AddressIn = AddressIn()
@@ -39,6 +43,8 @@ class CustomerIn(BaseModel):
 
 
 class CustomerPatch(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: Text | None = None
     gstin: Text | None = None
     billing: AddressIn | None = None
