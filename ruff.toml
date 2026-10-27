@@ -7,3 +7,24 @@ target-version = "py312"
 
 [lint]
 select = ["E4", "E7", "E9", "F"]
+extend-select = ["TID251"]
+
+# The clock rule (LLD-0 §3.5, RM4-12): business code reads uow.clock / Clock, never the
+# system clock, so tests can freeze time and business dates are IST.
+[lint.flake8-tidy-imports.banned-api]
+"datetime.datetime.now".msg = "use Clock.now() (platform_common.clock), not the system clock"
+"datetime.datetime.utcnow".msg = "use Clock.now() (platform_common.clock), not the system clock"
+"datetime.datetime.today".msg = "use Clock.now() / Clock.today() (platform_common.clock)"
+"datetime.date.today".msg = "use Clock.today() (IST), not the system date"
+"time.time".msg = "use Clock.now() (platform_common.clock), not the system clock"
+
+[lint.per-file-ignores]
+"libs/platform_common/platform_common/clock.py" = ["TID251"]  # the one place that reads it
+"**/tests/**" = ["TID251"]
+"tests/**" = ["TID251"]
+"scripts/**" = ["TID251"]
+# Written before Clock existed; each moves to Clock when its owner next changes it.
+"app/src/app/modules/identity/api.py" = ["TID251"]      # stock-era routes, replaced by LLD-2 (#39)
+"app/src/app/modules/identity/models.py" = ["TID251"]   # ORM default for created_at
+"app/src/app/modules/imports/models.py" = ["TID251"]    # ORM default for uploaded_at
+"app/src/app/modules/imports/parsing/profiles.py" = ["TID251"]  # strftime probe of a format, not a date decision

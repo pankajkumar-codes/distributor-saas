@@ -1,0 +1,38 @@
+# Numbers the tax-literals check allows, each with a reason (LLD-0 §7). A tax rate,
+# threshold, limit or date never goes here: it goes in refdata/ with its source.
+- path: app/src/app/modules/imports/parsing/files.py
+  value: "20"
+  reason: "upload size cap in MB (MAX_FILE_BYTES); an abuse limit, not a tax rule"
+- path: app/src/app/modules/imports/parsing/files.py
+  value: "1024"
+  reason: "bytes per KB/MB in the size caps"
+- path: app/src/app/modules/imports/parsing/files.py
+  value: "200000"
+  reason: "MAX_ROWS per uploaded file; an abuse limit, not a tax rule"
+- path: app/src/app/modules/imports/parsing/files.py
+  value: "300"
+  reason: "MAX_COLUMNS per uploaded file; an abuse limit"
+- path: app/src/app/modules/imports/parsing/files.py
+  value: "200"
+  reason: "zip-bomb cap in MB for an .xlsx's uncompressed size"
+- path: app/src/app/modules/imports/parsing/normalize.py
+  value: "2"
+  reason: "a duplicate group needs at least two rows"
+- path: app/src/app/modules/imports/parsing/normalize.py
+  value: "40"
+  reason: "characters of a formula-looking cell quoted in an error message"
+- path: app/src/app/modules/imports/parsing/profiles.py
+  value: "500"
+  reason: "default maximum cell length in a mapping profile; input hygiene"
+- path: app/src/app/modules/imports/parsing/profiles.py
+  value: "10"
+  reason: "default number of rows searched for the header row"
+- path: app/src/app/modules/imports/parsing/profiles.py
+  value: "50"
+  reason: "upper bound on the header search rows a profile may set"
+- path: app/src/app/modules/imports/staging.py
+  value: "500"
+  reason: "dedup keys per lookup query (_LOOKUP_BATCH)"
+- path: app/src/app/modules/imports/staging.py
+  value: "255"
+  reason: "filename truncated to its column width"

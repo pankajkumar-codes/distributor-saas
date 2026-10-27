@@ -271,8 +271,13 @@ def test_a_support_user_with_a_live_grant_reads_but_cannot_write(svc):
         )
     with Session(svc) as s:
         s.execute(
-            text("select set_config('app.user_id', :u, true), set_config('app.support_grant_id', :g, true)"),
-            {"u": str(support), "g": str(grant)},
+            # Bound to the business as well, so the refusals below come from the support
+            # exclusion in the tenant policies, not from a missing tenant (Staff, #35).
+            text(
+                "select set_config('app.user_id', :u, true), set_config('app.support_grant_id', :g, true),"
+                " set_config('app.tenant_id', :b, true)"
+            ),
+            {"u": str(support), "g": str(grant), "b": str(business)},
         )
         assert [r.id for r in s.scalars(select(ImportRun))] == [run_id]
         assert len(s.scalars(select(ImportRow)).all()) == 1

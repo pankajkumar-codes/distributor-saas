@@ -63,6 +63,12 @@ _snapshot: _Snapshot | None = None
 
 def _current(tx: Session) -> _Snapshot:
     global _snapshot
+    # Races, all benign: two requests that miss together both rebuild and the last
+    # writer wins (both built a snapshot of the same rows or of a later load). A load
+    # that commits between the id read below and the row reads gives a snapshot tagged
+    # with the older id but holding newer rows; the next call sees the newer id and
+    # rebuilds. Each table is read by one statement, so each is consistent in itself, and
+    # values and state codes don't depend on each other.
     load_id = tx.execute(text("select id from refdata.loads order by at desc, id limit 1")).scalar()
     snap = _snapshot
     if snap is not None and snap.load_id == load_id:
