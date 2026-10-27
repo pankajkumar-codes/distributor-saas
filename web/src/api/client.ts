@@ -1,7 +1,8 @@
 import createClient from "openapi-fetch";
 
+import { endSession, refreshSession } from "../auth/session";
 import { tokenStore } from "../auth/tokenStore";
-import { toApiError } from "./errors";
+import { toApiError, type ApiError } from "./errors";
 import type { paths } from "./schema";
 
 // Typed from app/openapi.json (`npm run gen:api`). Same origin only: the API is served
@@ -20,14 +21,43 @@ api.use({
   },
 });
 
-/** Resolves to the body of a 2xx, or rejects with an ApiError (status 0 if unreachable). */
-export async function call<T>(request: Promise<{ data?: T; error?: unknown; response: Response }>): Promise<T> {
+type Result<T> = { data?: T; error?: unknown; response: Response };
+
+async function once<T>(request: () => Promise<Result<T>>): Promise<T> {
   let result;
   try {
-    result = await request;
+    result = await request();
   } catch {
     throw toApiError(undefined, undefined);
   }
   if (!result.response.ok) throw toApiError(result.response, result.error);
   return result.data as T;
+}
+
+/**
+ * Resolves to the body of a 2xx, or rejects with an ApiError (status 0 if unreachable).
+ * A 401 session_invalid gets one refresh and one retry (LLD-1 §11.3); if that fails too,
+ * or the retry is refused too, the session listeners hear it and the app goes to sign-in. The /auth calls pass
+ * `refresh: false`: a retried code check would spend one of the user's tries.
+ */
+export async function call<T>(request: () => Promise<Result<T>>, { refresh = true } = {}): Promise<T> {
+  const used = tokenStore.get();
+  try {
+    return await once(request);
+  } catch (e) {
+    if (!refresh || !sessionInvalid(e)) throw e;
+    if ((await refreshSession({ rejected: used })) !== "ok") throw e;
+  }
+  try {
+    return await once(request);
+  } catch (e) {
+    // Refused again with a fresh token: the session itself is gone, so sign the tab out.
+    if (sessionInvalid(e)) endSession();
+    throw e;
+  }
+}
+
+function sessionInvalid(e: unknown): boolean {
+  const error = e as ApiError;
+  return error.status === 401 && error.code === "session_invalid";
 }

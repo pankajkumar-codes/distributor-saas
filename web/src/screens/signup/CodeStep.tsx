@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 
 import { api, call } from "../../api/client";
 import { errorText, type ApiError } from "../../api/errors";
-import { tokenStore } from "../../auth/tokenStore";
+import { startSession } from "../../auth/session";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { Field } from "../../kit/Field";
@@ -48,17 +48,16 @@ export function CodeStep({ email, sentAt, password, onResent, onBack, onPassword
 
   const verify = useMutation<Verified, ApiError>({
     mutationFn: () =>
-      call(api.POST("/api/v1/auth/signup/verify", { body: { email, code, password } })) as Promise<Verified>,
+      call(() => api.POST("/api/v1/auth/signup/verify", { body: { email, code, password } }), { refresh: false }) as Promise<Verified>,
     onSuccess: (done) => {
-      tokenStore.set(done.access_token, done.expires_in);
+      startSession(done.access_token, done.expires_in);
       navigate("/onboarding/business", { replace: true }); // drops the entry holding the email
     },
   });
   const resend = useMutation<unknown, ApiError>({
-    mutationFn: () => call(api.POST("/api/v1/auth/signup", { body: { email } })),
+    mutationFn: () => call(() => api.POST("/api/v1/auth/signup", { body: { email } }), { refresh: false }),
     onSuccess: () => {
       setCode("");
-      verify.reset();
       onResent(Date.now());
     },
   });
@@ -67,7 +66,10 @@ export function CodeStep({ email, sentAt, password, onResent, onBack, onPassword
     e.preventDefault();
     const missing = !password ? "Enter your password." : code.length < 6 ? "Enter all 6 digits." : undefined;
     setIncomplete(missing);
-    if (!missing) verify.mutate();
+    if (!missing) {
+      resend.reset(); // each action clears the other's old error, so a stale one can't mask it
+      verify.mutate();
+    }
   };
 
   const error = verify.error ?? resend.error;
@@ -106,7 +108,10 @@ export function CodeStep({ email, sentAt, password, onResent, onBack, onPassword
         <p className="note">
           {left > 0 ? `Code expires in ${countdown(left)}.` : "This code has expired. Send a new code."}
         </p>
-        <Button type="button" variant="link" busy={resend.isPending} onClick={() => resend.mutate()}>
+        <Button type="button" variant="link" busy={resend.isPending} onClick={() => {
+            verify.reset();
+            resend.mutate();
+          }}>
           Send a new code
         </Button>
         <p className="note">The code works for 10 minutes. After 5 wrong tries it stops working and you can ask for a new one.</p>
