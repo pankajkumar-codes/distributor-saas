@@ -1,2 +1,6 @@
+# The app's origin comes first. Before a domain exists, apply once with any https
+# placeholder, then put the app_url output here and apply again.
 web_origins         = ["https://app.example.in"]
 budget_alert_emails = ["you@example.com"]
+# Set once a domain is chosen and verified for SES (pending on Pankaj).
+# mail_domain = "example.in"

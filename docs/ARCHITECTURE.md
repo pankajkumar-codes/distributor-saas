@@ -10,9 +10,9 @@ authoritative design documents are in the project files, not in this repo:
 This page summarises them. Where it differs from them, they win.
 
 > **Code status.** The code is in the layout below (`app/`, `libs/platform_common`,
-> `migrator/`). Locally and in CI it connects as `app_rw` on the LLD-1 identity tables;
-> in AWS the DB user moves from `svc_identity` to `app_rw` with Staff 2's S0b change,
-> which also replaces the per-service Lambdas. Every request is checked by identity's
+> `migrator/`). It connects as `app_rw` locally, in CI, and in AWS, where the S0b
+> Terraform (D-040) sets `DB_USER=app_rw` on the API and worker Lambdas. That
+> Terraform is written but not applied. Every request is checked by identity's
 > principal resolver (`identity.auth_resolve`: a live session, then membership or a support
 > grant). Until S1 sign-up and sign-in create `identity.users` and `identity.sessions`
 > rows, no caller in AWS has either, so identity answers 401 there. Locally and in tests,

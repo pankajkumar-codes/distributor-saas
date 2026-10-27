@@ -241,3 +241,14 @@ def test_every_migration_runs_as_a_non_superuser_createrole_master(tmp_path):
             admin.execute(f"drop database {db} with (force)")
             admin.execute(f"drop owned by {master}")
             admin.execute(f"drop role {master}")
+
+
+def test_the_handler_refuses_to_run_off_lambda(monkeypatch):
+    """Locally and in CI the master comes from PG_ADMIN_URL; the handler never reaches for
+    the shell's AWS credentials (D-040)."""
+    from migrator import handler as handler_module
+
+    monkeypatch.delenv("AWS_LAMBDA_FUNCTION_NAME", raising=False)
+    monkeypatch.setenv("DB_MASTER_PASSWORD_PARAM", "/distsaas-staging/db/master-password")
+    with pytest.raises(RuntimeError, match="Lambda only"):
+        handler_module.handler({}, None)

@@ -40,6 +40,26 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "state" {
   }
 }
 
+# Saved plans from .github/workflows/deploy-staging.yml hold state, secrets included.
+# The apply job deletes its plan; this removes any whose apply never ran.
+resource "aws_s3_bucket_lifecycle_configuration" "state" {
+  bucket     = aws_s3_bucket.state.id
+  depends_on = [aws_s3_bucket_versioning.state]
+  rule {
+    id     = "saved-plans"
+    status = "Enabled"
+    filter {
+      prefix = "plans/"
+    }
+    expiration {
+      days = 7
+    }
+    noncurrent_version_expiration {
+      noncurrent_days = 1
+    }
+  }
+}
+
 resource "aws_s3_bucket_public_access_block" "state" {
   bucket                  = aws_s3_bucket.state.id
   block_public_acls       = true

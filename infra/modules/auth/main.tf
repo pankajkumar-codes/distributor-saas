@@ -1,9 +1,10 @@
-# Sign-in is Cognito. Tokens carry no tenant: the tenant is chosen per request and
-# checked against memberships on the server.
+# Sign-in is Cognito, driven only through our API (TD-4): the API signs users in with
+# AdminInitiateAuth, so the client allows the admin password flow and not SRP. There is
+# no hosted-UI domain, which keeps the pool usable over the Cognito interface endpoint
+# (tech plan §4.5). Tokens carry no tenant: the tenant is chosen per request and checked
+# against memberships on the server.
 
 variable "name" { type = string }
-variable "callback_urls" { type = list(string) }
-variable "logout_urls" { type = list(string) }
 variable "allow_password_login" {
   description = "Lets scripts sign in with a username and password (USER_PASSWORD_AUTH). For staging testing only."
   type        = bool
@@ -43,20 +44,15 @@ resource "aws_cognito_user_pool" "this" {
 }
 
 resource "aws_cognito_user_pool_client" "web" {
-  name                                 = "${var.name}-web"
-  user_pool_id                         = aws_cognito_user_pool.this.id
-  generate_secret                      = false
-  explicit_auth_flows                  = concat(["ALLOW_USER_SRP_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"], var.allow_password_login ? ["ALLOW_USER_PASSWORD_AUTH"] : [])
-  prevent_user_existence_errors        = "ENABLED"
-  allowed_oauth_flows_user_pool_client = true
-  allowed_oauth_flows                  = ["code"]
-  allowed_oauth_scopes                 = ["openid", "email"]
-  supported_identity_providers         = ["COGNITO"]
-  callback_urls                        = var.callback_urls
-  logout_urls                          = var.logout_urls
-  access_token_validity                = 60
-  id_token_validity                    = 60
-  refresh_token_validity               = 30
+  name                          = "${var.name}-web"
+  user_pool_id                  = aws_cognito_user_pool.this.id
+  generate_secret               = false
+  explicit_auth_flows           = concat(["ALLOW_ADMIN_USER_PASSWORD_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"], var.allow_password_login ? ["ALLOW_USER_PASSWORD_AUTH"] : [])
+  prevent_user_existence_errors = "ENABLED"
+  supported_identity_providers  = ["COGNITO"]
+  access_token_validity         = 5 # TD-4b: Cognito's minimum; the session row does the rest
+  id_token_validity             = 5
+  refresh_token_validity        = 30
   token_validity_units {
     access_token  = "minutes"
     id_token      = "minutes"
@@ -67,5 +63,6 @@ resource "aws_cognito_user_pool_client" "web" {
 data "aws_region" "current" {}
 
 output "user_pool_id" { value = aws_cognito_user_pool.this.id }
+output "user_pool_arn" { value = aws_cognito_user_pool.this.arn }
 output "client_id" { value = aws_cognito_user_pool_client.web.id }
 output "issuer" { value = "https://cognito-idp.${data.aws_region.current.name}.amazonaws.com/${aws_cognito_user_pool.this.id}" }
