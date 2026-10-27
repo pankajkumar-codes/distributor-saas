@@ -48,7 +48,7 @@ class Product:
 
 
 def _product(row) -> Product:
-    return Product(*row[:12])
+    return Product(*row[: len(_FIELDS) + 1])  # the fields, then in_use
 
 
 def _business(uow: UnitOfWork) -> uuid.UUID:
@@ -148,7 +148,8 @@ def search(uow: UnitOfWork, *, q: str | None, status: str, filter_: str | None, 
     rows = uow.tx.execute(
         text(
             f"select {', '.join('p.' + c for c in _FIELDS)},"
-            " p.first_used_at is not null, cr.rate, cr.rate_id, cr.valid_from, cr.confirmed"
+            " p.first_used_at is not null, cr.rate as cr_rate, cr.rate_id as cr_rate_id,"
+            " cr.valid_from as cr_valid_from, cr.confirmed as cr_confirmed"
             " from catalog.products p left join catalog.current_rates(:on) cr on cr.product_id = p.id"
             f" where {' and '.join(where)} order by lower(p.code), p.id limit :limit offset :offset"
         ),
@@ -157,7 +158,9 @@ def search(uow: UnitOfWork, *, q: str | None, status: str, filter_: str | None, 
     more = len(rows) > limit
     items = []
     for r in rows[:limit]:
-        rate = None if r[13] is None else {"rate": r[12], "rate_id": r[13], "valid_from": r[14], "confirmed": r[15]}
+        rate = None if r.cr_rate_id is None else {
+            "rate": r.cr_rate, "rate_id": r.cr_rate_id, "valid_from": r.cr_valid_from, "confirmed": r.cr_confirmed,
+        }
         items.append((_product(r), rate))
     return items, more
 

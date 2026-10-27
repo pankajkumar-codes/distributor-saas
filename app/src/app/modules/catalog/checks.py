@@ -48,7 +48,7 @@ def hsn(tx: Session, raw: str | None, today: date) -> str | None:
 
 def uqc(tx: Session, raw: str, today: date) -> str:
     value = (raw or "").strip().upper()
-    if len(value) != 3 or uqc_name(tx, value, today) is None:
+    if uqc_name(tx, value, today) is None:
         raise Invalid("uqc_unknown", "Choose a unit from the list", field="uqc")
     return value
 

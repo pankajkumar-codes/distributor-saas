@@ -81,26 +81,59 @@ create table catalog.product_rate_confirmations (
 );
 create index product_rate_confirmations_rate on catalog.product_rate_confirmations (rate_id, created_at, id);
 
--- Row-level security -------------------------------------------------------------
-do $$
-declare
-    t text;
-begin
-    foreach t in array array['products', 'product_rates', 'product_rate_voids', 'product_rate_confirmations'] loop
-        execute format('alter table catalog.%I enable row level security', t);
-        execute format('alter table catalog.%I force row level security', t);
-        execute format($p$create policy tenant_rw on catalog.%I to app_rw
-            using (business_id = nullif(current_setting('app.tenant_id', true), '')::uuid
-                   and coalesce(current_setting('app.support_grant_id', true), '') = '')
-            with check (business_id = nullif(current_setting('app.tenant_id', true), '')::uuid
-                        and coalesce(current_setting('app.support_grant_id', true), '') = '')$p$, t);
-        execute format($p$create policy tenant_read_ro on catalog.%I for select to app_ro
-            using (business_id = nullif(current_setting('app.tenant_id', true), '')::uuid
-                   and coalesce(current_setting('app.support_grant_id', true), '') = '')$p$, t);
-        execute format($p$create policy support_read on catalog.%I for select to app_rw, app_ro
-            using (platform.support_grant_active(business_id))$p$, t);
-    end loop;
-end $$;
+-- Row-level security, written out per table (no dynamic SQL; migrator.lint, migrator.checks).
+
+alter table catalog.products enable row level security;
+alter table catalog.products force row level security;
+create policy tenant_rw on catalog.products to app_rw
+    using (business_id = nullif(current_setting('app.tenant_id', true), '')::uuid
+               and coalesce(current_setting('app.support_grant_id', true), '') = '')
+    with check (business_id = nullif(current_setting('app.tenant_id', true), '')::uuid
+               and coalesce(current_setting('app.support_grant_id', true), '') = '');
+create policy tenant_read_ro on catalog.products for select to app_ro
+    using (business_id = nullif(current_setting('app.tenant_id', true), '')::uuid
+               and coalesce(current_setting('app.support_grant_id', true), '') = '');
+create policy support_read on catalog.products for select to app_rw, app_ro
+    using (platform.support_grant_active(business_id));
+
+alter table catalog.product_rates enable row level security;
+alter table catalog.product_rates force row level security;
+create policy tenant_rw on catalog.product_rates to app_rw
+    using (business_id = nullif(current_setting('app.tenant_id', true), '')::uuid
+               and coalesce(current_setting('app.support_grant_id', true), '') = '')
+    with check (business_id = nullif(current_setting('app.tenant_id', true), '')::uuid
+               and coalesce(current_setting('app.support_grant_id', true), '') = '');
+create policy tenant_read_ro on catalog.product_rates for select to app_ro
+    using (business_id = nullif(current_setting('app.tenant_id', true), '')::uuid
+               and coalesce(current_setting('app.support_grant_id', true), '') = '');
+create policy support_read on catalog.product_rates for select to app_rw, app_ro
+    using (platform.support_grant_active(business_id));
+
+alter table catalog.product_rate_voids enable row level security;
+alter table catalog.product_rate_voids force row level security;
+create policy tenant_rw on catalog.product_rate_voids to app_rw
+    using (business_id = nullif(current_setting('app.tenant_id', true), '')::uuid
+               and coalesce(current_setting('app.support_grant_id', true), '') = '')
+    with check (business_id = nullif(current_setting('app.tenant_id', true), '')::uuid
+               and coalesce(current_setting('app.support_grant_id', true), '') = '');
+create policy tenant_read_ro on catalog.product_rate_voids for select to app_ro
+    using (business_id = nullif(current_setting('app.tenant_id', true), '')::uuid
+               and coalesce(current_setting('app.support_grant_id', true), '') = '');
+create policy support_read on catalog.product_rate_voids for select to app_rw, app_ro
+    using (platform.support_grant_active(business_id));
+
+alter table catalog.product_rate_confirmations enable row level security;
+alter table catalog.product_rate_confirmations force row level security;
+create policy tenant_rw on catalog.product_rate_confirmations to app_rw
+    using (business_id = nullif(current_setting('app.tenant_id', true), '')::uuid
+               and coalesce(current_setting('app.support_grant_id', true), '') = '')
+    with check (business_id = nullif(current_setting('app.tenant_id', true), '')::uuid
+               and coalesce(current_setting('app.support_grant_id', true), '') = '');
+create policy tenant_read_ro on catalog.product_rate_confirmations for select to app_ro
+    using (business_id = nullif(current_setting('app.tenant_id', true), '')::uuid
+               and coalesce(current_setting('app.support_grant_id', true), '') = '');
+create policy support_read on catalog.product_rate_confirmations for select to app_rw, app_ro
+    using (platform.support_grant_active(business_id));
 
 -- Grants: no DELETE anywhere; the three rate tables are insert-only (AC3-2).
 grant select, insert, update on catalog.products to app_rw;

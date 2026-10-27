@@ -9,6 +9,7 @@ from datetime import date
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
+from fastapi import status as http
 from pydantic import BaseModel, Field
 
 from app.modules.refdata import uqc_codes
@@ -217,7 +218,7 @@ def list_products(
     return {"items": [_out(p, rate) for p, rate in items], "has_more": more}
 
 
-@router.post("/b/{business_id}/products", status_code=201, response_model=ProductDetailOut, dependencies=EDIT)
+@router.post("/b/{business_id}/products", status_code=http.HTTP_201_CREATED, response_model=ProductDetailOut, dependencies=EDIT)
 def create_product(
     body: ProductIn,
     request: Request,
@@ -268,14 +269,14 @@ def unarchive_product(product_id: str, uow: BusinessUoW, clock: Annotated[Clock,
     return _detail(uow, pid, clock.today())
 
 
-@router.delete("/b/{business_id}/products/{product_id}", status_code=204, dependencies=EDIT)
+@router.delete("/b/{business_id}/products/{product_id}", status_code=http.HTTP_204_NO_CONTENT, dependencies=EDIT)
 def delete_product(product_id: str, uow: BusinessUoW,
                    if_match: Annotated[str | None, Header(alias="If-Match")] = None):
     products.delete(uow, parse_id(product_id), _version(if_match))
-    return Response(status_code=204)
+    return Response(status_code=http.HTTP_204_NO_CONTENT)
 
 
-@router.post("/b/{business_id}/products/{product_id}/rates", status_code=201, response_model=ProductDetailOut,
+@router.post("/b/{business_id}/products/{product_id}/rates", status_code=http.HTTP_201_CREATED, response_model=ProductDetailOut,
              dependencies=EDIT)
 def add_rate(
     product_id: str,
@@ -295,7 +296,7 @@ def add_rate(
     return _once(request, uow, idempotency_key, body.model_dump(mode="json"), add)
 
 
-@router.post("/b/{business_id}/products/{product_id}/rates/{rate_id}/void", status_code=201,
+@router.post("/b/{business_id}/products/{product_id}/rates/{rate_id}/void", status_code=http.HTTP_201_CREATED,
              response_model=ProductDetailOut, dependencies=EDIT)
 def void_rate(product_id: str, rate_id: str, body: ReasonIn, uow: BusinessUoW,
               clock: Annotated[Clock, Depends(get_clock)]):
@@ -304,7 +305,7 @@ def void_rate(product_id: str, rate_id: str, body: ReasonIn, uow: BusinessUoW,
     return _detail(uow, pid, clock.today())
 
 
-@router.post("/b/{business_id}/products/{product_id}/rates/{rate_id}/confirm", status_code=201,
+@router.post("/b/{business_id}/products/{product_id}/rates/{rate_id}/confirm", status_code=http.HTTP_201_CREATED,
              response_model=ProductDetailOut, dependencies=EDIT)
 def confirm_rate(product_id: str, rate_id: str, body: NoteIn, uow: BusinessUoW,
                  clock: Annotated[Clock, Depends(get_clock)]):
@@ -313,7 +314,7 @@ def confirm_rate(product_id: str, rate_id: str, body: NoteIn, uow: BusinessUoW,
     return _detail(uow, pid, clock.today())
 
 
-@router.post("/b/{business_id}/products/{product_id}/rates/{rate_id}/unconfirm", status_code=201,
+@router.post("/b/{business_id}/products/{product_id}/rates/{rate_id}/unconfirm", status_code=http.HTTP_201_CREATED,
              response_model=ProductDetailOut, dependencies=EDIT)
 def unconfirm_rate(product_id: str, rate_id: str, body: ReasonIn, uow: BusinessUoW,
                    clock: Annotated[Clock, Depends(get_clock)]):
