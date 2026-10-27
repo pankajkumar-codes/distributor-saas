@@ -2,8 +2,14 @@
 
 React + TypeScript (Vite), React Router and TanStack Query, per TD-2 and HLD §9. S1 so far:
 `/signup` (email and password, then the emailed code), `/signin` (password, then the
-authenticator-app code when two-step sign-in is on), `/businesses`, and placeholders for
-`/onboarding/business` and `/b/:businessId/home`.
+authenticator-app code when two-step sign-in is on), `/businesses`, `/onboarding/business`
+(M2 step 3: GSTIN or enrolment number, names, turnover band, e-invoicing history, address
+and GSTR-1 frequency), and a placeholder for `/b/:businessId/home`.
+
+The GSTIN hint (`src/format/gstin.ts`) is a port of `business/gstin.py` for as-you-type
+feedback only; the server decides. Both test suites read
+`app/src/app/modules/business/tests/gstin_cases.json`, so the two can't drift: a change to
+the rule changes that file, and both suites must pass on it.
 
 The session (`src/auth/session.ts`, LLD-1 §11.3): the access token lives in memory, and a
 reload gets a new one from `/auth/refresh` using the HttpOnly cookie. A 401

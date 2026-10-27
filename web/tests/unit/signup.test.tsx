@@ -23,6 +23,7 @@ afterEach(() => vi.unstubAllGlobals());
 const SIGNUP = "/api/v1/auth/signup";
 const REFRESH = "/api/v1/auth/refresh";
 const VERIFY = "/api/v1/auth/signup/verify";
+const STATES = "/api/v1/refdata/state-codes"; // the onboarding screen loads its state picker
 const VERIFIED = { status: 200, body: { access_token: "tok-1", expires_in: 3600, user: { id: "u1", email: EMAIL } } };
 
 async function stepOne(password = PASSWORD) {
@@ -55,7 +56,7 @@ describe("sign-up", () => {
     await enterCode();
     await screen.findByRole("heading", { name: "Your business and GST" });
 
-    expect(sent.map((s) => s.path).filter((p) => p !== REFRESH)).toEqual([SIGNUP, VERIFY]);
+    expect(sent.map((s) => s.path).filter((p) => p !== REFRESH && p !== STATES)).toEqual([SIGNUP, VERIFY]);
     expect(sent.find((s) => s.path === VERIFY)?.body).toEqual({ email: EMAIL, code: "123456", password: PASSWORD });
     expect(tokenStore.get()).toBe("tok-1");
     expect(window.location.pathname).toBe("/onboarding/business");
@@ -82,7 +83,7 @@ describe("sign-up", () => {
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: PASSWORD } });
     fireEvent.click(screen.getByRole("button", { name: "Create account" }));
     await screen.findByRole("heading", { name: "Your business and GST" });
-    expect(sent.at(-1)?.body?.password).toBe(PASSWORD);
+    expect(sent.filter((s) => s.path === VERIFY).at(-1)?.body?.password).toBe(PASSWORD);
   });
 
   it("goes back to step 1 on a reload with no email in history", async () => {

@@ -73,6 +73,9 @@ POST /b already reads `identity.max_owned_businesses` (5, provisional; **Pankaj 
 | Address state different from GSTIN state | A warning, `address_state_mismatch` (L1-12, BRD ON-3); `gstin.md` §4 says refuse | GST expert confirms |
 | 14th GSTIN character not `Z` on the business's own GSTIN | A warning, `gstin_not_z` (`gstin.md` §1, §4 item 5) | none |
 | Home checklist links for screens not built yet (`/settings/filing`, `/products`, `/customers`, `/settings/team`) | Home returns these paths under `/b/{id}` | Junior and Designer confirm the SPA routes |
+| Onboarding labels that would name an amount: the turnover band and the e-invoicing history question (mock v11 and `refdata-lld4.md` say "₹5 crore") | The web names no amount: "Up to the limit for quarterly filing (QRMP)" / "Above that limit", and "…been above the e-invoicing limit in any financial year since 2017-18?". No threshold is in refdata yet | GST expert loads the thresholds with citations; PO and Designer confirm the words, or a refdata route serves the label |
+| Onboarding warning words (`window_unknown`, `outside_window`, `last_return_unfiled`, `aato_above_threshold`, `address_state_mismatch`, `pan_shape`, `gstin_not_z`) | Provisional text in `web/src/screens/onboarding/warnings.ts`; each says "check with your CA" and names no date or amount | PO and GST expert confirm |
+| Frequency `effective_from` from onboarding | The current quarter's start, in India's time zone; the web never offers the FY start that L1-13 allows a first row | PO confirms, with L1-13 |
 
 ## Refdata rows to confirm (S0b)
 Every row in `refdata/` is `provisional`. Before go-live:
