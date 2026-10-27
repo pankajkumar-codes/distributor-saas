@@ -21,6 +21,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset Request
+         * @description §5.8: the same reply whether or not the email has an account.
+         */
+        post: operations["reset_request_api_v1_auth_reset_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/reset/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset Verify
+         * @description §5.8. Sets no cookie: every session ends, and the user signs in again.
+         */
+        post: operations["reset_verify_api_v1_auth_reset_verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/signin": {
         parameters: {
             query?: never;
@@ -512,6 +552,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/sessions/revoke-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke All Sessions
+         * @description §5.7 Sign out everywhere, this device included: the SPA goes to sign-in.
+         */
+        post: operations["revoke_all_sessions_api_v1_me_sessions_revoke_all_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/refdata/state-codes": {
         parameters: {
             query?: never;
@@ -545,6 +605,13 @@ export interface components {
              * Format: uuid
              */
             business_id: string;
+        };
+        /** AccessTokenOut */
+        AccessTokenOut: {
+            /** Access Token */
+            access_token: string;
+            /** Expires In */
+            expires_in: number;
         };
         /** Actor */
         Actor: {
@@ -649,6 +716,19 @@ export interface components {
             /** Key */
             key: string;
         };
+        /** CodeSent */
+        CodeSent: {
+            /** Code Max Tries */
+            code_max_tries: number;
+            /** Code Ttl Minutes */
+            code_ttl_minutes: number;
+            /**
+             * Status
+             * @default code_sent
+             * @constant
+             */
+            status: "code_sent";
+        };
         /** CurrentFrequencyOut */
         CurrentFrequencyOut: {
             /**
@@ -666,6 +746,23 @@ export interface components {
         EmailBody: {
             /** Email */
             email: string;
+        };
+        /** ErrorDetail */
+        ErrorDetail: {
+            /** Code */
+            code: string;
+            /** Field */
+            field?: string | null;
+            /** Fix */
+            fix?: string | null;
+            /** Message */
+            message: string;
+        };
+        /** ErrorOut */
+        ErrorOut: {
+            /** Challenge */
+            challenge?: string | null;
+            error: components["schemas"]["ErrorDetail"];
         };
         /** FilingProfileOut */
         FilingProfileOut: {
@@ -862,6 +959,17 @@ export interface components {
             /** Members */
             members: components["schemas"]["MemberOut"][];
         };
+        /** MembershipOut */
+        MembershipOut: {
+            /** Business Id */
+            business_id: string;
+            /** Display Name */
+            display_name: string;
+            /** Gstin */
+            gstin: string | null;
+            /** Role */
+            role: string;
+        };
         /** MyBusiness */
         MyBusiness: {
             /** Business Id */
@@ -909,6 +1017,15 @@ export interface components {
              * @enum {string}
              */
             turnover_band: "up_to_threshold" | "above_threshold";
+        };
+        /** PasswordSetOut */
+        PasswordSetOut: {
+            /**
+             * Status
+             * @default password_set
+             * @constant
+             */
+            status: "password_set";
         };
         /** ProfileOut */
         ProfileOut: {
@@ -997,6 +1114,15 @@ export interface components {
             /** State Name */
             state_name: string | null;
         };
+        /** ResetVerifyBody */
+        ResetVerifyBody: {
+            /** Code */
+            code: string;
+            /** Email */
+            email: string;
+            /** New Password */
+            new_password: string;
+        };
         /**
          * Role
          * @enum {string}
@@ -1005,6 +1131,24 @@ export interface components {
         /** RoleIn */
         RoleIn: {
             role: components["schemas"]["Role"];
+        };
+        /** SignedInOut */
+        SignedInOut: {
+            /** Access Token */
+            access_token: string;
+            /** Expires In */
+            expires_in: number;
+            /** Memberships */
+            memberships: components["schemas"]["MembershipOut"][];
+            user: components["schemas"]["UserOut"];
+        };
+        /** SignedUpOut */
+        SignedUpOut: {
+            /** Access Token */
+            access_token: string;
+            /** Expires In */
+            expires_in: number;
+            user: components["schemas"]["UserOut"];
         };
         /** SigninBody */
         SigninBody: {
@@ -1064,6 +1208,17 @@ export interface components {
             /** Email */
             email: string;
         };
+        /** TotpStepOut */
+        TotpStepOut: {
+            /** Challenge */
+            challenge: string;
+            /**
+             * Step
+             * @default totp
+             * @constant
+             */
+            step: "totp";
+        };
         /** TurnoverBandIn */
         TurnoverBandIn: {
             /**
@@ -1085,6 +1240,13 @@ export interface components {
             declared_turnover: string | null;
             /** Fy */
             fy: string;
+        };
+        /** UserOut */
+        UserOut: {
+            /** Email */
+            email: string;
+            /** Id */
+            id: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -1144,7 +1306,118 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AccessTokenOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    reset_request_api_v1_auth_reset_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodeSent"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    reset_verify_api_v1_auth_reset_verify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetVerifyBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasswordSetOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
                 };
             };
         };
@@ -1168,16 +1441,34 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SignedInOut"] | components["schemas"]["TotpStepOut"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
                 };
             };
         };
@@ -1201,16 +1492,34 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SignedInOut"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
                 };
             };
         };
@@ -1252,16 +1561,25 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CodeSent"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
                 };
             };
         };
@@ -1285,16 +1603,43 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SignedUpOut"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
                 };
             };
         };
@@ -2129,6 +2474,24 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
+            };
+        };
+    };
+    revoke_all_sessions_api_v1_me_sessions_revoke_all_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

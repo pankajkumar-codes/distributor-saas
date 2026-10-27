@@ -60,7 +60,7 @@ def one(admin, sql, **params):
 
 def sign_up(client, mail, email=EMAIL):
     r = client.post("/api/v1/auth/signup", json={"email": email})
-    assert (r.status_code, r.json()) == (202, {"status": "code_sent"})
+    assert (r.status_code, r.json()) == (202, {"status": "code_sent", "code_ttl_minutes": 10, "code_max_tries": 5})
     return last(mail)
 
 

@@ -196,7 +196,7 @@ def test_a_totp_answer_under_another_email_is_refused(env):
     code = enrol(idp)
     challenge = signin(client).json()["challenge"]
     r = totp(client, challenge, code, email="ravi@example.com")  # Asha's challenge, Ravi's email
-    assert (r.status_code, r.json()["error"]["code"]) == (401, "signin_not_accepted")
+    assert (r.status_code, r.json()["error"]["code"]) == (401, "signin_expired")  # the provider binds it
     assert one(admin, "select count(*) from identity.sessions") == 2  # the two sign-ups' only
 
 
@@ -210,3 +210,47 @@ def test_no_secret_reaches_the_logs(env, caplog):  # AC-15
     signin(client, password="wrong password here")
     secrets = [PASSWORD, challenge, code, done.json()["access_token"], cookie(done).value]
     assert not [s for s in secrets for rec in caplog.records if s in rec.getMessage()]
+
+
+def test_a_token_without_auth_time_is_refused_not_a_500(env, monkeypatch):
+    client, idp, _, admin = env
+    from app.modules.identity.service import signin as signin_mod
+
+    real = signin_mod.verified_claims
+    monkeypatch.setattr(
+        signin_mod, "verified_claims", lambda t, i: {k: v for k, v in real(t, i).items() if k != "auth_time"}
+    )
+    r = signin(client)
+    assert (r.status_code, r.json()["error"]["code"]) == (401, "signin_not_accepted")
+    assert one(admin, "select count(*) from identity.sessions") == 1
+    assert sum(t.revoked for t in idp._refresh.values()) == 1  # the sign-in's token; sign-up's stays
+
+
+def test_the_limits_and_session_length_come_from_refdata(env, monkeypatch):
+    client, _, _, admin = env
+    from app.modules.identity.service import limits
+
+    rows = {"auth.signin_per_email_per_15min": 2, "auth.session_max_days": 3}
+    real = limits.value_on
+    monkeypatch.setattr(limits, "value_on", lambda tx, key, on: rows.get(key) or real(tx, key, on))
+    assert signin(client).status_code == 200
+    newest = "select absolute_expires_at - created_at from identity.sessions order by created_at desc limit 1"
+    assert one(admin, newest).days == 3
+    assert signin(client).status_code == 200
+    assert signin(client).status_code == 429
+
+
+def test_every_auth_route_declares_its_reply_for_the_web_client():
+    from app import api as app_api
+
+    paths = app_api.app.openapi()["paths"]
+    for path, status in [
+        ("/api/v1/auth/signup", "202"),
+        ("/api/v1/auth/signup/verify", "200"),
+        ("/api/v1/auth/signin", "200"),
+        ("/api/v1/auth/signin/totp", "200"),
+        ("/api/v1/auth/refresh", "200"),
+    ]:
+        op = paths[path]["post"]["responses"]
+        assert op[status]["content"]["application/json"]["schema"], path
+        assert "401" in op or "422" in op, path  # the error shape is declared too

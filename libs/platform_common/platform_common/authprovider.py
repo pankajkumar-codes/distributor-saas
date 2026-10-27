@@ -50,7 +50,11 @@ class AuthProvider(Protocol):
 
     def initiate_auth(self, email: str, password: str) -> AuthResult: ...
 
-    def respond_totp(self, challenge: str, code: str) -> AuthResult: ...
+    def respond_totp(self, email: str, challenge: str, code: str) -> AuthResult:
+        """Answer the TOTP challenge. `email` is the USERNAME Cognito's
+        AdminRespondToAuthChallenge needs; the provider refuses a challenge that isn't
+        that user's (challenge_expired), so a guesser can't rotate emails past the
+        per-email limit."""
 
     def refresh(self, refresh_token: str) -> AuthResult: ...
 
