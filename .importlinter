@@ -49,6 +49,33 @@ forbidden_modules =
 ignore_imports =
     app.modules.*.tests.** -> app.api
 
+; Home composes modules through their interfaces only (LLD-1 L1-16).
+[importlinter:contract:home-uses-interfaces]
+name = app.home imports modules only through their interface packages
+type = forbidden
+source_modules =
+    app.home
+forbidden_modules =
+    app.modules.identity
+    app.modules.business
+    app.modules.imports
+    app.api
+    app.worker
+allow_indirect_imports = True
+ignore_imports =
+    app.home.** -> app.modules.*.interface
+
+[importlinter:contract:home-is-a-leaf]
+name = No module imports app.home
+type = forbidden
+source_modules =
+    app.modules
+forbidden_modules =
+    app.home
+; Module tests drive the mounted app, which mounts Home.
+ignore_imports =
+    app.modules.*.tests.** -> app.api
+
 [importlinter:contract:platform-common-standalone]
 name = platform_common imports nothing from the app or the migrator
 type = forbidden

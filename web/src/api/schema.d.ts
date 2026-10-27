@@ -143,6 +143,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/channels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Channels */
+        get: operations["get_channels_api_v1_b__business_id__channels_get"];
+        /** Put Channels */
+        put: operations["put_channels_api_v1_b__business_id__channels_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/filing-profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Filing Profile */
+        get: operations["get_filing_profile_api_v1_b__business_id__filing_profile_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/filing-profile/frequency": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Frequency */
+        post: operations["post_frequency_api_v1_b__business_id__filing_profile_frequency_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/home": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Home */
+        get: operations["home_api_v1_b__business_id__home_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/invitations": {
         parameters: {
             query?: never;
@@ -271,6 +340,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Profile */
+        get: operations["get_profile_api_v1_b__business_id__profile_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Profile */
+        patch: operations["patch_profile_api_v1_b__business_id__profile_patch"];
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/turnover-bands/{fy}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Put Turnover Band */
+        put: operations["put_turnover_band_api_v1_b__business_id__turnover_bands__fy__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/health": {
         parameters: {
             query?: never;
@@ -374,6 +478,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/refdata/state-codes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get State Codes
+         * @description The GST state and UT codes valid on `on` (default: today in India), exactly as
+         *     loaded from refdata/state_codes.yaml. Code 96 (other country) is a place of supply
+         *     only; business refuses it as a registration or address state (gstin.md §3).
+         */
+        get: operations["get_state_codes_api_v1_refdata_state_codes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -411,6 +537,19 @@ export interface components {
             /** State Code */
             state_code?: string | null;
         };
+        /** AddressOut */
+        AddressOut: {
+            /** City */
+            city: string | null;
+            /** Line1 */
+            line1: string | null;
+            /** Line2 */
+            line2: string | null;
+            /** Pin */
+            pin: string | null;
+            /** State Code */
+            state_code: string | null;
+        };
         /** AuditPageOut */
         AuditPageOut: {
             /** Items */
@@ -438,15 +577,144 @@ export interface components {
             reason: string | null;
             target: components["schemas"]["Target"];
         };
+        /** ChannelsIn */
+        ChannelsIn: {
+            /** Amazon */
+            amazon: boolean;
+            /** Flipkart */
+            flipkart: boolean;
+            /** Meesho */
+            meesho: boolean;
+        };
+        /** ChannelsOut */
+        ChannelsOut: {
+            /** Amazon */
+            amazon: boolean;
+            /** Answered */
+            answered: boolean;
+            /** Flipkart */
+            flipkart: boolean;
+            /** Meesho */
+            meesho: boolean;
+        };
+        /** Checklist */
+        Checklist: {
+            /** Done */
+            done: number;
+            /** Items */
+            items: components["schemas"]["ChecklistItem"][];
+            /** Total */
+            total: number;
+        };
+        /** ChecklistItem */
+        ChecklistItem: {
+            /** Done */
+            done: boolean;
+            /** Href */
+            href: string;
+            /** Key */
+            key: string;
+        };
+        /** CurrentFrequencyOut */
+        CurrentFrequencyOut: {
+            /**
+             * Effective From
+             * Format: date
+             */
+            effective_from: string;
+            /**
+             * Frequency
+             * @enum {string}
+             */
+            frequency: "monthly" | "quarterly";
+        };
         /** EmailBody */
         EmailBody: {
             /** Email */
             email: string;
         };
+        /** FilingProfileOut */
+        FilingProfileOut: {
+            current: components["schemas"]["CurrentFrequencyOut"] | null;
+            /** Gstin */
+            gstin: string | null;
+            /** History */
+            history: components["schemas"]["FrequencyRowOut"][];
+            /** Warnings */
+            warnings: string[];
+            window: components["schemas"]["WindowOut"];
+        };
+        /** FrequencyIn */
+        FrequencyIn: {
+            /**
+             * Effective From
+             * Format: date
+             */
+            effective_from: string;
+            /**
+             * Frequency
+             * @enum {string}
+             */
+            frequency: "monthly" | "quarterly";
+        };
+        /** FrequencyOut */
+        FrequencyOut: {
+            row: components["schemas"]["FrequencyRowOut"];
+            /** Superseded Instances */
+            superseded_instances: string[];
+            /** Warnings */
+            warnings: string[];
+        };
+        /** FrequencyRowOut */
+        FrequencyRowOut: {
+            /**
+             * Chosen At
+             * Format: date-time
+             */
+            chosen_at: string;
+            /**
+             * Effective From
+             * Format: date
+             */
+            effective_from: string;
+            /**
+             * Frequency
+             * @enum {string}
+             */
+            frequency: "monthly" | "quarterly";
+            /** Gstin */
+            gstin: string;
+            /** Id */
+            id: string;
+            /** Warnings */
+            warnings: string[];
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** HomeOut */
+        HomeOut: {
+            /** Attention */
+            attention: {
+                [key: string]: unknown;
+            }[];
+            checklist: components["schemas"]["Checklist"];
+            /** Filing */
+            filing: {
+                [key: string]: unknown;
+            } | null;
+            /** Greeting Name */
+            greeting_name: string | null;
+            /** Hub */
+            hub: {
+                [key: string]: unknown;
+            } | null;
+            /** Insights */
+            insights: {
+                [key: string]: unknown;
+            } | null;
         };
         /** InviteIn */
         InviteIn: {
@@ -524,6 +792,32 @@ export interface components {
             /** Members */
             members: components["schemas"]["MemberOut"][];
         };
+        /** MyBusiness */
+        MyBusiness: {
+            /** Business Id */
+            business_id: string;
+            /** Display Name */
+            display_name: string;
+            /** Gstin */
+            gstin: string | null;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "owner" | "admin" | "billing" | "ca";
+        };
+        /** MyBusinessesOut */
+        MyBusinessesOut: {
+            /** Businesses */
+            businesses: components["schemas"]["MyBusiness"][];
+        };
+        /** NewBusinessOut */
+        NewBusinessOut: {
+            /** Business Id */
+            business_id: string;
+            /** Warnings */
+            warnings: string[];
+        };
         /**
          * NewBusinessProfile
          * @description The body of POST /api/v1/b (LLD-1 §5.10).
@@ -546,6 +840,49 @@ export interface components {
              */
             turnover_band: "up_to_threshold" | "above_threshold";
         };
+        /** ProfileOut */
+        ProfileOut: {
+            address: components["schemas"]["AddressOut"];
+            /** Business Id */
+            business_id: string;
+            /** Einvoice History */
+            einvoice_history: ("no" | "yes" | "not_sure") | null;
+            /** Legal Name */
+            legal_name: string | null;
+            ready_for_documents: components["schemas"]["ReadinessOut"];
+            registration: components["schemas"]["RegistrationOut"];
+            /** Trade Name */
+            trade_name: string | null;
+            turnover_band: components["schemas"]["TurnoverBandOut"] | null;
+        };
+        /**
+         * ProfilePatch
+         * @description PATCH /profile: only the fields sent change. `registration` replaces the whole
+         *     registration; `address` changes only the address fields sent.
+         */
+        ProfilePatch: {
+            address?: components["schemas"]["Address"] | null;
+            /** Einvoice History */
+            einvoice_history?: ("no" | "yes" | "not_sure") | null;
+            /** Legal Name */
+            legal_name?: string | null;
+            registration?: components["schemas"]["Registration"] | null;
+            /** Trade Name */
+            trade_name?: string | null;
+        };
+        /** ProfileUpdateOut */
+        ProfileUpdateOut: {
+            profile: components["schemas"]["ProfileOut"];
+            /** Warnings */
+            warnings: string[];
+        };
+        /** ReadinessOut */
+        ReadinessOut: {
+            /** Missing */
+            missing: ("legal_name" | "address" | "gstin")[];
+            /** Ok */
+            ok: boolean;
+        };
         /** ReasonIn */
         ReasonIn: {
             /** Reason */
@@ -565,6 +902,24 @@ export interface components {
             /** State Code */
             state_code?: string | null;
         };
+        /** RegistrationOut */
+        RegistrationOut: {
+            /** Enrolment Number */
+            enrolment_number: string | null;
+            /** Gstin */
+            gstin: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "gstin" | "enrolment";
+            /** Locked */
+            locked: boolean;
+            /** State Code */
+            state_code: string;
+            /** State Name */
+            state_name: string | null;
+        };
         /**
          * Role
          * @enum {string}
@@ -580,6 +935,23 @@ export interface components {
             email: string;
             /** Password */
             password: string;
+        };
+        /** StateCode */
+        StateCode: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+        };
+        /** StateCodesOut */
+        StateCodesOut: {
+            /**
+             * On
+             * Format: date
+             */
+            on: string;
+            /** States */
+            states: components["schemas"]["StateCode"][];
         };
         /** Target */
         Target: {
@@ -615,6 +987,28 @@ export interface components {
             /** Email */
             email: string;
         };
+        /** TurnoverBandIn */
+        TurnoverBandIn: {
+            /**
+             * Band
+             * @enum {string}
+             */
+            band: "up_to_threshold" | "above_threshold";
+            /** Declared Turnover */
+            declared_turnover?: string | null;
+        };
+        /** TurnoverBandOut */
+        TurnoverBandOut: {
+            /**
+             * Band
+             * @enum {string}
+             */
+            band: "up_to_threshold" | "above_threshold";
+            /** Declared Turnover */
+            declared_turnover: string | null;
+            /** Fy */
+            fy: string;
+        };
         /** ValidationError */
         ValidationError: {
             /** Context */
@@ -636,6 +1030,18 @@ export interface components {
             email: string;
             /** Password */
             password: string;
+        };
+        /** WindowOut */
+        WindowOut: {
+            /** Closes */
+            closes: string | null;
+            /**
+             * For Quarter
+             * Format: date
+             */
+            for_quarter: string;
+            /** Opens */
+            opens: string | null;
         };
     };
     responses: never;
@@ -837,7 +1243,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NewBusinessOut"];
                 };
             };
             /** @description Validation Error */
@@ -875,6 +1281,171 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuditPageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_channels_api_v1_b__business_id__channels_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChannelsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_channels_api_v1_b__business_id__channels_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChannelsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChannelsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_filing_profile_api_v1_b__business_id__filing_profile_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FilingProfileOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_frequency_api_v1_b__business_id__filing_profile_frequency_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FrequencyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FrequencyOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    home_api_v1_b__business_id__home_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HomeOut"];
                 };
             };
             /** @description Validation Error */
@@ -1131,6 +1702,108 @@ export interface operations {
             };
         };
     };
+    get_profile_api_v1_b__business_id__profile_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_profile_api_v1_b__business_id__profile_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProfilePatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileUpdateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_turnover_band_api_v1_b__business_id__turnover_bands__fy__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                fy: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TurnoverBandIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TurnoverBandOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     health_api_v1_health_get: {
         parameters: {
             query?: never;
@@ -1250,7 +1923,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MyBusinessesOut"];
                 };
             };
         };
@@ -1304,6 +1977,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AcceptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_state_codes_api_v1_refdata_state_codes_get: {
+        parameters: {
+            query?: {
+                on?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StateCodesOut"];
                 };
             };
             /** @description Validation Error */
