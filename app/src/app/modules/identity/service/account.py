@@ -93,8 +93,11 @@ class Me:
 
 
 def _user(uow: UnitOfWork):
-    # users_self: app_rw sees only the bound user's row.
-    return uow.tx.execute(text("select id, email, name, totp_enabled_at is not null as totp from identity.users")).one()
+    # users_self also limits app_rw to the bound user's row; the filter says so here too.
+    return uow.tx.execute(
+        text("select id, email, name, totp_enabled_at is not null as totp from identity.users where id = :me"),
+        {"me": uow.principal.user_id},
+    ).one()
 
 
 def get_me(uow: UnitOfWork) -> Me:

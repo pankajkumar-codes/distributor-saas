@@ -59,7 +59,10 @@ class NameBody(BaseModel):
     @field_validator("name")
     @classmethod
     def _blank_is_none(cls, v: str | None) -> str | None:
-        return (v or "").strip() or None
+        v = (v or "").strip()
+        if not v.isprintable():  # control characters, line breaks, other invisible marks
+            raise ValueError("use letters, numbers, spaces and punctuation only")
+        return v or None
 
 
 class PasswordBody(BaseModel):

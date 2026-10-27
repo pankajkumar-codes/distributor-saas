@@ -85,6 +85,9 @@ def test_patch_me_sets_only_the_callers_name(env):
     assert one(admin, "select count(*) from identity.users where name is not null") == 1  # Ravi's is untouched
     assert client.patch("/api/v1/me", json={"name": "   "}, headers=me).json()["user"]["name"] is None
     assert client.patch("/api/v1/me", json={"name": "x" * 101}, headers=me).status_code == 422
+    for bad in ("Asha\nRao", "Asha\x00", "Asha\u202eoaR"):  # a line break, a NUL, a direction override
+        assert client.patch("/api/v1/me", json={"name": bad}, headers=me).status_code == 422, repr(bad)
+    assert client.patch("/api/v1/me", json={"name": "आशा राव"}, headers=me).json()["user"]["name"] == "आशा राव"
 
 
 def test_changing_the_password_ends_every_session(env):
