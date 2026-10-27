@@ -211,10 +211,10 @@ def test_warnings_never_block(pg):
 
 
 def test_state_codes_are_checked_against_refdata(pg, monkeypatch):
-    from app.modules.business import interface
+    from app.modules.business import registration
 
     known = {"19": "West Bengal", "27": "Maharashtra", "96": "Other Country", "97": "Other Territory"}
-    monkeypatch.setattr(interface, "state_name", lambda tx, code, on: known.get(code))
+    monkeypatch.setattr(registration, "state_name", lambda tx, code, on: known.get(code))
     from app.modules.business.gstin import check_character
 
     def gstin(state):
