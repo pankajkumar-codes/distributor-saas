@@ -23,7 +23,7 @@ export function TotpStep({ email, challenge, onChallenge, onDone, onExpired }: P
     mutationFn: () =>
       call(() => api.POST("/api/v1/auth/signin/totp", { body: { email, challenge, code } }), {
         refresh: false,
-      }) as Promise<SignedIn>,
+      }),
     onSuccess: onDone,
     onError: (error) => {
       if (error.code === "signin_expired") onExpired();

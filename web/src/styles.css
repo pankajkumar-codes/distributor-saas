@@ -20,9 +20,15 @@ h1 { font-size: 1.5rem; margin: 0 0 16px; }
 .step { color: var(--muted); font-size: 0.875rem; margin: 0 0 4px; }
 .field { margin: 0 0 16px; }
 .field label { display: block; font-weight: 600; margin-bottom: 4px; }
-.field input { width: 100%; font: inherit; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; }
+.field input, .field select { width: 100%; font: inherit; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; }
+h2 { font-size: 1.125rem; margin: 24px 0 12px; }
+.radios { border: 0; padding: 0; }
+.radios legend { font-weight: 600; margin-bottom: 4px; padding: 0; }
+.radio { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.radio input { width: 20px; height: 20px; margin: 0; }
+.banner p, .banner ul { margin: 0; }
 .field input:disabled { background: #f3f3f5; }
-input[aria-invalid="true"] { border-color: var(--error); }
+input[aria-invalid="true"], select[aria-invalid="true"] { border-color: var(--error); }
 .hint, .note { color: var(--muted); font-size: 0.875rem; margin: 4px 0 12px; }
 .error { color: var(--error); font-size: 0.875rem; margin: 4px 0 12px; }
 .banner { padding: 12px; border-radius: 8px; margin: 0 0 16px; background: var(--info-bg); }

@@ -1,6 +1,8 @@
 """The GSTIN format check against team/gst/gstin.md §2 and §4 (AC-11), and the FY helpers."""
 
+import json
 from datetime import date
+from pathlib import Path
 
 import pytest
 
@@ -76,3 +78,14 @@ def test_the_check_never_claims_more_than_format():  # item 6: no "verified" wor
 )
 def test_financial_year_and_quarter(day, fy, quarter):
     assert (fy_of(day), quarter_start(day)) == (fy, quarter)
+
+
+_CASES = json.loads((Path(__file__).parent / "gstin_cases.json").read_text())["cases"]
+
+
+@pytest.mark.parametrize("case", _CASES, ids=[c["why"] for c in _CASES])
+def test_the_shared_cases_the_web_hint_also_checks(case):  # web/tests/unit/gstin.test.ts
+    check = check_gstin(case["input"], own=case["own"])
+    assert (check.ok, check.normalised, check.state_code, check.errors, check.warnings) == (
+        case["ok"], case["normalised"], case["state_code"], case["errors"], case["warnings"]
+    )
