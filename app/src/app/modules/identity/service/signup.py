@@ -14,7 +14,7 @@ a wrong, expired, voided, claimed or already-registered code alike.
 
 import uuid
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import date, timedelta
 
 import jwt
 from sqlalchemy import text
@@ -26,14 +26,15 @@ from platform_common.ids import uuid7
 from platform_common.mailer import Mailer, send_after_commit
 from platform_common.uow import Principal, unit_of_work
 
+from app.modules.refdata import value_on
+
 from .. import codes
 from ..interface import session_key_from_claims
 from .passwords import check_password
 from .sessions import open_session
 
-# Provisional limits (LLD-1 L1-10, §12); they move to refdata rows when refdata lands.
-CODE_TTL = timedelta(minutes=10)  # auth.code_ttl_minutes
-CODE_MAX_TRIES = 5  # auth.code_max_tries
+# Provisional limits (LLD-1 L1-10, §12). The code's lifetime and tries come from
+# refdata, because the sign-up screen shows them; these move there next.
 CODE_REQUESTS_PER_EMAIL_PER_HOUR = 5
 CODE_REQUESTS_PER_IP_PER_HOUR = 20
 CODE_CHECKS_PER_IP_PER_HOUR = 50
@@ -46,6 +47,14 @@ class CodeNotAccepted(AppError):
 
     def __init__(self):
         super().__init__(message="the code is wrong or has expired; ask for a new one")
+
+
+@dataclass(frozen=True)
+class CodeTerms:
+    """What the screen tells the user about the code it just sent (the same for every email)."""
+
+    ttl_minutes: int
+    max_tries: int
 
 
 @dataclass(frozen=True)
@@ -65,7 +74,7 @@ def _public(request_id: str) -> Principal:
     return Principal(user_sub=None, request_id=request_id)
 
 
-def request_code(email: str, ip: str, request_id: str, mail: Mailer) -> None:
+def request_code(email: str, ip: str, request_id: str, mail: Mailer, today: date) -> CodeTerms:
     """§5.1. Mails a code to a new email, or a sign-in hint to a registered one."""
     email = normalise(email)
     rate.hit(rate.bucket("code_request:email", email), CODE_REQUESTS_PER_EMAIL_PER_HOUR, HOUR)
@@ -73,17 +82,28 @@ def request_code(email: str, ip: str, request_id: str, mail: Mailer) -> None:
     code = codes.new_code()
     digest = codes.code_hmac("signup", email, code)
     with unit_of_work(_public(request_id)) as uow:
+        # Read in both branches, so the reply doesn't tell a registered email from a new one.
+        terms = CodeTerms(
+            value_on(uow.tx, "auth.code_ttl_minutes", today), value_on(uow.tx, "auth.code_max_tries", today)
+        )
         if uow.tx.execute(text("select identity.auth_user_by_email(:e)"), {"e": email}).scalar() is not None:
             # The same advisory lock auth_issue_code takes, so both branches do
             # comparable work (Staff 2, #33).
             uow.tx.execute(text("select pg_advisory_xact_lock(hashtextextended('signup:' || :e, 0))"), {"e": email})
             send_after_commit(uow, mail, "already_registered", email, {})
-            return
+            return terms
         uow.tx.execute(
             text("select identity.auth_issue_code(:i, 'signup', :e, :h, :t, :m)"),
-            {"i": uuid7(), "e": email, "h": digest, "t": CODE_TTL, "m": CODE_MAX_TRIES},
+            {
+                "i": uuid7(),
+                "e": email,
+                "h": digest,
+                "t": timedelta(minutes=terms.ttl_minutes),
+                "m": terms.max_tries,
+            },
         )
         send_after_commit(uow, mail, "signup_code", email, {"code": code})
+    return terms
 
 
 def verify(email: str, code: str, password: str, ip: str, request_id: str, idp: AuthProvider) -> SignedUp:

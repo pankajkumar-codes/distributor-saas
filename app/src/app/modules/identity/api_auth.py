@@ -7,13 +7,14 @@ Bodies are never logged. The refresh token goes only into an HttpOnly cookie sco
 """
 
 import os
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel, Field
 
 from platform_common.auth import debug_env
 from platform_common.authprovider import AuthProvider
+from platform_common.clock import Clock, get_clock
 from platform_common.errors import Deny, Invalid, deny_response, request_id
 from platform_common.mailer import Mailer
 
@@ -71,13 +72,35 @@ def _check_origin(request: Request) -> None:
         raise Deny("session_invalid")
 
 
-@router.post("/signup", status_code=202)
-def signup_request(body: EmailBody, request: Request, mail: Annotated[Mailer, Depends(mailer)]):
-    signup.request_code(_email(body.email), _client_ip(request), request_id(request), mail)
-    return {"status": "code_sent"}
+class CodeSent(BaseModel):
+    status: Literal["code_sent"] = "code_sent"
+    code_ttl_minutes: int  # auth.code_ttl_minutes, for the screen's copy
+    code_max_tries: int  # auth.code_max_tries
 
 
-@router.post("/signup/verify")
+class UserOut(BaseModel):
+    id: str
+    email: str
+
+
+class SignedUpOut(BaseModel):
+    access_token: str
+    expires_in: int
+    user: UserOut
+
+
+@router.post("/signup", status_code=202, response_model=CodeSent)
+def signup_request(
+    body: EmailBody,
+    request: Request,
+    mail: Annotated[Mailer, Depends(mailer)],
+    clock: Annotated[Clock, Depends(get_clock)],
+):
+    terms = signup.request_code(_email(body.email), _client_ip(request), request_id(request), mail, clock.today())
+    return CodeSent(code_ttl_minutes=terms.ttl_minutes, code_max_tries=terms.max_tries)
+
+
+@router.post("/signup/verify", response_model=SignedUpOut)
 def signup_verify(
     body: VerifyBody,
     request: Request,

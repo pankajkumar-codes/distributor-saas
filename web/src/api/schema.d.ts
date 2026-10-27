@@ -438,6 +438,19 @@ export interface components {
             reason: string | null;
             target: components["schemas"]["Target"];
         };
+        /** CodeSent */
+        CodeSent: {
+            /** Code Max Tries */
+            code_max_tries: number;
+            /** Code Ttl Minutes */
+            code_ttl_minutes: number;
+            /**
+             * Status
+             * @default code_sent
+             * @constant
+             */
+            status: "code_sent";
+        };
         /** EmailBody */
         EmailBody: {
             /** Email */
@@ -574,6 +587,14 @@ export interface components {
         RoleIn: {
             role: components["schemas"]["Role"];
         };
+        /** SignedUpOut */
+        SignedUpOut: {
+            /** Access Token */
+            access_token: string;
+            /** Expires In */
+            expires_in: number;
+            user: components["schemas"]["UserOut"];
+        };
         /** SigninBody */
         SigninBody: {
             /** Email */
@@ -614,6 +635,13 @@ export interface components {
             code: string;
             /** Email */
             email: string;
+        };
+        /** UserOut */
+        UserOut: {
+            /** Email */
+            email: string;
+            /** Id */
+            id: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -769,7 +797,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CodeSent"];
                 };
             };
             /** @description Validation Error */
@@ -802,7 +830,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SignedUpOut"];
                 };
             };
             /** @description Validation Error */

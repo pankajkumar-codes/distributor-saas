@@ -194,6 +194,30 @@
         "title": "AuditRowOut",
         "type": "object"
       },
+      "CodeSent": {
+        "properties": {
+          "code_max_tries": {
+            "title": "Code Max Tries",
+            "type": "integer"
+          },
+          "code_ttl_minutes": {
+            "title": "Code Ttl Minutes",
+            "type": "integer"
+          },
+          "status": {
+            "const": "code_sent",
+            "default": "code_sent",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code_ttl_minutes",
+          "code_max_tries"
+        ],
+        "title": "CodeSent",
+        "type": "object"
+      },
       "EmailBody": {
         "properties": {
           "email": {
@@ -610,6 +634,28 @@
         "title": "RoleIn",
         "type": "object"
       },
+      "SignedUpOut": {
+        "properties": {
+          "access_token": {
+            "title": "Access Token",
+            "type": "string"
+          },
+          "expires_in": {
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserOut"
+          }
+        },
+        "required": [
+          "access_token",
+          "expires_in",
+          "user"
+        ],
+        "title": "SignedUpOut",
+        "type": "object"
+      },
       "SigninBody": {
         "properties": {
           "email": {
@@ -729,6 +775,24 @@
           "code"
         ],
         "title": "TotpBody",
+        "type": "object"
+      },
+      "UserOut": {
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "email"
+        ],
+        "title": "UserOut",
         "type": "object"
       },
       "ValidationError": {
@@ -933,7 +997,9 @@
           "202": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CodeSent"
+                }
               }
             },
             "description": "Successful Response"
@@ -972,7 +1038,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SignedUpOut"
+                }
               }
             },
             "description": "Successful Response"

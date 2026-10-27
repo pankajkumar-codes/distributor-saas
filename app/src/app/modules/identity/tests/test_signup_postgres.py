@@ -124,3 +124,23 @@ def test_session_key_falls_back_to_event_id_like_the_resolver(env, monkeypatch):
     r = verify(client, code)
     assert r.status_code == 200, r.text
     assert one(admin, "select key_kind from identity.sessions") == "event_id"
+
+
+def test_the_code_lifetime_and_tries_come_from_refdata(env, monkeypatch):
+    client, _, mail, admin = env
+    from app.modules.identity.service import signup as signup_mod
+
+    assert verify(client, sign_up(client, mail).params["code"]).status_code == 200  # EMAIL is registered
+    rows = {"auth.code_ttl_minutes": 7, "auth.code_max_tries": 3}
+    monkeypatch.setattr(signup_mod, "value_on", lambda tx, key, on: rows[key])
+    for email in ("new@example.com", EMAIL):  # registered or not, the reply is the same
+        r = client.post("/api/v1/auth/signup", json={"email": email})
+        assert (r.status_code, r.json()) == (202, {"status": "code_sent", "code_ttl_minutes": 7, "code_max_tries": 3})
+    with admin.connect() as c:
+        code = c.execute(
+            text(
+                "select max_tries, expires_at - created_at as ttl from identity.verification_codes"
+                " where email = 'new@example.com'"
+            )
+        ).one()
+    assert code.max_tries == 3 and code.ttl.total_seconds() == 7 * 60
