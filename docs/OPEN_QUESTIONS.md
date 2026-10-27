@@ -58,6 +58,9 @@ Since S1-c3 the session lifetime, the code TTL and tries, and every sign-up, sig
 
 POST /b already reads `identity.max_owned_businesses` (5, provisional; **Pankaj / PO** to confirm) and the GSTIN and address state codes through `value_on` and `state_name`.
 
+## Auth follow-ups (owner: Senior)
+- **Mail timing on sign-up and reset (Staff, #48).** `send_after_commit` sends inside the request, so once real SES is wired a registered email's reply on `POST /auth/reset` (and the `already_registered` branch of sign-up) waits for the send while an unknown one doesn't. The bodies are identical (AC-2), but the timing could tell them apart. When SES lands, send auth mail off the request path (outbox or worker) so every branch returns at the same speed. Today's mailer is the local test sender, so there is no gap yet.
+
 ## Business profile (S1-d) items waiting on the GST expert or PO
 | Item | What the code does until then | Source needed |
 |---|---|---|

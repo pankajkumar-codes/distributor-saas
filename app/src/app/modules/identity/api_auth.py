@@ -132,8 +132,13 @@ class ErrorOut(BaseModel):
     challenge: str | None = None  # only on totp_not_accepted: the challenge to retry with
 
 
+# Set here rather than taken from http.HTTPStatus, whose 422 phrase differs between
+# Python 3.12 and 3.13, so openapi.json comes out the same on both.
+_ERROR_DESCRIPTIONS = {400: "Bad Request", 401: "Unauthorized", 422: "Unprocessable Content", 429: "Too Many Requests"}
+
+
 def _errors(*statuses: int) -> dict:
-    return {status: {"model": ErrorOut} for status in statuses}
+    return {status: {"model": ErrorOut, "description": _ERROR_DESCRIPTIONS[status]} for status in statuses}
 
 
 @router.post("/signup", status_code=202, response_model=CodeSent, responses=_errors(422, 429))
