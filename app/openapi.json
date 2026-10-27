@@ -1288,6 +1288,7 @@
         "type": "object"
       },
       "NoteIn": {
+        "additionalProperties": false,
         "properties": {
           "note": {
             "anyOf": [
@@ -1432,6 +1433,7 @@
         "type": "object"
       },
       "ProductIn": {
+        "additionalProperties": false,
         "properties": {
           "barcode": {
             "anyOf": [
@@ -1636,6 +1638,7 @@
         "type": "object"
       },
       "ProductPatch": {
+        "additionalProperties": false,
         "properties": {
           "barcode": {
             "anyOf": [
@@ -1932,6 +1935,7 @@
         "type": "object"
       },
       "RateIn": {
+        "additionalProperties": false,
         "properties": {
           "rate": {
             "maxLength": 24,
@@ -2694,6 +2698,7 @@
         "type": "object"
       },
       "app__modules__catalog__api_products__ReasonIn": {
+        "additionalProperties": false,
         "properties": {
           "reason": {
             "anyOf": [
