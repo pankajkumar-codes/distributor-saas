@@ -32,6 +32,17 @@ ACTIONS: dict[str, tuple[str, str]] = {
     "filing.accept_warning": ("Accepted a filing warning", "gst_filing"),
     "imports.changed_line_choice": ("Chose how to treat a changed line", "gst_filing"),
     "support.view": ("Support viewed the business", "support"),
+    # Catalog (LLD-3 §9). Products sit with invoices: the filter groups are the four
+    # LLD-2 §7 names, and products are what invoices are made of.
+    "product.created": ("Added a product", "invoices"),
+    "product.updated": ("Edited a product", "invoices"),
+    "product.archived": ("Archived a product", "invoices"),
+    "product.unarchived": ("Restored a product", "invoices"),
+    "product.deleted": ("Deleted a product", "invoices"),
+    "product.rate_added": ("Added a GST rate", "invoices"),
+    "product.rate_voided": ("Voided a GST rate", "invoices"),
+    "product.rate_confirmed": ("Marked a GST rate confirmed with CA", "invoices"),
+    "product.rate_unconfirmed": ("Removed a GST rate's CA confirmation", "invoices"),
     # Rows copied from identity.audit_events (LLD-1 §3.6) keep their stock-era names.
     "tenant.created": ("Created the business", "team_settings"),
     "member.added": ("Added a member", "team_settings"),
@@ -56,6 +67,7 @@ def label(action: str) -> str:
 # target kind -> (SPA route under /b/{b}, permission needed to open it)
 TARGETS: dict[str, tuple[str, Permission]] = {
     "document": ("/invoices/{id}", Permission.CATALOG_VIEW),
+    "product": ("/products/{id}", Permission.CATALOG_VIEW),
     "return_instance": ("/returns/{id}", Permission.RETURNS_PREPARE),
     "member": ("/settings/team", Permission.MEMBERS_MANAGE),
     "membership": ("/settings/team", Permission.MEMBERS_MANAGE),

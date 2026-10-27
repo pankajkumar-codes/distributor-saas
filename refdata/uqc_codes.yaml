@@ -1,0 +1,458 @@
+# Units (UQC) a product may use (LLD-3 §4), from the GST expert's
+# team/gst/refdata-rates-uqc.md v1.1 §3. official_description is byte for byte the text
+# after the first "-" in the UQC column of the master sheet of GSTN's
+# GSTR1_Excel_Workbook_Template_V2.2.xlsx (Returns Offline Tool V3.2.4), the list GSTR-1
+# checks units against; catalog/tests pins code + "-" + official_description to it.
+# Cross-checked with the e-way bill master list (same 45) and the e-invoice sandbox
+# list (no BOX: einvoice_listed). display_name is our label for the product screen.
+# Tax rows, provisional.
+
+- code: BAG
+  official_description: "BAGS"
+  display_name: "Bags"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: BAL
+  official_description: "BALE"
+  display_name: "Bale"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: BDL
+  official_description: "BUNDLES"
+  display_name: "Bundles"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: BKL
+  official_description: "BUCKLES"
+  display_name: "Buckles"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: BOU
+  official_description: "BILLION OF UNITS"
+  display_name: "Billion units"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: BOX
+  official_description: "BOX"
+  display_name: "Box"
+  einvoice_listed: false
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: BTL
+  official_description: "BOTTLES"
+  display_name: "Bottles"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: BUN
+  official_description: "BUNCHES"
+  display_name: "Bunches"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: CAN
+  official_description: "CANS"
+  display_name: "Cans"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: CBM
+  official_description: "CUBIC METERS"
+  display_name: "Cubic metres"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: CCM
+  official_description: "CUBIC CENTIMETERS"
+  display_name: "Cubic centimetres"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: CMS
+  official_description: "CENTIMETERS"
+  display_name: "Centimetres"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: CTN
+  official_description: "CARTONS"
+  display_name: "Cartons"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: DOZ
+  official_description: "DOZENS"
+  display_name: "Dozens"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: DRM
+  official_description: "DRUMS"
+  display_name: "Drums"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: GGK
+  official_description: "GREAT GROSS"
+  display_name: "Great gross"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: GMS
+  official_description: "GRAMMES"
+  display_name: "Grams"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: GRS
+  official_description: "GROSS"
+  display_name: "Gross"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: GYD
+  official_description: "GROSS YARDS"
+  display_name: "Gross yards"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: KGS
+  official_description: "KILOGRAMS"
+  display_name: "Kilograms"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: KLR
+  official_description: "KILOLITRE"
+  display_name: "Kilolitres"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: KME
+  official_description: "KILOMETRE"
+  display_name: "Kilometres"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: LTR
+  official_description: "LITRES"
+  display_name: "Litres"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: MLT
+  official_description: "MILILITRE"
+  display_name: "Millilitres"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: MTR
+  official_description: "METERS"
+  display_name: "Metres"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: MTS
+  official_description: "METRIC TON"
+  display_name: "Metric tons"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: NOS
+  official_description: "NUMBERS"
+  display_name: "Numbers"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: OTH
+  official_description: "OTHERS"
+  display_name: "Others"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: PAC
+  official_description: "PACKS"
+  display_name: "Packs"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: PCS
+  official_description: "PIECES"
+  display_name: "Pieces"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: PRS
+  official_description: "PAIRS"
+  display_name: "Pairs"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: QTL
+  official_description: "QUINTAL"
+  display_name: "Quintals"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: ROL
+  official_description: "ROLLS"
+  display_name: "Rolls"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: SET
+  official_description: "SETS"
+  display_name: "Sets"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: SQF
+  official_description: "SQUARE FEET"
+  display_name: "Square feet"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: SQM
+  official_description: "SQUARE METERS"
+  display_name: "Square metres"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: SQY
+  official_description: "SQUARE YARDS"
+  display_name: "Square yards"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: TBS
+  official_description: "TABLETS"
+  display_name: "Tablets"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: TGM
+  official_description: "TEN GROSS"
+  display_name: "Ten gross"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: THD
+  official_description: "THOUSANDS"
+  display_name: "Thousands"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: TON
+  official_description: "TONNES"
+  display_name: "Tonnes"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: TUB
+  official_description: "TUBES"
+  display_name: "Tubes"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: UGS
+  official_description: "US GALLONS"
+  display_name: "US gallons"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: UNT
+  official_description: "UNITS"
+  display_name: "Units"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional
+
+- code: YDS
+  official_description: "YARDS"
+  display_name: "Yards"
+  einvoice_listed: true
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/download/returns
+  source_title: "GSTN Returns Offline Tool V3.2.4, GSTR1_Excel_Workbook_Template_V2.2.xlsx, sheet master, column UQC; cross-checked with https://docs.ewaybillgst.gov.in/apidocs/master-codes-list.html"
+  last_checked: 2026-10-27
+  status: provisional

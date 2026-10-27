@@ -18,10 +18,13 @@ type = independence
 modules =
     app.modules.identity
     app.modules.business
+    app.modules.catalog
     app.modules.imports
 ; identity creates the profile with a new business and shows business cards (LLD-1 §9).
 ignore_imports =
     app.modules.identity.** -> app.modules.business.interface
+; catalog checks customer GSTINs and HSN digits through business (LLD-3 §8.3).
+    app.modules.catalog.** -> app.modules.business.interface
 ; Module tests drive the mounted app and may call other modules' interfaces, the
 ; same surface any module may use.
     app.modules.*.tests.** -> app.api
@@ -35,6 +38,7 @@ source_modules =
 forbidden_modules =
     app.modules.identity
     app.modules.business
+    app.modules.catalog
     app.modules.imports
 
 [importlinter:contract:modules-not-entrypoints]

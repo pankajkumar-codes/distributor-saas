@@ -56,3 +56,5 @@ reason_required:
   - documents.s34_override
   - filing.accept_warning
   - imports.changed_line_choice
+  - product.rate_voided
+  - product.rate_unconfirmed

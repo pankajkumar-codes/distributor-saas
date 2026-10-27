@@ -209,9 +209,14 @@ def test_the_invite_snapshots_the_business_name_and_resend_refreshes_it(team):
     assert preview_name() == "Alice Exports"
 
 
-def test_app_rw_cannot_insert_an_invite_already_accepted(team):
+@pytest.mark.parametrize(
+    ("status", "accepted"),
+    [("accepted", True), ("cancelled", False), ("expired", False)],  # #45: no other status, even with empty fields
+)
+def test_app_rw_cannot_insert_an_invite_that_is_not_pending(team, status, accepted):
     """Staff 2 on #39: the insert side of the status guard."""
     client, svc, _, tid = team
+    by = ":u, now()" if accepted else "null, null"
     with pytest.raises(Exception) as e, svc.begin() as c:
         c.execute(
             text("select set_config('app.user_id', :u, true), set_config('app.tenant_id', :t, true)"),
@@ -221,9 +226,9 @@ def test_app_rw_cannot_insert_an_invite_already_accepted(team):
             text(
                 "insert into identity.invitations (id, business_id, email, role, status, token_hash, invited_by_user,"
                 " expires_at, accepted_by_user, accepted_at)"
-                " values (gen_random_uuid(), :b, :e, 'admin', 'accepted', repeat('a', 64), :u, now(), :u, now())"
+                f" values (gen_random_uuid(), :b, :e, 'admin', :s, repeat('a', 64), :u, now(), {by})"
             ),
-            {"b": tid, "e": email("mallory"), "u": uid("alice")},
+            {"b": tid, "e": email("mallory"), "u": uid("alice"), "s": status},
         )
     assert getattr(e.value.orig, "sqlstate", None) == "23514", e.value
     assert owner_sql("select count(*) from identity.invitations")[0][0] == 0

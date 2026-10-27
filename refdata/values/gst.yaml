@@ -1,0 +1,83 @@
+# GST rules for the catalog (LLD-3 §3, §4). Copied verbatim from the GST expert's
+# team/gst/refdata-rates-uqc.md v1.0 §2, which cites each row; tax rows, provisional
+# until the CA or the GST expert confirms them (go-live needs require_confirmed).
+#
+# One change from that document: gst.rate_values is type text, not enum. The loader's
+# enum type checks a value against `allowed`, and this value is the list itself
+# (comma-separated decimal strings), so catalog.rates parses it into Decimals. And each
+# valid_to is the next row's valid_from: the loader reads valid_to as the first day a row
+# no longer covers, while the document gives the last day it does (2022-03-31 for a row
+# that ends when 2022-04-01 starts). The dates covered are the same. 0 and 0.1 are
+# deliberately absent (refdata-rates-uqc.md §1).
+
+- key: gst.regime_start_date
+  value: "2017-07-01"
+  type: text
+  valid_from: 2017-07-01
+  valid_to: null
+  source_url: https://gstcouncil.gov.in/node/4422
+  source_title: "Notification 1/2017-Central Tax (Rate) dated 28-06-2017"
+  last_checked: 2026-10-24
+  kind: tax
+  status: provisional
+  note: "1 July 2017 is the GST launch date; the commencement clause of 1/2017-CT(Rate) was not read (UNVERIFIED on the page). Earliest allowed valid_from for a product rate (LLD-3 §3)."
+
+- key: gst.rate_values
+  value: "0.25,3,5,12,18,28"
+  type: text
+  valid_from: 2017-07-01
+  valid_to: 2022-04-01
+  source_url: https://cbic-gst.gov.in/hindi/pdf/integrated-tax-rate/Notification%20for%20IGST%20rate%20Schedule-1.pdf
+  source_title: "Notification 1/2017-Integrated Tax (Rate) dated 28-06-2017, Schedules I-VI (5, 12, 18, 28, 3, 0.25); CGST twin 1/2017-CT(Rate) (2.5, 6, 9, 14, 1.5, 0.125)"
+  last_checked: 2026-10-24
+  kind: tax
+  status: provisional
+  note: "Totals. 0 and 0.1 deliberately excluded (see refdata-rates-uqc.md §1)."
+
+- key: gst.rate_values
+  value: "0.25,3,5,6,12,18,28"
+  type: text
+  valid_from: 2022-04-01
+  valid_to: 2022-07-18
+  source_url: https://cbic-gst.gov.in/pdf/integrated-tax-rate/02-2022-ITR-Eng.pdf
+  source_title: "Notification 02/2022-Integrated Tax (Rate) dated 31-03-2022 (CGST twin 02/2022-CT(Rate)), in force 01-04-2022"
+  last_checked: 2026-10-24
+  kind: tax
+  status: provisional
+  note: "Adds 6% total: bricks and roofing tiles (6815, 6901 00 10, 6904 10 00, 6905 10 00) when the supplier takes no ITC."
+
+- key: gst.rate_values
+  value: "0.25,1.5,3,5,6,12,18,28"
+  type: text
+  valid_from: 2022-07-18
+  valid_to: 2025-09-22
+  source_url: https://gstcouncil.gov.in/sites/default/files/2024-05/06_2022-ctr-eng_1.pdf
+  source_title: "Notification 6/2022-Central Tax (Rate) dated 13-07-2022, in force 18-07-2022: inserts Schedule VII (CGST 0.75%)"
+  last_checked: 2026-10-24
+  kind: tax
+  status: provisional
+  note: "Adds 1.5% total for headings 7102 and 7104."
+
+- key: gst.rate_values
+  value: "0.25,1.5,3,5,6,18,28,40"
+  type: text
+  valid_from: 2025-09-22
+  valid_to: 2026-02-01
+  source_url: https://courier.cbic.gov.in/ECCS/advisory/2025/NOTIFICATION%20NO.%209_2025-INTEGRATED%20TAX%20(RATE)%20-1759486719.pdf
+  source_title: "Notification 9/2025-Integrated Tax (Rate) dated 17-09-2025 (corrigendum 18-09-2025), Schedules I-VII = 5, 18, 40, 3, 0.25, 1.5, 28; effective 22-09-2025 per PIB release 03-09-2025"
+  last_checked: 2026-10-24
+  kind: tax
+  status: provisional
+  note: "12 removed (no 12% schedule). 28 kept only for tobacco and pan masala (Sch VII). 6 (bricks, 02/2022) kept: continuation UNVERIFIED, no rescission found. CGST twin 9/2025-CT(Rate) read only via secondary sources (UNVERIFIED)."
+
+- key: gst.rate_values
+  value: "0.25,1.5,3,5,6,18,40"
+  type: text
+  valid_from: 2026-02-01
+  valid_to: null
+  source_url: https://gstcouncil.gov.in/sites/default/files/2026-01/monthly_newsletter_december_2025_1_0.pdf
+  source_title: "GST Council newsletter Dec 2025, reporting Notification 19/2025-Central Tax (Rate) dated 31-12-2025, effective 01-02-2026: Schedule VII (28%) omitted"
+  last_checked: 2026-10-24
+  kind: tax
+  status: provisional
+  note: "Primary text of 19/2025-CT(Rate) not read (UNVERIFIED). 01/2026-CT(Rate) dated 30-04-2026 moved beverages between 5 and 40 and added no new rate. 6 continuation UNVERIFIED."

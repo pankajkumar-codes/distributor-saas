@@ -1,6 +1,6 @@
 """Reads refdata rows by key and date (LLD-0 §6.4).
 
-The whole of refdata.values and refdata.state_codes is a few hundred rows, so each
+The whole of refdata.values, refdata.state_codes and refdata.uqc_codes is a few hundred rows, so each
 container keeps one snapshot in memory, keyed by the latest refdata.loads id. Every
 call asks the database for that id (one indexed row) and reloads the snapshot when
 it has changed, so a migrator load is picked up by the next request.
@@ -55,6 +55,7 @@ class _Snapshot:
     load_id: object
     values: dict[str, tuple[_Row, ...]]
     states: dict[str, tuple[tuple[str, dt.date, dt.date | None], ...]]
+    units: dict[str, tuple[tuple[str, dt.date, dt.date | None], ...]]
 
 
 _lock = threading.Lock()
@@ -83,10 +84,16 @@ def _current(tx: Session) -> _Snapshot:
         text("select code, name, valid_from, valid_to from refdata.state_codes")
     ):
         states.setdefault(code, []).append((name, valid_from, valid_to))
+    units: dict[str, list] = {}
+    for code, name, valid_from, valid_to in tx.execute(
+        text("select code, display_name, valid_from, valid_to from refdata.uqc_codes")
+    ):
+        units.setdefault(code, []).append((name, valid_from, valid_to))
     snap = _Snapshot(
         load_id,
         {k: tuple(v) for k, v in values.items()},
         {k: tuple(v) for k, v in states.items()},
+        {k: tuple(v) for k, v in units.items()},
     )
     with _lock:
         _snapshot = snap
@@ -127,17 +134,33 @@ def require_confirmed(tx: Session, key: str, on: dt.date) -> None:
         raise RefdataUnconfirmed(key, on, row.status, row.kind)
 
 
-def state_name(tx: Session, code: str, on: dt.date) -> str | None:
-    """The state or UT name for a two-digit GST code on `on`, or None if the code isn't
-    valid on that date. Asking is not an error: an unknown code is user input."""
+def _name_on(table: dict, code: str, on: dt.date) -> str | None:
     if isinstance(on, dt.datetime) or not isinstance(on, dt.date):
         raise TypeError("`on` is a business date (Clock.today()), not a datetime")
     names = [
         name
-        for name, valid_from, valid_to in _current(tx).states.get(code, ())
+        for name, valid_from, valid_to in table.get(code, ())
         if valid_from <= on and (valid_to is None or on < valid_to)
     ]
     return names[0] if len(names) == 1 else None
+
+
+def state_name(tx: Session, code: str, on: dt.date) -> str | None:
+    """The state or UT name for a two-digit GST code on `on`, or None if the code isn't
+    valid on that date. Asking is not an error: an unknown code is user input."""
+    return _name_on(_current(tx).states, code, on)
+
+
+def uqc_name(tx: Session, code: str, on: dt.date) -> str | None:
+    """The display name of a unit (UQC) on `on`, or None if the code isn't on the list
+    then. Like state_name, an unknown code is user input, not an error."""
+    return _name_on(_current(tx).units, code, on)
+
+
+def uqc_codes(tx: Session, on: dt.date) -> dict[str, str]:
+    """Every unit valid on `on`, code -> display name, for the product screen's picker."""
+    snap = _current(tx)
+    return {code: name for code in sorted(snap.units) if (name := _name_on(snap.units, code, on)) is not None}
 
 
 def _reset_cache() -> None:

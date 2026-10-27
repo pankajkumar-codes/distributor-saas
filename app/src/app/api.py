@@ -3,6 +3,7 @@
 from fastapi import FastAPI
 from mangum import Mangum
 
+from app.modules.catalog.api_products import router as products_router
 from app.modules.identity.api import router as identity_router
 from app.modules.identity.api_auth import router as auth_router
 from app.modules.identity.api_me import router as me_router
@@ -19,6 +20,7 @@ app.include_router(identity_router, prefix=API_PREFIX)
 app.include_router(auth_router, prefix=API_PREFIX)
 app.include_router(me_router, prefix=API_PREFIX)
 app.include_router(team_router, prefix=API_PREFIX)
+app.include_router(products_router, prefix=API_PREFIX)
 # business_uow and me_uow check every caller through identity (LLD-1 §6).
 set_principal_resolver(resolve_principal)
 
