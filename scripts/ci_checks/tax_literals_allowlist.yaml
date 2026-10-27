@@ -54,3 +54,6 @@
 - path: app/src/app/modules/catalog/products.py
   value: "500"
   reason: "max length of a confirmation note; input hygiene, not a tax rule"
+- path: app/src/app/modules/catalog/customers.py
+  value: "200"
+  reason: "address line widths, the columns' varchar(200)"

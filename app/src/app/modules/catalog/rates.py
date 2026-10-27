@@ -12,7 +12,7 @@ from decimal import Decimal, InvalidOperation
 
 from sqlalchemy.orm import Session
 
-from app.modules.refdata import value_on
+from app.modules.refdata import gst_rates, value_on
 from platform_common.errors import Invalid
 
 
@@ -60,7 +60,7 @@ def rate_on(rows: list[RateRow], on: date, warning_days: int) -> RateOn | None:
 def allowed_rates(tx: Session, on: date) -> frozenset[Decimal]:
     """The GST rates a taxable product's rate row may carry on `on` (refdata gst.rate_values,
     L3-4). The list only catches typos; it never says which rate fits a product."""
-    return frozenset(Decimal(v.strip()) for v in str(value_on(tx, "gst.rate_values", on)).split(","))
+    return frozenset(gst_rates(tx, on))
 
 
 def parse_rate(raw: str) -> Decimal:

@@ -50,6 +50,12 @@ ALLOWED_DATA: dict[str, frozenset[str]] = {
     "product.rate_voided": frozenset({"rate_id", "rate", "valid_from"}),
     "product.rate_confirmed": frozenset({"rate_id", "rate"}),
     "product.rate_unconfirmed": frozenset({"rate_id", "rate"}),
+    # No customer name, address or GSTIN in audit data (LLD-3 §9): field names only.
+    "customer.created": frozenset(),
+    "customer.updated": frozenset({"fields"}),
+    "customer.archived": frozenset(),
+    "customer.unarchived": frozenset(),
+    "customer.deleted": frozenset(),
 }
 
 _INSERT = text(

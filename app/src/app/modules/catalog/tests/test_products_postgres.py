@@ -546,3 +546,21 @@ def test_the_interface_for_sales(shop):
         with pytest.raises(Deny):
             product_for_line(c, uuid.uuid4(), TODAY)
     assert TODAY - timedelta(days=7) == date(2026, 10, 20)
+
+
+def test_the_rate_picker_lists_the_loaded_rates_as_strings(shop):  # refdata GET /gst-rates
+    pg, _ = shop
+    h = as_user("alice")
+    r = pg.client.get("/api/v1/refdata/gst-rates", headers=h)
+    assert r.status_code == 200, r.text
+    with pg.owner.connect() as c:
+        loaded = c.execute(text(
+            "select value from refdata.values where key = 'gst.rate_values' and valid_from <= :d"
+            " and (valid_to is null or :d < valid_to)"), {"d": TODAY}).scalar_one()
+    body = r.json()
+    assert body["on"] == TODAY.isoformat()
+    assert all(isinstance(x, str) for x in body["rates"])
+    assert body["rates"] == sorted(loaded.split(","), key=Decimal)  # exactly the row, ascending
+    before = pg.client.get("/api/v1/refdata/gst-rates?on=2017-06-30", headers=h).json()
+    assert before == {"on": "2017-06-30", "rates": []}
+    assert pg.client.get("/api/v1/refdata/gst-rates").status_code == 401
