@@ -78,6 +78,16 @@ POST /b already reads `identity.max_owned_businesses` (5, provisional; **Pankaj 
 | 14th GSTIN character not `Z` on the business's own GSTIN | A warning, `gstin_not_z` (`gstin.md` §1, §4 item 5) | none |
 | Home checklist links for screens not built yet (`/settings/filing`, `/products`, `/customers`, `/settings/team`) | Home returns these paths under `/b/{id}` | Junior and Designer confirm the SPA routes |
 
+## Catalog (S3) items waiting on the GST expert, CA or PO
+| Item | What the code does until then | Source needed |
+|---|---|---|
+| **HSN 8-digit cap** (`hsn.pattern`) | Accepts 4, 6 or 8 digits from the provisional refdata row; the lower bound 4 is cited, the cap and the even lengths are not | GST expert, `team/gst/refdata-rates-uqc.md` open item 6: primary texts of Notification 78/2020-CT and 12/2017-CT and the e-invoice schema's HSN length |
+| `gst.rate_values` sets, especially 6% after 22-09-2025 and the end of 28% on 01-02-2026 | Refuses any rate not on the provisional list for its date | CA via the GST expert (open items 1 and 2) |
+| HSN minimum digits by turnover (`hsn_min_digits`) | No warning in catalog yet; LLD-4 blocks at finalize once built | business refdata, `refdata-rates-uqc.md` §5(b) |
+| Product limits (`catalog.product_code.max_length` 40, `catalog.rate_valid_from_max_days_ahead` 366) | LLD-3's proposals, provisional | PO |
+| Rate-change warning window (`catalog.rate_change_warning_days` 30, inclusive) | Warns when the rate in force began at most 30 days before the date | CA (tax-computation §5 [CA]) |
+| **A live rate that has left `gst.rate_values` by the invoice date** (for example a rate entered while it was on the list, read for a date after the list dropped it) | Catalog checks a rate against the list for its own `valid_from` only; `product_for_line` returns it with no flag (#52 review) | **LLD-4** decides: a `rate_not_on_list_on_date` flag from catalog read against refdata for the line's date (never a hard-coded date), and whether finalize warns or blocks; the CA says which |
+
 ## Refdata rows to confirm (S0b)
 Every row in `refdata/` is `provisional`. Before go-live:
 - **PO:** the `auth.*` and `identity.max_owned_businesses` rows (`kind: product`). The
@@ -99,6 +109,14 @@ Every row in `refdata/` is `provisional`. Before go-live:
 - `retention.purge_operational()` (done/failed jobs and sent outbox rows after 14 days, idempotency keys, rate windows; LLD-0 §4.4) is not built yet. It needs a decision on its run record: `platform.audit_log` requires a business or a user, and a retention run has neither.
 - A job whose last SQS message is lost while `failed_retryable` stays there; the outbox sweep only resends unsent rows. The DLQ alarm covers exhausted messages, not this. A "stuck jobs" sweep can come with the alarms (TD-24).
 - The real-S3 policy checks (limit + 1 byte, other key, after 5 minutes, other KMS key) are QA's staging checks (HLD §6.5); the local store only mirrors them.
+
+## Staging infrastructure follow-ups (S0b, D-040)
+- **Raw uploads deleted after 90 days (TD-18) has no lifecycle rule yet.** Keys are `b/<business>/<area>/...`, so no S3 prefix filter selects every upload. Options: (a) put the area first, `<area>/b/<business>/...`, while no data exists yet (one change in `storage.key_for` and `check_key`); (b) tag uploads in the presigned POST and filter on the tag; (c) a worker job that deletes them. Staff 2 recommends (a). Owner: Staff 2, for the EM to agree.
+- **App code that this Terraform expects but that isn't built yet:** `app.mailer.handler` and `SqsMailer` (Staff 2's next PR), and the app reading `CODE_HMAC_KEY_PARAM` and `RATE_HMAC_KEY_PARAM` from Parameter Store at start-up (today it reads `CODE_HMAC_KEY` and `RATE_HMAC_KEY` directly). The worker has no `purge_operational` or `retention` task yet, so those schedules stay off.
+- **Staging checks only a real AWS account can answer** (QA and Staff 2, at the first staging deploy): whether CloudFront passes `Authorization` and cookies through to the JWT authorizer with the managed AllViewerExceptHostHeader policy; whether the Cognito endpoint exists in ap-south-1 and the admin calls work through it (tech plan §4.5); the exact Cognito admin actions CognitoAuthProvider uses (S1-c4), so the IAM list can be trimmed; `SHOW max_connections`; and the account's Lambda concurrency quota.
+- **Pankaj:** the staging decision (no AWS resource exists or is created until he decides), the domain (CloudFront aliases, the ACM certificate, and the SES identity, `mail_domain`), and creating the OIDC deploy role and repository variables listed in `.github/workflows/deploy-staging.yml`.
+- **Prod endpoints sit in one AZ**, like staging's. If that AZ fails, the Lambdas lose SQS, Parameter Store and Cognito until it recovers. A second AZ doubles the endpoint line (about USD 28.5 a month more). Decide with Multi-AZ RDS at public launch (TD-22).
+- The HTTP API's own `execute-api` URL also answers. It applies the same authorizer and app checks, but it bypasses CloudFront's response headers. Restricting it to CloudFront needs a shared-secret header or a WAF, and is not done.
 
 ## Decision handling
 For each answer, update `docs/DECISIONS.md` with the decision, rationale, trade-offs, and approval status. Do not silently turn assumptions into requirements.

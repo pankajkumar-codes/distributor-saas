@@ -117,13 +117,15 @@ login is off.
 
 ## 3. Test on AWS (staging)
 
-> Out of date until Staff 2's S0b infra change: the Terraform below still deploys the
-> old per-service Lambdas, while `make build` now builds `app.zip` and `migrator.zip`.
+> Written, not yet run. Nothing in AWS exists until Pankaj decides on staging (D-040),
+> and the first staging deploy needs the CEO's approval (TD-20). The app still lacks
+> `app.mailer.handler` and the Parameter Store key reads (docs/OPEN_QUESTIONS.md), so
+> sign-up email won't work on a stack built from this commit.
 
-Needs an AWS account (Mumbai, Paid plan), the AWS CLI v2 signed in to it, and
-Terraform 1.10 or newer. Staging costs money while it exists, roughly $30 a month,
-mostly the database and two private network endpoints. Run `terraform destroy` when
-you are done testing to save credits.
+Needs an AWS account in Mumbai, the AWS CLI v2 signed in to it, and Terraform 1.10 or
+newer. Staging costs about USD 49 a month while it exists (tech plan §7): mostly the
+database and three private network endpoints (SQS, Parameter Store, Cognito) at about
+USD 9.5 each. Run `terraform destroy` when you finish testing, to save credits.
 
 ### One-time setup
 
@@ -132,32 +134,43 @@ aws configure                     # region: ap-south-1
 cd infra/bootstrap && terraform init && terraform apply
 # note the state_bucket output, then:
 cd ../envs/staging
-cp terraform.tfvars.example terraform.tfvars   # set your web origin and alert email
+cp terraform.tfvars.example terraform.tfvars   # app origin and alert email
 terraform init -backend-config="bucket=<state_bucket from above>"
 ```
 
+Until a domain exists, put any https origin in `web_origins` for the first apply. Then
+replace it with the `app_url` output and apply again: `APP_ORIGIN` and the upload CORS
+rule follow it.
+
 ### Deploy
+
+`.github/workflows/deploy-staging.yml` does these steps (a reviewed plan, then that plan
+applied; docs/DEPLOYMENT.md) once Pankaj has finished the deploy setup. Run by hand,
+they are:
 
 ```bash
 cd ../../..                       # repo root
-make build                        # Lambda zips in build/
+make build                        # build/app.zip and build/migrator.zip
+(cd web && npm ci && npm run build)
 cd infra/envs/staging
-terraform plan                    # review what will be created
-terraform apply
-aws lambda invoke --function-name "$(terraform output -raw migrator_function)" out.json && cat out.json
+terraform plan -out=tfplan        # review what will be created
+terraform apply tfplan            # runs the migrator before updating the API and worker
+aws s3 sync ../../../web/dist "s3://$(terraform output -raw web_bucket)"
+aws cloudfront create-invalidation --distribution-id "$(terraform output -raw cdn_distribution_id)" --paths /index.html
 ```
 
-The last command applies the database migrations. It should list
-`identity/0001_identity.sql` and `identity/0002_identity_rls.sql`.
+The apply fails if a migration fails. The migrator's log
+(`aws logs tail /aws/lambda/distsaas-staging-migrator`) lists what it applied and the
+refdata it loaded.
 
-### Create two test users and run the same smoke test
+### Create two test users and run the smoke test
 
 Staging allows command-line password sign-in for test users. Prod does not.
 
 ```bash
 POOL=$(terraform output -raw user_pool_id)
 CLIENT=$(terraform output -raw user_pool_client_id)
-API=$(terraform output -raw api_endpoint)
+APP=$(terraform output -raw app_url)
 
 for U in tester-a@example.com tester-b@example.com; do
   aws cognito-idp admin-create-user --user-pool-id "$POOL" --username "$U" \
@@ -172,18 +185,28 @@ token() {
     --query AuthenticationResult.AccessToken --output text
 }
 
-../../../scripts/smoke_test.sh "$API" "$(token tester-a@example.com)" "$(token tester-b@example.com)"
+../../../scripts/smoke_test.sh "$APP" "$(token tester-a@example.com)" "$(token tester-b@example.com)"
 ```
+
+Access tokens last 5 minutes (TD-4b), so fetch them just before the run. A user created
+this way has no `identity.sessions` row, so identity answers 401 until S1 sign-in
+creates one (docs/ARCHITECTURE.md).
+
+QA's staging-only checks (LLD-0 §7) run here too: real Cognito over the endpoint, the
+JWT authorizer through CloudFront, SES, cookie forwarding, the H-4 upload policy, the
+mail queue's retention, and `SHOW max_connections`.
 
 ### When something fails
 
 ```bash
-aws logs tail /aws/lambda/distsaas-staging-identity --since 15m
+aws logs tail /aws/lambda/distsaas-staging-api --since 15m
+aws logs tail /aws/lambda/distsaas-staging-worker --since 15m
 aws logs tail /aws/apigateway/distsaas-staging --since 15m
 ```
 
-A 401 means the token was missing or expired (tokens last 60 minutes). A 500 usually
-means the database is unreachable or migrations did not run. Check the identity log.
+A 401 means the token was missing or expired. A 500 usually means the database is
+unreachable or the migrations did not run, so check the API log. A message in either
+dead-letter queue sends an alarm email to `budget_alert_emails`.
 
 ### Clean up
 

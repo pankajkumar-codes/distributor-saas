@@ -15,7 +15,6 @@ S0a restructure keep their keys and checksums.
 """
 
 import hashlib
-import json
 import logging
 import os
 import re
@@ -107,17 +106,23 @@ def migrate(conn, root: Path = MIGRATIONS_DIR, refdata_root: Path | None = None)
 
 
 def _master_connection():
+    """The master login, in AWS only. The password is a Parameter Store SecureString
+    that Terraform generates (infra/modules/database); nothing else may read it. Off
+    Lambda this refuses rather than reach for whatever AWS credentials the shell has:
+    local runs and CI connect with PG_ADMIN_URL and call migrate() directly."""
+    if not os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+        raise RuntimeError("the migrator handler runs on Lambda only; locally use make db-migrate")
     import boto3
 
-    secret = json.loads(
-        boto3.client("secretsmanager").get_secret_value(SecretId=os.environ["DB_MASTER_SECRET_ARN"])["SecretString"]
-    )
+    password = boto3.client("ssm").get_parameter(Name=os.environ["DB_MASTER_PASSWORD_PARAM"], WithDecryption=True)[
+        "Parameter"
+    ]["Value"]
     return psycopg.connect(
         host=os.environ["DB_HOST"],
         port=int(os.environ.get("DB_PORT", "5432")),
         dbname=os.environ["DB_NAME"],
-        user=secret["username"],
-        password=secret["password"],
+        user=os.environ["DB_MASTER_USER"],
+        password=password,
         sslmode="require",
         autocommit=True,
     )

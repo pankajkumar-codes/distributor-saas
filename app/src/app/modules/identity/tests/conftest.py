@@ -3,6 +3,8 @@ import os
 os.environ["PLATFORM_ENV"] = "test"
 os.environ["DATABASE_URL"] = "sqlite+pysqlite:///:memory:"
 
+import sys
+import tempfile
 import uuid
 from pathlib import Path
 
@@ -18,28 +20,22 @@ PG_OWNER = {}
 REPO = Path(__file__).resolve().parents[6]
 
 
-# migrator.handler's MODULE_ORDER: ties between timestamped files break in this order.
-_MODULE_ORDER = ["platform", "refdata", "identity", "business", "catalog", "sales", "documents", "filing",
-                 "insights", "imports"]
+sys.path.insert(0, str(REPO / "migrator"))
+from migrator.handler import ordered  # noqa: E402
+from migrator.local import MODULES_DIR, PLATFORM_DIR, collect  # noqa: E402
 
 
-def _migration_order(module_and_file):
-    # migrator.handler.ordered's rule: NNNN_ files first, then by timestamp, then module.
-    module, f = module_and_file
-    rank = _MODULE_ORDER.index(module)
-    return (1, f.name[:12], rank, f.name) if f.name[:12].isdigit() else (0, "", rank, f.name)
+def _migrations() -> list[Path]:
+    """Every module's migrations, laid out and ordered by the migrator itself: identity's
+    routes read other modules through their interfaces (business.interface.display_name
+    for invites)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        collect(Path(tmp))
+        names = [(m, f.name) for m, f in ordered(Path(tmp))]
+    return [(PLATFORM_DIR if m == "platform" else MODULES_DIR / m / "migrations") / name for m, name in names]
 
 
-# Every module's migrations, as the migrator applies them: identity's routes read other
-# modules through their interfaces (business.interface.display_name for invites).
-MIGRATIONS = [
-    f
-    for _, f in sorted(
-        [(d.parent.name, f) for d in (REPO / "app" / "src" / "app" / "modules").glob("*/migrations") for f in d.glob("*.sql")]
-        + [("platform", f) for f in (REPO / "libs" / "platform_common" / "migrations").glob("*.sql")],
-        key=_migration_order,
-    )
-]
+MIGRATIONS = _migrations()
 BOOTSTRAP = REPO / "migrator" / "migrator" / "bootstrap.sql"
 LOCAL_ONLY = REPO / "migrator" / "local_only.sql"
 

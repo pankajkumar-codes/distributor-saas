@@ -1,5 +1,16 @@
-# One PostgreSQL instance shared by all services; each service owns its own schema
-# and connects as its own IAM-authenticated database user.
+# One PostgreSQL instance. The app connects as app_rw (and the retention job as
+# app_retention) with IAM tokens, so no app password exists. Only the migrator uses the
+# master password, which Terraform generates and keeps in a Parameter Store
+# SecureString (free) rather than an RDS-managed Secrets Manager secret (USD 0.40 a
+# month). It is in Terraform state too, which is why the state bucket is private and
+# encrypted.
+
+terraform {
+  required_providers {
+    aws    = { source = "hashicorp/aws" }
+    random = { source = "hashicorp/random" }
+  }
+}
 
 variable "name" { type = string }
 variable "subnet_ids" { type = list(string) }
@@ -30,8 +41,21 @@ variable "deletion_protection" {
   default = true
 }
 variable "backup_retention_days" {
-  type    = number
-  default = 7
+  description = "TD-22: 35 days, RDS's maximum"
+  type        = number
+  default     = 35
+}
+
+resource "random_password" "master" {
+  length  = 40
+  special = false
+}
+
+resource "aws_ssm_parameter" "master_password" {
+  name        = "/${var.name}/db/master-password"
+  description = "RDS master password; read only by the migrator"
+  type        = "SecureString"
+  value       = random_password.master.result
 }
 
 resource "aws_db_subnet_group" "this" {
@@ -60,7 +84,7 @@ resource "aws_db_instance" "this" {
   storage_encrypted                   = true
   db_name                             = "saas"
   username                            = "saas_admin"
-  manage_master_user_password         = true
+  password                            = random_password.master.result
   iam_database_authentication_enabled = true
   db_subnet_group_name                = aws_db_subnet_group.this.name
   parameter_group_name                = aws_db_parameter_group.this.name
@@ -79,4 +103,6 @@ output "address" { value = aws_db_instance.this.address }
 output "port" { value = aws_db_instance.this.port }
 output "db_name" { value = aws_db_instance.this.db_name }
 output "resource_id" { value = aws_db_instance.this.resource_id }
-output "master_secret_arn" { value = aws_db_instance.this.master_user_secret[0].secret_arn }
+output "master_username" { value = aws_db_instance.this.username }
+output "master_password_parameter" { value = aws_ssm_parameter.master_password.name }
+output "master_password_parameter_arn" { value = aws_ssm_parameter.master_password.arn }

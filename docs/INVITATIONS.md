@@ -37,11 +37,10 @@ the addressee by email. A tenant's name is visible to someone holding a pending
 invitation to it. Inserting an invitation requires membership of its tenant.
 
 ## Not done here
-- **Infrastructure (Staff):** the identity Lambda needs `cognito-idp:AdminCreateUser`
-  on the user pool and the `COGNITO_USER_POOL_ID` variable. It also needs a network path
-  to Cognito: Lambdas run in private subnets with no NAT, so this means either a
-  Cognito interface endpoint or a NAT gateway. That is a cost decision, so nothing has
-  been provisioned. Until then, invites can't be sent from AWS.
+- **Infrastructure (Staff 2, D-040):** the S0b Terraform gives the API Lambda
+  `cognito-idp:AdminCreateUser` on the user pool, the `COGNITO_USER_POOL_ID` variable,
+  and a Cognito interface endpoint (TD-5). It is written but not applied, so invites
+  can't be sent from AWS yet.
   Locally and in tests nothing is sent; the API records what would have gone out.
 - The real Cognito call has not been exercised against AWS.
 - Accepting inserts the invitee's own membership. Since T-013 (QA-DEF-001) only owners

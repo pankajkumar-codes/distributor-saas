@@ -40,6 +40,16 @@ ALLOWED_DATA: dict[str, frozenset[str]] = {
     "member.role_change": frozenset({"from", "to"}),
     # Reason-required actions (permissions.yaml); their data keys come with their slices.
     **{action: frozenset() for action in REASON_REQUIRED},
+    # Catalog (LLD-3 §9): IDs, product codes, changed field names and GST rate values only.
+    "product.created": frozenset({"code"}),
+    "product.updated": frozenset({"code", "fields"}),
+    "product.archived": frozenset({"code"}),
+    "product.unarchived": frozenset({"code"}),
+    "product.deleted": frozenset({"code"}),
+    "product.rate_added": frozenset({"rate_id", "rate", "valid_from"}),
+    "product.rate_voided": frozenset({"rate_id", "rate", "valid_from"}),
+    "product.rate_confirmed": frozenset({"rate_id", "rate"}),
+    "product.rate_unconfirmed": frozenset({"rate_id", "rate"}),
 }
 
 _INSERT = text(

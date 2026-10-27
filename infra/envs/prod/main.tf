@@ -5,6 +5,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.80"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
   }
 
   # State lives in the bucket created by infra/bootstrap. Fill in the bucket name
@@ -31,20 +35,36 @@ provider "aws" {
 
 variable "web_origins" { type = list(string) }
 variable "budget_alert_emails" { type = list(string) }
+variable "git_sha" {
+  type    = string
+  default = "unknown"
+}
+variable "mail_domain" {
+  type    = string
+  default = ""
+}
 
 module "stack" {
   source              = "../../modules/stack"
   env                 = "prod"
   web_origins         = var.web_origins
   packages_dir        = "${path.root}/../../../build"
+  git_sha             = var.git_sha
+  mail_domain         = var.mail_domain
   db_instance_class   = "db.t4g.micro"
   db_multi_az         = false # switch on before live invoices
   deletion_protection = true
-  monthly_budget_usd  = 60
-  budget_alert_emails = var.budget_alert_emails
+  # TD-6. Needs an account Lambda concurrency quota of at least 156 (these 56 plus the
+  # 100 Lambda keeps unreserved); request the increase before the first prod apply.
+  reserved_concurrency = { api = 40, worker = 10, mailer = 5, migrator = 1 }
+  monthly_budget_usd   = 60 # TD-21
+  budget_alert_emails  = var.budget_alert_emails
 }
 
 output "api_endpoint" { value = module.stack.api_endpoint }
 output "user_pool_id" { value = module.stack.user_pool_id }
 output "user_pool_client_id" { value = module.stack.user_pool_client_id }
 output "migrator_function" { value = module.stack.migrator_function }
+output "app_url" { value = module.stack.app_url }
+output "web_bucket" { value = module.stack.web_bucket }
+output "cdn_distribution_id" { value = module.stack.cdn_distribution_id }

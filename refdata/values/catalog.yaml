@@ -1,0 +1,35 @@
+# Catalog rules (LLD-3 §3, §4, §11). The product rows are LLD-3's proposals, provisional
+# until the PO confirms them; the tax row is the GST expert's rate-change warning
+# window. Rows for customers and the CSV import come with their PRs (S3-b, S3-c).
+
+- key: catalog.rate_change_warning_days
+  value: "30"
+  type: integer
+  kind: tax
+  valid_from: 2017-07-01
+  source_url: team/gst/tax-computation.md
+  source_title: "Tax computation §5 (rate changed between order, invoice and payment dates; CGST s.14): warn when the rate changed in the 30 days before the invoice date"
+  last_checked: 2026-10-27
+  status: provisional
+  note: "Marked [CA] in the GST expert's document: the CA confirms the window."
+
+- key: catalog.rate_valid_from_max_days_ahead
+  value: "366"
+  type: integer
+  kind: product
+  valid_from: 2017-07-01
+  source_url: team/docs/lld-3.md
+  source_title: "LLD-3 §3 and §11: how far ahead a new rate may start (proposal 366 days)"
+  last_checked: 2026-10-27
+  status: provisional
+
+- key: catalog.product_code.max_length
+  value: "40"
+  type: integer
+  kind: product
+  valid_from: 2017-07-01
+  source_url: team/docs/lld-3.md
+  source_title: "LLD-3 §4 and §11: product code length (proposal 40; the column is varchar(40))"
+  last_checked: 2026-10-27
+  status: provisional
+  note: "The column holds at most 40, so a PO value above 40 needs a migration first."

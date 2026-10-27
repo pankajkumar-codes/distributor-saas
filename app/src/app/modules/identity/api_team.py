@@ -127,10 +127,12 @@ def _lock_invites(uow: UnitOfWork) -> None:
 
 def _business_name(uow: UnitOfWork) -> str | None:
     """The name the invite mail and preview show, snapshotted on the invite (LLD-2):
-    the business profile's display name, else the business row's name."""
-    return display_name(uow.tx) or uow.tx.execute(
+    the business profile's display name, else the business row's name. Cut to the
+    column's 200 characters, so a longer display name can't fail the invite."""
+    name = display_name(uow.tx) or uow.tx.execute(
         text("select name from identity.businesses where id = :b"), {"b": _business(uow)}
     ).scalar()
+    return name[:200] if name else name
 
 
 def _send_invite(uow: UnitOfWork, mail: Mailer, email: str, role: str, token: str, business_name: str | None) -> None:

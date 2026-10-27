@@ -1,5 +1,7 @@
 # Private-only VPC. There is no internet or NAT gateway: Lambdas reach S3 through a
-# free gateway endpoint and SQS / Secrets Manager through interface endpoints.
+# free gateway endpoint, and SQS, Parameter Store (ssm) and Cognito through interface
+# endpoints (TD-5). Each interface endpoint is billed per AZ-hour (about USD 9.5 a month
+# in one AZ), so they sit in one AZ.
 
 variable "name" { type = string }
 variable "cidr" {
@@ -18,7 +20,7 @@ variable "endpoint_az_count" {
 }
 variable "interface_endpoints" {
   type    = list(string)
-  default = ["sqs", "secretsmanager"]
+  default = ["sqs", "ssm", "cognito-idp"]
 }
 
 data "aws_region" "current" {}
