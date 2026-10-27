@@ -38,6 +38,8 @@ A blank or whitespace-only reason is refused (422 `reason_required`). The reason
 - `documents.s34_override`
 - `filing.accept_warning`
 - `imports.changed_line_choice`
+- `product.rate_voided`
+- `product.rate_unconfirmed`
 
 ## Rules outside the table
 

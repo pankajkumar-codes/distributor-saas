@@ -414,6 +414,145 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Products */
+        get: operations["list_products_api_v1_b__business_id__products_get"];
+        put?: never;
+        /** Create Product */
+        post: operations["create_product_api_v1_b__business_id__products_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/products/{product_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Product */
+        get: operations["get_product_api_v1_b__business_id__products__product_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Product */
+        delete: operations["delete_product_api_v1_b__business_id__products__product_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Product */
+        patch: operations["update_product_api_v1_b__business_id__products__product_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/products/{product_id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Archive Product */
+        post: operations["archive_product_api_v1_b__business_id__products__product_id__archive_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/products/{product_id}/rates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Rate */
+        post: operations["add_rate_api_v1_b__business_id__products__product_id__rates_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/products/{product_id}/rates/{rate_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm Rate */
+        post: operations["confirm_rate_api_v1_b__business_id__products__product_id__rates__rate_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/products/{product_id}/rates/{rate_id}/unconfirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Unconfirm Rate */
+        post: operations["unconfirm_rate_api_v1_b__business_id__products__product_id__rates__rate_id__unconfirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/products/{product_id}/rates/{rate_id}/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Void Rate */
+        post: operations["void_rate_api_v1_b__business_id__products__product_id__rates__rate_id__void_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/products/{product_id}/unarchive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Unarchive Product */
+        post: operations["unarchive_product_api_v1_b__business_id__products__product_id__unarchive_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/profile": {
         parameters: {
             query?: never;
@@ -442,6 +581,26 @@ export interface paths {
         get?: never;
         /** Put Turnover Band */
         put: operations["put_turnover_band_api_v1_b__business_id__turnover_bands__fy__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/units": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Units
+         * @description The UQC picker (refdata.uqc_codes).
+         */
+        get: operations["list_units_api_v1_b__business_id__units_get"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -728,6 +887,20 @@ export interface components {
              * @constant
              */
             status: "code_sent";
+        };
+        /** Confirmation */
+        Confirmation: {
+            /** At */
+            at: string;
+            /** By */
+            by: string;
+            /** Note */
+            note: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "confirmed" | "unconfirmed";
         };
         /** CurrentFrequencyOut */
         CurrentFrequencyOut: {
@@ -1018,6 +1191,11 @@ export interface components {
              */
             turnover_band: "up_to_threshold" | "above_threshold";
         };
+        /** NoteIn */
+        NoteIn: {
+            /** Note */
+            note?: string | null;
+        };
         /** PasswordSetOut */
         PasswordSetOut: {
             /**
@@ -1026,6 +1204,122 @@ export interface components {
              * @constant
              */
             status: "password_set";
+        };
+        /** ProductDetailOut */
+        ProductDetailOut: {
+            /** Barcode */
+            barcode: string | null;
+            /** Code */
+            code: string;
+            /** Has Cess */
+            has_cess: boolean;
+            /** Hsn */
+            hsn: string | null;
+            /** Id */
+            id: string;
+            /** In Use */
+            in_use: boolean;
+            /** Name */
+            name: string;
+            /** Rate Changed Within Warning Window */
+            rate_changed_within_warning_window: boolean;
+            rate_on: components["schemas"]["RateOnOut"] | null;
+            /** Rates */
+            rates: components["schemas"]["RateOut"][];
+            /** Sale Rate */
+            sale_rate: string;
+            /** Status */
+            status: string;
+            /** Tax Category */
+            tax_category: string;
+            /** Uqc */
+            uqc: string;
+            /** Version */
+            version: number;
+            /** Warnings */
+            warnings: components["schemas"]["Warning"][];
+        };
+        /** ProductIn */
+        ProductIn: {
+            /** Barcode */
+            barcode?: string | null;
+            /** Code */
+            code: string;
+            /**
+             * Has Cess
+             * @default false
+             */
+            has_cess: boolean;
+            /** Hsn */
+            hsn?: string | null;
+            /** Name */
+            name: string;
+            rate?: components["schemas"]["RateIn"] | null;
+            /** Sale Rate */
+            sale_rate: string;
+            /**
+             * Tax Category
+             * @enum {string}
+             */
+            tax_category: "taxable" | "exempt" | "nil_rated" | "non_gst";
+            /** Uqc */
+            uqc: string;
+        };
+        /** ProductOut */
+        ProductOut: {
+            /** Barcode */
+            barcode: string | null;
+            /** Code */
+            code: string;
+            /** Has Cess */
+            has_cess: boolean;
+            /** Hsn */
+            hsn: string | null;
+            /** Id */
+            id: string;
+            /** In Use */
+            in_use: boolean;
+            /** Name */
+            name: string;
+            rate_on: components["schemas"]["RateOnOut"] | null;
+            /** Sale Rate */
+            sale_rate: string;
+            /** Status */
+            status: string;
+            /** Tax Category */
+            tax_category: string;
+            /** Uqc */
+            uqc: string;
+            /** Version */
+            version: number;
+            /** Warnings */
+            warnings: components["schemas"]["Warning"][];
+        };
+        /** ProductPageOut */
+        ProductPageOut: {
+            /** Has More */
+            has_more: boolean;
+            /** Items */
+            items: components["schemas"]["ProductOut"][];
+        };
+        /** ProductPatch */
+        ProductPatch: {
+            /** Barcode */
+            barcode?: string | null;
+            /** Code */
+            code?: string | null;
+            /** Has Cess */
+            has_cess?: boolean | null;
+            /** Hsn */
+            hsn?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Sale Rate */
+            sale_rate?: string | null;
+            /** Tax Category */
+            tax_category?: ("taxable" | "exempt" | "nil_rated" | "non_gst") | null;
+            /** Uqc */
+            uqc?: string | null;
         };
         /** ProfileOut */
         ProfileOut: {
@@ -1070,17 +1364,53 @@ export interface components {
             /** Out Of */
             out_of: number | null;
         };
+        /** RateIn */
+        RateIn: {
+            /** Rate */
+            rate: string;
+            /**
+             * Valid From
+             * Format: date
+             */
+            valid_from: string;
+        };
+        /** RateOnOut */
+        RateOnOut: {
+            /** Confirmed */
+            confirmed: boolean;
+            /** Rate */
+            rate: string;
+            /** Rate Id */
+            rate_id: string;
+            /**
+             * Valid From
+             * Format: date
+             */
+            valid_from: string;
+        };
+        /** RateOut */
+        RateOut: {
+            confirmation: components["schemas"]["Confirmation"] | null;
+            /** Id */
+            id: string;
+            /** Rate */
+            rate: string;
+            /**
+             * Valid From
+             * Format: date
+             */
+            valid_from: string;
+            /** Valid Until */
+            valid_until: string | null;
+            /** Voided */
+            voided: boolean;
+        };
         /** ReadinessOut */
         ReadinessOut: {
             /** Missing */
             missing: ("legal_name" | "address" | "gstin")[];
             /** Ok */
             ok: boolean;
-        };
-        /** ReasonIn */
-        ReasonIn: {
-            /** Reason */
-            reason?: string | null;
         };
         /** Registration */
         Registration: {
@@ -1241,6 +1571,13 @@ export interface components {
             /** Fy */
             fy: string;
         };
+        /** UnitOut */
+        UnitOut: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+        };
         /** UserOut */
         UserOut: {
             /** Email */
@@ -1270,6 +1607,15 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** Warning */
+        Warning: {
+            /** Code */
+            code: string;
+            /** Field */
+            field: string | null;
+            /** Message */
+            message: string;
+        };
         /** WindowOut */
         WindowOut: {
             /** Closes */
@@ -1281,6 +1627,16 @@ export interface components {
             for_quarter: string;
             /** Opens */
             opens: string | null;
+        };
+        /** ReasonIn */
+        app__modules__catalog__api_products__ReasonIn: {
+            /** Reason */
+            reason?: string | null;
+        };
+        /** ReasonIn */
+        app__modules__identity__api_team__ReasonIn: {
+            /** Reason */
+            reason?: string | null;
         };
     };
     responses: never;
@@ -2129,7 +2485,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ReasonIn"];
+                "application/json": components["schemas"]["app__modules__identity__api_team__ReasonIn"];
             };
         };
         responses: {
@@ -2165,7 +2521,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ReasonIn"];
+                "application/json": components["schemas"]["app__modules__identity__api_team__ReasonIn"];
             };
         };
         responses: {
@@ -2176,6 +2532,398 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MemberOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_products_api_v1_b__business_id__products_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                status?: "active" | "archived" | "all";
+                filter?: ("no_hsn" | "rate_unconfirmed") | null;
+                on?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductPageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_product_api_v1_b__business_id__products_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProductIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_product_api_v1_b__business_id__products__product_id__get: {
+        parameters: {
+            query?: {
+                on?: string | null;
+            };
+            header?: never;
+            path: {
+                product_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_product_api_v1_b__business_id__products__product_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+            };
+            path: {
+                product_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_product_api_v1_b__business_id__products__product_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+            };
+            path: {
+                product_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProductPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    archive_product_api_v1_b__business_id__products__product_id__archive_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_rate_api_v1_b__business_id__products__product_id__rates_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                product_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_rate_api_v1_b__business_id__products__product_id__rates__rate_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_id: string;
+                rate_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unconfirm_rate_api_v1_b__business_id__products__product_id__rates__rate_id__unconfirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_id: string;
+                rate_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["app__modules__catalog__api_products__ReasonIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    void_rate_api_v1_b__business_id__products__product_id__rates__rate_id__void_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_id: string;
+                rate_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["app__modules__catalog__api_products__ReasonIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unarchive_product_api_v1_b__business_id__products__product_id__unarchive_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductDetailOut"];
                 };
             };
             /** @description Validation Error */
@@ -2278,6 +3026,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TurnoverBandOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_units_api_v1_b__business_id__units_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnitOut"][];
                 };
             };
             /** @description Validation Error */

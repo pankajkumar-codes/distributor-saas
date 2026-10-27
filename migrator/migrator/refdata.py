@@ -5,6 +5,7 @@ run. Files:
 
     refdata/values/*.yaml       scalar rules, one list of entries per file
     refdata/state_codes.yaml    GST state and UT codes
+    refdata/uqc_codes.yaml      units (UQC) a product may use (LLD-3 §4)
     refdata/templates/index.yaml   one entry per template file, checked by SHA-256
 
 Rules (§6.3):
@@ -61,7 +62,7 @@ class RefdataInvalid(Exception):
 
 @dataclass
 class Row:
-    table: str  # values | state_codes
+    table: str  # values | state_codes | uqc_codes
     ident: str  # key or code
     valid_from: dt.date
     valid_to: dt.date | None
@@ -257,6 +258,32 @@ def _state_codes_file(path: Path, rel: str, stamp: str, problems) -> list[Row]:
     return rows
 
 
+def _uqc_codes_file(path: Path, rel: str, stamp: str, problems) -> list[Row]:
+    rows = []
+    allowed_keys = {"code", "official_description", "display_name", "einvoice_listed", "valid_from", "valid_to",
+                    *METADATA}
+    for i, entry in enumerate(_entries(path, rel, problems), 1):
+        where = f"{rel} entry {i}"
+        unknown = sorted(set(entry) - allowed_keys)
+        if unknown:
+            problems.append(f"{where}: unknown fields {unknown}")
+        code = entry.get("code")
+        if not isinstance(code, str) or not re.fullmatch(r"[A-Z]{3}", code):
+            problems.append(f"{where}: code must be three capital letters, got {code!r}")
+            code = None
+        official = _text(entry, "official_description", where, problems)
+        display = _text(entry, "display_name", where, problems)
+        listed = entry.get("einvoice_listed")
+        if not isinstance(listed, bool):
+            problems.append(f"{where}: einvoice_listed must be true or false, got {listed!r}")
+            listed = None
+        valid_from, valid_to, metadata = _common(entry, f"{rel} {code or i}", problems, "tax")
+        if code and official and display and listed is not None and valid_from:
+            columns = {"official_description": official, "display_name": display, "einvoice_listed": listed}
+            rows.append(Row("uqc_codes", code, valid_from, valid_to, columns, metadata, f"{rel}@{stamp}"))
+    return rows
+
+
 def _templates(root: Path, problems, hashes) -> list[Template]:
     index = root / "templates" / "index.yaml"
     if not index.exists():
@@ -318,6 +345,10 @@ def read_files(root: Path, stamp: str = "local") -> Files:
     if states.exists():
         files.hashes["state_codes.yaml"] = hashlib.sha256(states.read_bytes()).hexdigest()
         files.rows += _state_codes_file(states, "state_codes.yaml", stamp, problems)
+    units = root / "uqc_codes.yaml"
+    if units.exists():
+        files.hashes["uqc_codes.yaml"] = hashlib.sha256(units.read_bytes()).hexdigest()
+        files.rows += _uqc_codes_file(units, "uqc_codes.yaml", stamp, problems)
     files.templates = _templates(root, problems, files.hashes)
     _check_ranges(files.rows, problems)
     seen = set()
@@ -342,8 +373,12 @@ def _effective(rows: list[Row]) -> None:
                 a.valid_to = b.valid_from
 
 
-_ID_COLUMN = {"values": "key", "state_codes": "code"}
-_FIXED = {"values": ("value", "type", "kind"), "state_codes": ("name",)}
+_ID_COLUMN = {"values": "key", "state_codes": "code", "uqc_codes": "code"}
+_FIXED = {
+    "values": ("value", "type", "kind"),
+    "state_codes": ("name",),
+    "uqc_codes": ("official_description", "display_name", "einvoice_listed"),
+}
 
 
 def load(conn, root: Path, git_sha: str | None = None) -> dict:
@@ -360,7 +395,7 @@ def load(conn, root: Path, git_sha: str | None = None) -> dict:
     with conn.transaction():
         # One loader at a time: two concurrent migrator runs would otherwise both insert.
         conn.execute("select pg_advisory_xact_lock(hashtextextended('refdata.load', 0))")
-        for table in ("values", "state_codes"):
+        for table in ("values", "state_codes", "uqc_codes"):
             idc = _ID_COLUMN[table]
             fixed = _FIXED[table]
             cols = (idc, "valid_from", "valid_to", *fixed, *METADATA)

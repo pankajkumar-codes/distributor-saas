@@ -36,3 +36,21 @@
 - path: app/src/app/modules/imports/staging.py
   value: "255"
   reason: "filename truncated to its column width"
+- path: app/src/app/modules/catalog/api_products.py
+  value: "300"
+  reason: "max length of a text field in a request body; input hygiene, not a tax rule"
+- path: app/src/app/modules/catalog/api_products.py
+  value: "24"
+  reason: "max length of a decimal string in a request body; input hygiene"
+- path: app/src/app/modules/catalog/api_products.py
+  value: "600"
+  reason: "max length of a reason or note in a request body; input hygiene"
+- path: app/src/app/modules/catalog/checks.py
+  value: "200"
+  reason: "product name length, the column's width"
+- path: app/src/app/modules/catalog/checks.py
+  value: "64"
+  reason: "barcode length, the column's width"
+- path: app/src/app/modules/catalog/products.py
+  value: "500"
+  reason: "max length of a confirmation note; input hygiene, not a tax rule"

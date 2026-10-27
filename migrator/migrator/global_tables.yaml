@@ -3,6 +3,7 @@
 # (migrator.checks).
 refdata.values: "global reference data; app roles have SELECT only, the migrator writes"
 refdata.state_codes: "global reference data; app roles have SELECT only, the migrator writes"
+refdata.uqc_codes: "global reference data; app roles have SELECT only, the migrator writes"
 refdata.templates: "global reference data; app roles have SELECT only, the migrator writes"
 refdata.loads: "the migrator's load log; app roles have SELECT only"
 platform.rate_counters: "global by design (LLD-0 §4.5): HMAC buckets, no tenant or personal data"

@@ -1,0 +1,16 @@
+# HSN rules (LLD-3 §4), from the GST expert's team/gst/refdata-rates-uqc.md v1.1 §5(a).
+# Tax row, provisional. Shape only: it catches typos and never says which HSN fits a
+# product (GC-P3). Type pattern (the document says text) so the loader checks that it
+# compiles; [0-9] rather than \d, which can match non-ASCII digits.
+# The minimum digits by turnover (§5(b), hsn_min_digits) is a different rule, not built yet.
+
+- key: hsn.pattern
+  value: "^[0-9]{4}([0-9]{2}){0,2}$"
+  type: pattern
+  kind: tax
+  valid_from: 2017-07-01
+  source_url: https://tutorial.gst.gov.in/userguide/returns/GSTR_1.htm
+  source_title: "GSTN FAQs on Form GSTR-1, Table-12 Q3 (minimum 4 or 6 digits by AATO, under Notification 78/2020-CT dated 15-10-2020); GSTN advisory on HSN in Table 12, https://tutorial.gst.gov.in/downloads/news/updated_advisory_hsn_table12_25042025.pdf"
+  last_checked: 2026-10-27
+  status: provisional
+  note: "4, 6 or 8 digits. Lower bound 4 is cited. The 8-digit cap and the even-length shape follow the HSN structure (heading 4, sub-heading 6, tariff item 8): UNVERIFIED, refdata-rates-uqc.md open item 6 and docs/OPEN_QUESTIONS.md (HSN 8-digit cap)."
