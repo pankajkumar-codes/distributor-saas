@@ -3,11 +3,14 @@
 from fastapi import FastAPI
 from mangum import Mangum
 
+from app.home.api import router as home_router
+from app.modules.business.api import router as business_router
 from app.modules.identity.api import router as identity_router
 from app.modules.identity.api_auth import router as auth_router
 from app.modules.identity.api_me import router as me_router
 from app.modules.identity.api_team import router as team_router
 from app.modules.identity.interface import resolve_principal
+from app.modules.refdata.api import router as refdata_router
 from platform_common.errors import install_error_handlers
 from platform_common.uow import set_principal_resolver
 
@@ -19,6 +22,9 @@ app.include_router(identity_router, prefix=API_PREFIX)
 app.include_router(auth_router, prefix=API_PREFIX)
 app.include_router(me_router, prefix=API_PREFIX)
 app.include_router(team_router, prefix=API_PREFIX)
+app.include_router(business_router, prefix=API_PREFIX)
+app.include_router(home_router, prefix=API_PREFIX)
+app.include_router(refdata_router, prefix=API_PREFIX)
 # business_uow and me_uow check every caller through identity (LLD-1 §6).
 set_principal_resolver(resolve_principal)
 

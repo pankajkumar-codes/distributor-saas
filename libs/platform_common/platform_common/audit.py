@@ -25,6 +25,12 @@ ALLOWED_DATA: dict[str, frozenset[str]] = {
     "auth.totp_off": frozenset(),
     "auth.signout_all": frozenset({"sessions"}),
     "business.create": frozenset({"registration_kind"}),
+    # Business profile (LLD-1 §8.2, L1-13, L1-14).
+    "business.profile_update": frozenset({"fields"}),
+    "business.turnover_band_set": frozenset({"fy", "band"}),
+    "business.frequency_set": frozenset({"frequency", "effective_from", "warnings"}),
+    "business.channels_update": frozenset({"enabled"}),
+    "business.gstin_locked": frozenset(),
     # Team (LLD-2 §4). member.accept is written by identity.auth_accept_invitation.
     "member.invite": frozenset({"role"}),
     "member.invite_resend": frozenset(),

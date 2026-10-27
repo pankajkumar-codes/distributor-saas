@@ -3,6 +3,7 @@
 Every function takes the caller's transaction (`uow.tx`) and never opens or commits one.
 Tenant rows are reached under row-level security: the business is the one bound in
 app.tenant_id, except business_card, which reads under app_ro through profile_card_ro.
+Writers that record an audit row (lock_gstin, add_frequency_row) take the unit of work.
 """
 
 import uuid
@@ -14,40 +15,45 @@ from pydantic import BaseModel, Field
 from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session
 
-from app.modules.refdata import state_name
-from platform_common.errors import Invalid
-
 from ..fiscal import fy_of
-from ..gstin import GstinCheck, check_gstin, message
+from ..frequency import FrequencyRow, add_frequency_row, filing_frequency_on
+from ..gstin import GstinCheck, check_gstin
+from ..profile import (
+    BusinessSetup,
+    Channels,
+    Profile,
+    Readiness,
+    channels,
+    get_profile,
+    lock_gstin,
+    ready_for_documents,
+    setup_state,
+)
+from ..registration import Address, Registration, blank_to_none, check_state, registration
 
 __all__ = [
     "Address",
     "BusinessCard",
+    "BusinessSetup",
+    "Channels",
+    "FrequencyRow",
     "GstinCheck",
     "NewBusinessProfile",
+    "Profile",
+    "Readiness",
     "Registration",
+    "add_frequency_row",
     "business_card",
+    "channels",
     "check_gstin",
     "create_profile",
     "display_name",
+    "filing_frequency_on",
+    "get_profile",
+    "lock_gstin",
+    "ready_for_documents",
+    "setup_state",
 ]
-
-STATE = r"^[0-9]{2}$"
-
-
-class Registration(BaseModel):
-    kind: Literal["gstin", "enrolment"]
-    gstin: str | None = Field(default=None, max_length=40)
-    enrolment_number: str | None = Field(default=None, max_length=40)
-    state_code: str | None = Field(default=None, pattern=STATE)  # chosen by the user for an enrolment
-
-
-class Address(BaseModel):
-    line1: str | None = Field(default=None, max_length=200)
-    line2: str | None = Field(default=None, max_length=200)
-    city: str | None = Field(default=None, max_length=100)
-    pin: str | None = Field(default=None, pattern=r"^[0-9]{6}$")
-    state_code: str | None = Field(default=None, pattern=STATE)
 
 
 class NewBusinessProfile(BaseModel):
@@ -69,46 +75,6 @@ class BusinessCard:
     state_code: str
 
 
-def _blank_to_none(value: str | None) -> str | None:
-    value = (value or "").strip()
-    return value or None
-
-
-def _check_state(tx: Session, code: str, on: date, field: str) -> None:
-    """A state code must be in refdata.state_codes, and 96 (other country) is only ever a
-    place of supply (gstin.md §3). An unknown code is refused: the check never passes
-    for want of data."""
-    if state_name(tx, code, on) is None or code == "96":
-        raise Invalid("state_code_unknown", "that isn't a GST state code", field=field)
-
-
-def _registration(tx: Session, reg: Registration, on: date) -> tuple[str | None, str | None, str, list[str]]:
-    """(gstin, enrolment_number, state_code, warnings), or Invalid."""
-    if reg.kind == "gstin":
-        if reg.enrolment_number is not None:
-            raise Invalid("registration_mixed", "send a GSTIN or an enrolment number, not both",
-                          field="registration.enrolment_number")
-        check = check_gstin(reg.gstin or "")
-        if not check.ok:
-            code = check.errors[0]
-            raise Invalid(code, message(code, reg.gstin or ""), field="registration.gstin")
-        _check_state(tx, check.state_code, on, "registration.gstin")
-        if reg.state_code is not None and reg.state_code != check.state_code:
-            raise Invalid("state_code_mismatch", "the state comes from the GSTIN's first two digits",
-                          field="registration.state_code")
-        return check.normalised, None, check.state_code, list(check.warnings)
-    if reg.gstin is not None:
-        raise Invalid("registration_mixed", "send a GSTIN or an enrolment number, not both", field="registration.gstin")
-    number = _blank_to_none(reg.enrolment_number)
-    if number is None:
-        # No cited pattern yet (LLD-1 §15): non-empty is the only check.
-        raise Invalid("enrolment_number_required", "enter the enrolment number", field="registration.enrolment_number")
-    if reg.state_code is None:
-        raise Invalid("state_code_required", "choose the state you are enrolled in", field="registration.state_code")
-    _check_state(tx, reg.state_code, on, "registration.state_code")
-    return None, number, reg.state_code, []
-
-
 _INSERT_PROFILE = text(
     "insert into business.profiles (business_id, legal_name, trade_name, registration_kind, gstin,"
     " enrolment_number, state_code, address_line1, address_line2, city, pin, address_state_code,"
@@ -126,25 +92,25 @@ def create_profile(tx: Session, business_id: uuid.UUID, profile_in: NewBusinessP
     """The new business's profile and its current-FY turnover band, in the caller's
     transaction, with app.tenant_id already bound to `business_id`. Returns warning codes
     (pan_shape, gstin_not_z, address_state_mismatch); refuses with Invalid."""
-    gstin, enrolment, state, warnings = _registration(tx, profile_in.registration, today)
+    gstin, enrolment, state, warnings = registration(tx, profile_in.registration, today)
     address = profile_in.address or Address()
     if address.state_code is not None:
-        _check_state(tx, address.state_code, today, "address.state_code")
+        check_state(tx, address.state_code, today, "address.state_code")
         if address.state_code != state:
             warnings.append("address_state_mismatch")  # a warning, not a refusal (L1-12)
     tx.execute(
         _INSERT_PROFILE,
         {
             "b": business_id,
-            "legal_name": _blank_to_none(profile_in.legal_name),
-            "trade_name": _blank_to_none(profile_in.trade_name),
+            "legal_name": blank_to_none(profile_in.legal_name),
+            "trade_name": blank_to_none(profile_in.trade_name),
             "kind": profile_in.registration.kind,
             "gstin": gstin,
             "enrolment_number": enrolment,
             "state_code": state,
-            "line1": _blank_to_none(address.line1),
-            "line2": _blank_to_none(address.line2),
-            "city": _blank_to_none(address.city),
+            "line1": blank_to_none(address.line1),
+            "line2": blank_to_none(address.line2),
+            "city": blank_to_none(address.city),
             "pin": address.pin,
             "address_state_code": address.state_code,
             "einvoice_history": profile_in.einvoice_history,

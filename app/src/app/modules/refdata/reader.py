@@ -145,3 +145,16 @@ def _reset_cache() -> None:
     global _snapshot
     with _lock:
         _snapshot = None
+
+
+def state_codes(tx: Session, on: dt.date) -> list[tuple[str, str]]:
+    """Every (code, name) loaded and valid on `on`, by code. Only what refdata holds:
+    a code missing from the load is missing here."""
+    if isinstance(on, dt.datetime) or not isinstance(on, dt.date):
+        raise TypeError("`on` is a business date (Clock.today()), not a datetime")
+    out = []
+    for code, rows in _current(tx).states.items():
+        names = [name for name, valid_from, valid_to in rows if valid_from <= on and (valid_to is None or on < valid_to)]
+        if len(names) == 1:
+            out.append((code, names[0]))
+    return sorted(out)
