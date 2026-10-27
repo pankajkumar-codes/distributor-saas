@@ -1,8 +1,23 @@
 # Web app (LLD-1 §11)
 
-React + TypeScript (Vite), React Router and TanStack Query, per TD-2 and HLD §9. The
-screens come in S1; this folder holds the pinned dependencies and their CI checks only
-(build-readiness 4.6).
+React + TypeScript (Vite), React Router and TanStack Query, per TD-2 and HLD §9. S1 so far:
+`/signup` (step 1 email and password, step 2 the emailed code) and a placeholder
+`/onboarding/business`.
+
+## Running it
+
+```
+make db-up db-migrate run-api      # the API on :8000, codes go to build/mail/outbox.jsonl
+cd web && npm ci && npm run dev    # http://localhost:5173, /api proxied to :8000
+```
+
+Use `localhost`, not `127.0.0.1`: the API accepts the sign-up verify call only from the
+origin `http://localhost:5173` locally.
+
+- `npm test`: Vitest unit tests (`tests/unit`).
+- `npm run e2e`: Playwright (`tests/e2e`) against a built app on :5173 and the API on
+  :8000; it reads codes from `../build/mail/outbox.jsonl` (`MAIL_OUTBOX` overrides).
+- `npm run gen:api`: regenerates `src/api/schema.d.ts` from `app/openapi.json`.
 
 ## Dependencies
 
@@ -28,9 +43,12 @@ npx npm@11.6.2 install --package-lock-only --ignore-scripts
 
 `npm ci` with npm 10 installs from the lockfile without trouble.
 
-## Rules carried into S1
+## Rules
 
 - **RM-4.1 row 13:** the sign-up flow keeps the email in `history.state`, never in a query
   string such as `?email=`, so it stays out of browser history and CloudFront access logs.
-  This is the S1 `/signup` screen's rule (LLD-1 §11.2); nothing here builds that screen yet.
+  `tests/unit/signup.test.tsx` and the Playwright test check it.
 - Tokens live in memory only, never in `localStorage` or `sessionStorage` (LLD-1 §11.3).
+  ESLint refuses either global under `src/`.
+- `playwright-core` is overridden to 1.63.0 so `@axe-core/playwright` uses the same
+  Playwright as `@playwright/test`, not a newer copy.
