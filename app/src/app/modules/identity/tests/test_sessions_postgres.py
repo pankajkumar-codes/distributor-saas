@@ -79,12 +79,23 @@ def test_refresh_without_the_cookie_or_with_a_bad_one_is_401(env):  # AC-16
     ],
 )
 def test_refresh_needs_a_live_session_row(env, sql):  # AC-6
-    client, _, _, admin = env
+    client, idp, _, admin = env
     _, rt = signed_in(env)
     with admin.begin() as c:
         c.execute(text(sql))
     r = refresh(client, rt)
     assert r.status_code == 401 and cleared(r)
+    assert idp._refresh[rt].revoked  # the provider's token can't be replayed either
+
+
+def test_a_failed_provider_revoke_does_not_change_the_refusal(env, monkeypatch):
+    client, idp, _, admin = env
+    _, rt = signed_in(env)
+    with admin.begin() as c:
+        c.execute(text("update identity.sessions set revoked_at = now(), revoke_reason = 'support'"))
+    monkeypatch.setattr(idp, "revoke_refresh", lambda _: (_ for _ in ()).throw(RuntimeError("down")))
+    r = refresh(client, rt)
+    assert r.status_code == 401 and r.json()["error"]["code"] == "session_invalid"
 
 
 def test_background_refresh_does_not_move_the_idle_clock(env):  # L1-8
@@ -106,6 +117,22 @@ def test_sign_out_revokes_the_session_and_the_refresh_token(env):  # AC-6
     assert r.status_code == 204 and cleared(r)
     assert one(admin, "select revoke_reason from identity.sessions") == "signout"
     assert refresh(client, rt).status_code == 401
+
+
+def test_sign_out_writes_one_user_level_audit_row(env):  # §12 auth.signout
+    client, _, _, admin = env
+    access, rt = signed_in(env)
+    assert signout(client, access, rt).status_code == 204
+    assert signout(client, access, rt).status_code == 204  # nothing left to revoke: no second row
+    with admin.connect() as c:
+        rows = c.execute(
+            text(
+                "select a.user_id = s.user_id as same_user, a.target_kind, a.business_id, a.data"
+                " from platform.audit_log a join identity.sessions s on s.id = a.target_id"
+                " where a.action = 'auth.signout'"
+            )
+        ).all()
+    assert [tuple(r) for r in rows] == [(True, "session", None, {})]
 
 
 def test_sign_out_accepts_an_expired_access_token(env):  # §5.7: sign out after a long idle
