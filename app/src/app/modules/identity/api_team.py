@@ -17,16 +17,17 @@ import hashlib
 import os
 import secrets
 import uuid
-from datetime import UTC, date, datetime, time, timedelta, timezone
+from datetime import UTC, date, datetime, time, timedelta
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Header, Query
+from fastapi import APIRouter, Depends, Header, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from platform_common import audit
 from platform_common.auth import debug_env
+from platform_common.clock import IST
 from platform_common.errors import AppError, Conflict, Deny, Invalid, RateLimited
 from platform_common.idempotency import run_once
 from platform_common.ids import uuid7
@@ -34,6 +35,8 @@ from platform_common.mailer import Mailer, send_after_commit
 from platform_common.paging import DateRange, PageParams, date_range, page_params
 from platform_common.permissions import Permission, Role, has_permission, matrix, require, require_reason
 from platform_common.uow import BusinessUoW, MeUoW, UnitOfWork, parse_id
+
+from app.modules.business.interface import display_name
 
 from . import audit_labels
 from .providers import mailer
@@ -122,14 +125,18 @@ def _lock_invites(uow: UnitOfWork) -> None:
     )
 
 
-def _send_invite(uow: UnitOfWork, mail: Mailer, email: str, role: str, token: str) -> None:
-    business_name, inviter = uow.tx.execute(
-        text(
-            "select b.name, coalesce(u.name, u.email) from identity.businesses b, identity.users u"
-            " where b.id = :b and u.id = :me"
-        ),
-        {"b": _business(uow), "me": uow.principal.user_id},
-    ).one()
+def _business_name(uow: UnitOfWork) -> str | None:
+    """The name the invite mail and preview show, snapshotted on the invite (LLD-2):
+    the business profile's display name, else the business row's name."""
+    return display_name(uow.tx) or uow.tx.execute(
+        text("select name from identity.businesses where id = :b"), {"b": _business(uow)}
+    ).scalar()
+
+
+def _send_invite(uow: UnitOfWork, mail: Mailer, email: str, role: str, token: str, business_name: str | None) -> None:
+    inviter = uow.tx.execute(
+        text("select coalesce(name, email) from identity.users where id = :me"), {"me": uow.principal.user_id}
+    ).scalar_one()
     send_after_commit(
         uow,
         mail,
@@ -184,11 +191,12 @@ def _create_invite(uow: UnitOfWork, mail: Mailer, body: InviteIn) -> dict:
 
     token = secrets.token_urlsafe(32)
     invite_id = uuid7()
+    business_name = _business_name(uow)
     row = uow.tx.execute(
         text(
             "insert into identity.invitations (id, business_id, email, display_name, role, status, token_hash,"
-            " invited_by_user, expires_at, last_sent_at)"
-            " values (:id, :b, :e, :n, :r, 'pending', :h, :me, now() + make_interval(days => :days), now())"
+            " invited_by_user, expires_at, last_sent_at, business_name)"
+            " values (:id, :b, :e, :n, :r, 'pending', :h, :me, now() + make_interval(days => :days), now(), :bn)"
             f" returning {_INVITE_COLUMNS}, now()"
         ),
         {
@@ -199,11 +207,12 @@ def _create_invite(uow: UnitOfWork, mail: Mailer, body: InviteIn) -> dict:
             "r": body.role,
             "h": token_hash(token),
             "me": uow.principal.user_id,
+            "bn": business_name,
             "days": INVITE_EXPIRY_DAYS,
         },
     ).one()
     audit.record(uow, "member.invite", "invitation", invite_id, data={"role": body.role})
-    _send_invite(uow, mail, email, body.role, token)
+    _send_invite(uow, mail, email, body.role, token, business_name)
     return _invite_out(row)
 
 
@@ -217,6 +226,7 @@ def invite(
     body: InviteIn,
     uow: BusinessUoW,
     mail: Annotated[Mailer, Depends(mailer)],
+    request: Request,
     idempotency_key: str | None = Header(None),
 ):
     return run_once(
@@ -224,7 +234,7 @@ def invite(
         _business(uow),
         idempotency_key,
         method="POST",
-        route="/api/v1/b/{business_id}/invitations",
+        route=request.scope["route"].path,
         payload=body.model_dump(mode="json"),
         operation=lambda: _create_invite(uow, mail, body),
     )
@@ -256,15 +266,16 @@ def resend_invite(invitation_id: str, uow: BusinessUoW, mail: Annotated[Mailer, 
         raise Conflict("invite_not_pending", f"This invite is {inv.status}", fix="Send a new invite")
     _check_invite_limit(uow)
     token = secrets.token_urlsafe(32)
+    business_name = _business_name(uow)  # refreshed, in case the business was renamed
     row = uow.tx.execute(
         text(
             "update identity.invitations set token_hash = :h, expires_at = now() + make_interval(days => :days),"
-            f" last_sent_at = now() where id = :i returning {_INVITE_COLUMNS}, now()"
+            f" last_sent_at = now(), business_name = :bn where id = :i returning {_INVITE_COLUMNS}, now()"
         ),
-        {"h": token_hash(token), "days": INVITE_EXPIRY_DAYS, "i": inv.id},
+        {"h": token_hash(token), "days": INVITE_EXPIRY_DAYS, "bn": business_name, "i": inv.id},
     ).one()
     audit.record(uow, "member.invite_resend", "invitation", inv.id)
-    _send_invite(uow, mail, inv.email, inv.role, token)
+    _send_invite(uow, mail, inv.email, inv.role, token, business_name)
     return _invite_out(row)
 
 
@@ -447,6 +458,11 @@ ONLY_OWNER = "Only an owner can change an owner"
 NEEDS_OWNER = "A business needs at least one owner"
 
 
+# T-013's trigger raises its own SQLSTATE (202610270100); RLS refusals are 42501 and
+# must not read as an owner rule.
+OWNER_RULE_SQLSTATE = "IDO01"
+
+
 def _update_member(uow: UnitOfWork, sql: str, params: dict) -> None:
     """The T-013 trigger is the database backstop for the owner rules; if it ever
     refuses what the checks above let through, the caller still gets owner_rule."""
@@ -454,7 +470,7 @@ def _update_member(uow: UnitOfWork, sql: str, params: dict) -> None:
         with uow.tx.begin_nested():
             uow.tx.execute(text(sql), params)
     except DBAPIError as exc:
-        if getattr(exc.orig, "sqlstate", None) == "42501":
+        if getattr(exc.orig, "sqlstate", None) == OWNER_RULE_SQLSTATE:
             raise _owner_rule(ONLY_OWNER) from None
         raise
 
@@ -629,9 +645,6 @@ def audit_log(
         items=[_audit_row(bid, r, role) for r in rows],
         next_cursor=_encode_cursor(rows[-1].at, rows[-1].id) if more else None,
     )
-
-
-IST = timezone(timedelta(hours=5, minutes=30))
 
 
 def _ist_midnight(day: date, plus_days: int = 0) -> datetime:
