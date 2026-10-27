@@ -660,6 +660,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Me */
+        get: operations["me_api_v1_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Set My Name */
+        patch: operations["set_my_name_api_v1_me_patch"];
+        trace?: never;
+    };
     "/api/v1/me/businesses": {
         parameters: {
             query?: never;
@@ -705,6 +723,27 @@ export interface paths {
         put?: never;
         /** Accept Invite */
         post: operations["accept_invite_api_v1_me_invitations__token__accept_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change Password
+         * @description §5.9. Every session ends, this one included: the SPA goes to sign-in. Not on
+         *     me_uow, because rate.hit runs before the first transaction (service/account.py).
+         */
+        post: operations["change_password_api_v1_me_password_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1101,6 +1140,39 @@ export interface components {
             /** Items */
             items: components["schemas"]["JobOut"][];
         };
+        /** MeMembership */
+        MeMembership: {
+            /** Business Id */
+            business_id: string;
+            /** Display Name */
+            display_name: string;
+            /** Gstin */
+            gstin: string | null;
+            /** Permissions */
+            permissions: string[];
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "owner" | "admin" | "billing" | "ca";
+        };
+        /** MeOut */
+        MeOut: {
+            /** Memberships */
+            memberships: components["schemas"]["MeMembership"][];
+            user: components["schemas"]["MeUser"];
+        };
+        /** MeUser */
+        MeUser: {
+            /** Email */
+            email: string;
+            /** Id */
+            id: string;
+            /** Name */
+            name: string | null;
+            /** Totp Enabled */
+            totp_enabled: boolean;
+        };
         /** MemberOut */
         MemberOut: {
             /** Can Do */
@@ -1162,6 +1234,11 @@ export interface components {
             /** Businesses */
             businesses: components["schemas"]["MyBusiness"][];
         };
+        /** NameBody */
+        NameBody: {
+            /** Name */
+            name: string | null;
+        };
         /** NewBusinessOut */
         NewBusinessOut: {
             /** Business Id */
@@ -1195,6 +1272,13 @@ export interface components {
         NoteIn: {
             /** Note */
             note?: string | null;
+        };
+        /** PasswordBody */
+        PasswordBody: {
+            /** Current Password */
+            current_password: string;
+            /** New Password */
+            new_password: string;
         };
         /** PasswordSetOut */
         PasswordSetOut: {
@@ -3174,6 +3258,59 @@ export interface operations {
             };
         };
     };
+    me_api_v1_me_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeOut"];
+                };
+            };
+        };
+    };
+    set_my_name_api_v1_me_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NameBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     my_businesses_api_v1_me_businesses_get: {
         parameters: {
             query?: never;
@@ -3252,6 +3389,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_password_api_v1_me_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
                 };
             };
         };

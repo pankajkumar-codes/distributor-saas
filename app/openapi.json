@@ -994,6 +994,110 @@
         "title": "JobsOut",
         "type": "object"
       },
+      "MeMembership": {
+        "properties": {
+          "business_id": {
+            "title": "Business Id",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "gstin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gstin"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Permissions",
+            "type": "array"
+          },
+          "role": {
+            "enum": [
+              "owner",
+              "admin",
+              "billing",
+              "ca"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "business_id",
+          "display_name",
+          "gstin",
+          "role",
+          "permissions"
+        ],
+        "title": "MeMembership",
+        "type": "object"
+      },
+      "MeOut": {
+        "properties": {
+          "memberships": {
+            "items": {
+              "$ref": "#/components/schemas/MeMembership"
+            },
+            "title": "Memberships",
+            "type": "array"
+          },
+          "user": {
+            "$ref": "#/components/schemas/MeUser"
+          }
+        },
+        "required": [
+          "user",
+          "memberships"
+        ],
+        "title": "MeOut",
+        "type": "object"
+      },
+      "MeUser": {
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "totp_enabled": {
+            "title": "Totp Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "name",
+          "totp_enabled"
+        ],
+        "title": "MeUser",
+        "type": "object"
+      },
       "MemberOut": {
         "properties": {
           "can_do": {
@@ -1200,6 +1304,27 @@
         "title": "MyBusinessesOut",
         "type": "object"
       },
+      "NameBody": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "NameBody",
+        "type": "object"
+      },
       "NewBusinessOut": {
         "properties": {
           "business_id": {
@@ -1304,6 +1429,26 @@
           }
         },
         "title": "NoteIn",
+        "type": "object"
+      },
+      "PasswordBody": {
+        "properties": {
+          "current_password": {
+            "maxLength": 1024,
+            "title": "Current Password",
+            "type": "string"
+          },
+          "new_password": {
+            "maxLength": 1024,
+            "title": "New Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "current_password",
+          "new_password"
+        ],
+        "title": "PasswordBody",
         "type": "object"
       },
       "PasswordSetOut": {
@@ -5238,6 +5383,66 @@
         ]
       }
     },
+    "/api/v1/me": {
+      "get": {
+        "operationId": "me_api_v1_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Me",
+        "tags": [
+          "me"
+        ]
+      },
+      "patch": {
+        "operationId": "set_my_name_api_v1_me_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NameBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set My Name",
+        "tags": [
+          "me"
+        ]
+      }
+    },
     "/api/v1/me/businesses": {
       "get": {
         "operationId": "my_businesses_api_v1_me_businesses_get",
@@ -5340,6 +5545,61 @@
         "summary": "Accept Invite",
         "tags": [
           "team"
+        ]
+      }
+    },
+    "/api/v1/me/password": {
+      "post": {
+        "description": "\u00a75.9. Every session ends, this one included: the SPA goes to sign-in. Not on\nme_uow, because rate.hit runs before the first transaction (service/account.py).",
+        "operationId": "change_password_api_v1_me_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "summary": "Change Password",
+        "tags": [
+          "me"
         ]
       }
     },
