@@ -62,9 +62,12 @@ POST /b already reads `identity.max_owned_businesses` (5, provisional; **Pankaj 
 |---|---|---|
 | Enrolment number pattern (LLD-1 §15) | Accepts any non-blank value, stored trimmed | A cited pattern for the Notification 34/2023 enrolment number |
 | What an enrolment-number business may do in R1 | Stored; `ready_for_documents` will report `gstin` missing (S1-d2) | PO and GST expert |
-| Rule 61A window rows `qrmp.option_window.*`, `einvoice.aato_threshold` | The related warnings report "unknown" instead of guessing (S1-d2) | GST expert, with citation |
+| Rule 61A window rows `qrmp.option_window.open_offset_months` and `close_offset_months`, `einvoice.aato_threshold` | `GET /filing-profile` returns the window with `opens`/`closes` null and warning `window_unknown`; a frequency choice stores `window_unknown` and never `outside_window`. Offsets are read as months from the quarter's start: opens on the first of month `open`, closes the day before the first of month `close` (`business/rule61a.py`) | GST expert, with citation; confirm the offset reading |
+| When `portal_stricter_reading` applies (LLD-1 §8.4) | Never raised: LLD-1 names the warning but not its condition | GST expert or CA states the condition |
+| L1-13 first frequency row back to the FY start | Allowed for a business's first row only; later rows need the current quarter or later | PO and GST expert confirm |
 | Address state different from GSTIN state | A warning, `address_state_mismatch` (L1-12, BRD ON-3); `gstin.md` §4 says refuse | GST expert confirms |
 | 14th GSTIN character not `Z` on the business's own GSTIN | A warning, `gstin_not_z` (`gstin.md` §1, §4 item 5) | none |
+| Home checklist links for screens not built yet (`/settings/filing`, `/products`, `/customers`, `/settings/team`) | Home returns these paths under `/b/{id}` | Junior and Designer confirm the SPA routes |
 
 ## Refdata rows to confirm (S0b)
 Every row in `refdata/` is `provisional`. Before go-live:

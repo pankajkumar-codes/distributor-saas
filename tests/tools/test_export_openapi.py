@@ -24,3 +24,9 @@ def test_moneystr_ref_typed_as_number_is_refused():
     spec = schemas(due={"anyOf": [{"$ref": "#/components/schemas/MoneyStr"}, {"type": "number"}]})
     assert len(export_openapi.money_numbers(spec)) == 1
 
+
+
+def test_only_the_named_count_is_exempt():
+    count = {"components": {"schemas": {"Checklist": {"properties": {"total": {"type": "integer"}}}}}}
+    assert export_openapi.money_numbers(count) == []
+    assert len(export_openapi.money_numbers(schemas(total={"type": "integer"}))) == 1

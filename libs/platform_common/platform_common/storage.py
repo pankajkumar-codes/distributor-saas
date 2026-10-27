@@ -30,6 +30,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Protocol
+from urllib.parse import quote
 
 from .clock import Clock
 from .errors import Deny
@@ -58,6 +59,14 @@ def check_key(business_id: uuid.UUID, key: str) -> str:
     if not isinstance(key, str) or not _KEY.match(key) or not key.startswith(f"b/{business_id}/"):
         raise Deny("not_found")
     return key
+
+
+def content_disposition(name: str) -> str:
+    """RFC 6266: an ASCII fallback, and the full name (Hindi or Bengali business names
+    included) as UTF-8 for browsers that read filename*."""
+    clean = "".join(c for c in name if c.isprintable() and c not in '"\\/')
+    ascii_name = clean.encode("ascii", "ignore").decode() or "download"
+    return f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(clean, safe='')}"
 
 
 @dataclass(frozen=True)

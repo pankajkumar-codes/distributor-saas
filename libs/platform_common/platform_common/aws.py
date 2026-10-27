@@ -11,7 +11,14 @@ from datetime import timedelta
 import boto3
 
 from .clock import Clock
-from .storage import GET_EXPIRY_SECONDS, POST_EXPIRY_SECONDS, ObjectInfo, PresignedPost, check_key
+from .storage import (
+    GET_EXPIRY_SECONDS,
+    POST_EXPIRY_SECONDS,
+    ObjectInfo,
+    PresignedPost,
+    check_key,
+    content_disposition,
+)
 
 
 class SqsQueue:
@@ -51,8 +58,7 @@ class S3ObjectStore:
         check_key(business_id, key)
         params = {"Bucket": self.bucket, "Key": key}
         if download_name:
-            safe = "".join(c for c in download_name if c.isprintable() and c not in '"\\')
-            params["ResponseContentDisposition"] = f'attachment; filename="{safe}"'
+            params["ResponseContentDisposition"] = content_disposition(download_name)
         return self.client.generate_presigned_url("get_object", Params=params, ExpiresIn=GET_EXPIRY_SECONDS)
 
     def head(self, business_id, key) -> ObjectInfo | None:

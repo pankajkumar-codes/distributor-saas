@@ -8,7 +8,7 @@ import pytest
 
 from platform_common.clock import FrozenClock
 from platform_common.errors import Deny
-from platform_common.storage import LocalObjectStore, UploadRefused, check_key, key_for
+from platform_common.storage import LocalObjectStore, UploadRefused, check_key, content_disposition, key_for
 
 A, B = uuid.uuid4(), uuid.uuid4()
 
@@ -112,3 +112,10 @@ def test_delete_removes_the_object(store):
     assert store.head(A, key) is None
     with pytest.raises(KeyError):
         store.get_bytes(A, key)
+
+
+def test_download_names_keep_unicode_and_cannot_break_the_header():
+    assert content_disposition("INV-1.pdf") == "attachment; filename=\"INV-1.pdf\"; filename*=UTF-8''INV-1.pdf"
+    header = content_disposition('বাংলা "Store"\r\n.pdf')
+    assert header == ("attachment; filename=\" Store.pdf\"; "
+                      "filename*=UTF-8''%E0%A6%AC%E0%A6%BE%E0%A6%82%E0%A6%B2%E0%A6%BE%20Store.pdf")

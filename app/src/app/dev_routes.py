@@ -9,7 +9,7 @@ type, expiry. Whether S3 applies the same policy is QA's staging check.
 from fastapi import APIRouter, Request, Response
 
 from platform_common.errors import Invalid
-from platform_common.storage import LocalObjectStore, UploadRefused, get_store
+from platform_common.storage import LocalObjectStore, UploadRefused, content_disposition, get_store
 
 router = APIRouter(include_in_schema=False)
 
@@ -42,5 +42,5 @@ def download(token: str):
         data, content_type, name = _local().open_get(token)
     except UploadRefused:
         return Response(status_code=403)
-    headers = {"Content-Disposition": f'attachment; filename="{name}"'} if name else {}
+    headers = {"Content-Disposition": content_disposition(name)} if name else {}
     return Response(data, media_type=content_type or "application/octet-stream", headers=headers)

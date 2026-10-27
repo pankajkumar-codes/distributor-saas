@@ -84,6 +84,13 @@ _handlers: dict[str, Handler] = {}
 
 
 def handler(type_: str) -> Callable[[Handler], Handler]:
+    """Register the handler for a job type.
+
+    A handler runs as the job's business and the user who created the job, with no role:
+    tenant policies apply, but a policy that checks the caller's role (for example
+    identity.caller_has_role) refuses it, and the user may have left the business since.
+    A handler that needs a role decides from the data, not from the principal.
+    """
     def register(fn: Handler) -> Handler:
         if type_ in _handlers and _handlers[type_] is not fn:
             raise RuntimeError(f"job type {type_!r} already has a handler")

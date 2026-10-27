@@ -7,6 +7,6 @@ module only reads them. No row covering the date, or two, raises RefdataMissing:
 500 and an alarm, never a guessed default.
 """
 
-from .reader import RefdataMissing, RefdataUnconfirmed, require_confirmed, state_name, value_on
+from .reader import RefdataMissing, RefdataUnconfirmed, require_confirmed, state_codes, state_name, value_on
 
-__all__ = ["RefdataMissing", "RefdataUnconfirmed", "require_confirmed", "state_name", "value_on"]
+__all__ = ["RefdataMissing", "RefdataUnconfirmed", "require_confirmed", "state_codes", "state_name", "value_on"]
