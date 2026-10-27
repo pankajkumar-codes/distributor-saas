@@ -21,7 +21,7 @@ from platform_common.errors import Conflict, Invalid
 from platform_common.uow import UnitOfWork
 
 from .fiscal import fy_of, previous_fy
-from .frequency import carry_frequency
+from .frequency import BOUND, carry_frequency
 from .registration import Address, Registration, blank_to_none, check_state, registration
 
 MARKETPLACES = ("amazon", "flipkart", "meesho")
@@ -192,7 +192,7 @@ def lock_gstin(uow: UnitOfWork) -> None:
 
 # --- Turnover bands -------------------------------------------------------------------
 
-_BAND = text("select fy, band, declared_turnover from business.turnover_bands where fy = :fy")
+_BAND = text(f"select fy, band, declared_turnover from business.turnover_bands where {BOUND} and fy = :fy")
 
 
 def turnover_band(tx: Session, fy: str) -> TurnoverBand | None:
@@ -224,7 +224,7 @@ def set_turnover_band(uow: UnitOfWork, fy: str, band: str, declared_turnover: De
 def channels(tx: Session) -> Channels:
     """Which marketplaces the business sells on, and whether it has answered. A
     marketplace never answered is off. Answering never touches any data (ON-2)."""
-    enabled = dict(tx.execute(text("select marketplace, enabled from business.marketplace_channels")).all())
+    enabled = dict(tx.execute(text(f"select marketplace, enabled from business.marketplace_channels where {BOUND}")).all())
     answered = tx.execute(
         text("select marketplaces_answered_at is not null from business.profiles"
              " where business_id = nullif(current_setting('app.tenant_id', true), '')::uuid")
@@ -253,7 +253,7 @@ def setup_state(tx: Session) -> BusinessSetup:
     """The business's part of the Home setup checklist (LLD-1 §10)."""
     p = get_profile(tx)
     frequency_set = p is not None and p.gstin is not None and bool(tx.execute(
-        text("select exists (select 1 from business.filing_frequency_history where gstin = :g)"), {"g": p.gstin}
+        text(f"select exists (select 1 from business.filing_frequency_history where {BOUND} and gstin = :g)"), {"g": p.gstin}
     ).scalar())
     return BusinessSetup(
         profile_complete=ready_for_documents(tx).ok,

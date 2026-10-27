@@ -54,3 +54,17 @@ def test_fiscal_helpers():
     assert fy_start(date(2027, 3, 31)) == date(2026, 4, 1) and fy_start(date(2026, 4, 1)) == date(2026, 4, 1)
     assert previous_fy("2026-27") == "2025-26" and previous_fy("2000-01") == "1999-00"
     assert add_months(date(2026, 11, 15), 3) == date(2027, 2, 1) and add_months(Q4, -2) == date(2026, 11, 1)
+
+
+@pytest.mark.parametrize(
+    "quarter,opens,closes",
+    [  # team/gst/refdata-lld4.md §5, with the loaded rows' offsets (-2, 1)
+        (date(2027, 4, 1), date(2027, 2, 1), date(2027, 4, 30)),
+        (date(2026, 7, 1), date(2026, 5, 1), date(2026, 7, 31)),  # Circular 143/13/2020's example
+        (date(2026, 10, 1), date(2026, 8, 1), date(2026, 10, 31)),
+        (date(2027, 1, 1), date(2026, 11, 1), date(2027, 1, 31)),  # crosses the calendar year
+    ],
+)
+def test_the_gst_experts_cases(quarter, opens, closes):
+    w = rule61a.window_for(quarter, EXAMPLE)
+    assert (w.opens, w.closes) == (opens, closes)
