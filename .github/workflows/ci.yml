@@ -153,7 +153,7 @@ jobs:
           POSTGRES_DB: saas
         ports: ["5432:5432"]
         options: >-
-          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -164,7 +164,7 @@ jobs:
           node-version: "22"
       - name: Install the API
         run: |
-          pip install -e libs/platform_common -e app
+          pip install -e libs/platform_common -e "app[dev]"  # dev brings uvicorn
           pip install -r migrator/requirements.txt
       - name: Migrate
         working-directory: migrator
