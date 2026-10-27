@@ -52,8 +52,9 @@ number and moves to `value_on` in its owner's next PR.
 | Value | Where | Refdata row |
 |---|---|---|
 | 24 h session idle limit | `identity.auth_resolve` (S0a c2) | `auth.idle_hours` |
-| 30-day session lifetime | `identity/service/signup.py` | `auth.session_max_days` |
-| Code TTL, tries and request/check limits | `identity/service/signup.py` | `auth.code_*` (LLD-1 L1-10) |
+| 30-day refresh cookie `Max-Age` | `identity/api_auth.py` (the session row's own expiry reads `auth.session_max_days`) | `auth.session_max_days` |
+
+Since S1-c3 the session lifetime, the code TTL and tries, and every sign-up, sign-in, TOTP and refresh rate limit are read through `value_on` (`identity/service/limits.py`).
 
 POST /b already reads `identity.max_owned_businesses` (5, provisional; **Pankaj / PO** to confirm) and the GSTIN and address state codes through `value_on` and `state_name`.
 

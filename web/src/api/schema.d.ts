@@ -386,6 +386,13 @@ export interface components {
              */
             business_id: string;
         };
+        /** AccessTokenOut */
+        AccessTokenOut: {
+            /** Access Token */
+            access_token: string;
+            /** Expires In */
+            expires_in: number;
+        };
         /** Actor */
         Actor: {
             /**
@@ -455,6 +462,23 @@ export interface components {
         EmailBody: {
             /** Email */
             email: string;
+        };
+        /** ErrorDetail */
+        ErrorDetail: {
+            /** Code */
+            code: string;
+            /** Field */
+            field?: string | null;
+            /** Fix */
+            fix?: string | null;
+            /** Message */
+            message: string;
+        };
+        /** ErrorOut */
+        ErrorOut: {
+            /** Challenge */
+            challenge?: string | null;
+            error: components["schemas"]["ErrorDetail"];
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -537,6 +561,17 @@ export interface components {
             /** Members */
             members: components["schemas"]["MemberOut"][];
         };
+        /** MembershipOut */
+        MembershipOut: {
+            /** Business Id */
+            business_id: string;
+            /** Display Name */
+            display_name: string;
+            /** Gstin */
+            gstin: string | null;
+            /** Role */
+            role: string;
+        };
         /**
          * NewBusinessProfile
          * @description The body of POST /api/v1/b (LLD-1 §5.10).
@@ -587,6 +622,16 @@ export interface components {
         RoleIn: {
             role: components["schemas"]["Role"];
         };
+        /** SignedInOut */
+        SignedInOut: {
+            /** Access Token */
+            access_token: string;
+            /** Expires In */
+            expires_in: number;
+            /** Memberships */
+            memberships: components["schemas"]["MembershipOut"][];
+            user: components["schemas"]["UserOut"];
+        };
         /** SignedUpOut */
         SignedUpOut: {
             /** Access Token */
@@ -635,6 +680,17 @@ export interface components {
             code: string;
             /** Email */
             email: string;
+        };
+        /** TotpStepOut */
+        TotpStepOut: {
+            /** Challenge */
+            challenge: string;
+            /**
+             * Step
+             * @default totp
+             * @constant
+             */
+            step: "totp";
         };
         /** UserOut */
         UserOut: {
@@ -689,7 +745,25 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AccessTokenOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
                 };
             };
         };
@@ -713,16 +787,34 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SignedInOut"] | components["schemas"]["TotpStepOut"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
                 };
             };
         };
@@ -746,16 +838,34 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SignedInOut"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
                 };
             };
         };
@@ -800,13 +910,22 @@ export interface operations {
                     "application/json": components["schemas"]["CodeSent"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
                 };
             };
         };
@@ -833,13 +952,40 @@ export interface operations {
                     "application/json": components["schemas"]["SignedUpOut"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
                 };
             };
         };

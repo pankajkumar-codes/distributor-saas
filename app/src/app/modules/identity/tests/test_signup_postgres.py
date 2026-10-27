@@ -128,11 +128,12 @@ def test_session_key_falls_back_to_event_id_like_the_resolver(env, monkeypatch):
 
 def test_the_code_lifetime_and_tries_come_from_refdata(env, monkeypatch):
     client, _, mail, admin = env
-    from app.modules.identity.service import signup as signup_mod
+    from app.modules.identity.service import limits
 
     assert verify(client, sign_up(client, mail).params["code"]).status_code == 200  # EMAIL is registered
     rows = {"auth.code_ttl_minutes": 7, "auth.code_max_tries": 3}
-    monkeypatch.setattr(signup_mod, "value_on", lambda tx, key, on: rows[key])
+    real = limits.value_on
+    monkeypatch.setattr(limits, "value_on", lambda tx, key, on: rows.get(key) or real(tx, key, on))
     for email in ("new@example.com", EMAIL):  # registered or not, the reply is the same
         r = client.post("/api/v1/auth/signup", json={"email": email})
         assert (r.status_code, r.json()) == (202, {"status": "code_sent", "code_ttl_minutes": 7, "code_max_tries": 3})

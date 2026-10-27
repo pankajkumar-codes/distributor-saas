@@ -26,18 +26,12 @@ from platform_common.ids import uuid7
 from platform_common.mailer import Mailer, send_after_commit
 from platform_common.uow import Principal, unit_of_work
 
-from app.modules.refdata import value_on
-
 from .. import codes
 from ..interface import session_key_from_claims
+from . import limits
 from .passwords import check_password
 from .sessions import open_session
 
-# Provisional limits (LLD-1 L1-10, §12). The code's lifetime and tries come from
-# refdata, because the sign-up screen shows them; these move there next.
-CODE_REQUESTS_PER_EMAIL_PER_HOUR = 5
-CODE_REQUESTS_PER_IP_PER_HOUR = 20
-CODE_CHECKS_PER_IP_PER_HOUR = 50
 HOUR = timedelta(hours=1)
 
 
@@ -77,15 +71,23 @@ def _public(request_id: str) -> Principal:
 def request_code(email: str, ip: str, request_id: str, mail: Mailer, today: date) -> CodeTerms:
     """§5.1. Mails a code to a new email, or a sign-in hint to a registered one."""
     email = normalise(email)
-    rate.hit(rate.bucket("code_request:email", email), CODE_REQUESTS_PER_EMAIL_PER_HOUR, HOUR)
-    rate.hit(rate.bucket("code_request:ip", ip), CODE_REQUESTS_PER_IP_PER_HOUR, HOUR)
+    lim = limits.read(
+        (
+            "auth.code_requests_per_email_per_hour",
+            "auth.code_requests_per_ip_per_hour",
+            "auth.code_ttl_minutes",
+            "auth.code_max_tries",
+        ),
+        today,
+        request_id,
+    )
+    rate.hit(rate.bucket("code_request:email", email), lim["auth.code_requests_per_email_per_hour"], HOUR)
+    rate.hit(rate.bucket("code_request:ip", ip), lim["auth.code_requests_per_ip_per_hour"], HOUR)
+    # The same in both branches, so the reply doesn't tell a registered email from a new one.
+    terms = CodeTerms(lim["auth.code_ttl_minutes"], lim["auth.code_max_tries"])
     code = codes.new_code()
     digest = codes.code_hmac("signup", email, code)
     with unit_of_work(_public(request_id)) as uow:
-        # Read in both branches, so the reply doesn't tell a registered email from a new one.
-        terms = CodeTerms(
-            value_on(uow.tx, "auth.code_ttl_minutes", today), value_on(uow.tx, "auth.code_max_tries", today)
-        )
         if uow.tx.execute(text("select identity.auth_user_by_email(:e)"), {"e": email}).scalar() is not None:
             # The same advisory lock auth_issue_code takes, so both branches do
             # comparable work (Staff 2, #33).
@@ -106,11 +108,12 @@ def request_code(email: str, ip: str, request_id: str, mail: Mailer, today: date
     return terms
 
 
-def verify(email: str, code: str, password: str, ip: str, request_id: str, idp: AuthProvider) -> SignedUp:
+def verify(email: str, code: str, password: str, ip: str, request_id: str, idp: AuthProvider, today: date) -> SignedUp:
     """§5.2. Raises Invalid("password_weak"), RateLimited or CodeNotAccepted."""
     email = normalise(email)
     check_password(password)  # before the code, so a weak password spends no try (RM3-6)
-    rate.hit(rate.bucket("code_check:ip", ip), CODE_CHECKS_PER_IP_PER_HOUR, HOUR)
+    lim = limits.read(("auth.code_checks_per_ip_per_hour", "auth.session_max_days"), today, request_id)
+    rate.hit(rate.bucket("code_check:ip", ip), lim["auth.code_checks_per_ip_per_hour"], HOUR)
     digest = codes.code_hmac("signup", email, code)
     with unit_of_work(_public(request_id)) as uow:  # tx 1: committed whatever the answer
         code_id = uow.tx.execute(
@@ -144,6 +147,6 @@ def verify(email: str, code: str, password: str, ip: str, request_id: str, idp: 
             raise CodeNotAccepted()
         uow.tx.execute(text("select identity.auth_create_user(:i, :s, :e)"), {"i": user_id, "s": sub, "e": email})
         uow.become_user(user_id, sub)
-        open_session(uow, user_id, key, claims["auth_time"])
+        open_session(uow, user_id, key, claims["auth_time"], lim["auth.session_max_days"])
         audit.record(uow, "auth.signup", "user", user_id, user_level=True)
     return SignedUp(user_id, email, tokens.access_token, tokens.refresh_token, tokens.expires_in)

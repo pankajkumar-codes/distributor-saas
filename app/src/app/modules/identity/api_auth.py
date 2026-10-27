@@ -25,7 +25,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 REFRESH_COOKIE = "__Secure-rt"
 COOKIE_PATH = "/api/v1/auth"
-COOKIE_MAX_AGE = 30 * 24 * 3600  # auth.session_max_days
+COOKIE_MAX_AGE = 30 * 24 * 3600  # matches auth.session_max_days (30, BRD); the row ends the session itself
 _LOCAL_ORIGIN = "http://localhost:5173"
 
 
@@ -89,7 +89,44 @@ class SignedUpOut(BaseModel):
     user: UserOut
 
 
-@router.post("/signup", status_code=202, response_model=CodeSent)
+class MembershipOut(BaseModel):
+    business_id: str
+    display_name: str
+    gstin: str | None
+    role: str
+
+
+class SignedInOut(SignedUpOut):
+    memberships: list[MembershipOut]
+
+
+class TotpStepOut(BaseModel):
+    step: Literal["totp"] = "totp"
+    challenge: str  # the provider's opaque session string (L1-7); send it back with the code
+
+
+class AccessTokenOut(BaseModel):
+    access_token: str
+    expires_in: int
+
+
+class ErrorDetail(BaseModel):
+    code: str
+    message: str
+    field: str | None = None
+    fix: str | None = None
+
+
+class ErrorOut(BaseModel):
+    error: ErrorDetail
+    challenge: str | None = None  # only on totp_not_accepted: the challenge to retry with
+
+
+def _errors(*statuses: int) -> dict:
+    return {status: {"model": ErrorOut} for status in statuses}
+
+
+@router.post("/signup", status_code=202, response_model=CodeSent, responses=_errors(422, 429))
 def signup_request(
     body: EmailBody,
     request: Request,
@@ -100,15 +137,18 @@ def signup_request(
     return CodeSent(code_ttl_minutes=terms.ttl_minutes, code_max_tries=terms.max_tries)
 
 
-@router.post("/signup/verify", response_model=SignedUpOut)
+@router.post("/signup/verify", response_model=SignedUpOut, responses=_errors(400, 401, 422, 429))
 def signup_verify(
     body: VerifyBody,
     request: Request,
     response: Response,
     idp: Annotated[AuthProvider, Depends(auth_provider)],
+    clock: Annotated[Clock, Depends(get_clock)],
 ):
     _check_origin(request)
-    done = signup.verify(_email(body.email), body.code, body.password, _client_ip(request), request_id(request), idp)
+    done = signup.verify(
+        _email(body.email), body.code, body.password, _client_ip(request), request_id(request), idp, clock.today()
+    )
     _set_cookie(response, done.refresh_token)
     return {
         "access_token": done.access_token,
@@ -117,45 +157,49 @@ def signup_verify(
     }
 
 
-@router.post("/signin")
+@router.post("/signin", response_model=SignedInOut | TotpStepOut, responses=_errors(401, 422, 429))
 def signin_password(
     body: SigninBody,
     request: Request,
     response: Response,
     idp: Annotated[AuthProvider, Depends(auth_provider)],
+    clock: Annotated[Clock, Depends(get_clock)],
 ):
     _check_origin(request)
-    done = signin.sign_in(_email(body.email), body.password, _client_ip(request), request_id(request), idp)
+    done = signin.sign_in(
+        _email(body.email), body.password, _client_ip(request), request_id(request), idp, clock.today()
+    )
     if isinstance(done, signin.TotpStep):
-        return {"step": "totp", "challenge": done.challenge}
+        return TotpStepOut(challenge=done.challenge)
     return _signed_in(response, done)
 
 
-@router.post("/signin/totp")
+@router.post("/signin/totp", response_model=SignedInOut, responses=_errors(401, 422, 429))
 def signin_totp(
     body: TotpBody,
     request: Request,
     response: Response,
     idp: Annotated[AuthProvider, Depends(auth_provider)],
+    clock: Annotated[Clock, Depends(get_clock)],
 ):
     _check_origin(request)
     done = signin.sign_in_totp(
-        _email(body.email), body.challenge, body.code, _client_ip(request), request_id(request), idp
+        _email(body.email), body.challenge, body.code, _client_ip(request), request_id(request), idp, clock.today()
     )
     return _signed_in(response, done)
 
 
-def _signed_in(response: Response, done: signin.SignedIn) -> dict:
+def _signed_in(response: Response, done: signin.SignedIn) -> SignedInOut:
     _set_cookie(response, done.refresh_token)
-    return {
-        "access_token": done.access_token,
-        "expires_in": done.expires_in,
-        "user": {"id": str(done.user_id), "email": done.email},
-        "memberships": [
-            {"business_id": str(m.business_id), "display_name": m.display_name, "gstin": m.gstin, "role": m.role}
+    return SignedInOut(
+        access_token=done.access_token,
+        expires_in=done.expires_in,
+        user=UserOut(id=str(done.user_id), email=done.email),
+        memberships=[
+            MembershipOut(business_id=str(m.business_id), display_name=m.display_name, gstin=m.gstin, role=m.role)
             for m in done.memberships
         ],
-    }
+    )
 
 
 def _set_cookie(response: Response, refresh_token: str) -> None:
@@ -174,8 +218,12 @@ def _clear_cookie(response: Response) -> None:
     response.delete_cookie(REFRESH_COOKIE, path=COOKIE_PATH, secure=True, httponly=True, samesite="strict")
 
 
-@router.post("/refresh")
-def refresh(request: Request, idp: Annotated[AuthProvider, Depends(auth_provider)]):
+@router.post("/refresh", response_model=AccessTokenOut, responses=_errors(401, 429))
+def refresh(
+    request: Request,
+    idp: Annotated[AuthProvider, Depends(auth_provider)],
+    clock: Annotated[Clock, Depends(get_clock)],
+):
     try:
         _check_origin(request)
         tokens = sessions.refresh(
@@ -183,6 +231,7 @@ def refresh(request: Request, idp: Annotated[AuthProvider, Depends(auth_provider
             _client_ip(request),
             request_id(request),
             idp,
+            clock.today(),
             background=request.headers.get("x-background") == "1",
         )
     except Deny as e:
@@ -190,7 +239,7 @@ def refresh(request: Request, idp: Annotated[AuthProvider, Depends(auth_provider
         _clear_cookie(failed)
         return failed
     # The refresh token isn't rotated (L1-5), so the cookie is left as it is.
-    return {"access_token": tokens.access_token, "expires_in": tokens.expires_in}
+    return AccessTokenOut(access_token=tokens.access_token, expires_in=tokens.expires_in)
 
 
 @router.post("/signout", status_code=204)

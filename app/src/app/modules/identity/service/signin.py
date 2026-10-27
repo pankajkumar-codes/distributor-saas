@@ -16,7 +16,7 @@ success the token's user must still own that email.
 
 import uuid
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import date, timedelta
 from typing import NoReturn
 
 from sqlalchemy import text
@@ -28,12 +28,9 @@ from platform_common.jwt_verify import TokenInvalid
 from platform_common.uow import Principal, unit_of_work
 
 from ..interface import MembershipCard, list_my_businesses, session_key_from_claims
+from . import limits
 from .sessions import open_session, revoke_at_provider, verified_claims
 
-# Provisional limits (LLD-1 L1-10, §12); they move to refdata rows with the PO's numbers.
-SIGNIN_PER_EMAIL = 10  # auth.signin_per_email_per_15min
-SIGNIN_PER_IP = 100  # auth.signin_per_ip_per_hour
-TOTP_PER_EMAIL = 5  # auth.totp_tries_per_email_per_15min
 QUARTER_HOUR = timedelta(minutes=15)
 HOUR = timedelta(hours=1)
 
@@ -81,33 +78,45 @@ class SignedIn:
     memberships: list[MembershipCard]
 
 
-def sign_in(email: str, password: str, ip: str, request_id: str, idp: AuthProvider) -> SignedIn | TotpStep:
+def sign_in(email: str, password: str, ip: str, request_id: str, idp: AuthProvider, today: date) -> SignedIn | TotpStep:
     """§5.3. Raises SigninNotAccepted or RateLimited."""
-    rate.hit(rate.bucket("signin:email", email), SIGNIN_PER_EMAIL, QUARTER_HOUR)
-    rate.hit(rate.bucket("signin:ip", ip), SIGNIN_PER_IP, HOUR)
+    lim = limits.read(
+        ("auth.signin_per_email_per_15min", "auth.signin_per_ip_per_hour", "auth.session_max_days"), today, request_id
+    )
+    rate.hit(rate.bucket("signin:email", email), lim["auth.signin_per_email_per_15min"], QUARTER_HOUR)
+    rate.hit(rate.bucket("signin:ip", ip), lim["auth.signin_per_ip_per_hour"], HOUR)
     try:
         tokens = idp.initiate_auth(email, password)
     except AuthRefused:
         raise SigninNotAccepted() from None
     if tokens.needs_totp:
         return TotpStep(tokens.challenge)
-    return _finish(email, tokens, request_id, idp, totp=False)
+    return _finish(email, tokens, request_id, idp, lim["auth.session_max_days"], totp=False)
 
 
-def sign_in_totp(email: str, challenge: str, code: str, ip: str, request_id: str, idp: AuthProvider) -> SignedIn:
+def sign_in_totp(
+    email: str, challenge: str, code: str, ip: str, request_id: str, idp: AuthProvider, today: date
+) -> SignedIn:
     """§5.4. Raises TotpNotAccepted, SigninExpired, SigninNotAccepted or RateLimited."""
-    rate.hit(rate.bucket("totp:email", email), TOTP_PER_EMAIL, QUARTER_HOUR)
-    rate.hit(rate.bucket("signin:ip", ip), SIGNIN_PER_IP, HOUR)
+    lim = limits.read(
+        ("auth.totp_tries_per_email_per_15min", "auth.signin_per_ip_per_hour", "auth.session_max_days"),
+        today,
+        request_id,
+    )
+    rate.hit(rate.bucket("totp:email", email), lim["auth.totp_tries_per_email_per_15min"], QUARTER_HOUR)
+    rate.hit(rate.bucket("signin:ip", ip), lim["auth.signin_per_ip_per_hour"], HOUR)
     try:
         tokens = idp.respond_totp(email, challenge, code)
     except AuthRefused as e:
         if e.code == "totp_not_accepted":
             raise TotpNotAccepted(e.challenge or challenge) from None
         raise SigninExpired() from None
-    return _finish(email, tokens, request_id, idp, totp=True)
+    return _finish(email, tokens, request_id, idp, lim["auth.session_max_days"], totp=True)
 
 
-def _finish(email: str, tokens: AuthResult, request_id: str, idp: AuthProvider, *, totp: bool) -> SignedIn:
+def _finish(
+    email: str, tokens: AuthResult, request_id: str, idp: AuthProvider, max_days: int, *, totp: bool
+) -> SignedIn:
     try:
         claims = verified_claims(tokens.access_token, idp)
     except TokenInvalid:
@@ -119,7 +128,7 @@ def _finish(email: str, tokens: AuthResult, request_id: str, idp: AuthProvider, 
         user = uow.tx.execute(text("select user_id, email from identity.auth_user_by_sub(:s)"), {"s": sub}).first()
         if user is not None and user.email == email:
             uow.become_user(user.user_id, sub)
-            session_id = open_session(uow, user.user_id, key, auth_time)
+            session_id = open_session(uow, user.user_id, key, auth_time, max_days)
             audit.record(uow, "auth.signin", "session", session_id, data={"totp": totp}, user_level=True)
             uow.become_read_only()  # list_my_businesses reads through app_ro policies
             memberships = list_my_businesses(uow.tx, user.user_id)
