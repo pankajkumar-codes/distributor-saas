@@ -46,6 +46,10 @@ permissions:
   support.grant:
     row: Grant time-limited support access
     roles: [owner]
+  jobs.view:
+    row: See the progress of the business's background jobs
+    roles: [owner, admin, billing, ca]
+    note: Not a BRD row. LLD-0 §3.7 grants it to every role for its own business, since every role starts some job (an upload, a PDF, an export).
 
 # Actions that need a non-blank reason, which goes into their audit row (HLD list,
 # LLD-0 §3.3). audit.record refuses a blank one; these are its action names.

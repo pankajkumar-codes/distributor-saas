@@ -378,7 +378,7 @@ export function BusinessPage() {
               ]}
               value={frequency}
               onChange={setFrequency}
-              hint={`This applies from the quarter starting ${display(startsOn)}. ${warningText("window_unknown")}`}
+              hint={`This applies from the quarter starting ${display(startsOn)}. If you're not sure, ask your CA.`}
               error={err("frequency")}
             />
           )}

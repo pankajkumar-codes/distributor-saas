@@ -65,6 +65,11 @@ GitHub Actions runs all of these on every pull request, plus:
   design can't reach a privileged role; NOLOGIN roles can't log in; no login role owns
   objects. Run it locally with `make isolation-local`
 
+Jobs and storage never touch AWS in CI: tests use `FakeQueue` and `LocalObjectStore`,
+and only `platform_common/aws.py` imports boto3, which no test loads. Locally, a job
+runs as soon as its request commits (`InlineQueue`), and presigned uploads and
+downloads go to `/api/v1/dev/objects/*`, which exist only in a debug environment.
+
 LLD-0 §7 checks not in CI yet, and why:
 - `route-coverage` (every route declares its permission and has a tenant test): waits
   for the LLD-1 routes to settle; the stock-era routes in `identity/api.py` go first.

@@ -67,7 +67,8 @@ POST /b already reads `identity.max_owned_businesses` (5, provisional; **Pankaj 
 |---|---|---|
 | Enrolment number pattern (LLD-1 §15) | Accepts any non-blank value, stored trimmed | A cited pattern for the Notification 34/2023 enrolment number |
 | What an enrolment-number business may do in R1 | Stored; `ready_for_documents` will report `gstin` missing (S1-d2) | PO and GST expert |
-| Rule 61A window rows `qrmp.option_window.open_offset_months` and `close_offset_months`, `einvoice.aato_threshold` | `GET /filing-profile` returns the window with `opens`/`closes` null and warning `window_unknown`; a frequency choice stores `window_unknown` and never `outside_window`. Offsets are read as months from the quarter's start: opens on the first of month `open`, closes the day before the first of month `close` (`business/rule61a.py`) | GST expert, with citation; confirm the offset reading |
+| Rule 61A window rows `qrmp.option_window.open_offset_months` (-2) and `close_offset_months` (1) | Loaded as provisional tax rows from the GST expert (`team/gst/refdata-lld4.md` §5, CGST rule 61A(1)); `outside_window` is now raised. If the rows are missing the window is unknown (`window_unknown`), never guessed | GST expert re-reads the CBIC page (their open item 6) and confirms; `einvoice.aato_threshold` is in that file's §2 |
+| How far ahead a frequency may start, `business.frequency_max_quarters_ahead` (4) | A provisional product row; later starts get 422 `effective_from_too_far` | PO confirms |
 | When `portal_stricter_reading` applies (LLD-1 §8.4) | Never raised: LLD-1 names the warning but not its condition | GST expert or CA states the condition |
 | L1-13 first frequency row back to the FY start | Allowed for a business's first row only; later rows need the current quarter or later | PO and GST expert confirm |
 | Address state different from GSTIN state | A warning, `address_state_mismatch` (L1-12, BRD ON-3); `gstin.md` §4 says refuse | GST expert confirms |
@@ -93,6 +94,11 @@ Every row in `refdata/` is `provisional`. Before go-live:
   `last_checked` is the date the GST expert read them (2026-10-14), not a fresh check.
 - Confirming a row means changing its `status` and adding `confirmed_by` (who, and the
   question or message it answers) and `confirmed_on` in the same PR (D-038).
+
+## Job runner follow-ups (S0b, D-039)
+- `retention.purge_operational()` (done/failed jobs and sent outbox rows after 14 days, idempotency keys, rate windows; LLD-0 §4.4) is not built yet. It needs a decision on its run record: `platform.audit_log` requires a business or a user, and a retention run has neither.
+- A job whose last SQS message is lost while `failed_retryable` stays there; the outbox sweep only resends unsent rows. The DLQ alarm covers exhausted messages, not this. A "stuck jobs" sweep can come with the alarms (TD-24).
+- The real-S3 policy checks (limit + 1 byte, other key, after 5 minutes, other KMS key) are QA's staging checks (HLD §6.5); the local store only mirrors them.
 
 ## Decision handling
 For each answer, update `docs/DECISIONS.md` with the decision, rationale, trade-offs, and approval status. Do not silently turn assumptions into requirements.

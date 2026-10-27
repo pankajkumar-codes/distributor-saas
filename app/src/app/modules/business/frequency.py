@@ -21,10 +21,12 @@ from platform_common.ids import uuid7
 from platform_common.uow import UnitOfWork
 
 from . import rule61a
-from .fiscal import fy_of, fy_start, previous_fy, quarter_start
+from .fiscal import add_months, fy_of, fy_start, previous_fy, quarter_start
 
 FREQUENCIES = ("monthly", "quarterly")
 CARRIED = "carried_from_gstin_change"
+# Every query names the bound business as well as relying on RLS (defence in depth).
+BOUND = "business_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
 
 
 @dataclass(frozen=True)
@@ -49,7 +51,7 @@ def filing_frequency_on(tx: Session, gstin: str, on: date) -> FrequencyRow | Non
     quarter's start, ties to the latest chosen_at. None: not set (LLD-1 §4)."""
     r = tx.execute(
         text(f"select {_COLUMNS} from business.filing_frequency_history"
-             " where gstin = :g and effective_from <= :q order by effective_from desc, chosen_at desc, id desc limit 1"),
+             f" where {BOUND} and gstin = :g and effective_from <= :q order by effective_from desc, chosen_at desc, id desc limit 1"),
         {"g": gstin, "q": quarter_start(on)},
     ).one_or_none()
     return None if r is None else _row(r)
@@ -57,7 +59,7 @@ def filing_frequency_on(tx: Session, gstin: str, on: date) -> FrequencyRow | Non
 
 def history(tx: Session, gstin: str) -> list[FrequencyRow]:
     return [_row(r) for r in tx.execute(
-        text(f"select {_COLUMNS} from business.filing_frequency_history where gstin = :g"
+        text(f"select {_COLUMNS} from business.filing_frequency_history where {BOUND} and gstin = :g"
              " order by chosen_at desc, id desc"),
         {"g": gstin},
     )]
@@ -73,7 +75,7 @@ def window_offsets(tx: Session, on: date) -> tuple[int, int] | None:
 
 
 def _band(tx: Session, fy: str) -> str | None:
-    return tx.execute(text("select band from business.turnover_bands where fy = :fy"), {"fy": fy}).scalar()
+    return tx.execute(text(f"select band from business.turnover_bands where {BOUND} and fy = :fy"), {"fy": fy}).scalar()
 
 
 def _insert(uow: UnitOfWork, gstin: str, frequency: str, effective_from: date, warnings: list[str]) -> FrequencyRow:
@@ -114,11 +116,16 @@ def add_frequency_row(
         raise Invalid("effective_from_not_quarter_start", "a frequency starts on the first day of a quarter",
                       field="effective_from")
     # The profile row lock above serializes choices, so "first row" is decided once.
-    first = not tx.execute(text("select exists (select 1 from business.filing_frequency_history)")).scalar()
+    first = not tx.execute(text(f"select exists (select 1 from business.filing_frequency_history where {BOUND})")).scalar()
     earliest = fy_start(today) if first else quarter_start(today)
     if effective_from < earliest:
         raise Invalid("effective_from_past",
                       f"choose a quarter starting {earliest.isoformat()} or later", field="effective_from")
+    ahead = int(value_on(tx, "business.frequency_max_quarters_ahead", today))
+    latest = add_months(quarter_start(today), 3 * ahead)
+    if effective_from > latest:
+        raise Invalid("effective_from_too_far",
+                      f"choose a quarter starting {latest.isoformat()} or earlier", field="effective_from")
     warnings = rule61a.warnings(
         frequency, effective_from, today, window_offsets(tx, today),
         _band(tx, previous_fy(fy_of(effective_from))), unfiled_due_return,
@@ -130,7 +137,8 @@ def carry_frequency(uow: UnitOfWork, old_gstin: str, new_gstin: str) -> bool:
     """A GSTIN change before the lock keeps the frequency (LLD-1 §8.2, RM41-7): the old
     GSTIN's latest row is inserted again for the new one. False if there was none."""
     latest = uow.tx.execute(
-        text("select frequency, effective_from from business.filing_frequency_history where gstin = :g"
+        text("select frequency, effective_from from business.filing_frequency_history"
+             f" where {BOUND} and gstin = :g"
              " order by effective_from desc, chosen_at desc, id desc limit 1"),
         {"g": old_gstin},
     ).one_or_none()

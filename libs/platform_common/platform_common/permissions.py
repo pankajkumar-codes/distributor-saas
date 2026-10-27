@@ -49,6 +49,7 @@ class Permission(str, enum.Enum):
     RETURNS_UNLOCK = "returns.unlock"
     AUDIT_VIEW = "audit.view"
     SUPPORT_GRANT = "support.grant"
+    JOBS_VIEW = "jobs.view"
 
 
 def validate(data: dict) -> dict:

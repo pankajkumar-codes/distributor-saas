@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 
 def _iam_engine() -> Engine:
-    import boto3  # provided by the Lambda runtime
+    import boto3  # pinned in app/pyproject.toml; loaded only on this IAM path
 
     host = os.environ["DB_HOST"]
     port = int(os.environ.get("DB_PORT", "5432"))

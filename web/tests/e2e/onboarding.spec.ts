@@ -25,8 +25,8 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   await expect(page.getByRole("heading", { name: "Home" })).toBeVisible();
   expect(page.url()).toMatch(/\/b\/[0-9a-f-]{36}\/home$/);
   await expect(page.getByText("E2E Traders Private Limited")).toBeVisible();
-  // The rule 61A window rows aren't loaded yet, so the server always says so.
-  await expect(page.getByText(/can't show the dates for changing your filing frequency/)).toBeVisible();
+  // Whether Home shows a rule 61A warning depends on today's date against the window, so
+  // the unit tests cover the warning words; here it is enough that Home loads.
   await noSeriousAxeFindings(page);
 });
 

@@ -23,8 +23,10 @@ file is the only copy in code. Every business route declares one permission with
 | `returns.unlock` | Unlock a period (reason required) | Yes | No | No | No |
 | `audit.view` | View the audit log | Yes | Yes | No | No |
 | `support.grant` | Grant time-limited support access | Yes | No | No | No |
+| `jobs.view` | See the progress of the business's background jobs | Yes | Yes | Yes | Yes |
 
 - `members.manage`: An admin can't invite, change or deactivate an owner. Identity enforces this on the target member.
+- `jobs.view`: Not a BRD row. LLD-0 §3.7 grants it to every role for its own business, since every role starts some job (an upload, a PDF, an export).
 
 ## Actions that need a reason
 
