@@ -996,6 +996,28 @@
         "title": "FrequencyRowOut",
         "type": "object"
       },
+      "GstRatesOut": {
+        "properties": {
+          "on": {
+            "format": "date",
+            "title": "On",
+            "type": "string"
+          },
+          "rates": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Rates",
+            "type": "array"
+          }
+        },
+        "required": [
+          "on",
+          "rates"
+        ],
+        "title": "GstRatesOut",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -6107,6 +6129,57 @@
         "summary": "Revoke All Sessions",
         "tags": [
           "me"
+        ]
+      }
+    },
+    "/api/v1/refdata/gst-rates": {
+      "get": {
+        "description": "The GST rates a product's rate may take on `on` (default: today in India), exactly\nas loaded from refdata gst.rate_values, ascending. For the rate picker: it lists the\nrates, never suggests one (GC-P3). Empty before GST began.",
+        "operationId": "get_gst_rates_api_v1_refdata_gst_rates_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "on",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "On"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GstRatesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Gst Rates",
+        "tags": [
+          "refdata"
         ]
       }
     },

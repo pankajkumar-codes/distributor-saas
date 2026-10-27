@@ -181,3 +181,14 @@ def state_codes(tx: Session, on: dt.date) -> list[tuple[str, str]]:
         if len(names) == 1:
             out.append((code, names[0]))
     return sorted(out)
+
+
+def gst_rates(tx: Session, on: dt.date) -> list[Decimal]:
+    """The GST rates on refdata gst.rate_values on `on`, ascending (LLD-3 L3-4). Empty
+    before the first row (before GST began); a gap after it raises RefdataMissing, as
+    value_on does. The list only catches typos: it never says which rate fits a product
+    (GC-P3)."""
+    rows = _current(tx).values.get("gst.rate_values", ())
+    if rows and all(on < r.valid_from for r in rows):
+        return []
+    return sorted(Decimal(v.strip()) for v in str(value_on(tx, "gst.rate_values", on)).split(","))

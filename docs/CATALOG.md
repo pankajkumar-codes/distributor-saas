@@ -16,6 +16,7 @@ LLD-3 parts S3-a (products) and S3-b (customers). The code is in `app/src/app/mo
 | `POST /products/{pid}/rates/{rid}/void` | `catalog.edit` | A reason is required. 409 `last_rate`. |
 | `POST /products/{pid}/rates/{rid}/confirm`, `/unconfirm` | `catalog.edit`, owner or admin only | Confirm takes an optional note; unconfirm needs a reason. |
 | `GET /units` | `catalog.view` | The UQC list for the unit picker. |
+| `GET /api/v1/refdata/gst-rates?on=` | signed in (refdata, `me_uow`) | The rates on `gst.rate_values` on `on` (default today in India), ascending, as decimal strings, for the rate picker. Empty before GST began. It lists rates and never suggests one. |
 | `GET /customers` | `catalog.view` | `q` matches a name fragment or a GSTIN prefix. `status` is `active` (default), `archived` or `all`. Paging with `limit` and `offset`. |
 | `POST /customers` | `catalog.edit` | `{name, gstin?, billing: {line1?, line2?, city?, pin?, state_code?}, delivery_same_as_billing, delivery?, credit_days}`, with an `Idempotency-Key`. |
 | `GET /customers/{cid}` | `catalog.view` | The customer, with `version`, `in_use` and `warnings`. |
