@@ -160,8 +160,9 @@ def test_the_first_row_may_start_at_the_fy_start_and_later_ones_not_in_the_past(
     r = choose(pg.client, bid, "quarterly", "2026-04-01")
     assert r.status_code == 201, r.text
     body = r.json()
-    assert body["warnings"] == ["window_unknown"] and body["superseded_instances"] == []
-    assert body["row"]["gstin"] == GSTIN and body["row"]["warnings"] == ["window_unknown"]
+    # The loaded rule 61A rows: Q1's window was 1 Feb - 30 Apr 2026, so today is outside it.
+    assert body["warnings"] == ["outside_window"] and body["superseded_instances"] == []
+    assert body["row"]["gstin"] == GSTIN and body["row"]["warnings"] == ["outside_window"]
 
     past = choose(pg.client, bid, "monthly", "2026-07-01")
     assert (past.status_code, past.json()["error"]["code"]) == (422, "effective_from_past")
@@ -178,7 +179,7 @@ def test_the_first_row_may_start_at_the_fy_start_and_later_ones_not_in_the_past(
         stored = c.execute(text("select warnings from business.filing_frequency_history order by chosen_at")).all()
         view = c.execute(text("select frequency, effective_from, valid_to from business.v_filing_profile"
                               " where business_id = :b order by effective_from"), {"b": bid}).all()
-    assert [w for (w,) in stored] == [["window_unknown"]] * 3
+    assert [w for (w,) in stored] == [["outside_window"], ["outside_window"], []]  # Q4's window is open
     assert [tuple(v) for v in view] == [("quarterly", date(2026, 4, 1), date(2026, 10, 1)),
                                         ("monthly", date(2026, 10, 1), date(2027, 1, 1)),
                                         ("quarterly", date(2027, 1, 1), None)]
@@ -187,8 +188,35 @@ def test_the_first_row_may_start_at_the_fy_start_and_later_ones_not_in_the_past(
     fp = pg.client.get(url(bid, "/filing-profile"), headers=as_user("alice")).json()
     assert fp["gstin"] == GSTIN and fp["current"] == {"frequency": "monthly", "effective_from": "2026-10-01"}
     assert len(fp["history"]) == 3 and fp["history"][0]["effective_from"] == "2027-01-01"
-    assert fp["window"] == {"for_quarter": "2027-01-01", "opens": None, "closes": None}
-    assert fp["warnings"] == ["window_unknown"]
+    assert fp["window"] == {"for_quarter": "2027-01-01", "opens": "2026-11-01", "closes": "2027-01-31"}
+    assert fp["warnings"] == []
+
+
+def test_without_the_window_rows_the_window_is_unknown_and_never_blocks(biz):
+    from app.modules.refdata import reader
+
+    pg, bid = biz
+    with pg.owner.connect() as c:
+        c.execute(text("delete from refdata.values where key like 'qrmp.option_window.%'"))
+    reader._reset_cache()
+    try:
+        r = choose(pg.client, bid, "quarterly", "2026-04-01")
+        assert r.status_code == 201 and r.json()["warnings"] == ["window_unknown"]
+        fp = pg.client.get(url(bid, "/filing-profile"), headers=as_user("alice")).json()
+        assert fp["window"] == {"for_quarter": "2027-01-01", "opens": None, "closes": None}
+        assert fp["warnings"] == ["window_unknown"]
+    finally:
+        reader._reset_cache()
+
+
+def test_a_frequency_may_start_at_most_the_refdata_limit_ahead(biz):
+    pg, bid = biz
+    ahead = scalar(pg.owner, "select value::int from refdata.values where key = 'business.frequency_max_quarters_ahead'")
+    assert ahead == 4  # provisional product row; today's quarter starts 1 Oct 2026
+    assert choose(pg.client, bid, "quarterly", "2027-10-01").status_code == 201
+    far = choose(pg.client, bid, "quarterly", "2028-01-01")
+    assert (far.status_code, far.json()["error"]["code"]) == (422, "effective_from_too_far")
+    assert far.json()["error"]["field"] == "effective_from"
 
 
 def test_a_later_choice_for_the_same_quarter_wins(biz):
@@ -200,11 +228,8 @@ def test_a_later_choice_for_the_same_quarter_wins(biz):
         assert c.execute(text("select count(*) from business.v_filing_profile")).scalar() == 1
 
 
-def test_window_and_aato_warnings_are_stored_and_never_block(biz, monkeypatch):
-    from app.modules.business import frequency
-
+def test_window_and_aato_warnings_are_stored_and_never_block(biz):
     pg, bid = biz
-    monkeypatch.setattr(frequency, "window_offsets", lambda tx, on: (-2, 1))  # test input, not a product value
     assert pg.client.put(url(bid, "/turnover-bands/2025-26"), headers=as_user("alice"),
                          json={"band": "above_threshold"}).status_code == 200
     inside = choose(pg.client, bid, "monthly", "2027-01-01")  # window 1 Nov - 31 Jan
