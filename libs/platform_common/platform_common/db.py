@@ -1,7 +1,7 @@
 """Database sessions.
 
-In AWS each service connects as its own database user (svc_<service>) with a
-short-lived IAM token, so no password is stored anywhere. Locally, DATABASE_URL is
+In AWS the app connects as its database user (DB_USER, app_rw) with a short-lived IAM
+token, so no password is stored anywhere. Locally, DATABASE_URL is
 used as given.
 """
 
@@ -15,6 +15,10 @@ from sqlalchemy.orm import Session, sessionmaker
 
 
 def _iam_engine() -> Engine:
+    """IAM-token login, on Lambda only. Without DATABASE_URL anywhere else this refuses,
+    rather than sign tokens with whatever AWS credentials the shell happens to have."""
+    if not os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):  # auth.on_lambda, without importing auth
+        raise RuntimeError("DATABASE_URL is not set; IAM database login runs on Lambda only")
     import boto3  # pinned in app/pyproject.toml; loaded only on this IAM path
 
     host = os.environ["DB_HOST"]

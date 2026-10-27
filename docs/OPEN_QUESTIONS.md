@@ -96,5 +96,12 @@ Every row in `refdata/` is `provisional`. Before go-live:
 - A job whose last SQS message is lost while `failed_retryable` stays there; the outbox sweep only resends unsent rows. The DLQ alarm covers exhausted messages, not this. A "stuck jobs" sweep can come with the alarms (TD-24).
 - The real-S3 policy checks (limit + 1 byte, other key, after 5 minutes, other KMS key) are QA's staging checks (HLD §6.5); the local store only mirrors them.
 
+## Staging infrastructure follow-ups (S0b, D-040)
+- **Raw uploads deleted after 90 days (TD-18) has no lifecycle rule yet.** Keys are `b/<business>/<area>/...`, so no S3 prefix filter selects every upload. Options: (a) put the area first, `<area>/b/<business>/...`, while no data exists yet (one change in `storage.key_for` and `check_key`); (b) tag uploads in the presigned POST and filter on the tag; (c) a worker job that deletes them. Staff 2 recommends (a). Owner: Staff 2, for the EM to agree.
+- **App code that this Terraform expects but that isn't built yet:** `app.mailer.handler` and `SqsMailer` (Staff 2's next PR), and the app reading `CODE_HMAC_KEY_PARAM` and `RATE_HMAC_KEY_PARAM` from Parameter Store at start-up (today it reads `CODE_HMAC_KEY` and `RATE_HMAC_KEY` directly). The worker has no `purge_operational` or `retention` task yet, so those schedules stay off.
+- **Staging checks only a real AWS account can answer** (QA and Staff 2, at the first staging deploy): whether CloudFront passes `Authorization` and cookies through to the JWT authorizer with the managed AllViewerExceptHostHeader policy; whether the Cognito endpoint exists in ap-south-1 and the admin calls work through it (tech plan §4.5); the exact Cognito admin actions CognitoAuthProvider uses (S1-c4), so the IAM list can be trimmed; `SHOW max_connections`; and the account's Lambda concurrency quota.
+- **Pankaj:** the staging decision (no AWS resource exists or is created until he decides), the domain (CloudFront aliases, the ACM certificate, and the SES identity, `mail_domain`), and creating the OIDC deploy role and repository variables listed in `.github/workflows/deploy-staging.yml`.
+- The HTTP API's own `execute-api` URL also answers. It applies the same authorizer and app checks, but it bypasses CloudFront's response headers. Restricting it to CloudFront needs a shared-secret header or a WAF, and is not done.
+
 ## Decision handling
 For each answer, update `docs/DECISIONS.md` with the decision, rationale, trade-offs, and approval status. Do not silently turn assumptions into requirements.

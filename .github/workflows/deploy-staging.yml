@@ -1,0 +1,113 @@
+name: deploy-staging
+
+# TD-20: GitHub Actions with OIDC into AWS. Manual only: nothing runs this on a push or
+# merge. It stays inert until Pankaj (the account owner) creates the OIDC deploy role
+# and sets the repository variables below, and no deploy happens before the CEO
+# approves the first staging deploy. Put the job behind a "staging" environment with a
+# required reviewer in the repository settings so each run waits for a person.
+#
+# Repository variables (Settings > Secrets and variables > Actions > Variables):
+#   AWS_DEPLOY_ROLE_ARN   the OIDC role this workflow assumes
+#   TF_STATE_BUCKET       the state_bucket output of infra/bootstrap
+#   STAGING_WEB_ORIGINS   JSON list, the app origin first, e.g. ["https://app.example.in"]
+#   BUDGET_ALERT_EMAILS   JSON list of addresses for budget and alarm emails
+#
+# Order per release (HLD §11, Operations): migrator first, then the worker and API, then the web
+# files with an invalidation of index.html only (hashed assets never change).
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "plan shows the changes; apply deploys them"
+        type: choice
+        options: [plan, apply]
+        default: plan
+
+permissions:
+  contents: read
+  id-token: write # OIDC
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: staging
+    env:
+      AWS_REGION: ap-south-1
+      TF_IN_AUTOMATION: "1"
+      TF_VAR_git_sha: ${{ github.sha }}
+      TF_VAR_web_origins: ${{ vars.STAGING_WEB_ORIGINS }}
+      TF_VAR_budget_alert_emails: ${{ vars.BUDGET_ALERT_EMAILS }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Refuse without the deploy role
+        if: vars.AWS_DEPLOY_ROLE_ARN == '' || vars.TF_STATE_BUCKET == '' || vars.STAGING_WEB_ORIGINS == '' || vars.BUDGET_ALERT_EMAILS == ''
+        run: |
+          echo "A repository variable listed at the top of this workflow is not set; nothing to deploy to." >&2
+          exit 1
+
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.10.5"
+
+      - name: Build Lambda zips
+        run: make build
+      - name: Build web files
+        working-directory: web
+        run: npm ci && npm run build
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-south-1
+
+      - name: Terraform init
+        working-directory: infra/envs/staging
+        run: terraform init -input=false -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+
+      - name: Terraform plan
+        working-directory: infra/envs/staging
+        run: terraform plan -input=false
+
+      # The migrator goes first, so the new code never runs against an old schema.
+      # -target also creates what the migrator needs (network, database) on a first run.
+      - name: Update and run the migrator
+        if: inputs.mode == 'apply'
+        working-directory: infra/envs/staging
+        run: |
+          terraform apply -input=false -auto-approve -target=module.stack.module.migrator
+          fn=$(terraform output -raw migrator_function)
+          aws lambda invoke --function-name "$fn" --cli-read-timeout 310 out.json > meta.json
+          cat out.json
+          if jq -e '.FunctionError' meta.json > /dev/null; then
+            echo "migrator failed" >&2
+            exit 1
+          fi
+
+      - name: Apply the rest
+        if: inputs.mode == 'apply'
+        working-directory: infra/envs/staging
+        run: terraform apply -input=false -auto-approve
+
+      - name: Publish web files
+        if: inputs.mode == 'apply'
+        run: |
+          bucket=$(terraform -chdir=infra/envs/staging output -raw web_bucket)
+          dist=$(terraform -chdir=infra/envs/staging output -raw cdn_distribution_id)
+          aws s3 sync web/dist "s3://$bucket" --delete --exclude index.html \
+            --cache-control "public, max-age=31536000, immutable"
+          aws s3 cp web/dist/index.html "s3://$bucket/index.html" --cache-control "no-cache"
+          aws cloudfront create-invalidation --distribution-id "$dist" --paths /index.html
