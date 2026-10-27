@@ -1,8 +1,14 @@
 # Web app (LLD-1 §11)
 
 React + TypeScript (Vite), React Router and TanStack Query, per TD-2 and HLD §9. S1 so far:
-`/signup` (step 1 email and password, step 2 the emailed code) and a placeholder
-`/onboarding/business`.
+`/signup` (email and password, then the emailed code), `/signin` (password, then the
+authenticator-app code when two-step sign-in is on), `/businesses`, and placeholders for
+`/onboarding/business` and `/b/:businessId/home`.
+
+The session (`src/auth/session.ts`, LLD-1 §11.3): the access token lives in memory, and a
+reload gets a new one from `/auth/refresh` using the HttpOnly cookie. A 401
+`session_invalid` gets one refresh and one retry. Tabs share one refresh under the Web Lock
+`auth-refresh` and pass tokens and sign-out on `BroadcastChannel('auth')`.
 
 ## Running it
 
@@ -47,7 +53,9 @@ npx npm@11.6.2 install --package-lock-only --ignore-scripts
 
 - **RM-4.1 row 13:** the sign-up flow keeps the email in `history.state`, never in a query
   string such as `?email=`, so it stays out of browser history and CloudFront access logs.
-  `tests/unit/signup.test.tsx` and the Playwright test check it.
+  The sign-in TOTP challenge isn't kept even there: it lives in component memory, so a
+  reload starts sign-in again. `tests/unit/signup.test.tsx`, `signin.test.tsx` and the
+  Playwright tests check both.
 - Tokens live in memory only, never in `localStorage` or `sessionStorage` (LLD-1 §11.3).
   ESLint refuses either global under `src/`.
 - `playwright-core` is overridden to 1.63.0 so `@axe-core/playwright` uses the same
