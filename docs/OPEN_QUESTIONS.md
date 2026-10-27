@@ -61,6 +61,9 @@ POST /b already reads `identity.max_owned_businesses` (5, provisional; **Pankaj 
 ## Auth follow-ups (owner: Senior)
 - **Mail timing on sign-up and reset (Staff and Staff 2, #48).** `send_after_commit` sends inside the request. So that both branches take the same time, every branch of sign-up and reset now sends exactly one mail: reset mails an unknown email a `reset_no_account` notice, as sign-up mails `already_registered` (EM decision, #48). Long term, when SES lands, send auth mail off the request path (outbox or worker), so a slow send can't show in the reply at all.
 - **`reset_no_account` wording (provisional; PO or Designer to confirm).** "Someone asked to reset the password for this address, but there's no account with it. If that was you, you can sign up here; otherwise, ignore this email." It carries no code and no link other than sign-up.
+- **`limits.read` opens one short read-only transaction per request (Staff 2, #48 nit; deferred).** Fine with the refdata reader's snapshot cache. If background refresh polls show up in RDS connection counts, serve the limits from the cached snapshot without a transaction.
+- **`/me/password` is not on `me_uow` (S1-c4).** `rate.hit` must commit before the first transaction, so the route resolves the caller in its own short transaction, the same check `me_uow` runs (`service/account.py`).
+- **`PATCH /me {name}` has no product rule yet.** The code trims it, stores a blank as no name, and refuses more than 100 characters (422). **PO** to confirm the limit and whether a name is required.
 
 ## Business profile (S1-d) items waiting on the GST expert or PO
 | Item | What the code does until then | Source needed |
