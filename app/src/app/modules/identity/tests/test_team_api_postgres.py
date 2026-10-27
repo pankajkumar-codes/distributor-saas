@@ -185,6 +185,50 @@ def test_app_rw_cannot_accept_or_revive_an_invite_directly(team):
     assert [s for (s,) in owner_sql("select status from identity.invitations order by email")] == ["cancelled", "accepted"]
 
 
+def test_the_invite_snapshots_the_business_name_and_resend_refreshes_it(team):
+    """EM after #39: the mail and preview show the profile's display name as it was when
+    the invite went out; a rename shows only after a resend."""
+    client, _, mail, tid = team
+    owner_sql(
+        "insert into business.profiles (business_id, registration_kind, enrolment_number, state_code, trade_name,"
+        " updated_by) values (:b, 'enrolment', 'E', '19', 'Alice Traders', :u)",
+        b=tid, u=uid("alice"),
+    )
+    inv = invite(client, tid, "bob").json()["id"]
+    assert mail.last("invitation", email("bob"))["business_name"] == "Alice Traders"
+    owner_sql("update business.profiles set trade_name = 'Alice Exports' where business_id = :b", b=tid)
+
+    def preview_name():
+        r = client.get(f"/api/v1/me/invitations/{token(mail, 'bob')}", headers=H("bob"))
+        assert r.status_code == 200, r.text
+        return r.json()["business_name"]
+
+    assert preview_name() == "Alice Traders"
+    assert client.post(f"/api/v1/b/{tid}/invitations/{inv}/resend", headers=H("alice")).status_code == 200
+    assert mail.last("invitation", email("bob"))["business_name"] == "Alice Exports"
+    assert preview_name() == "Alice Exports"
+
+
+def test_app_rw_cannot_insert_an_invite_already_accepted(team):
+    """Staff 2 on #39: the insert side of the status guard."""
+    client, svc, _, tid = team
+    with pytest.raises(Exception) as e, svc.begin() as c:
+        c.execute(
+            text("select set_config('app.user_id', :u, true), set_config('app.tenant_id', :t, true)"),
+            {"u": uid("alice"), "t": str(tid)},
+        )
+        c.execute(
+            text(
+                "insert into identity.invitations (id, business_id, email, role, status, token_hash, invited_by_user,"
+                " expires_at, accepted_by_user, accepted_at)"
+                " values (gen_random_uuid(), :b, :e, 'admin', 'accepted', repeat('a', 64), :u, now(), :u, now())"
+            ),
+            {"b": tid, "e": email("mallory"), "u": uid("alice")},
+        )
+    assert getattr(e.value.orig, "sqlstate", None) == "23514", e.value
+    assert owner_sql("select count(*) from identity.invitations")[0][0] == 0
+
+
 def test_two_concurrent_accepts_make_one_membership(team):
     """AC2-8, on two connections: the second waits on the invite's row lock."""
     client, svc, mail, tid = team
@@ -330,6 +374,24 @@ def test_the_trigger_refuses_when_the_route_check_is_bypassed(team, monkeypatch)
     assert r.status_code == 409 and r.json()["error"]["code"] == "owner_rule"
     assert members(client, tid)["alice@debug.invalid"]["status"] == "active"
     assert "members.deactivate" not in actions(tid)
+
+
+def test_only_the_owner_trigger_reads_as_owner_rule(team):
+    """Staff on #39: T-013 raises IDO01; any other refusal (RLS's 42501) stays an error."""
+    client, svc, _, tid = team
+    seed_member(tid, "erin", "admin")
+
+    def as_erin(sql):
+        with pytest.raises(Exception) as e, svc.begin() as c:
+            c.execute(
+                text("select set_config('app.user_id', :u, true), set_config('app.tenant_id', :t, true)"),
+                {"u": uid("erin"), "t": str(tid)},
+            )
+            c.execute(text(sql), {"b": tid, "u": uid("alice")})
+        return getattr(e.value.orig, "sqlstate", None)
+
+    assert as_erin("update identity.memberships set status = 'deactivated' where business_id = :b and user_id = :u") == api_team.OWNER_RULE_SQLSTATE
+    assert api_team.OWNER_RULE_SQLSTATE != "42501"
 
 
 @pytest.mark.parametrize("reason", [None, "", "   "])
