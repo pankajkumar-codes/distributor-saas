@@ -1,19 +1,23 @@
 """Signed-in routes that need no business yet (LLD-1 §5.9, §5.10), on me_uow.
 
-S1-d1 adds GET /me/businesses and POST /b; the rest of §5.9 (password, TOTP,
-revoke-all, GET /me) joins this router with S1-c/S1-d.
+S1-d1 adds GET /me/businesses and POST /b, S1-c3 POST /me/sessions/revoke-all; the
+rest of §5.9 (password, TOTP, GET /me) joins this router with S1-c4.
 """
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, Request
+from fastapi import APIRouter, Depends, Header, Request, Response
 
 from app.modules.business.interface import NewBusinessProfile
+from platform_common.authprovider import AuthProvider
 from platform_common.clock import Clock, get_clock
 from platform_common.idempotency import run_once
 from platform_common.uow import MeUoW
 
+from .api_auth import clear_refresh_cookie
 from .interface import create_business, list_my_businesses
+from .providers import auth_provider
+from .service import sessions
 
 router = APIRouter(tags=["me"])
 
@@ -51,3 +55,12 @@ def new_business(
         payload=body.model_dump(mode="json"),
         operation=create,
     )
+
+
+@router.post("/me/sessions/revoke-all", status_code=204)
+def revoke_all_sessions(uow: MeUoW, idp: Annotated[AuthProvider, Depends(auth_provider)]):
+    """§5.7 Sign out everywhere, this device included: the SPA goes to sign-in."""
+    sessions.revoke_all(uow, idp)
+    done = Response(status_code=204)
+    clear_refresh_cookie(done)
+    return done

@@ -19,7 +19,7 @@ from platform_common.errors import Deny, Invalid, deny_response, request_id
 from platform_common.mailer import Mailer
 
 from .providers import auth_provider, mailer
-from .service import sessions, signin, signup
+from .service import reset, sessions, signin, signup
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -76,6 +76,16 @@ class CodeSent(BaseModel):
     status: Literal["code_sent"] = "code_sent"
     code_ttl_minutes: int  # auth.code_ttl_minutes, for the screen's copy
     code_max_tries: int  # auth.code_max_tries
+
+
+class ResetVerifyBody(BaseModel):
+    email: str = Field(max_length=254)
+    code: str = Field(max_length=16)
+    new_password: str = Field(max_length=1024)
+
+
+class PasswordSetOut(BaseModel):
+    status: Literal["password_set"] = "password_set"
 
 
 class UserOut(BaseModel):
@@ -157,6 +167,40 @@ def signup_verify(
     }
 
 
+@router.post("/reset", status_code=202, response_model=CodeSent, responses=_errors(422, 429))
+def reset_request(
+    body: EmailBody,
+    request: Request,
+    mail: Annotated[Mailer, Depends(mailer)],
+    clock: Annotated[Clock, Depends(get_clock)],
+):
+    """§5.8: the same reply whether or not the email has an account."""
+    terms = reset.request_reset(_email(body.email), _client_ip(request), request_id(request), mail, clock.today())
+    return CodeSent(code_ttl_minutes=terms.ttl_minutes, code_max_tries=terms.max_tries)
+
+
+@router.post("/reset/verify", response_model=PasswordSetOut, responses=_errors(400, 422, 429))
+def reset_verify(
+    body: ResetVerifyBody,
+    request: Request,
+    idp: Annotated[AuthProvider, Depends(auth_provider)],
+    mail: Annotated[Mailer, Depends(mailer)],
+    clock: Annotated[Clock, Depends(get_clock)],
+):
+    """§5.8. Sets no cookie: every session ends, and the user signs in again."""
+    reset.verify_reset(
+        _email(body.email),
+        body.code,
+        body.new_password,
+        _client_ip(request),
+        request_id(request),
+        idp,
+        mail,
+        clock.today(),
+    )
+    return PasswordSetOut()
+
+
 @router.post("/signin", response_model=SignedInOut | TotpStepOut, responses=_errors(401, 422, 429))
 def signin_password(
     body: SigninBody,
@@ -214,7 +258,7 @@ def _set_cookie(response: Response, refresh_token: str) -> None:
     )
 
 
-def _clear_cookie(response: Response) -> None:
+def clear_refresh_cookie(response: Response) -> None:
     response.delete_cookie(REFRESH_COOKIE, path=COOKIE_PATH, secure=True, httponly=True, samesite="strict")
 
 
@@ -236,7 +280,7 @@ def refresh(
         )
     except Deny as e:
         failed = deny_response(request, e)
-        _clear_cookie(failed)
+        clear_refresh_cookie(failed)
         return failed
     # The refresh token isn't rotated (L1-5), so the cookie is left as it is.
     return AccessTokenOut(access_token=tokens.access_token, expires_in=tokens.expires_in)
@@ -248,5 +292,5 @@ def signout(request: Request, idp: Annotated[AuthProvider, Depends(auth_provider
     bearer = auth[7:] if auth.lower().startswith("bearer ") else None
     sessions.sign_out(bearer, request.cookies.get(REFRESH_COOKIE), request_id(request), idp)
     done = Response(status_code=204)
-    _clear_cookie(done)
+    clear_refresh_cookie(done)
     return done

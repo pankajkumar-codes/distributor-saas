@@ -657,6 +657,18 @@
         "title": "NewBusinessProfile",
         "type": "object"
       },
+      "PasswordSetOut": {
+        "properties": {
+          "status": {
+            "const": "password_set",
+            "default": "password_set",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "title": "PasswordSetOut",
+        "type": "object"
+      },
       "ReasonIn": {
         "properties": {
           "reason": {
@@ -726,6 +738,32 @@
           "kind"
         ],
         "title": "Registration",
+        "type": "object"
+      },
+      "ResetVerifyBody": {
+        "properties": {
+          "code": {
+            "maxLength": 16,
+            "title": "Code",
+            "type": "string"
+          },
+          "email": {
+            "maxLength": 254,
+            "title": "Email",
+            "type": "string"
+          },
+          "new_password": {
+            "maxLength": 1024,
+            "title": "New Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "code",
+          "new_password"
+        ],
+        "title": "ResetVerifyBody",
         "type": "object"
       },
       "Role": {
@@ -1070,6 +1108,120 @@
           }
         },
         "summary": "Refresh",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/reset": {
+      "post": {
+        "description": "\u00a75.8: the same reply whether or not the email has an account.",
+        "operationId": "reset_request_api_v1_auth_reset_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodeSent"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "summary": "Reset Request",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/reset/verify": {
+      "post": {
+        "description": "\u00a75.8. Sets no cookie: every session ends, and the user signs in again.",
+        "operationId": "reset_verify_api_v1_auth_reset_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetVerifyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasswordSetOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "summary": "Reset Verify",
         "tags": [
           "auth"
         ]
@@ -2175,6 +2327,21 @@
         "summary": "Accept Invite",
         "tags": [
           "team"
+        ]
+      }
+    },
+    "/api/v1/me/sessions/revoke-all": {
+      "post": {
+        "description": "\u00a75.7 Sign out everywhere, this device included: the SPA goes to sign-in.",
+        "operationId": "revoke_all_sessions_api_v1_me_sessions_revoke_all_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Revoke All Sessions",
+        "tags": [
+          "me"
         ]
       }
     }

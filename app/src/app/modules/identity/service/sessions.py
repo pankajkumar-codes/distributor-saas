@@ -125,3 +125,16 @@ def sign_out(bearer: str | None, refresh_token: str | None, request_id: str, idp
                 audit.record(uow, "auth.signout", "session", ended.session_id, user_level=True)
     if refresh_token:
         revoke_at_provider(refresh_token, idp, request_id)
+
+
+def revoke_all(uow, idp: AuthProvider) -> int:
+    """§5.7 sign out everywhere, on the caller's me_uow: every live session row of the
+    user, audit auth.signout_all, and the provider's global sign-out after commit.
+    Returns how many rows were revoked (this request's own session included)."""
+    sub = uow.principal.user_sub
+    done = uow.tx.execute(
+        text("select user_id, revoked from identity.auth_revoke_user_sessions(:s, 'signout_all')"), {"s": sub}
+    ).one()
+    audit.record(uow, "auth.signout_all", "user", done.user_id, data={"sessions": done.revoked}, user_level=True)
+    uow.after_commit(lambda: idp.global_sign_out(sub))  # a failure is logged; the rows are revoked
+    return done.revoked

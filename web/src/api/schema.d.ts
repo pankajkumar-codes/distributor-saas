@@ -21,6 +21,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset Request
+         * @description §5.8: the same reply whether or not the email has an account.
+         */
+        post: operations["reset_request_api_v1_auth_reset_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/reset/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset Verify
+         * @description §5.8. Sets no cookie: every session ends, and the user signs in again.
+         */
+        post: operations["reset_verify_api_v1_auth_reset_verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/signin": {
         parameters: {
             query?: never;
@@ -374,6 +414,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/sessions/revoke-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke All Sessions
+         * @description §5.7 Sign out everywhere, this device included: the SPA goes to sign-in.
+         */
+        post: operations["revoke_all_sessions_api_v1_me_sessions_revoke_all_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -594,6 +654,15 @@ export interface components {
              */
             turnover_band: "up_to_threshold" | "above_threshold";
         };
+        /** PasswordSetOut */
+        PasswordSetOut: {
+            /**
+             * Status
+             * @default password_set
+             * @constant
+             */
+            status: "password_set";
+        };
         /** ReasonIn */
         ReasonIn: {
             /** Reason */
@@ -612,6 +681,15 @@ export interface components {
             kind: "gstin" | "enrolment";
             /** State Code */
             state_code?: string | null;
+        };
+        /** ResetVerifyBody */
+        ResetVerifyBody: {
+            /** Code */
+            code: string;
+            /** Email */
+            email: string;
+            /** New Password */
+            new_password: string;
         };
         /**
          * Role
@@ -750,6 +828,99 @@ export interface operations {
             };
             /** @description Unauthorized */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    reset_request_api_v1_auth_reset_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodeSent"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    reset_verify_api_v1_auth_reset_verify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetVerifyBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasswordSetOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1488,6 +1659,24 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
+            };
+        };
+    };
+    revoke_all_sessions_api_v1_me_sessions_revoke_all_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
