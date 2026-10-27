@@ -135,8 +135,8 @@ def verify(email: str, code: str, password: str, ip: str, request_id: str, idp: 
     # Straight from the provider over our own server call, so the claims are trusted.
     claims = jwt.decode(tokens.access_token, options={"verify_signature": False})
     key = session_key_from_claims(claims)  # the same key the resolver will look up (L1-6)
-    if key is None:
-        raise RuntimeError("the provider's access token names no session key")
+    if key is None or not isinstance(claims.get("auth_time"), (int, float)):
+        raise RuntimeError("the provider's access token names no session key or auth_time")
 
     user_id = uuid7()
     with unit_of_work(_public(request_id)) as uow:  # tx 2

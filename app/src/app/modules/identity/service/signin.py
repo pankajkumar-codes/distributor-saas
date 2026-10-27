@@ -8,9 +8,10 @@ reply never tells a wrong password from an unknown email. The TOTP challenge is 
 provider's opaque session string (L1-7): it goes back to the browser, is never stored
 and never logged.
 
-The TOTP step's email is the caller's word, used for the per-email limit. A caller
-could change it on every try, so the step also counts against the per-IP sign-in
-limit, and on success the token's user must own that email or the sign-in is refused.
+The TOTP step's email goes to the provider with the challenge (Cognito's USERNAME),
+which refuses a challenge that isn't that user's, so rotating the email can't dodge
+the per-email limit. The step also counts against the per-IP sign-in limit, and on
+success the token's user must still own that email.
 """
 
 import uuid
@@ -98,7 +99,7 @@ def sign_in_totp(email: str, challenge: str, code: str, ip: str, request_id: str
     rate.hit(rate.bucket("totp:email", email), TOTP_PER_EMAIL, QUARTER_HOUR)
     rate.hit(rate.bucket("signin:ip", ip), SIGNIN_PER_IP, HOUR)
     try:
-        tokens = idp.respond_totp(challenge, code)
+        tokens = idp.respond_totp(email, challenge, code)
     except AuthRefused as e:
         if e.code == "totp_not_accepted":
             raise TotpNotAccepted(e.challenge or challenge) from None
@@ -111,14 +112,14 @@ def _finish(email: str, tokens: AuthResult, request_id: str, idp: AuthProvider, 
         claims = verified_claims(tokens.access_token, idp)
     except TokenInvalid:
         _refuse(tokens, idp, request_id)
-    key, sub = session_key_from_claims(claims), claims.get("sub")
-    if key is None or not sub:
+    key, sub, auth_time = session_key_from_claims(claims), claims.get("sub"), claims.get("auth_time")
+    if key is None or not sub or not isinstance(auth_time, (int, float)):
         _refuse(tokens, idp, request_id)
     with unit_of_work(Principal(user_sub=None, request_id=request_id)) as uow:
         user = uow.tx.execute(text("select user_id, email from identity.auth_user_by_sub(:s)"), {"s": sub}).first()
         if user is not None and user.email == email:
             uow.become_user(user.user_id, sub)
-            session_id = open_session(uow, user.user_id, key, claims["auth_time"])
+            session_id = open_session(uow, user.user_id, key, auth_time)
             audit.record(uow, "auth.signin", "session", session_id, data={"totp": totp}, user_level=True)
             uow.become_read_only()  # list_my_businesses reads through app_ro policies
             memberships = list_my_businesses(uow.tx, user.user_id)

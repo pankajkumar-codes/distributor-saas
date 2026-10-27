@@ -75,16 +75,18 @@ def test_totp_enrolment_then_challenge(idp):
     step = idp.initiate_auth("asha@example.com", "correct horse battery")
     assert step.needs_totp and step.access_token is None
     with pytest.raises(AuthRefused) as e:
-        idp.respond_totp(step.challenge, "not-it")
+        idp.respond_totp("asha@example.com", step.challenge, "not-it")
     assert e.value.code == "totp_not_accepted" and e.value.challenge == step.challenge
-    assert verify(idp, idp.respond_totp(step.challenge, idp.totp_code(secret)).access_token)
+    with pytest.raises(AuthRefused, match="challenge_expired"):  # bound to its user
+        idp.respond_totp("ravi@example.com", step.challenge, idp.totp_code(secret))
+    assert verify(idp, idp.respond_totp("asha@example.com", step.challenge, idp.totp_code(secret)).access_token)
     with pytest.raises(AuthRefused, match="challenge_expired"):
-        idp.respond_totp(step.challenge, idp.totp_code(secret))  # single use
+        idp.respond_totp("asha@example.com", step.challenge, idp.totp_code(secret))  # single use
 
     late = idp.initiate_auth("asha@example.com", "correct horse battery")
     idp.clock.advance(timedelta(minutes=3))
     with pytest.raises(AuthRefused, match="challenge_expired"):
-        idp.respond_totp(late.challenge, idp.totp_code(secret))
+        idp.respond_totp("asha@example.com", late.challenge, idp.totp_code(secret))
 
     idp.remove_totp(idp.get_sub("asha@example.com"))
     assert not idp.initiate_auth("asha@example.com", "correct horse battery").needs_totp

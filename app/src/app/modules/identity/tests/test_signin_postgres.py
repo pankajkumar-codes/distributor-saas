@@ -196,7 +196,7 @@ def test_a_totp_answer_under_another_email_is_refused(env):
     code = enrol(idp)
     challenge = signin(client).json()["challenge"]
     r = totp(client, challenge, code, email="ravi@example.com")  # Asha's challenge, Ravi's email
-    assert (r.status_code, r.json()["error"]["code"]) == (401, "signin_not_accepted")
+    assert (r.status_code, r.json()["error"]["code"]) == (401, "signin_expired")  # the provider binds it
     assert one(admin, "select count(*) from identity.sessions") == 2  # the two sign-ups' only
 
 
@@ -210,3 +210,17 @@ def test_no_secret_reaches_the_logs(env, caplog):  # AC-15
     signin(client, password="wrong password here")
     secrets = [PASSWORD, challenge, code, done.json()["access_token"], cookie(done).value]
     assert not [s for s in secrets for rec in caplog.records if s in rec.getMessage()]
+
+
+def test_a_token_without_auth_time_is_refused_not_a_500(env, monkeypatch):
+    client, idp, _, admin = env
+    from app.modules.identity.service import signin as signin_mod
+
+    real = signin_mod.verified_claims
+    monkeypatch.setattr(
+        signin_mod, "verified_claims", lambda t, i: {k: v for k, v in real(t, i).items() if k != "auth_time"}
+    )
+    r = signin(client)
+    assert (r.status_code, r.json()["error"]["code"]) == (401, "signin_not_accepted")
+    assert one(admin, "select count(*) from identity.sessions") == 1
+    assert sum(t.revoked for t in idp._refresh.values()) == 1  # the sign-in's token; sign-up's stays

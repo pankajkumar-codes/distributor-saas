@@ -89,14 +89,16 @@ class FakeAuthProvider:
             return AuthResult(challenge=challenge)
         return self._sign_in(u)
 
-    def respond_totp(self, challenge: str, code: str) -> AuthResult:
+    def respond_totp(self, email: str, challenge: str, code: str) -> AuthResult:
         # Unlimited tries on one challenge. The attempt limit is ours (rate.hit), so
         # LLD-1's limit tests must exercise rate.hit, not rely on the provider.
-        email, expires = self._challenges.get(challenge, (None, None))
-        if email is None or self._clock.now() >= expires:
+        owner, expires = self._challenges.get(challenge, (None, None))
+        if owner is None or owner != email.strip().lower():
+            raise AuthRefused("challenge_expired")  # like Cognito: not this user's session
+        if self._clock.now() >= expires:
             self._challenges.pop(challenge, None)
             raise AuthRefused("challenge_expired")
-        u = self._users[email]
+        u = self._users[owner]
         if not hmac.compare_digest(self.totp_code(u.totp_secret), code):
             raise AuthRefused("totp_not_accepted", challenge=challenge)
         del self._challenges[challenge]
