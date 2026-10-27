@@ -1,0 +1,181 @@
+{
+  "_about": "Shared GSTIN format cases: app/.../business/tests/test_gstin.py and web/tests/unit/gstin.test.ts both check every row, so the server check and the web hint can't drift. Format only, never registration (GC-P6). Generated from gstin.py; edit both checks, then the rows.",
+  "cases": [
+    {
+      "input": "27AAPFU0939F1ZV",
+      "own": true,
+      "why": "publicly cited example (gstin.md \u00a72)",
+      "ok": true,
+      "normalised": "27AAPFU0939F1ZV",
+      "state_code": "27",
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "input": "29AAICA3918J1ZE",
+      "own": true,
+      "why": "publicly cited example",
+      "ok": true,
+      "normalised": "29AAICA3918J1ZE",
+      "state_code": "29",
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "input": "29AACCF0683K1ZD",
+      "own": true,
+      "why": "publicly cited example",
+      "ok": true,
+      "normalised": "29AACCF0683K1ZD",
+      "state_code": "29",
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "input": "27AAACR5055K1Z7",
+      "own": true,
+      "why": "publicly cited example",
+      "ok": true,
+      "normalised": "27AAACR5055K1Z7",
+      "state_code": "27",
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "input": " 27aapfu0939f1zv ",
+      "own": true,
+      "why": "trimmed and upper-cased (gstin.md \u00a74 item 1)",
+      "ok": true,
+      "normalised": "27AAPFU0939F1ZV",
+      "state_code": "27",
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "input": "27 AAPFU 0939 F1ZV",
+      "own": true,
+      "why": "inner spaces removed",
+      "ok": true,
+      "normalised": "27AAPFU0939F1ZV",
+      "state_code": "27",
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "input": "27AAPFU0939F1ZA",
+      "own": true,
+      "why": "wrong check character",
+      "ok": false,
+      "normalised": "27AAPFU0939F1ZA",
+      "state_code": "27",
+      "errors": [
+        "gstin_check_char"
+      ],
+      "warnings": []
+    },
+    {
+      "input": "27AAPFU0939F1Z",
+      "own": true,
+      "why": "14 characters",
+      "ok": false,
+      "normalised": "27AAPFU0939F1Z",
+      "state_code": null,
+      "errors": [
+        "gstin_length"
+      ],
+      "warnings": []
+    },
+    {
+      "input": "",
+      "own": true,
+      "why": "empty",
+      "ok": false,
+      "normalised": "",
+      "state_code": null,
+      "errors": [
+        "gstin_length"
+      ],
+      "warnings": []
+    },
+    {
+      "input": "2AAAPFU0939F1ZV",
+      "own": true,
+      "why": "position 2 not a digit",
+      "ok": false,
+      "normalised": "2AAAPFU0939F1ZV",
+      "state_code": null,
+      "errors": [
+        "gstin_shape"
+      ],
+      "warnings": []
+    },
+    {
+      "input": "27AAPFU0939F0ZV",
+      "own": true,
+      "why": "position 13 may not be 0",
+      "ok": false,
+      "normalised": "27AAPFU0939F0ZV",
+      "state_code": null,
+      "errors": [
+        "gstin_shape"
+      ],
+      "warnings": []
+    },
+    {
+      "input": "27AAPFU0939F1Z-",
+      "own": true,
+      "why": "a symbol",
+      "ok": false,
+      "normalised": "27AAPFU0939F1Z-",
+      "state_code": null,
+      "errors": [
+        "gstin_shape"
+      ],
+      "warnings": []
+    },
+    {
+      "input": "27AAP1U0939F1ZN",
+      "own": true,
+      "why": "PAN part neither PAN nor TAN: warns",
+      "ok": true,
+      "normalised": "27AAP1U0939F1ZN",
+      "state_code": "27",
+      "errors": [],
+      "warnings": [
+        "pan_shape"
+      ]
+    },
+    {
+      "input": "27AAAA99999A1ZL",
+      "own": true,
+      "why": "TAN-shaped: government TDS registration, no warning",
+      "ok": true,
+      "normalised": "27AAAA99999A1ZL",
+      "state_code": "27",
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "input": "27AAPFU0939F1C6",
+      "own": true,
+      "why": "14th character not Z: warns for the business's own GSTIN",
+      "ok": true,
+      "normalised": "27AAPFU0939F1C6",
+      "state_code": "27",
+      "errors": [],
+      "warnings": [
+        "gstin_not_z"
+      ]
+    },
+    {
+      "input": "27AAPFU0939F1C6",
+      "own": false,
+      "why": "14th character not Z: no warning for someone else's GSTIN",
+      "ok": true,
+      "normalised": "27AAPFU0939F1C6",
+      "state_code": "27",
+      "errors": [],
+      "warnings": []
+    }
+  ]
+}
