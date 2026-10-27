@@ -1,0 +1,38 @@
+/* System font until the Designer's pass brings Hanken Grotesk (L1-15). */
+:root {
+  --ink: #1d1d1f;
+  --muted: #5b5b66;
+  --line: #c9c9d1;
+  --brand: #1f4fd1;
+  --error: #b3261e;
+  --error-bg: #fdecea;
+  --info-bg: #eaf0fd;
+  --page: #ffffff;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--ink);
+  background: var(--page);
+  line-height: 1.5;
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+.page { max-width: 28rem; margin: 0 auto; padding: 24px 16px 48px; }
+h1 { font-size: 1.5rem; margin: 0 0 16px; }
+.step { color: var(--muted); font-size: 0.875rem; margin: 0 0 4px; }
+.field { margin: 0 0 16px; }
+.field label { display: block; font-weight: 600; margin-bottom: 4px; }
+.field input { width: 100%; font: inherit; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; }
+.field input:disabled { background: #f3f3f5; }
+input[aria-invalid="true"] { border-color: var(--error); }
+.hint, .note { color: var(--muted); font-size: 0.875rem; margin: 4px 0 12px; }
+.error { color: var(--error); font-size: 0.875rem; margin: 4px 0 12px; }
+.banner { padding: 12px; border-radius: 8px; margin: 0 0 16px; background: var(--info-bg); }
+.banner-error { background: var(--error-bg); color: var(--error); }
+.btn { font: inherit; border-radius: 8px; padding: 10px 16px; cursor: pointer; min-height: 44px; }
+.btn:disabled { cursor: default; opacity: 0.6; }
+.btn-primary { background: var(--brand); color: #fff; border: 0; font-weight: 600; }
+.btn-link { background: none; border: 0; color: var(--brand); padding-left: 0; text-decoration: underline; }
+.actions { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; }
+.otp { border: 0; padding: 0; margin: 0 0 8px; display: flex; gap: 8px; }
+.otp legend { font-weight: 600; margin-bottom: 4px; padding: 0; }
+.otp input { width: 44px; height: 52px; text-align: center; font: inherit; font-size: 1.25rem; border: 1px solid var(--line); border-radius: 8px; }
+:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }

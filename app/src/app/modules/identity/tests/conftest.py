@@ -18,17 +18,24 @@ PG_OWNER = {}
 REPO = Path(__file__).resolve().parents[6]
 
 
+# migrator.handler's MODULE_ORDER: ties between timestamped files break in this order.
+_MODULE_ORDER = ["platform", "refdata", "identity", "business", "catalog", "sales", "documents", "filing",
+                 "insights", "imports"]
+
+
 def _migration_order(module_and_file):
     # migrator.handler.ordered's rule: NNNN_ files first, then by timestamp, then module.
     module, f = module_and_file
-    rank = 0 if module == "platform" else 1
+    rank = _MODULE_ORDER.index(module)
     return (1, f.name[:12], rank, f.name) if f.name[:12].isdigit() else (0, "", rank, f.name)
 
 
+# Every module's migrations, as the migrator applies them: identity's routes read other
+# modules through their interfaces (business.interface.display_name for invites).
 MIGRATIONS = [
     f
     for _, f in sorted(
-        [("identity", f) for f in (Path(__file__).parent.parent / "migrations").glob("*.sql")]
+        [(d.parent.name, f) for d in (REPO / "app" / "src" / "app" / "modules").glob("*/migrations") for f in d.glob("*.sql")]
         + [("platform", f) for f in (REPO / "libs" / "platform_common" / "migrations").glob("*.sql")],
         key=_migration_order,
     )
