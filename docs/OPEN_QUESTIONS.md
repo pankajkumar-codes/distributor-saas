@@ -91,5 +91,10 @@ Every row in `refdata/` is `provisional`. Before go-live:
 - Confirming a row means changing its `status` and adding `confirmed_by` (who, and the
   question or message it answers) and `confirmed_on` in the same PR (D-038).
 
+## Job runner follow-ups (S0b, D-039)
+- `retention.purge_operational()` (done/failed jobs and sent outbox rows after 14 days, idempotency keys, rate windows; LLD-0 §4.4) is not built yet. It needs a decision on its run record: `platform.audit_log` requires a business or a user, and a retention run has neither.
+- A job whose last SQS message is lost while `failed_retryable` stays there; the outbox sweep only resends unsent rows. The DLQ alarm covers exhausted messages, not this. A "stuck jobs" sweep can come with the alarms (TD-24).
+- The real-S3 policy checks (limit + 1 byte, other key, after 5 minutes, other KMS key) are QA's staging checks (HLD §6.5); the local store only mirrors them.
+
 ## Decision handling
 For each answer, update `docs/DECISIONS.md` with the decision, rationale, trade-offs, and approval status. Do not silently turn assumptions into requirements.

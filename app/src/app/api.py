@@ -11,7 +11,10 @@ from app.modules.identity.api_me import router as me_router
 from app.modules.identity.api_team import router as team_router
 from app.modules.identity.interface import resolve_principal
 from app.modules.refdata.api import router as refdata_router
+from app import runtime
+from platform_common.auth import debug_env
 from platform_common.errors import install_error_handlers
+from platform_common.jobs_api import router as jobs_router
 from platform_common.uow import set_principal_resolver
 
 API_PREFIX = "/api/v1"
@@ -25,8 +28,14 @@ app.include_router(team_router, prefix=API_PREFIX)
 app.include_router(business_router, prefix=API_PREFIX)
 app.include_router(home_router, prefix=API_PREFIX)
 app.include_router(refdata_router, prefix=API_PREFIX)
+app.include_router(jobs_router, prefix=API_PREFIX)  # platform routes (LLD-0 §3.7)
+if debug_env():
+    from app.dev_routes import router as dev_router
+
+    app.include_router(dev_router, prefix=API_PREFIX)
 # business_uow and me_uow check every caller through identity (LLD-1 §6).
 set_principal_resolver(resolve_principal)
+runtime.configure()  # the jobs queue and object store for this environment
 
 
 @app.get(f"{API_PREFIX}/health")
