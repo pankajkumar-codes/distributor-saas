@@ -1,4 +1,4 @@
-# Deployment Plan (Provider Not Yet Selected)
+# Deployment Plan
 
 ## Approval required
 Do not choose or provision a cloud provider, paid service, production database, domain, or public deployment without explicit approval.
@@ -38,6 +38,21 @@ Compare:
 - Deployment simplicity and rollback.
 - Scaling limits and migration path.
 - Vendor lock-in.
+
+## Current state (D-040)
+AWS in Mumbai (`ap-south-1`) is chosen (TD-1). The Terraform under `infra/` and the
+manual workflow `.github/workflows/deploy-staging.yml` are written but **not applied**:
+no AWS resource exists until Pankaj decides on staging, and the first staging deploy needs
+the CEO's approval (TD-20, TD-21). How to deploy and test: `docs/TESTING.md` §3.
+
+## Launch prerequisites (AWS account actions, Pankaj)
+- **Lambda concurrency quota of at least 156 in ap-south-1 before the first prod apply.**
+  Prod reserves TD-6's caps (api 40, worker 10, mailer 5, migrator 1 = 56), and Lambda
+  keeps 100 of the account quota unreserved, so the apply fails on a smaller quota. The
+  increase is requested in Service Quotas and costs nothing. Staging leaves the caps off.
+- The OIDC deploy role and the repository variables listed in the deploy workflow.
+- A domain, its ACM certificate in us-east-1 (CloudFront), and SES production access for
+  that domain (tech plan §0, §4.5).
 
 ## Go-live checklist
 - All critical tests pass.
