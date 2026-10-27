@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../../src/App";
@@ -52,6 +52,9 @@ describe("landing after sign-in (LLD-1 §11.2)", () => {
     expect(safeNext("//evil.example/x")).toBeNull();
     expect(safeNext("https://evil.example")).toBeNull();
     expect(safeNext("/\\evil.example")).toBeNull();
+    expect(safeNext("/b/x\n/home")).toBeNull();
+    expect(safeNext("/b/x\u0000")).toBeNull();
+    expect(safeNext("/b/x\u007f")).toBeNull();
     expect(safeNext(null)).toBeNull();
   });
 });
@@ -147,6 +150,23 @@ describe("a reload", () => {
     expect(window.location.pathname + window.location.search).toBe("/signin?next=%2Fb%2Fb-1%2Fhome");
   });
 
+  it("offers to try again, without signing out, when refresh can't reach the server", async () => {
+    server.reply(REFRESH, { status: 503 }, { status: 200, body: { access_token: "t-r", expires_in: 3600 } });
+    server.reply(ME, { status: 200, body: { businesses: [A] } });
+    open("/b/b-1/home");
+    fireEvent.click(await screen.findByRole("button", { name: "Try again" }));
+    expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/b/b-1/home");
+  });
+
+  it("goes to sign-in when an API call's session is refused after the retry", async () => {
+    server.reply(REFRESH, { status: 200, body: { access_token: "t-r", expires_in: 3600 } }, { status: 401 });
+    server.reply(ME, { status: 401, body: { error: { code: "session_invalid", message: "" } } });
+    open("/b/b-1/home");
+    await screen.findByRole("heading", { name: "Sign in" });
+    expect(window.location.search).toBe("?next=%2Fb%2Fb-1%2Fhome");
+  });
+
   it("shows NotFound for a business that isn't in the user's list", async () => {
     server.reply(REFRESH, { status: 200, body: { access_token: "t-r", expires_in: 3600 } });
     server.reply(ME, { status: 200, body: { businesses: [A] } });
@@ -164,4 +184,40 @@ it("signs out from the top bar", async () => {
   await screen.findByRole("heading", { name: "Sign in" });
   expect(server.paths()).toContain("/api/v1/auth/signout");
   expect(tokenStore.get()).toBeNull();
+});
+
+it("drops the last user's cached businesses on sign-out, so the next user never sees them", async () => {
+  server.reply(REFRESH, { status: 200, body: { access_token: "t-a", expires_in: 3600 } });
+  server.reply(ME, { status: 200, body: { businesses: [A] } });
+  server.reply("/api/v1/auth/signout", { status: 204 });
+  open("/b/b-1/home");
+  expect(await screen.findByText("Vashi Essentials")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+  await screen.findByRole("heading", { name: "Sign in" });
+
+  // Someone else signs in, in the same tab, to a business with the same ID.
+  const theirs = { ...A, display_name: "Their Shop", gstin: null };
+  server.reply(SIGNIN, signedIn([theirs]));
+  let release!: () => void;
+  const gate = new Promise<void>((r) => (release = r));
+  server.reply(ME, { status: 200, body: { businesses: [theirs] }, wait: gate });
+  await signIn();
+  await waitFor(() => expect(window.location.pathname).toBe("/b/b-1/home"));
+  expect(screen.queryByText("Vashi Essentials")).toBeNull(); // nothing from the cache while loading
+  release();
+  expect(await screen.findByText("Their Shop")).toBeInTheDocument();
+  expect(server.paths().filter((p) => p === ME)).toHaveLength(2);
+});
+
+it("keeps cached answers through a plain token refresh, and drops them for a new session", async () => {
+  const { QueryClient } = await import("@tanstack/react-query");
+  const { clearOnSessionChange } = await import("../../src/auth/userCache");
+  const { startSession } = await import("../../src/auth/session");
+  const client = new QueryClient();
+  clearOnSessionChange(client);
+  client.setQueryData(["me", "businesses"], [A]);
+  startSession("t2", 3600, "refresh");
+  expect(client.getQueryData(["me", "businesses"])).toEqual([A]);
+  startSession("t3", 3600, "new");
+  expect(client.getQueryData(["me", "businesses"])).toBeUndefined();
 });

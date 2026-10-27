@@ -1,6 +1,6 @@
 import createClient from "openapi-fetch";
 
-import { refreshSession } from "../auth/session";
+import { endSession, refreshSession } from "../auth/session";
 import { tokenStore } from "../auth/tokenStore";
 import { toApiError, type ApiError } from "./errors";
 import type { paths } from "./schema";
@@ -37,16 +37,27 @@ async function once<T>(request: () => Promise<Result<T>>): Promise<T> {
 /**
  * Resolves to the body of a 2xx, or rejects with an ApiError (status 0 if unreachable).
  * A 401 session_invalid gets one refresh and one retry (LLD-1 §11.3); if that fails too,
- * the session listeners hear about it and the app goes to sign-in. The /auth calls pass
+ * or the retry is refused too, the session listeners hear it and the app goes to sign-in. The /auth calls pass
  * `refresh: false`: a retried code check would spend one of the user's tries.
  */
 export async function call<T>(request: () => Promise<Result<T>>, { refresh = true } = {}): Promise<T> {
+  const used = tokenStore.get();
   try {
     return await once(request);
   } catch (e) {
-    const error = e as ApiError;
-    if (!refresh || error.status !== 401 || error.code !== "session_invalid") throw error;
-    if (!(await refreshSession())) throw error;
-    return once(request);
+    if (!refresh || !sessionInvalid(e)) throw e;
+    if ((await refreshSession({ rejected: used })) !== "ok") throw e;
   }
+  try {
+    return await once(request);
+  } catch (e) {
+    // Refused again with a fresh token: the session itself is gone, so sign the tab out.
+    if (sessionInvalid(e)) endSession();
+    throw e;
+  }
+}
+
+function sessionInvalid(e: unknown): boolean {
+  const error = e as ApiError;
+  return error.status === 401 && error.code === "session_invalid";
 }

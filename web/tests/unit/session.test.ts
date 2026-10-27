@@ -29,16 +29,16 @@ afterEach(() => {
 describe("refreshSession", () => {
   it("keeps the new token in memory and hands it to the other tabs", async () => {
     server.reply(REFRESH, fresh("t1"));
-    expect(await refreshSession()).toBe(true);
+    expect(await refreshSession()).toBe("ok");
     expect(tokenStore.get()).toBe("t1");
     await tick();
-    expect(heard).toEqual([{ type: "token", accessToken: "t1", expiresIn: 3600 }]);
+    expect(heard).toEqual([{ type: "token", accessToken: "t1", expiresIn: 3600, change: "refresh" }]);
   });
 
   it("sends one refresh for calls that overlap", async () => {
     server.reply(REFRESH, fresh("t1"));
     const both = await Promise.all([refreshSession(), refreshSession()]);
-    expect(both).toEqual([true, true]);
+    expect(both).toEqual(["ok", "ok"]);
     expect(server.paths()).toEqual([REFRESH]);
   });
 
@@ -52,18 +52,44 @@ describe("refreshSession", () => {
 
   it("uses a token another tab sent in the last 30 seconds instead of calling", async () => {
     onSessionChange(() => {}); // opens this tab's channel
-    otherTab.postMessage({ type: "token", accessToken: "from-tab-2", expiresIn: 3600 });
+    otherTab.postMessage({ type: "token", accessToken: "from-tab-2", expiresIn: 3600, change: "refresh" });
     await tick();
-    expect(await refreshSession()).toBe(true);
+    expect(await refreshSession()).toBe("ok");
     expect(tokenStore.get()).toBe("from-tab-2");
     expect(server.paths()).toEqual([]);
+  });
+
+  it("calls the server anyway when the shared token is the one just refused", async () => {
+    onSessionChange(() => {});
+    otherTab.postMessage({ type: "token", accessToken: "from-tab-2", expiresIn: 3600, change: "refresh" });
+    await tick();
+    expect(await refreshSession({ rejected: "from-tab-2" })).toBe("signed_out");
+    expect(server.paths()).toEqual([REFRESH]);
+    expect(tokenStore.get()).toBeNull();
+  });
+
+  it.each([500, 503, 429])("keeps the session on a %i from refresh: only a 401 signs out", async (status) => {
+    const seen: boolean[] = [];
+    onSessionChange((signedIn) => seen.push(signedIn));
+    tokenStore.set("still-mine", 3600);
+    server.reply(REFRESH, { status });
+    expect(await refreshSession()).toBe("unavailable");
+    expect(tokenStore.get()).toBe("still-mine");
+    expect(seen).toEqual([]);
+  });
+
+  it("keeps the session when the network is down", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new TypeError("offline"))));
+    tokenStore.set("still-mine", 3600);
+    expect(await refreshSession()).toBe("unavailable");
+    expect(tokenStore.get()).toBe("still-mine");
   });
 
   it("signs out on a 401, and marks background polls", async () => {
     const seen: boolean[] = [];
     onSessionChange((signedIn) => seen.push(signedIn));
     tokenStore.set("old", 1);
-    expect(await refreshSession({ background: true })).toBe(false);
+    expect(await refreshSession({ background: true })).toBe("signed_out");
     expect(tokenStore.get()).toBeNull();
     expect(seen).toEqual([false]);
     expect(server.sent[0].headers.get("X-Background")).toBe("1");
@@ -110,6 +136,28 @@ describe("call", () => {
     server.reply(ME, expired);
     await expect(call(() => api.GET(ME))).rejects.toMatchObject({ status: 401, code: "session_invalid" });
     expect(server.paths()).toEqual([ME, REFRESH]);
+  });
+
+  it("signs the tab out when the retry is refused too", async () => {
+    const seen: boolean[] = [];
+    onSessionChange((signedIn) => seen.push(signedIn));
+    server.reply(ME, expired, expired);
+    server.reply(REFRESH, fresh("t2"));
+    await expect(call(() => api.GET(ME))).rejects.toMatchObject({ code: "session_invalid" });
+    expect(server.paths()).toEqual([ME, REFRESH, ME]);
+    expect(tokenStore.get()).toBeNull();
+    expect(seen.at(-1)).toBe(false);
+  });
+
+  it("doesn't trust another tab's token once the server refused it", async () => {
+    const seen: boolean[] = [];
+    onSessionChange((signedIn) => seen.push(signedIn));
+    otherTab.postMessage({ type: "token", accessToken: "revoked", expiresIn: 3600, change: "refresh" });
+    await tick();
+    server.reply(ME, expired); // refresh then answers 401 (nothing queued)
+    await expect(call(() => api.GET(ME))).rejects.toMatchObject({ code: "session_invalid" });
+    expect(server.paths()).toEqual([ME, REFRESH]);
+    expect(seen.at(-1)).toBe(false);
   });
 
   it("never retries an /auth call, which could spend a code try", async () => {
