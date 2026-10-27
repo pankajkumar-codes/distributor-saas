@@ -165,6 +165,21 @@ def test_field_checks(shop):
     assert {"code": "NOS", "name": "Numbers"} in units and len(units) == 45
 
 
+def test_null_flags_json_number_rates_and_unknown_fields_are_refused(shop):  # #52 review
+    pg, biz = shop
+    h = as_user("alice")
+    p = make(pg, biz, code="CESS-1", has_cess=True)
+    for body, code in (({"has_cess": None}, "has_cess_invalid"), ({"tax_category": None}, "tax_category_invalid")):
+        r = pg.client.patch(url(biz, f"/{p['id']}"), json=body, headers={**h, "If-Match": "1"})
+        assert (r.status_code, r.json()["error"]["code"]) == (422, code)
+    again = pg.client.get(url(biz, f"/{p['id']}"), headers=h).json()
+    assert (again["has_cess"], again["version"]) == (True, 1)
+    assert "cess_not_supported" in [w["code"] for w in again["warnings"]]
+    assert post(pg, url(biz), product(code="NUM-1", rate=18)).status_code == 422  # AC3-15
+    assert post(pg, url(biz, f"/{p['id']}/rates"), {"rate": 12, "valid_from": "2026-10-01"}).status_code == 422
+    assert post(pg, url(biz), product(code="EXTRA-1", colour="red")).status_code == 422
+
+
 def test_code_is_unique_ignoring_case_including_archived_and_barcode_among_active(shop):
     """AC3-8."""
     pg, biz = shop

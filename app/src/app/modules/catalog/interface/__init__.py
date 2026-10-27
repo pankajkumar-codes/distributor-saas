@@ -19,6 +19,9 @@ from platform_common.errors import Conflict, Deny
 
 from ..rates import RateRow, rate_on
 
+# Explicit as well as row-level security (#52 review): the bound business only.
+_MINE = "business_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
+
 __all__ = ["ProductForLine", "SetupCounts", "mark_used", "product_for_line", "products_for_lines", "setup_counts"]
 
 
@@ -57,7 +60,7 @@ def products_for_lines(tx: Session, product_ids: list[uuid.UUID], on: date) -> d
     products = tx.execute(
         text(
             "select id, code, name, hsn, uqc, sale_rate, tax_category, has_cess, status from catalog.products"
-            " where id in :ids and status <> 'deleted'"
+            f" where id in :ids and {_MINE} and status <> 'deleted'"
         ).bindparams(bindparam("ids", expanding=True)),
         {"ids": ids},
     ).all()
@@ -70,7 +73,7 @@ def products_for_lines(tx: Session, product_ids: list[uuid.UUID], on: date) -> d
             " exists (select 1 from catalog.product_rate_voids v where v.rate_id = r.id),"
             " coalesce((select c.action = 'confirm' from catalog.product_rate_confirmations c"
             "           where c.rate_id = r.id order by c.created_at desc, c.id desc limit 1), false)"
-            " from catalog.product_rates r where r.product_id in :ids"
+            f" from catalog.product_rates r where r.product_id in :ids and r.{_MINE}"
         ).bindparams(bindparam("ids", expanding=True)),
         {"ids": list(rows)},
     ):
@@ -110,7 +113,7 @@ def mark_used(tx: Session, product_ids: list[uuid.UUID]) -> None:
     marked = tx.execute(
         text(
             "update catalog.products set first_used_at = coalesce(first_used_at, now())"
-            " where id in :ids and status <> 'deleted' returning id"
+            f" where id in :ids and {_MINE} and status <> 'deleted' returning id"
         ).bindparams(bindparam("ids", expanding=True)),
         {"ids": ids},
     ).all()
@@ -127,7 +130,7 @@ def setup_counts(tx: Session, on: date) -> SetupCounts:
             " count(*) filter (where p.status = 'active' and p.tax_category = 'taxable'"
             "                  and not coalesce(cr.confirmed, false))"
             " from catalog.products p left join catalog.current_rates(:on) cr on cr.product_id = p.id"
-            " where p.status <> 'deleted'"
+            f" where p.{_MINE} and p.status <> 'deleted'"
         ),
         {"on": on},
     ).one()

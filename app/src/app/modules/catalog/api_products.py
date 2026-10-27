@@ -10,7 +10,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi import status as http
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.modules.refdata import uqc_codes
 from platform_common.clock import Clock, get_clock
@@ -33,11 +33,15 @@ Money = Annotated[str, Field(max_length=24)]
 
 
 class RateIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     rate: Decimalish
     valid_from: date
 
 
 class ProductIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     code: Text
     name: Text
     hsn: Text | None = None
@@ -50,6 +54,8 @@ class ProductIn(BaseModel):
 
 
 class ProductPatch(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     code: Text | None = None
     name: Text | None = None
     hsn: Text | None = None
@@ -61,10 +67,14 @@ class ProductPatch(BaseModel):
 
 
 class ReasonIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     reason: Annotated[str, Field(max_length=600)] | None = None
 
 
 class NoteIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     note: Annotated[str, Field(max_length=600)] | None = None
 
 

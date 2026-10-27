@@ -82,6 +82,7 @@ POST /b already reads `identity.max_owned_businesses` (5, provisional; **Pankaj 
 | HSN minimum digits by turnover (`hsn_min_digits`) | No warning in catalog yet; LLD-4 blocks at finalize once built | business refdata, `refdata-rates-uqc.md` §5(b) |
 | Product limits (`catalog.product_code.max_length` 40, `catalog.rate_valid_from_max_days_ahead` 366) | LLD-3's proposals, provisional | PO |
 | Rate-change warning window (`catalog.rate_change_warning_days` 30, inclusive) | Warns when the rate in force began at most 30 days before the date | CA (tax-computation §5 [CA]) |
+| **A live rate that has left `gst.rate_values` by the invoice date** (for example a rate entered while it was on the list, read for a date after the list dropped it) | Catalog checks a rate against the list for its own `valid_from` only; `product_for_line` returns it with no flag (#52 review) | **LLD-4** decides: a `rate_not_on_list_on_date` flag from catalog read against refdata for the line's date (never a hard-coded date), and whether finalize warns or blocks; the CA says which |
 
 ## Refdata rows to confirm (S0b)
 Every row in `refdata/` is `provisional`. Before go-live:
