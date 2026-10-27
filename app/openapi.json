@@ -1357,6 +1357,26 @@
         "title": "RoleIn",
         "type": "object"
       },
+      "SigninBody": {
+        "properties": {
+          "email": {
+            "maxLength": 254,
+            "title": "Email",
+            "type": "string"
+          },
+          "password": {
+            "maxLength": 1024,
+            "title": "Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "SigninBody",
+        "type": "object"
+      },
       "StateCode": {
         "properties": {
           "code": {
@@ -1470,6 +1490,32 @@
           "role"
         ],
         "title": "TenantOut",
+        "type": "object"
+      },
+      "TotpBody": {
+        "properties": {
+          "challenge": {
+            "maxLength": 4096,
+            "title": "Challenge",
+            "type": "string"
+          },
+          "code": {
+            "maxLength": 16,
+            "title": "Code",
+            "type": "string"
+          },
+          "email": {
+            "maxLength": 254,
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "challenge",
+          "code"
+        ],
+        "title": "TotpBody",
         "type": "object"
       },
       "TurnoverBandIn": {
@@ -1664,6 +1710,84 @@
           }
         },
         "summary": "Refresh",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/signin": {
+      "post": {
+        "operationId": "signin_password_api_v1_auth_signin_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SigninBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Signin Password",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/signin/totp": {
+      "post": {
+        "operationId": "signin_totp_api_v1_auth_signin_totp_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TotpBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Signin Totp",
         "tags": [
           "auth"
         ]

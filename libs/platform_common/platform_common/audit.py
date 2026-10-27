@@ -23,6 +23,7 @@ ALLOWED_DATA: dict[str, frozenset[str]] = {
     "auth.password_change": frozenset(),
     "auth.totp_on": frozenset(),
     "auth.totp_off": frozenset(),
+    "auth.signout": frozenset(),
     "auth.signout_all": frozenset({"sessions"}),
     "business.create": frozenset({"registration_kind"}),
     # Business profile (LLD-1 §8.2, L1-13, L1-14).
