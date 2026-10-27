@@ -2587,6 +2587,33 @@
         "title": "TotpBody",
         "type": "object"
       },
+      "TotpCodeBody": {
+        "properties": {
+          "code": {
+            "maxLength": 16,
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "TotpCodeBody",
+        "type": "object"
+      },
+      "TotpSecretOut": {
+        "properties": {
+          "secret": {
+            "title": "Secret",
+            "type": "string"
+          }
+        },
+        "required": [
+          "secret"
+        ],
+        "title": "TotpSecretOut",
+        "type": "object"
+      },
       "TotpStepOut": {
         "properties": {
           "challenge": {
@@ -5613,6 +5640,87 @@
           }
         },
         "summary": "Revoke All Sessions",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/v1/me/totp": {
+      "delete": {
+        "description": "\u00a75.9. 409 reauth_required unless the caller signed in within auth.stepup_minutes.",
+        "operationId": "totp_remove_api_v1_me_totp_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "summary": "Totp Remove",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/v1/me/totp/confirm": {
+      "post": {
+        "operationId": "totp_confirm_api_v1_me_totp_confirm_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TotpCodeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Totp Confirm",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/v1/me/totp/setup": {
+      "post": {
+        "description": "\u00a75.9. The SPA draws otpauth://totp/<app>:<email>?secret=\u2026&issuer=<app>.",
+        "operationId": "totp_setup_api_v1_me_totp_setup_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TotpSecretOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Totp Setup",
         "tags": [
           "me"
         ]

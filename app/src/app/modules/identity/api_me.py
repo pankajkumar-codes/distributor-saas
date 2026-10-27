@@ -1,7 +1,7 @@
 """Signed-in routes that need no business yet (LLD-1 §5.9, §5.10), on me_uow.
 
 S1-d1 adds GET /me/businesses and POST /b, S1-c3 POST /me/sessions/revoke-all, S1-c4
-GET and PATCH /me and POST /me/password; TOTP enrolment joins with S1-c4b.
+GET and PATCH /me and POST /me/password, S1-c4b TOTP enrolment.
 """
 
 from typing import Annotated, Literal
@@ -21,7 +21,7 @@ from platform_common.uow import MeUoW
 from .api_auth import clear_refresh_cookie, error_responses
 from .interface import create_business, list_my_businesses
 from .providers import auth_provider, mailer
-from .service import account, sessions
+from .service import account, sessions, totp
 
 router = APIRouter(tags=["me"])
 
@@ -70,6 +70,22 @@ class PasswordBody(BaseModel):
     new_password: str = Field(max_length=1024)  # the policy's own limit gives the friendly error
 
 
+class TotpSecretOut(BaseModel):
+    secret: str  # for the QR code only; never logged or stored by us
+
+
+class TotpCodeBody(BaseModel):
+    code: str = Field(max_length=16)
+
+
+def _access_token(request: Request) -> str:
+    """The caller's own access token, for the provider calls that take one."""
+    bearer = request.headers.get("authorization", "")
+    if not bearer.lower().startswith("bearer "):
+        raise Deny("session_invalid")
+    return bearer[7:].strip()
+
+
 def _me_out(me: account.Me) -> MeOut:
     return MeOut(
         user=MeUser(id=str(me.user_id), email=me.email, name=me.name, totp_enabled=me.totp_enabled),
@@ -111,12 +127,9 @@ def change_password(
 ):
     """§5.9. Every session ends, this one included: the SPA goes to sign-in. Not on
     me_uow, because rate.hit runs before the first transaction (service/account.py)."""
-    bearer = request.headers.get("authorization", "")
-    if not bearer.lower().startswith("bearer "):  # ChangePassword needs the caller's own token
-        raise Deny("session_invalid")
     account.change_password(
         current_caller(request),
-        bearer[7:].strip(),
+        _access_token(request),
         body.current_password,
         body.new_password,
         request_id(request),
@@ -127,6 +140,37 @@ def change_password(
     done = Response(status_code=204)
     clear_refresh_cookie(done)
     return done
+
+
+@router.post("/me/totp/setup")
+def totp_setup(request: Request, uow: MeUoW, idp: Annotated[AuthProvider, Depends(auth_provider)]) -> TotpSecretOut:
+    """§5.9. The SPA draws otpauth://totp/<app>:<email>?secret=…&issuer=<app>."""
+    return TotpSecretOut(secret=totp.setup(_access_token(request), idp))
+
+
+@router.post("/me/totp/confirm", status_code=204, responses=error_responses(422))
+def totp_confirm(
+    body: TotpCodeBody,
+    request: Request,
+    uow: MeUoW,
+    idp: Annotated[AuthProvider, Depends(auth_provider)],
+    mail: Annotated[Mailer, Depends(mailer)],
+):
+    totp.confirm(uow, _access_token(request), body.code, idp, mail)
+    return Response(status_code=204)
+
+
+@router.delete("/me/totp", status_code=204, responses=error_responses(409))
+def totp_remove(
+    request: Request,
+    uow: MeUoW,
+    idp: Annotated[AuthProvider, Depends(auth_provider)],
+    mail: Annotated[Mailer, Depends(mailer)],
+    clock: Annotated[Clock, Depends(get_clock)],
+):
+    """§5.9. 409 reauth_required unless the caller signed in within auth.stepup_minutes."""
+    totp.remove(uow, current_caller(request), idp, mail, clock.now(), clock.today())
+    return Response(status_code=204)
 
 
 @router.get("/me/businesses")
