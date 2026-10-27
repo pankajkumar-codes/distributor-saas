@@ -135,6 +135,7 @@
         "type": "object"
       },
       "AddressIn": {
+        "additionalProperties": false,
         "properties": {
           "city": {
             "anyOf": [
@@ -175,7 +176,7 @@
           "pin": {
             "anyOf": [
               {
-                "maxLength": 12,
+                "maxLength": 300,
                 "type": "string"
               },
               {
@@ -187,7 +188,7 @@
           "state_code": {
             "anyOf": [
               {
-                "maxLength": 4,
+                "maxLength": 300,
                 "type": "string"
               },
               {
@@ -534,6 +535,7 @@
         "type": "object"
       },
       "CustomerIn": {
+        "additionalProperties": false,
         "properties": {
           "billing": {
             "$ref": "#/components/schemas/AddressIn",
@@ -562,7 +564,7 @@
           "gstin": {
             "anyOf": [
               {
-                "maxLength": 40,
+                "maxLength": 300,
                 "type": "string"
               },
               {
@@ -695,6 +697,7 @@
         "type": "object"
       },
       "CustomerPatch": {
+        "additionalProperties": false,
         "properties": {
           "billing": {
             "anyOf": [
@@ -741,7 +744,7 @@
           "gstin": {
             "anyOf": [
               {
-                "maxLength": 40,
+                "maxLength": 300,
                 "type": "string"
               },
               {
