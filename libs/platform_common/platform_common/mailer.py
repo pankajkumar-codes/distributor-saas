@@ -21,7 +21,16 @@ from .auth import debug_env
 
 # Templates the mailer Lambda will render (LLD-1 §2 mailer/templates/).
 TEMPLATES = frozenset(
-    {"signup_code", "already_registered", "reset_code", "password_changed", "totp_on", "totp_off", "invitation"}
+    {
+        "signup_code",
+        "already_registered",
+        "reset_code",
+        "reset_no_account",
+        "password_changed",
+        "totp_on",
+        "totp_off",
+        "invitation",
+    }
 )
 
 

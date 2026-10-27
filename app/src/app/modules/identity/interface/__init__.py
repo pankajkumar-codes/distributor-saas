@@ -162,3 +162,22 @@ def member_role(tx: Session, business_id: uuid.UUID, user_id: uuid.UUID) -> str 
         text("select role from identity.memberships where business_id = :b and user_id = :u and status = 'active'"),
         {"b": business_id, "u": user_id},
     ).scalar()
+
+
+def greeting_name(tx: Session) -> str | None:
+    """The signed-in user's own name for Home's greeting (LLD-1 §10), or None if unset."""
+    return tx.execute(
+        text("select name from identity.users where id = nullif(current_setting('app.user_id', true), '')::uuid")
+    ).scalar()
+
+
+def team_started(tx: Session) -> bool:
+    """Home's invite_ca_or_teammate item until LLD-2's own signal (LLD-1 §10): the bound
+    business has a second active member or a pending invite. Invites are visible to
+    owners and admins only (inv_ro), so for other roles only memberships count."""
+    return bool(tx.execute(
+        text("select (select count(*) from identity.memberships where status = 'active'"
+             "         and business_id = nullif(current_setting('app.tenant_id', true), '')::uuid) > 1"
+             " or exists (select 1 from identity.invitations where status = 'pending' and expires_at > now()"
+             "         and business_id = nullif(current_setting('app.tenant_id', true), '')::uuid)")
+    ).scalar())

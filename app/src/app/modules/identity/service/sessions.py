@@ -16,7 +16,7 @@ an expired token's, writes auth.signout in the same transaction, and always ends
 
 import logging
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import NoReturn
 
 from sqlalchemy import text
@@ -30,15 +30,14 @@ from platform_common.uow import Principal, unit_of_work
 
 from ..interface import session_key_from_claims
 from ..providers import token_issuer_and_client
+from . import limits
 
 log = logging.getLogger(__name__)
 
-REFRESH_PER_IP_PER_HOUR = 600  # auth.refresh_per_ip_per_hour (provisional, L1-10)
-SESSION_MAX_DAYS = 30  # auth.session_max_days (BRD)
 HOUR = timedelta(hours=1)
 
 
-def open_session(uow, user_id: uuid.UUID, key: tuple[str, str], auth_time: int) -> uuid.UUID:
+def open_session(uow, user_id: uuid.UUID, key: tuple[str, str], auth_time: int, max_days: int) -> uuid.UUID:
     """§5.6: the session row for a new sign-up or sign-in, keyed as the resolver looks it up."""
     session_id = uuid7()
     uow.tx.execute(
@@ -49,7 +48,7 @@ def open_session(uow, user_id: uuid.UUID, key: tuple[str, str], auth_time: int) 
             "kind": key[0],
             "k": key[1],
             "t": datetime.fromtimestamp(auth_time, UTC),
-            "d": SESSION_MAX_DAYS,
+            "d": max_days,
         },
     )
     return session_id
@@ -60,9 +59,12 @@ def verified_claims(token: str, idp: AuthProvider, *, allow_expired: bool = Fals
     return verify_access_token(token, idp.jwks(), issuer=issuer, client_id=client_id, allow_expired=allow_expired)
 
 
-def refresh(refresh_token: str | None, ip: str, request_id: str, idp: AuthProvider, *, background: bool) -> AuthResult:
+def refresh(
+    refresh_token: str | None, ip: str, request_id: str, idp: AuthProvider, today: date, *, background: bool
+) -> AuthResult:
     """§5.5. Raises Deny("session_invalid") or RateLimited."""
-    rate.hit(rate.bucket("refresh:ip", ip), REFRESH_PER_IP_PER_HOUR, HOUR)
+    per_ip = limits.read(("auth.refresh_per_ip_per_hour",), today, request_id)["auth.refresh_per_ip_per_hour"]
+    rate.hit(rate.bucket("refresh:ip", ip), per_ip, HOUR)
     if not refresh_token:
         raise Deny("session_invalid")
     try:
@@ -123,3 +125,16 @@ def sign_out(bearer: str | None, refresh_token: str | None, request_id: str, idp
                 audit.record(uow, "auth.signout", "session", ended.session_id, user_level=True)
     if refresh_token:
         revoke_at_provider(refresh_token, idp, request_id)
+
+
+def revoke_all(uow, idp: AuthProvider) -> int:
+    """§5.7 sign out everywhere, on the caller's me_uow: every live session row of the
+    user, audit auth.signout_all, and the provider's global sign-out after commit.
+    Returns how many rows were revoked (this request's own session included)."""
+    sub = uow.principal.user_sub
+    done = uow.tx.execute(
+        text("select user_id, revoked from identity.auth_revoke_user_sessions(:s, 'signout_all')"), {"s": sub}
+    ).one()
+    audit.record(uow, "auth.signout_all", "user", done.user_id, data={"sessions": done.revoked}, user_level=True)
+    uow.after_commit(lambda: idp.global_sign_out(sub))  # a failure is logged; the rows are revoked
+    return done.revoked

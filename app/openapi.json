@@ -15,6 +15,24 @@
         "title": "AcceptOut",
         "type": "object"
       },
+      "AccessTokenOut": {
+        "properties": {
+          "access_token": {
+            "title": "Access Token",
+            "type": "string"
+          },
+          "expires_in": {
+            "title": "Expires In",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "access_token",
+          "expires_in"
+        ],
+        "title": "AccessTokenOut",
+        "type": "object"
+      },
       "Actor": {
         "properties": {
           "kind": {
@@ -116,6 +134,74 @@
         "title": "Address",
         "type": "object"
       },
+      "AddressOut": {
+        "properties": {
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "line1": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line1"
+          },
+          "line2": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line2"
+          },
+          "pin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pin"
+          },
+          "state_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State Code"
+          }
+        },
+        "required": [
+          "line1",
+          "line2",
+          "city",
+          "pin",
+          "state_code"
+        ],
+        "title": "AddressOut",
+        "type": "object"
+      },
       "AuditPageOut": {
         "properties": {
           "items": {
@@ -194,6 +280,154 @@
         "title": "AuditRowOut",
         "type": "object"
       },
+      "ChannelsIn": {
+        "additionalProperties": false,
+        "properties": {
+          "amazon": {
+            "title": "Amazon",
+            "type": "boolean"
+          },
+          "flipkart": {
+            "title": "Flipkart",
+            "type": "boolean"
+          },
+          "meesho": {
+            "title": "Meesho",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "amazon",
+          "flipkart",
+          "meesho"
+        ],
+        "title": "ChannelsIn",
+        "type": "object"
+      },
+      "ChannelsOut": {
+        "properties": {
+          "amazon": {
+            "title": "Amazon",
+            "type": "boolean"
+          },
+          "answered": {
+            "title": "Answered",
+            "type": "boolean"
+          },
+          "flipkart": {
+            "title": "Flipkart",
+            "type": "boolean"
+          },
+          "meesho": {
+            "title": "Meesho",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "amazon",
+          "flipkart",
+          "meesho",
+          "answered"
+        ],
+        "title": "ChannelsOut",
+        "type": "object"
+      },
+      "Checklist": {
+        "properties": {
+          "done": {
+            "title": "Done",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ChecklistItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "done",
+          "total",
+          "items"
+        ],
+        "title": "Checklist",
+        "type": "object"
+      },
+      "ChecklistItem": {
+        "properties": {
+          "done": {
+            "title": "Done",
+            "type": "boolean"
+          },
+          "href": {
+            "title": "Href",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "done",
+          "href"
+        ],
+        "title": "ChecklistItem",
+        "type": "object"
+      },
+      "CodeSent": {
+        "properties": {
+          "code_max_tries": {
+            "title": "Code Max Tries",
+            "type": "integer"
+          },
+          "code_ttl_minutes": {
+            "title": "Code Ttl Minutes",
+            "type": "integer"
+          },
+          "status": {
+            "const": "code_sent",
+            "default": "code_sent",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code_ttl_minutes",
+          "code_max_tries"
+        ],
+        "title": "CodeSent",
+        "type": "object"
+      },
+      "CurrentFrequencyOut": {
+        "properties": {
+          "effective_from": {
+            "format": "date",
+            "title": "Effective From",
+            "type": "string"
+          },
+          "frequency": {
+            "enum": [
+              "monthly",
+              "quarterly"
+            ],
+            "title": "Frequency",
+            "type": "string"
+          }
+        },
+        "required": [
+          "frequency",
+          "effective_from"
+        ],
+        "title": "CurrentFrequencyOut",
+        "type": "object"
+      },
       "EmailBody": {
         "properties": {
           "email": {
@@ -208,6 +442,219 @@
         "title": "EmailBody",
         "type": "object"
       },
+      "ErrorDetail": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field"
+          },
+          "fix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fix"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ErrorDetail",
+        "type": "object"
+      },
+      "ErrorOut": {
+        "properties": {
+          "challenge": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Challenge"
+          },
+          "error": {
+            "$ref": "#/components/schemas/ErrorDetail"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "title": "ErrorOut",
+        "type": "object"
+      },
+      "FilingProfileOut": {
+        "properties": {
+          "current": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CurrentFrequencyOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "gstin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gstin"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/FrequencyRowOut"
+            },
+            "title": "History",
+            "type": "array"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          },
+          "window": {
+            "$ref": "#/components/schemas/WindowOut"
+          }
+        },
+        "required": [
+          "gstin",
+          "current",
+          "history",
+          "window",
+          "warnings"
+        ],
+        "title": "FilingProfileOut",
+        "type": "object"
+      },
+      "FrequencyIn": {
+        "additionalProperties": false,
+        "properties": {
+          "effective_from": {
+            "format": "date",
+            "title": "Effective From",
+            "type": "string"
+          },
+          "frequency": {
+            "enum": [
+              "monthly",
+              "quarterly"
+            ],
+            "title": "Frequency",
+            "type": "string"
+          }
+        },
+        "required": [
+          "frequency",
+          "effective_from"
+        ],
+        "title": "FrequencyIn",
+        "type": "object"
+      },
+      "FrequencyOut": {
+        "properties": {
+          "row": {
+            "$ref": "#/components/schemas/FrequencyRowOut"
+          },
+          "superseded_instances": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Superseded Instances",
+            "type": "array"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "row",
+          "warnings",
+          "superseded_instances"
+        ],
+        "title": "FrequencyOut",
+        "type": "object"
+      },
+      "FrequencyRowOut": {
+        "properties": {
+          "chosen_at": {
+            "format": "date-time",
+            "title": "Chosen At",
+            "type": "string"
+          },
+          "effective_from": {
+            "format": "date",
+            "title": "Effective From",
+            "type": "string"
+          },
+          "frequency": {
+            "enum": [
+              "monthly",
+              "quarterly"
+            ],
+            "title": "Frequency",
+            "type": "string"
+          },
+          "gstin": {
+            "title": "Gstin",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "gstin",
+          "frequency",
+          "effective_from",
+          "chosen_at",
+          "warnings"
+        ],
+        "title": "FrequencyRowOut",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -219,6 +666,78 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HomeOut": {
+        "properties": {
+          "attention": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Attention",
+            "type": "array"
+          },
+          "checklist": {
+            "$ref": "#/components/schemas/Checklist"
+          },
+          "filing": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filing"
+          },
+          "greeting_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Greeting Name"
+          },
+          "hub": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hub"
+          },
+          "insights": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Insights"
+          }
+        },
+        "required": [
+          "greeting_name",
+          "checklist",
+          "filing",
+          "hub",
+          "insights",
+          "attention"
+        ],
+        "title": "HomeOut",
         "type": "object"
       },
       "InviteIn": {
@@ -337,6 +856,105 @@
         "title": "InvitePreviewOut",
         "type": "object"
       },
+      "JobOut": {
+        "properties": {
+          "attempt": {
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "progress": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProgressOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "done",
+              "failed",
+              "failed_retryable"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "status",
+          "attempt",
+          "progress",
+          "result",
+          "error_code",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "JobOut",
+        "type": "object"
+      },
+      "JobsOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/JobOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "JobsOut",
+        "type": "object"
+      },
       "MemberOut": {
         "properties": {
           "can_do": {
@@ -451,6 +1069,119 @@
         "title": "MembersOut",
         "type": "object"
       },
+      "MembershipOut": {
+        "properties": {
+          "business_id": {
+            "title": "Business Id",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "gstin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gstin"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "business_id",
+          "display_name",
+          "gstin",
+          "role"
+        ],
+        "title": "MembershipOut",
+        "type": "object"
+      },
+      "MyBusiness": {
+        "properties": {
+          "business_id": {
+            "title": "Business Id",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "gstin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gstin"
+          },
+          "role": {
+            "enum": [
+              "owner",
+              "admin",
+              "billing",
+              "ca"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "business_id",
+          "display_name",
+          "gstin",
+          "role"
+        ],
+        "title": "MyBusiness",
+        "type": "object"
+      },
+      "MyBusinessesOut": {
+        "properties": {
+          "businesses": {
+            "items": {
+              "$ref": "#/components/schemas/MyBusiness"
+            },
+            "title": "Businesses",
+            "type": "array"
+          }
+        },
+        "required": [
+          "businesses"
+        ],
+        "title": "MyBusinessesOut",
+        "type": "object"
+      },
+      "NewBusinessOut": {
+        "properties": {
+          "business_id": {
+            "title": "Business Id",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "business_id",
+          "warnings"
+        ],
+        "title": "NewBusinessOut",
+        "type": "object"
+      },
       "NewBusinessProfile": {
         "description": "The body of POST /api/v1/b (LLD-1 \u00a75.10).",
         "properties": {
@@ -515,6 +1246,234 @@
           "einvoice_history"
         ],
         "title": "NewBusinessProfile",
+        "type": "object"
+      },
+      "PasswordSetOut": {
+        "properties": {
+          "status": {
+            "const": "password_set",
+            "default": "password_set",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "title": "PasswordSetOut",
+        "type": "object"
+      },
+      "ProfileOut": {
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/AddressOut"
+          },
+          "business_id": {
+            "title": "Business Id",
+            "type": "string"
+          },
+          "einvoice_history": {
+            "anyOf": [
+              {
+                "enum": [
+                  "no",
+                  "yes",
+                  "not_sure"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Einvoice History"
+          },
+          "legal_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Legal Name"
+          },
+          "ready_for_documents": {
+            "$ref": "#/components/schemas/ReadinessOut"
+          },
+          "registration": {
+            "$ref": "#/components/schemas/RegistrationOut"
+          },
+          "trade_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trade Name"
+          },
+          "turnover_band": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TurnoverBandOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "business_id",
+          "legal_name",
+          "trade_name",
+          "registration",
+          "address",
+          "einvoice_history",
+          "turnover_band",
+          "ready_for_documents"
+        ],
+        "title": "ProfileOut",
+        "type": "object"
+      },
+      "ProfilePatch": {
+        "additionalProperties": false,
+        "description": "PATCH /profile: only the fields sent change. `registration` replaces the whole\nregistration; `address` changes only the address fields sent.",
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Address"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "einvoice_history": {
+            "anyOf": [
+              {
+                "enum": [
+                  "no",
+                  "yes",
+                  "not_sure"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Einvoice History"
+          },
+          "legal_name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Legal Name"
+          },
+          "registration": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Registration"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "trade_name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trade Name"
+          }
+        },
+        "title": "ProfilePatch",
+        "type": "object"
+      },
+      "ProfileUpdateOut": {
+        "properties": {
+          "profile": {
+            "$ref": "#/components/schemas/ProfileOut"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "profile",
+          "warnings"
+        ],
+        "title": "ProfileUpdateOut",
+        "type": "object"
+      },
+      "ProgressOut": {
+        "properties": {
+          "done": {
+            "title": "Done",
+            "type": "integer"
+          },
+          "out_of": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Out Of"
+          }
+        },
+        "required": [
+          "done",
+          "out_of"
+        ],
+        "title": "ProgressOut",
+        "type": "object"
+      },
+      "ReadinessOut": {
+        "properties": {
+          "missing": {
+            "items": {
+              "enum": [
+                "legal_name",
+                "address",
+                "gstin"
+              ],
+              "type": "string"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "missing"
+        ],
+        "title": "ReadinessOut",
         "type": "object"
       },
       "ReasonIn": {
@@ -588,6 +1547,96 @@
         "title": "Registration",
         "type": "object"
       },
+      "RegistrationOut": {
+        "properties": {
+          "enrolment_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enrolment Number"
+          },
+          "gstin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gstin"
+          },
+          "kind": {
+            "enum": [
+              "gstin",
+              "enrolment"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "locked": {
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "state_code": {
+            "pattern": "^[0-9]{2}$",
+            "title": "State Code",
+            "type": "string"
+          },
+          "state_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State Name"
+          }
+        },
+        "required": [
+          "kind",
+          "gstin",
+          "enrolment_number",
+          "state_code",
+          "state_name",
+          "locked"
+        ],
+        "title": "RegistrationOut",
+        "type": "object"
+      },
+      "ResetVerifyBody": {
+        "properties": {
+          "code": {
+            "maxLength": 16,
+            "title": "Code",
+            "type": "string"
+          },
+          "email": {
+            "maxLength": 254,
+            "title": "Email",
+            "type": "string"
+          },
+          "new_password": {
+            "maxLength": 1024,
+            "title": "New Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "code",
+          "new_password"
+        ],
+        "title": "ResetVerifyBody",
+        "type": "object"
+      },
       "Role": {
         "enum": [
           "owner",
@@ -610,6 +1659,58 @@
         "title": "RoleIn",
         "type": "object"
       },
+      "SignedInOut": {
+        "properties": {
+          "access_token": {
+            "title": "Access Token",
+            "type": "string"
+          },
+          "expires_in": {
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "memberships": {
+            "items": {
+              "$ref": "#/components/schemas/MembershipOut"
+            },
+            "title": "Memberships",
+            "type": "array"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserOut"
+          }
+        },
+        "required": [
+          "access_token",
+          "expires_in",
+          "user",
+          "memberships"
+        ],
+        "title": "SignedInOut",
+        "type": "object"
+      },
+      "SignedUpOut": {
+        "properties": {
+          "access_token": {
+            "title": "Access Token",
+            "type": "string"
+          },
+          "expires_in": {
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserOut"
+          }
+        },
+        "required": [
+          "access_token",
+          "expires_in",
+          "user"
+        ],
+        "title": "SignedUpOut",
+        "type": "object"
+      },
       "SigninBody": {
         "properties": {
           "email": {
@@ -628,6 +1729,46 @@
           "password"
         ],
         "title": "SigninBody",
+        "type": "object"
+      },
+      "StateCode": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "name"
+        ],
+        "title": "StateCode",
+        "type": "object"
+      },
+      "StateCodesOut": {
+        "properties": {
+          "on": {
+            "format": "date",
+            "title": "On",
+            "type": "string"
+          },
+          "states": {
+            "items": {
+              "$ref": "#/components/schemas/StateCode"
+            },
+            "title": "States",
+            "type": "array"
+          }
+        },
+        "required": [
+          "on",
+          "states"
+        ],
+        "title": "StateCodesOut",
         "type": "object"
       },
       "Target": {
@@ -731,6 +1872,107 @@
         "title": "TotpBody",
         "type": "object"
       },
+      "TotpStepOut": {
+        "properties": {
+          "challenge": {
+            "title": "Challenge",
+            "type": "string"
+          },
+          "step": {
+            "const": "totp",
+            "default": "totp",
+            "title": "Step",
+            "type": "string"
+          }
+        },
+        "required": [
+          "challenge"
+        ],
+        "title": "TotpStepOut",
+        "type": "object"
+      },
+      "TurnoverBandIn": {
+        "additionalProperties": false,
+        "properties": {
+          "band": {
+            "enum": [
+              "up_to_threshold",
+              "above_threshold"
+            ],
+            "title": "Band",
+            "type": "string"
+          },
+          "declared_turnover": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{1,16}(\\.[0-9]{1,2})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Declared Turnover"
+          }
+        },
+        "required": [
+          "band"
+        ],
+        "title": "TurnoverBandIn",
+        "type": "object"
+      },
+      "TurnoverBandOut": {
+        "properties": {
+          "band": {
+            "enum": [
+              "up_to_threshold",
+              "above_threshold"
+            ],
+            "title": "Band",
+            "type": "string"
+          },
+          "declared_turnover": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Declared Turnover"
+          },
+          "fy": {
+            "title": "Fy",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fy",
+          "band",
+          "declared_turnover"
+        ],
+        "title": "TurnoverBandOut",
+        "type": "object"
+      },
+      "UserOut": {
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "email"
+        ],
+        "title": "UserOut",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -796,6 +2038,46 @@
         ],
         "title": "VerifyBody",
         "type": "object"
+      },
+      "WindowOut": {
+        "properties": {
+          "closes": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closes"
+          },
+          "for_quarter": {
+            "format": "date",
+            "title": "For Quarter",
+            "type": "string"
+          },
+          "opens": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opens"
+          }
+        },
+        "required": [
+          "for_quarter",
+          "opens",
+          "closes"
+        ],
+        "title": "WindowOut",
+        "type": "object"
       }
     }
   },
@@ -812,13 +2094,149 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AccessTokenOut"
+                }
               }
             },
             "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Too Many Requests"
           }
         },
         "summary": "Refresh",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/reset": {
+      "post": {
+        "description": "\u00a75.8: the same reply whether or not the email has an account.",
+        "operationId": "reset_request_api_v1_auth_reset_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodeSent"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "summary": "Reset Request",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/reset/verify": {
+      "post": {
+        "description": "\u00a75.8. Sets no cookie: every session ends, and the user signs in again.",
+        "operationId": "reset_verify_api_v1_auth_reset_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetVerifyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasswordSetOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "summary": "Reset Verify",
         "tags": [
           "auth"
         ]
@@ -841,20 +2259,50 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/SignedInOut"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TotpStepOut"
+                    }
+                  ],
+                  "title": "Response Signin Password Api V1 Auth Signin Post"
+                }
               }
             },
             "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unauthorized"
           },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorOut"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Too Many Requests"
           }
         },
         "summary": "Signin Password",
@@ -880,20 +2328,42 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SignedInOut"
+                }
               }
             },
             "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unauthorized"
           },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorOut"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Too Many Requests"
           }
         },
         "summary": "Signin Totp",
@@ -933,7 +2403,9 @@
           "202": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CodeSent"
+                }
               }
             },
             "description": "Successful Response"
@@ -942,11 +2414,21 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorOut"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Too Many Requests"
           }
         },
         "summary": "Signup Request",
@@ -972,20 +2454,52 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SignedUpOut"
+                }
               }
             },
             "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unauthorized"
           },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorOut"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Too Many Requests"
           }
         },
         "summary": "Signup Verify",
@@ -1029,7 +2543,9 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NewBusinessOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -1181,6 +2697,250 @@
         "summary": "Audit Log",
         "tags": [
           "team"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/channels": {
+      "get": {
+        "operationId": "get_channels_api_v1_b__business_id__channels_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Channels",
+        "tags": [
+          "business"
+        ]
+      },
+      "put": {
+        "operationId": "put_channels_api_v1_b__business_id__channels_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChannelsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Channels",
+        "tags": [
+          "business"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/filing-profile": {
+      "get": {
+        "operationId": "get_filing_profile_api_v1_b__business_id__filing_profile_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilingProfileOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Filing Profile",
+        "tags": [
+          "business"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/filing-profile/frequency": {
+      "post": {
+        "operationId": "post_frequency_api_v1_b__business_id__filing_profile_frequency_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FrequencyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FrequencyOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Frequency",
+        "tags": [
+          "business"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/home": {
+      "get": {
+        "operationId": "home_api_v1_b__business_id__home_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Home",
+        "tags": [
+          "home"
         ]
       }
     },
@@ -1352,6 +3112,109 @@
         "summary": "Resend Invite",
         "tags": [
           "team"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/jobs": {
+      "get": {
+        "operationId": "recent_jobs_api_v1_b__business_id__jobs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "recent",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Recent",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Recent Jobs",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/jobs/{job_id}": {
+      "get": {
+        "operationId": "get_job_api_v1_b__business_id__jobs__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Job",
+        "tags": [
+          "jobs"
         ]
       }
     },
@@ -1606,6 +3469,160 @@
         ]
       }
     },
+    "/api/v1/b/{business_id}/profile": {
+      "get": {
+        "operationId": "get_profile_api_v1_b__business_id__profile_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Profile",
+        "tags": [
+          "business"
+        ]
+      },
+      "patch": {
+        "operationId": "patch_profile_api_v1_b__business_id__profile_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfilePatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileUpdateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Patch Profile",
+        "tags": [
+          "business"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/turnover-bands/{fy}": {
+      "put": {
+        "operationId": "put_turnover_band_api_v1_b__business_id__turnover_bands__fy__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "fy",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9]{4}-[0-9]{2}$",
+              "title": "Fy",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TurnoverBandIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TurnoverBandOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Turnover Band",
+        "tags": [
+          "business"
+        ]
+      }
+    },
     "/api/v1/health": {
       "get": {
         "operationId": "health_api_v1_health_get",
@@ -1735,7 +3752,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MyBusinessesOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -1828,6 +3847,72 @@
         "summary": "Accept Invite",
         "tags": [
           "team"
+        ]
+      }
+    },
+    "/api/v1/me/sessions/revoke-all": {
+      "post": {
+        "description": "\u00a75.7 Sign out everywhere, this device included: the SPA goes to sign-in.",
+        "operationId": "revoke_all_sessions_api_v1_me_sessions_revoke_all_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Revoke All Sessions",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/v1/refdata/state-codes": {
+      "get": {
+        "description": "The GST state and UT codes valid on `on` (default: today in India), exactly as\nloaded from refdata/state_codes.yaml. Code 96 (other country) is a place of supply\nonly; business refuses it as a registration or address state (gstin.md \u00a73).",
+        "operationId": "get_state_codes_api_v1_refdata_state_codes_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "on",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "On"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StateCodesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get State Codes",
+        "tags": [
+          "refdata"
         ]
       }
     }

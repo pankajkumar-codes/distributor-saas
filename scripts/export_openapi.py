@@ -15,6 +15,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "app" / "openapi.json"
 MONEY_SUFFIXES = ("amount", "value", "tax", "total", "igst", "cgst", "sgst", "cess", "price")
+# Properties named like money that are counts, each with the spec that fixes its name.
+NOT_MONEY = {
+    "Checklist.total",  # LLD-1 §10: how many setup items there are
+}
 
 sys.path[:0] = [str(ROOT / "app" / "src"), str(ROOT / "libs" / "platform_common")]
 
@@ -33,7 +37,7 @@ def money_numbers(spec: dict) -> list[str]:
             types = [body.get("type")] + [s.get("type") for s in body.get("anyOf", [])]
             refs = [body.get("$ref", "")] + [s.get("$ref", "") for s in body.get("anyOf", [])]
             money = prop.lower().endswith(MONEY_SUFFIXES) or any(r.endswith("/MoneyStr") for r in refs)
-            if money and ("number" in types or "integer" in types):
+            if money and f"{schema_name}.{prop}" not in NOT_MONEY and ("number" in types or "integer" in types):
                 problems.append(f"{schema_name}.{prop}: money must be a decimal string, not a number")
     return problems
 

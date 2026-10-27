@@ -14,7 +14,7 @@ a wrong, expired, voided, claimed or already-registered code alike.
 
 import uuid
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import date, timedelta
 
 import jwt
 from sqlalchemy import text
@@ -28,15 +28,10 @@ from platform_common.uow import Principal, unit_of_work
 
 from .. import codes
 from ..interface import session_key_from_claims
+from . import limits
 from .passwords import check_password
 from .sessions import open_session
 
-# Provisional limits (LLD-1 L1-10, §12); they move to refdata rows when refdata lands.
-CODE_TTL = timedelta(minutes=10)  # auth.code_ttl_minutes
-CODE_MAX_TRIES = 5  # auth.code_max_tries
-CODE_REQUESTS_PER_EMAIL_PER_HOUR = 5
-CODE_REQUESTS_PER_IP_PER_HOUR = 20
-CODE_CHECKS_PER_IP_PER_HOUR = 50
 HOUR = timedelta(hours=1)
 
 
@@ -46,6 +41,14 @@ class CodeNotAccepted(AppError):
 
     def __init__(self):
         super().__init__(message="the code is wrong or has expired; ask for a new one")
+
+
+@dataclass(frozen=True)
+class CodeTerms:
+    """What the screen tells the user about the code it just sent (the same for every email)."""
+
+    ttl_minutes: int
+    max_tries: int
 
 
 @dataclass(frozen=True)
@@ -65,11 +68,23 @@ def _public(request_id: str) -> Principal:
     return Principal(user_sub=None, request_id=request_id)
 
 
-def request_code(email: str, ip: str, request_id: str, mail: Mailer) -> None:
+def request_code(email: str, ip: str, request_id: str, mail: Mailer, today: date) -> CodeTerms:
     """§5.1. Mails a code to a new email, or a sign-in hint to a registered one."""
     email = normalise(email)
-    rate.hit(rate.bucket("code_request:email", email), CODE_REQUESTS_PER_EMAIL_PER_HOUR, HOUR)
-    rate.hit(rate.bucket("code_request:ip", ip), CODE_REQUESTS_PER_IP_PER_HOUR, HOUR)
+    lim = limits.read(
+        (
+            "auth.code_requests_per_email_per_hour",
+            "auth.code_requests_per_ip_per_hour",
+            "auth.code_ttl_minutes",
+            "auth.code_max_tries",
+        ),
+        today,
+        request_id,
+    )
+    rate.hit(rate.bucket("code_request:email", email), lim["auth.code_requests_per_email_per_hour"], HOUR)
+    rate.hit(rate.bucket("code_request:ip", ip), lim["auth.code_requests_per_ip_per_hour"], HOUR)
+    # The same in both branches, so the reply doesn't tell a registered email from a new one.
+    terms = CodeTerms(lim["auth.code_ttl_minutes"], lim["auth.code_max_tries"])
     code = codes.new_code()
     digest = codes.code_hmac("signup", email, code)
     with unit_of_work(_public(request_id)) as uow:
@@ -78,19 +93,27 @@ def request_code(email: str, ip: str, request_id: str, mail: Mailer) -> None:
             # comparable work (Staff 2, #33).
             uow.tx.execute(text("select pg_advisory_xact_lock(hashtextextended('signup:' || :e, 0))"), {"e": email})
             send_after_commit(uow, mail, "already_registered", email, {})
-            return
+            return terms
         uow.tx.execute(
             text("select identity.auth_issue_code(:i, 'signup', :e, :h, :t, :m)"),
-            {"i": uuid7(), "e": email, "h": digest, "t": CODE_TTL, "m": CODE_MAX_TRIES},
+            {
+                "i": uuid7(),
+                "e": email,
+                "h": digest,
+                "t": timedelta(minutes=terms.ttl_minutes),
+                "m": terms.max_tries,
+            },
         )
         send_after_commit(uow, mail, "signup_code", email, {"code": code})
+    return terms
 
 
-def verify(email: str, code: str, password: str, ip: str, request_id: str, idp: AuthProvider) -> SignedUp:
+def verify(email: str, code: str, password: str, ip: str, request_id: str, idp: AuthProvider, today: date) -> SignedUp:
     """§5.2. Raises Invalid("password_weak"), RateLimited or CodeNotAccepted."""
     email = normalise(email)
     check_password(password)  # before the code, so a weak password spends no try (RM3-6)
-    rate.hit(rate.bucket("code_check:ip", ip), CODE_CHECKS_PER_IP_PER_HOUR, HOUR)
+    lim = limits.read(("auth.code_checks_per_ip_per_hour", "auth.session_max_days"), today, request_id)
+    rate.hit(rate.bucket("code_check:ip", ip), lim["auth.code_checks_per_ip_per_hour"], HOUR)
     digest = codes.code_hmac("signup", email, code)
     with unit_of_work(_public(request_id)) as uow:  # tx 1: committed whatever the answer
         code_id = uow.tx.execute(
@@ -115,8 +138,8 @@ def verify(email: str, code: str, password: str, ip: str, request_id: str, idp: 
     # Straight from the provider over our own server call, so the claims are trusted.
     claims = jwt.decode(tokens.access_token, options={"verify_signature": False})
     key = session_key_from_claims(claims)  # the same key the resolver will look up (L1-6)
-    if key is None:
-        raise RuntimeError("the provider's access token names no session key")
+    if key is None or not isinstance(claims.get("auth_time"), (int, float)):
+        raise RuntimeError("the provider's access token names no session key or auth_time")
 
     user_id = uuid7()
     with unit_of_work(_public(request_id)) as uow:  # tx 2
@@ -124,6 +147,6 @@ def verify(email: str, code: str, password: str, ip: str, request_id: str, idp: 
             raise CodeNotAccepted()
         uow.tx.execute(text("select identity.auth_create_user(:i, :s, :e)"), {"i": user_id, "s": sub, "e": email})
         uow.become_user(user_id, sub)
-        open_session(uow, user_id, key, claims["auth_time"])
+        open_session(uow, user_id, key, claims["auth_time"], lim["auth.session_max_days"])
         audit.record(uow, "auth.signup", "user", user_id, user_level=True)
     return SignedUp(user_id, email, tokens.access_token, tokens.refresh_token, tokens.expires_in)

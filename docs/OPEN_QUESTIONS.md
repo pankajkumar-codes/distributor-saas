@@ -52,19 +52,27 @@ number and moves to `value_on` in its owner's next PR.
 | Value | Where | Refdata row |
 |---|---|---|
 | 24 h session idle limit | `identity.auth_resolve` (S0a c2) | `auth.idle_hours` |
-| 30-day session lifetime | `identity/service/signup.py` | `auth.session_max_days` |
-| Code TTL, tries and request/check limits | `identity/service/signup.py` | `auth.code_*` (LLD-1 L1-10) |
+| 30-day refresh cookie `Max-Age` | `identity/api_auth.py` (the session row's own expiry reads `auth.session_max_days`) | `auth.session_max_days` |
+
+Since S1-c3 the session lifetime, the code TTL and tries, and every sign-up, sign-in, TOTP and refresh rate limit are read through `value_on` (`identity/service/limits.py`).
 
 POST /b already reads `identity.max_owned_businesses` (5, provisional; **Pankaj / PO** to confirm) and the GSTIN and address state codes through `value_on` and `state_name`.
+
+## Auth follow-ups (owner: Senior)
+- **Mail timing on sign-up and reset (Staff and Staff 2, #48).** `send_after_commit` sends inside the request. So that both branches take the same time, every branch of sign-up and reset now sends exactly one mail: reset mails an unknown email a `reset_no_account` notice, as sign-up mails `already_registered` (EM decision, #48). Long term, when SES lands, send auth mail off the request path (outbox or worker), so a slow send can't show in the reply at all.
+- **`reset_no_account` wording (provisional; PO or Designer to confirm).** "Someone asked to reset the password for this address, but there's no account with it. If that was you, you can sign up here; otherwise, ignore this email." It carries no code and no link other than sign-up.
 
 ## Business profile (S1-d) items waiting on the GST expert or PO
 | Item | What the code does until then | Source needed |
 |---|---|---|
 | Enrolment number pattern (LLD-1 §15) | Accepts any non-blank value, stored trimmed | A cited pattern for the Notification 34/2023 enrolment number |
 | What an enrolment-number business may do in R1 | Stored; `ready_for_documents` will report `gstin` missing (S1-d2) | PO and GST expert |
-| Rule 61A window rows `qrmp.option_window.*`, `einvoice.aato_threshold` | The related warnings report "unknown" instead of guessing (S1-d2) | GST expert, with citation |
+| Rule 61A window rows `qrmp.option_window.open_offset_months` and `close_offset_months`, `einvoice.aato_threshold` | `GET /filing-profile` returns the window with `opens`/`closes` null and warning `window_unknown`; a frequency choice stores `window_unknown` and never `outside_window`. Offsets are read as months from the quarter's start: opens on the first of month `open`, closes the day before the first of month `close` (`business/rule61a.py`) | GST expert, with citation; confirm the offset reading |
+| When `portal_stricter_reading` applies (LLD-1 §8.4) | Never raised: LLD-1 names the warning but not its condition | GST expert or CA states the condition |
+| L1-13 first frequency row back to the FY start | Allowed for a business's first row only; later rows need the current quarter or later | PO and GST expert confirm |
 | Address state different from GSTIN state | A warning, `address_state_mismatch` (L1-12, BRD ON-3); `gstin.md` §4 says refuse | GST expert confirms |
 | 14th GSTIN character not `Z` on the business's own GSTIN | A warning, `gstin_not_z` (`gstin.md` §1, §4 item 5) | none |
+| Home checklist links for screens not built yet (`/settings/filing`, `/products`, `/customers`, `/settings/team`) | Home returns these paths under `/b/{id}` | Junior and Designer confirm the SPA routes |
 
 ## Catalog (S3) items waiting on the GST expert, CA or PO
 | Item | What the code does until then | Source needed |
@@ -91,6 +99,11 @@ Every row in `refdata/` is `provisional`. Before go-live:
   `last_checked` is the date the GST expert read them (2026-10-14), not a fresh check.
 - Confirming a row means changing its `status` and adding `confirmed_by` (who, and the
   question or message it answers) and `confirmed_on` in the same PR (D-038).
+
+## Job runner follow-ups (S0b, D-039)
+- `retention.purge_operational()` (done/failed jobs and sent outbox rows after 14 days, idempotency keys, rate windows; LLD-0 §4.4) is not built yet. It needs a decision on its run record: `platform.audit_log` requires a business or a user, and a retention run has neither.
+- A job whose last SQS message is lost while `failed_retryable` stays there; the outbox sweep only resends unsent rows. The DLQ alarm covers exhausted messages, not this. A "stuck jobs" sweep can come with the alarms (TD-24).
+- The real-S3 policy checks (limit + 1 byte, other key, after 5 minutes, other KMS key) are QA's staging checks (HLD §6.5); the local store only mirrors them.
 
 ## Decision handling
 For each answer, update `docs/DECISIONS.md` with the decision, rationale, trade-offs, and approval status. Do not silently turn assumptions into requirements.

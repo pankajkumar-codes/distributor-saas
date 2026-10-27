@@ -2,43 +2,26 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../../src/App";
+import { resetSessionForTests } from "../../src/auth/session";
 import { tokenStore } from "../../src/auth/tokenStore";
+import { fakeApi, type Reply, type Sent } from "./fakeApi";
 
 const EMAIL = "owner@vashi.example";
 const PASSWORD = "seven lamps under a bridge";
 
-type Reply = { status: number; body?: unknown; headers?: Record<string, string> };
-type Sent = { path: string; body: Record<string, string> };
-
 let sent: Sent[];
-let replies: Record<string, Reply[]>;
-
-function reply(path: string, ...answers: Reply[]) {
-  replies[path] = answers;
-}
+let reply: (path: string, ...answers: Reply[]) => void;
 
 beforeEach(() => {
-  sent = [];
-  replies = {};
-  tokenStore.clear();
+  resetSessionForTests();
   window.history.replaceState(null, "", "/signup");
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (request: Request) => {
-      const path = new URL(request.url).pathname;
-      sent.push({ path, body: await request.clone().json() });
-      const answer = replies[path]?.shift() ?? { status: 500 };
-      return new Response(answer.body === undefined ? null : JSON.stringify(answer.body), {
-        status: answer.status,
-        headers: { "Content-Type": "application/json", ...answer.headers },
-      });
-    }),
-  );
+  ({ sent, reply } = fakeApi());
 });
 
 afterEach(() => vi.unstubAllGlobals());
 
 const SIGNUP = "/api/v1/auth/signup";
+const REFRESH = "/api/v1/auth/refresh";
 const VERIFY = "/api/v1/auth/signup/verify";
 const VERIFIED = { status: 200, body: { access_token: "tok-1", expires_in: 3600, user: { id: "u1", email: EMAIL } } };
 
@@ -72,8 +55,8 @@ describe("sign-up", () => {
     await enterCode();
     await screen.findByRole("heading", { name: "Your business and GST" });
 
-    expect(sent.map((s) => s.path)).toEqual([SIGNUP, VERIFY]);
-    expect(sent[1].body).toEqual({ email: EMAIL, code: "123456", password: PASSWORD });
+    expect(sent.map((s) => s.path).filter((p) => p !== REFRESH)).toEqual([SIGNUP, VERIFY]);
+    expect(sent.find((s) => s.path === VERIFY)?.body).toEqual({ email: EMAIL, code: "123456", password: PASSWORD });
     expect(tokenStore.get()).toBe("tok-1");
     expect(window.location.pathname).toBe("/onboarding/business");
     expect(JSON.stringify(window.history.state)).not.toContain(EMAIL);
@@ -99,7 +82,7 @@ describe("sign-up", () => {
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: PASSWORD } });
     fireEvent.click(screen.getByRole("button", { name: "Create account" }));
     await screen.findByRole("heading", { name: "Your business and GST" });
-    expect(sent.at(-1)?.body.password).toBe(PASSWORD);
+    expect(sent.at(-1)?.body?.password).toBe(PASSWORD);
   });
 
   it("goes back to step 1 on a reload with no email in history", async () => {
@@ -141,6 +124,24 @@ describe("sign-up", () => {
     reply(SIGNUP, { status: 429, body: { error: { code: "rate_limited", message: "" } }, headers: { "Retry-After": "90" } });
     fireEvent.click(screen.getByRole("button", { name: "Email me a code" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Too many tries. Try again in 2 minutes.");
+  });
+
+  it("drops an old code error when a resend is refused (stale error fix)", async () => {
+    render(<App />);
+    await stepOne();
+    reply(VERIFY, { status: 400, body: { error: { code: "code_not_accepted", message: "no" } } });
+    await enterCode("000000");
+    expect(await screen.findByText(/code didn't work/)).toBeInTheDocument();
+
+    reply(SIGNUP, { status: 429, body: { error: { code: "rate_limited", message: "" } }, headers: { "Retry-After": "300" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send a new code" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Too many tries. Try again in 5 minutes.");
+    expect(screen.queryByText(/code didn't work/)).toBeNull();
+  });
+
+  it("shows the password rules on step 1", () => {
+    render(<App />);
+    expect(screen.getByLabelText("Password")).toHaveAccessibleDescription(/At least 10 characters/);
   });
 
   it("sends a new code and restarts the countdown", async () => {

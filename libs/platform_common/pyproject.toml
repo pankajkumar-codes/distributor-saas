@@ -5,6 +5,10 @@ requires-python = ">=3.12"
 # fastapi 0.121 added Depends(scope="function"): units of work commit before the response.
 dependencies = ["fastapi>=0.121", "sqlalchemy>=2.0", "pyyaml>=6.0", "pyjwt[crypto]>=2.8"]
 
+[project.optional-dependencies]
+# platform_common.aws (SQS, S3). The app pins the same version; only Lambda loads it.
+aws = ["boto3==1.43.100"]
+
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
