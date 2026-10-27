@@ -36,3 +36,6 @@ input[aria-invalid="true"] { border-color: var(--error); }
 .otp legend { font-weight: 600; margin-bottom: 4px; padding: 0; }
 .otp input { width: 44px; height: 52px; text-align: center; font: inherit; font-size: 1.25rem; border: 1px solid var(--line); border-radius: 8px; }
 :focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+.topbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 16px; border-bottom: 1px solid var(--line); }
+.list { list-style: none; padding: 0; }
+.list li { padding: 12px 0; border-bottom: 1px solid var(--line); }

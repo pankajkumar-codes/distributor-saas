@@ -8,13 +8,18 @@ export type ApiError = {
   field?: string;
   fix?: string;
   retryAfter?: number; // seconds, from Retry-After on a 429
+  challenge?: string; // totp_not_accepted: the provider's next challenge (LLD-1 §5.4)
 };
 
-type Body = { error?: { code?: string; message?: string; field?: string; fix?: string } };
+type Body = {
+  error?: { code?: string; message?: string; field?: string; fix?: string };
+  challenge?: string;
+};
 
 export function toApiError(response: Response | undefined, body: unknown): ApiError {
   if (!response) return { status: 0, code: "network", message: "" };
   const error = (body as Body | undefined)?.error ?? {};
+  const challenge = (body as Body | undefined)?.challenge;
   const retry = Number.parseInt(response.headers.get("Retry-After") ?? "", 10);
   return {
     status: response.status,
@@ -23,6 +28,7 @@ export function toApiError(response: Response | undefined, body: unknown): ApiEr
     field: error.field,
     fix: error.fix,
     retryAfter: Number.isFinite(retry) ? retry : undefined,
+    ...(challenge ? { challenge } : {}),
   };
 }
 
@@ -30,6 +36,9 @@ const BY_CODE: Record<string, string> = {
   code_not_accepted: "That code didn't work. Check it, or send a new code.",
   email_invalid: "Enter a valid email address, like name@business.in.",
   password_weak: "Choose a stronger password.",
+  signin_not_accepted: "The email or password is wrong.",
+  signin_expired: "That took too long. Sign in again.",
+  totp_not_accepted: "That code didn't work. Enter the current code from your authenticator app.",
 };
 
 /** The sentence a screen shows for an error, inline under `field` when there is one. */
