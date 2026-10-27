@@ -53,7 +53,9 @@ def session_key(tx: Session, caller: Caller) -> tuple[str | None, str | None]:
     if key:
         return key
     if debug_env() and not caller.claims:
-        tx.execute(text("select identity.dev_ensure_session(:sub)"), {"sub": caller.user_sub})
+        # A support request's read-only step 2 resolves again; step 1 made the session.
+        if tx.execute(text("select current_setting('transaction_read_only')")).scalar() == "off":
+            tx.execute(text("select identity.dev_ensure_session(:sub)"), {"sub": caller.user_sub})
         return "sid", f"debug:{caller.user_sub}"
     return None, None
 
