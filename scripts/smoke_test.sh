@@ -42,11 +42,11 @@ if [ -n "$TOKEN_A" ] && [ -z "$TOKEN_B" ]; then
 else
   echo "5. user B cannot see user A's tenant (404, same as a missing one)"
   [ "$(status "$BASE/api/v1/identity/tenants/$TENANT" -H "$(auth b)")" = 404 ] || fail "user B could see tenant"
-  echo "6. user B cannot add themselves as a member"
-  [ "$(status -X POST "$BASE/api/v1/identity/tenants/$TENANT/members" -H "$(auth b)" -H 'content-type: application/json' -d '{"user_sub":"x","role":"owner"}')" = 404 ] || fail "user B could add a member"
+  echo "6. user B cannot invite anyone into it"
+  [ "$(status -X POST "$BASE/api/v1/b/$TENANT/invitations" -H "$(auth b)" -H 'content-type: application/json' -H 'idempotency-key: smoke-6' -d '{"email":"x@example.com","role":"admin"}')" = 404 ] || fail "user B could invite"
 fi
 
 echo "7. audit log records the creation"
-curl -s "$BASE/api/v1/identity/tenants/$TENANT/audit" -H "$(auth a)" | grep -q tenant.created || fail "audit entry missing"
+curl -s "$BASE/api/v1/b/$TENANT/audit-log" -H "$(auth a)" | grep -q business.create || fail "audit entry missing"
 
 echo "ALL CHECKS PASSED"

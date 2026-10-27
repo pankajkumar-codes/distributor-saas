@@ -1,5 +1,7 @@
-"""S0a (c3) on PostgreSQL: the interim platform.v_audit_log (LLD-0 §3.6) and the
-support exclusion on identity's tenant policies (LLD-0 §4.2).
+"""S0a (c3) on PostgreSQL: platform.v_audit_log (LLD-0 §3.6), which reads only
+platform.audit_log since the LLD-2 copy (202610261510; the copy itself is tested in
+test_postgres_audit_copy.py), and the support exclusion on identity's tenant policies
+(LLD-0 §4.2).
 
 Skipped unless PG_ADMIN_URL points at a disposable server.
 """
@@ -22,43 +24,15 @@ def user_id(sub):
     return seed("select id from identity.users where cognito_sub = :s", s=sub).scalar()
 
 
-def test_a_legacy_route_event_shows_in_the_view_for_its_business_only(pg_client):
-    client, svc = pg_client
-    tid = client.post("/api/v1/identity/tenants", json={"name": "Alice Co"}, headers=ALICE).json()["id"]
-    client.post(f"/api/v1/identity/tenants/{tid}/members", json={"user_sub": "bob", "role": "ca"}, headers=ALICE)
-    client.post(f"/api/v1/identity/tenants/{tid}/members/bob/deactivate", json={"reason": " left "}, headers=ALICE)
-    other = client.post("/api/v1/identity/tenants", json={"name": "Other"}, headers={"x-debug-user": "eve"}).json()["id"]
-    alice = user_id("alice")
-
-    with svc.begin() as c:
-        as_ctx(c, alice, tenant=tid)
-        rows = {r.action: r for r in c.execute(text(VIEW))}
-    assert set(rows) == {"tenant.created", "member.added", "member.deactivated"}
-    created = rows["tenant.created"]
-    assert (created.target_kind, str(created.target_id), created.request_id) == ("tenant", tid, "legacy-copy")
-    assert created.data == {"actor_sub": "alice"} and created.user_id is None
-    added = rows["member.added"]
-    assert added.data["role"] == "ca" and added.target_id is not None
-    gone = rows["member.deactivated"]
-    assert gone.reason == "left" and "reason" not in gone.data
-
-    with svc.begin() as c:
-        c.execute(text("set local role app_ro"))
-        as_ctx(c, alice, tenant=tid)
-        assert c.execute(text("select count(*) from platform.v_audit_log")).scalar() == 3
-    with svc.begin() as c:
-        # Binding a business is the resolver's decision; once bound, only its rows show.
-        as_ctx(c, alice, tenant=other)
-        assert c.execute(text("select data from platform.v_audit_log")).scalars().all() == [{"actor_sub": "eve"}]
-    with svc.begin() as c:
-        as_ctx(c, alice)
-        assert c.execute(text("select count(*) from platform.v_audit_log")).scalar() == 0
-
-
-def test_the_view_shows_platform_rows_beside_legacy_ones(pg_client):
+def test_the_view_reads_platform_rows_only(pg_client):
     client, svc = pg_client
     tid = client.post("/api/v1/identity/tenants", json={"name": "Alice Co"}, headers=ALICE).json()["id"]
     alice = user_id("alice")
+    seed(
+        "insert into identity.audit_events (id, tenant_id, actor_sub, action, entity_type, entity_id)"
+        " values (:i, :b, 'alice', 'tenant.created', 'tenant', :e)",
+        i=uuid.uuid4(), b=tid, e=str(tid),
+    )
     with svc.begin() as c:
         as_ctx(c, alice, tenant=tid)
         c.execute(
@@ -77,9 +51,10 @@ def test_the_view_shows_platform_rows_beside_legacy_ones(pg_client):
         )
     with svc.begin() as c:
         as_ctx(c, alice, tenant=tid)
-        assert sorted(c.execute(text("select request_id from platform.v_audit_log")).scalars()) == [
-            "legacy-copy", "r1", "r2"
-        ]
+        rows = c.execute(text("select action, request_id from platform.v_audit_log")).all()
+        # The route's own business.create, the two rows above, and no legacy row.
+        assert sorted(a for a, _ in rows) == ["auth.signin", "business.create", "business.create"]
+        assert {"r1", "r2"} <= {r for _, r in rows} and "legacy-copy" not in {r for _, r in rows}
     with svc.begin() as c:
         as_ctx(c, user_id("alice"))  # no business: only the user's own user-level row
         assert c.execute(text("select action from platform.v_audit_log")).scalars().all() == ["auth.signin"]
@@ -95,9 +70,9 @@ def test_a_support_grant_id_turns_every_identity_tenant_policy_off(pg_client):
         g=uuid.uuid4(), b=a, u=asha,
     )
     seed(
-        "insert into identity.invitations (id, tenant_id, email, role, invited_by, expires_at)"
-        " values (:i, :b, 'p@example.com', 'ca', 'asha', now() + interval '7 days')",
-        i=uuid.uuid4(), b=a,
+        "insert into identity.invitations (id, business_id, email, role, token_hash, invited_by_user, expires_at)"
+        " values (:i, :b, 'p@example.com', 'ca', repeat('a', 64), :u, now() + interval '7 days')",
+        i=uuid.uuid4(), b=a, u=asha,
     )
     seed(
         "insert into identity.audit_events (id, tenant_id, actor_sub, action, entity_type, entity_id)"
@@ -130,13 +105,20 @@ def test_a_support_grant_id_turns_every_identity_tenant_policy_off(pg_client):
         " values (gen_random_uuid(), :b, :u, 'ca', 'active')",
         "insert into identity.support_grants (id, business_id, granted_by, expires_at)"
         " values (gen_random_uuid(), :b, :u, now() + interval '1 day')",
-        "insert into identity.invitations (id, tenant_id, email, role, invited_by, expires_at)"
-        " values (gen_random_uuid(), :b, 'q@example.com', 'ca', 'asha', now() + interval '7 days')",
+        "insert into identity.invitations (id, business_id, email, role, token_hash, invited_by_user, expires_at)"
+        " values (gen_random_uuid(), :b, 'q@example.com', 'ca', repeat('b', 64), :u, now() + interval '7 days')",
     ]
-    writes.append(
-        "insert into identity.audit_events (id, tenant_id, actor_sub, action, entity_type, entity_id)"
-        " values (gen_random_uuid(), :b, 'asha', 'x', 'x', 'x')"
-    )
+    # identity.audit_events takes no inserts from anyone since the LLD-2 copy.
+    with pytest.raises(DBAPIError, match="permission denied"):
+        with svc.begin() as c:
+            as_ctx(c, asha, tenant=a)
+            c.execute(
+                text(
+                    "insert into identity.audit_events (id, tenant_id, actor_sub, action, entity_type, entity_id)"
+                    " values (gen_random_uuid(), :b, 'asha', 'x', 'x', 'x')"
+                ),
+                {"b": a},
+            )
     for sql in writes:
         with pytest.raises(DBAPIError, match="row-level security"):
             with svc.begin() as c:

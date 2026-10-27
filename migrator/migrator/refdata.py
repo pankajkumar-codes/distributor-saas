@@ -46,7 +46,9 @@ TAX_STATUSES = STATUSES["tax"]
 KEY = re.compile(r"^[a-z0-9_]+(\.[a-z0-9_]+)+$")
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
 # What may change on a loaded row (§6.3). valid_to is handled separately: null -> date only.
-METADATA = ("source_url", "source_title", "last_checked", "status", "note")
+# confirmed_by / confirmed_on make a status change auditable: any status but provisional
+# names who confirmed the row and when (D-038).
+METADATA = ("source_url", "source_title", "last_checked", "status", "note", "confirmed_by", "confirmed_on")
 
 
 class RefdataInvalid(Exception):
@@ -77,6 +79,8 @@ class Template:
     source_url: str
     last_checked: dt.date
     status: str
+    confirmed_by: str | None = None
+    confirmed_on: dt.date | None = None
 
 
 @dataclass
@@ -143,6 +147,24 @@ def check_value(value: str, type_: str, allowed=None) -> str | None:
     return None  # text
 
 
+def _confirmation(entry, where, problems, status):
+    """A confirmed row names who confirmed it and when; a provisional one names nobody."""
+    by = entry.get("confirmed_by")
+    on = _date(entry.get("confirmed_on"), where, "confirmed_on", problems, required=False)
+    if status == "provisional":
+        if by is not None or on is not None:
+            problems.append(f"{where}: a provisional row has no confirmed_by / confirmed_on")
+        return None, None
+    if status is not None:
+        if not isinstance(by, str) or not by.strip():
+            problems.append(f"{where}: status {status} needs confirmed_by (who confirmed it, e.g. \"GST expert, RS-9\")")
+        if on is None:
+            problems.append(f"{where}: status {status} needs confirmed_on (the date it was confirmed)")
+        elif on > dt.date.today():  # noqa: TID251 (a file check, not a business date)
+            problems.append(f"{where}: confirmed_on {on} is in the future")
+    return by, on
+
+
 def _common(entry, where, problems, kind):
     valid_from = _date(entry.get("valid_from"), where, "valid_from", problems)
     valid_to = _date(entry.get("valid_to"), where, "valid_to", problems, required=False)
@@ -154,7 +176,10 @@ def _common(entry, where, problems, kind):
     note = entry.get("note")
     if note is not None and not isinstance(note, str):
         problems.append(f"{where}: note must be a string")
+    confirmed_by, confirmed_on = _confirmation(entry, where, problems, status)
     metadata = {
+        "confirmed_by": confirmed_by,
+        "confirmed_on": confirmed_on,
         "source_url": _source_url(entry, where, problems),
         "source_title": _text(entry, "source_title", where, problems),
         "last_checked": _date(entry.get("last_checked"), where, "last_checked", problems),
@@ -255,9 +280,10 @@ def _templates(root: Path, problems, hashes) -> list[Template]:
                 hashes[f"templates/{names['file']}"] = actual
                 if names["sha256"] and actual != names["sha256"]:
                     problems.append(f"{where}: {names['file']} has sha256 {actual}, index says {names['sha256']}")
+        confirmed_by, confirmed_on = _confirmation(entry, where, problems, names["status"])
         if all(names.values()) and source_url and last_checked:
             out.append(Template(names["key"], names["version"], names["sha256"], names["file"], source_url,
-                                last_checked, names["status"]))
+                                last_checked, names["status"], confirmed_by, confirmed_on))
     return out
 
 
@@ -387,9 +413,10 @@ def load(conn, root: Path, git_sha: str | None = None) -> dict:
                     )
                     counts["rows_updated"] += 1
         existing_t = {
-            (k, v): (sha, st, url, lc)
-            for k, v, sha, st, url, lc in conn.execute(
-                "select key, version, sha256, status, source_url, last_checked from refdata.templates"
+            (k, v): (sha, st, url, lc, cb, co)
+            for k, v, sha, st, url, lc, cb, co in conn.execute(
+                "select key, version, sha256, status, source_url, last_checked, confirmed_by, confirmed_on"
+                " from refdata.templates"
             )
         }
         wanted_t = {(t.key, t.version): t for t in files.templates}
@@ -399,18 +426,19 @@ def load(conn, root: Path, git_sha: str | None = None) -> dict:
             old = existing_t.get((k, v))
             if old is None:
                 conn.execute(
-                    "insert into refdata.templates (key, version, sha256, file_name, source_url, last_checked, status) "
-                    "values (%s, %s, %s, %s, %s, %s, %s)",
-                    (t.key, t.version, t.sha256, t.file_name, t.source_url, t.last_checked, t.status),
+                    "insert into refdata.templates (key, version, sha256, file_name, source_url, last_checked, status,"
+                    " confirmed_by, confirmed_on) values (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                    (t.key, t.version, t.sha256, t.file_name, t.source_url, t.last_checked, t.status, t.confirmed_by,
+                     t.confirmed_on),
                 )
                 counts["rows_inserted"] += 1
             elif old[0] != t.sha256:
                 problems.append(f"templates {k} {v}: sha256 changed; a changed file is a new version")
-            elif old[1:] != (t.status, t.source_url, t.last_checked):
+            elif old[1:] != (t.status, t.source_url, t.last_checked, t.confirmed_by, t.confirmed_on):
                 conn.execute(
-                    "update refdata.templates set status = %s, source_url = %s, last_checked = %s "
-                    "where key = %s and version = %s",
-                    (t.status, t.source_url, t.last_checked, k, v),
+                    "update refdata.templates set status = %s, source_url = %s, last_checked = %s,"
+                    " confirmed_by = %s, confirmed_on = %s where key = %s and version = %s",
+                    (t.status, t.source_url, t.last_checked, t.confirmed_by, t.confirmed_on, k, v),
                 )
                 counts["rows_updated"] += 1
         if problems:

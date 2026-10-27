@@ -1,6 +1,55 @@
 {
   "components": {
     "schemas": {
+      "AcceptOut": {
+        "properties": {
+          "business_id": {
+            "format": "uuid",
+            "title": "Business Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "business_id"
+        ],
+        "title": "AcceptOut",
+        "type": "object"
+      },
+      "Actor": {
+        "properties": {
+          "kind": {
+            "enum": [
+              "member",
+              "support",
+              "system"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          }
+        },
+        "required": [
+          "kind",
+          "name"
+        ],
+        "title": "Actor",
+        "type": "object"
+      },
       "Address": {
         "properties": {
           "city": {
@@ -67,15 +116,46 @@
         "title": "Address",
         "type": "object"
       },
-      "AuditOut": {
+      "AuditPageOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AuditRowOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "AuditPageOut",
+        "type": "object"
+      },
+      "AuditRowOut": {
         "properties": {
           "action": {
             "title": "Action",
             "type": "string"
           },
-          "actor_sub": {
-            "title": "Actor Sub",
+          "action_label": {
+            "title": "Action Label",
             "type": "string"
+          },
+          "actor": {
+            "$ref": "#/components/schemas/Actor"
           },
           "at": {
             "format": "date-time",
@@ -87,34 +167,32 @@
             "title": "Details",
             "type": "object"
           },
-          "entity_id": {
-            "title": "Entity Id",
-            "type": "string"
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
           },
-          "entity_type": {
-            "title": "Entity Type",
-            "type": "string"
+          "target": {
+            "$ref": "#/components/schemas/Target"
           }
         },
         "required": [
-          "actor_sub",
+          "at",
+          "actor",
           "action",
-          "entity_type",
-          "entity_id",
-          "details",
-          "at"
+          "action_label",
+          "target",
+          "reason",
+          "details"
         ],
-        "title": "AuditOut",
+        "title": "AuditRowOut",
         "type": "object"
-      },
-      "Delivery": {
-        "enum": [
-          "pending",
-          "sent",
-          "failed"
-        ],
-        "title": "Delivery",
-        "type": "string"
       },
       "EmailBody": {
         "properties": {
@@ -143,7 +221,7 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
-      "InvitationIn": {
+      "InviteIn": {
         "properties": {
           "display_name": {
             "anyOf": [
@@ -160,42 +238,29 @@
           },
           "email": {
             "maxLength": 254,
-            "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
+            "pattern": "^\\s*[^@\\s]+@[^@\\s]+\\.[^@\\s]+\\s*$",
             "title": "Email",
             "type": "string"
           },
           "role": {
-            "$ref": "#/components/schemas/Role"
+            "enum": [
+              "admin",
+              "billing",
+              "ca"
+            ],
+            "title": "Role",
+            "type": "string"
           }
         },
         "required": [
           "email",
           "role"
         ],
-        "title": "InvitationIn",
+        "title": "InviteIn",
         "type": "object"
       },
-      "InvitationOut": {
+      "InviteOut": {
         "properties": {
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "delivery": {
-            "$ref": "#/components/schemas/Delivery"
-          },
-          "display_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Display Name"
-          },
           "email": {
             "title": "Email",
             "type": "string"
@@ -210,60 +275,28 @@
             "title": "Id",
             "type": "string"
           },
-          "invited_by": {
-            "title": "Invited By",
-            "type": "string"
-          },
           "role": {
-            "$ref": "#/components/schemas/Role"
+            "title": "Role",
+            "type": "string"
           },
           "status": {
             "title": "Status",
-            "type": "string"
-          },
-          "tenant_id": {
-            "format": "uuid",
-            "title": "Tenant Id",
             "type": "string"
           }
         },
         "required": [
           "id",
-          "tenant_id",
           "email",
-          "display_name",
           "role",
           "status",
-          "delivery",
-          "invited_by",
-          "created_at",
           "expires_at"
         ],
-        "title": "InvitationOut",
+        "title": "InviteOut",
         "type": "object"
       },
-      "MemberIn": {
+      "InvitePreviewOut": {
         "properties": {
-          "role": {
-            "$ref": "#/components/schemas/Role"
-          },
-          "user_sub": {
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "User Sub",
-            "type": "string"
-          }
-        },
-        "required": [
-          "user_sub",
-          "role"
-        ],
-        "title": "MemberIn",
-        "type": "object"
-      },
-      "MemberOut": {
-        "properties": {
-          "display_name": {
+          "business_name": {
             "anyOf": [
               {
                 "type": "string"
@@ -272,7 +305,80 @@
                 "type": "null"
               }
             ],
-            "title": "Display Name"
+            "title": "Business Name"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "inviter_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inviter Name"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "business_name",
+          "role",
+          "inviter_name",
+          "expires_at"
+        ],
+        "title": "InvitePreviewOut",
+        "type": "object"
+      },
+      "MemberOut": {
+        "properties": {
+          "can_do": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Can Do",
+            "type": "array"
+          },
+          "deactivated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deactivated At"
+          },
+          "deactivated_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deactivated By Name"
+          },
+          "deactivation_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deactivation Reason"
           },
           "email": {
             "anyOf": [
@@ -285,66 +391,64 @@
             ],
             "title": "Email"
           },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
           "role": {
-            "$ref": "#/components/schemas/Role"
+            "title": "Role",
+            "type": "string"
           },
           "status": {
-            "$ref": "#/components/schemas/MembershipStatus"
+            "title": "Status",
+            "type": "string"
           },
-          "user_sub": {
-            "title": "User Sub",
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
             "type": "string"
           }
         },
         "required": [
-          "user_sub",
+          "user_id",
+          "name",
+          "email",
           "role",
-          "status"
+          "status",
+          "can_do"
         ],
         "title": "MemberOut",
         "type": "object"
       },
-      "MembershipStatus": {
-        "enum": [
-          "active",
-          "deactivated"
-        ],
-        "title": "MembershipStatus",
-        "type": "string"
-      },
-      "MyInvitationOut": {
+      "MembersOut": {
         "properties": {
-          "expires_at": {
-            "format": "date-time",
-            "title": "Expires At",
-            "type": "string"
+          "invites": {
+            "items": {
+              "$ref": "#/components/schemas/InviteOut"
+            },
+            "title": "Invites",
+            "type": "array"
           },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "role": {
-            "$ref": "#/components/schemas/Role"
-          },
-          "tenant_id": {
-            "format": "uuid",
-            "title": "Tenant Id",
-            "type": "string"
-          },
-          "tenant_name": {
-            "title": "Tenant Name",
-            "type": "string"
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/MemberOut"
+            },
+            "title": "Members",
+            "type": "array"
           }
         },
         "required": [
-          "id",
-          "tenant_id",
-          "tenant_name",
-          "role",
-          "expires_at"
+          "members",
+          "invites"
         ],
-        "title": "MyInvitationOut",
+        "title": "MembersOut",
         "type": "object"
       },
       "NewBusinessProfile": {
@@ -416,15 +520,18 @@
       "ReasonIn": {
         "properties": {
           "reason": {
-            "maxLength": 500,
-            "minLength": 1,
-            "title": "Reason",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
           }
         },
-        "required": [
-          "reason"
-        ],
         "title": "ReasonIn",
         "type": "object"
       },
@@ -491,6 +598,18 @@
         "title": "Role",
         "type": "string"
       },
+      "RoleIn": {
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          }
+        },
+        "required": [
+          "role"
+        ],
+        "title": "RoleIn",
+        "type": "object"
+      },
       "SigninBody": {
         "properties": {
           "email": {
@@ -509,6 +628,43 @@
           "password"
         ],
         "title": "SigninBody",
+        "type": "object"
+      },
+      "Target": {
+        "properties": {
+          "href": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Href"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "id"
+        ],
+        "title": "Target",
         "type": "object"
       },
       "TenantIn": {
@@ -895,58 +1051,108 @@
         ]
       }
     },
-    "/api/v1/health": {
+    "/api/v1/b/{business_id}/audit-log": {
       "get": {
-        "operationId": "health_api_v1_health_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Health"
-      }
-    },
-    "/api/v1/identity/invitations": {
-      "get": {
-        "operationId": "my_invitations_api_v1_identity_invitations_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/MyInvitationOut"
-                  },
-                  "title": "Response My Invitations Api V1 Identity Invitations Get",
-                  "type": "array"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "My Invitations",
-        "tags": [
-          "identity"
-        ]
-      }
-    },
-    "/api/v1/identity/invitations/{invitation_id}/accept": {
-      "post": {
-        "operationId": "accept_invitation_api_v1_identity_invitations__invitation_id__accept_post",
+        "description": "Newest first, AUDIT_PAGE rows a page. Periods are Indian dates, both ends included.",
+        "operationId": "audit_log_api_v1_b__business_id__audit_log_get",
         "parameters": [
           {
             "in": "path",
-            "name": "invitation_id",
+            "name": "business_id",
             "required": true,
             "schema": {
-              "title": "Invitation Id",
+              "title": "Business Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "invoices",
+                    "gst_filing",
+                    "team_settings",
+                    "support"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "actor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Actor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
             }
           }
         ],
@@ -955,7 +1161,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TenantOut"
+                  "$ref": "#/components/schemas/AuditPageOut"
                 }
               }
             },
@@ -972,10 +1178,448 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Accept Invitation",
+        "summary": "Audit Log",
         "tags": [
-          "identity"
+          "team"
         ]
+      }
+    },
+    "/api/v1/b/{business_id}/invitations": {
+      "post": {
+        "operationId": "invite_api_v1_b__business_id__invitations_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InviteOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Invite",
+        "tags": [
+          "team"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/invitations/{invitation_id}/cancel": {
+      "post": {
+        "operationId": "cancel_invite_api_v1_b__business_id__invitations__invitation_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "invitation_id",
+            "required": true,
+            "schema": {
+              "title": "Invitation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InviteOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Invite",
+        "tags": [
+          "team"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/invitations/{invitation_id}/resend": {
+      "post": {
+        "description": "A new link (the old one stops working) and a fresh expiry (\u00a74.2).",
+        "operationId": "resend_invite_api_v1_b__business_id__invitations__invitation_id__resend_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "invitation_id",
+            "required": true,
+            "schema": {
+              "title": "Invitation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InviteOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resend Invite",
+        "tags": [
+          "team"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/members": {
+      "get": {
+        "operationId": "list_members_api_v1_b__business_id__members_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 1000000,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MembersOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Members",
+        "tags": [
+          "team"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/members/{user_id}": {
+      "patch": {
+        "description": "L2-7. A CA's role changes only through a fresh invite (PO, RM-4.2).",
+        "operationId": "change_role_api_v1_b__business_id__members__user_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Change Role",
+        "tags": [
+          "team"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/members/{user_id}/deactivate": {
+      "post": {
+        "description": "Takes effect on the member's next request; their sessions and other businesses are untouched (L2-8).",
+        "operationId": "deactivate_member_api_v1_b__business_id__members__user_id__deactivate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReasonIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Deactivate Member",
+        "tags": [
+          "team"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/members/{user_id}/reactivate": {
+      "post": {
+        "operationId": "reactivate_member_api_v1_b__business_id__members__user_id__reactivate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReasonIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reactivate Member",
+        "tags": [
+          "team"
+        ]
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "operationId": "health_api_v1_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health"
       }
     },
     "/api/v1/identity/tenants": {
@@ -1084,468 +1728,6 @@
         ]
       }
     },
-    "/api/v1/identity/tenants/{tenant_id}/audit": {
-      "get": {
-        "operationId": "audit_log_api_v1_identity_tenants__tenant_id__audit_get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "tenant_id",
-            "required": true,
-            "schema": {
-              "title": "Tenant Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/AuditOut"
-                  },
-                  "title": "Response Audit Log Api V1 Identity Tenants  Tenant Id  Audit Get",
-                  "type": "array"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Audit Log",
-        "tags": [
-          "identity"
-        ]
-      }
-    },
-    "/api/v1/identity/tenants/{tenant_id}/invitations": {
-      "get": {
-        "operationId": "list_invitations_api_v1_identity_tenants__tenant_id__invitations_get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "tenant_id",
-            "required": true,
-            "schema": {
-              "title": "Tenant Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/InvitationOut"
-                  },
-                  "title": "Response List Invitations Api V1 Identity Tenants  Tenant Id  Invitations Get",
-                  "type": "array"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "List Invitations",
-        "tags": [
-          "identity"
-        ]
-      },
-      "post": {
-        "operationId": "invite_member_api_v1_identity_tenants__tenant_id__invitations_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "tenant_id",
-            "required": true,
-            "schema": {
-              "title": "Tenant Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/InvitationIn"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/InvitationOut"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Invite Member",
-        "tags": [
-          "identity"
-        ]
-      }
-    },
-    "/api/v1/identity/tenants/{tenant_id}/invitations/{invitation_id}/resend": {
-      "post": {
-        "operationId": "resend_invitation_api_v1_identity_tenants__tenant_id__invitations__invitation_id__resend_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "tenant_id",
-            "required": true,
-            "schema": {
-              "title": "Tenant Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "invitation_id",
-            "required": true,
-            "schema": {
-              "title": "Invitation Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/InvitationOut"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Resend Invitation",
-        "tags": [
-          "identity"
-        ]
-      }
-    },
-    "/api/v1/identity/tenants/{tenant_id}/invitations/{invitation_id}/revoke": {
-      "post": {
-        "operationId": "revoke_invitation_api_v1_identity_tenants__tenant_id__invitations__invitation_id__revoke_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "tenant_id",
-            "required": true,
-            "schema": {
-              "title": "Tenant Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "invitation_id",
-            "required": true,
-            "schema": {
-              "title": "Invitation Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/InvitationOut"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Revoke Invitation",
-        "tags": [
-          "identity"
-        ]
-      }
-    },
-    "/api/v1/identity/tenants/{tenant_id}/members": {
-      "get": {
-        "operationId": "list_members_api_v1_identity_tenants__tenant_id__members_get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "tenant_id",
-            "required": true,
-            "schema": {
-              "title": "Tenant Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/MemberOut"
-                  },
-                  "title": "Response List Members Api V1 Identity Tenants  Tenant Id  Members Get",
-                  "type": "array"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "List Members",
-        "tags": [
-          "identity"
-        ]
-      },
-      "post": {
-        "operationId": "add_member_api_v1_identity_tenants__tenant_id__members_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "tenant_id",
-            "required": true,
-            "schema": {
-              "title": "Tenant Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MemberIn"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MemberOut"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Add Member",
-        "tags": [
-          "identity"
-        ]
-      }
-    },
-    "/api/v1/identity/tenants/{tenant_id}/members/{user_sub}/deactivate": {
-      "post": {
-        "operationId": "deactivate_member_api_v1_identity_tenants__tenant_id__members__user_sub__deactivate_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "tenant_id",
-            "required": true,
-            "schema": {
-              "title": "Tenant Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "user_sub",
-            "required": true,
-            "schema": {
-              "title": "User Sub",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ReasonIn"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MemberOut"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Deactivate Member",
-        "tags": [
-          "identity"
-        ]
-      }
-    },
-    "/api/v1/identity/tenants/{tenant_id}/members/{user_sub}/reactivate": {
-      "post": {
-        "operationId": "reactivate_member_api_v1_identity_tenants__tenant_id__members__user_sub__reactivate_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "tenant_id",
-            "required": true,
-            "schema": {
-              "title": "Tenant Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "user_sub",
-            "required": true,
-            "schema": {
-              "title": "User Sub",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ReasonIn"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MemberOut"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Reactivate Member",
-        "tags": [
-          "identity"
-        ]
-      }
-    },
     "/api/v1/me/businesses": {
       "get": {
         "operationId": "my_businesses_api_v1_me_businesses_get",
@@ -1562,6 +1744,90 @@
         "summary": "My Businesses",
         "tags": [
           "me"
+        ]
+      }
+    },
+    "/api/v1/me/invitations/{token}": {
+      "get": {
+        "operationId": "preview_invite_api_v1_me_invitations__token__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "title": "Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitePreviewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview Invite",
+        "tags": [
+          "team"
+        ]
+      }
+    },
+    "/api/v1/me/invitations/{token}/accept": {
+      "post": {
+        "operationId": "accept_invite_api_v1_me_invitations__token__accept_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "title": "Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcceptOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Accept Invite",
+        "tags": [
+          "team"
         ]
       }
     }
