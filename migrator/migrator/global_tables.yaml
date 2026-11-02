@@ -7,3 +7,4 @@ refdata.uqc_codes: "global reference data; app roles have SELECT only, the migra
 refdata.templates: "global reference data; app roles have SELECT only, the migrator writes"
 refdata.loads: "the migrator's load log; app roles have SELECT only"
 platform.rate_counters: "global by design (LLD-0 §4.5): HMAC buckets, no tenant or personal data"
+platform.retention_runs: "retention run records (D-041): rule, cutoffs and row counts, no tenant or personal data; retention_owner inserts only"
