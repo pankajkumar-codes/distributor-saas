@@ -7,6 +7,7 @@ import { errorText, type ApiError } from "../../api/errors";
 import type { components } from "../../api/schema";
 import { useMyBusinesses } from "../../auth/useMyBusinesses";
 import { todayIst } from "../../format/dates";
+import { formatRate } from "../../format/money";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { Field } from "../../kit/Field";
@@ -105,6 +106,14 @@ export function ProductPage() {
   const [rate, setRate] = useState("");
   const [validFrom, setValidFrom] = useState(todayIst());
   const [stale, setStale] = useState(false);
+  // The rates allowed on the chosen date (refdata gst.rate_values): the list, never a suggestion.
+  const rates = useQuery<string[], ApiError>({
+    queryKey: ["refdata", "gst-rates", validFrom],
+    queryFn: async () =>
+      (await call(() => api.GET("/api/v1/refdata/gst-rates", { params: { query: { on: validFrom } } }))).rates,
+    enabled: isNew && values.tax_category === "taxable" && /^\d{4}-\d{2}-\d{2}$/.test(validFrom),
+    staleTime: Infinity,
+  });
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
@@ -274,19 +283,19 @@ export function ProductPage() {
           {isNew && values.tax_category === "taxable" && (
             <>
               <Field
-                label="GST rate (%)"
-                inputMode="decimal"
-                value={rate}
-                onChange={(e) => setRate(e.target.value)}
-                hint="As your CA advised, for example 18. We check it against the GST rates for that date."
-                error={errorFor("rate")}
-              />
-              <Field
                 label="Rate applies from"
                 type="date"
                 value={validFrom}
                 onChange={(e) => setValidFrom(e.target.value)}
                 error={errorFor("valid_from")}
+              />
+              <SelectField
+                label="GST rate"
+                options={(rates.data ?? []).map((r) => ({ value: r, label: formatRate(r) }))}
+                value={rates.data?.includes(rate) ? rate : ""}
+                onChange={(e) => setRate(e.target.value)}
+                hint="The rate your CA advised. The list is the GST rates in force on that date."
+                error={errorFor("rate") ?? (rates.error ? errorText(rates.error) : undefined)}
               />
             </>
           )}

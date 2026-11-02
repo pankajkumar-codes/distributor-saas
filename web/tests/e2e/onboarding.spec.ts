@@ -45,7 +45,7 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   await page.getByLabel("Unit", { exact: true }).selectOption("NOS");
   await page.getByLabel("Sale rate per unit, excluding GST (₹)").fill("1234.5");
   await page.getByRole("radio", { name: "Taxable" }).check();
-  await page.getByLabel("GST rate (%)").fill("18");
+  await page.getByLabel("GST rate", { exact: true }).selectOption("18");
   await noSeriousAxeFindings(page);
   await page.getByRole("button", { name: "Add product" }).click();
   await expect(page.getByRole("heading", { name: "Neem soap" })).toBeVisible();

@@ -10,6 +10,7 @@ import { fakeApi } from "./fakeApi";
 const REFRESH = "/api/v1/auth/refresh";
 const ME = "/api/v1/me/businesses";
 const UNITS = "/api/v1/b/b-1/units";
+const RATES = "/api/v1/refdata/gst-rates";
 const LIST = "/api/v1/b/b-1/products";
 const ONE = "/api/v1/b/b-1/products/p-1";
 const me = { status: 200, body: { businesses: [{ business_id: "b-1", display_name: "Vashi Essentials", gstin: null, role: "owner" }] } };
@@ -64,8 +65,10 @@ describe("a new product", () => {
     type("HSN (optional)", "3401");
     type("Unit", "NOS");
     type("Sale rate per unit, excluding GST (₹)", "45");
+    server.reply(RATES, { status: 200, body: { on: todayIst(), rates: ["0.25", "3", "5", "12", "18", "28"] } });
     fireEvent.click(screen.getByRole("radio", { name: "Taxable" }));
-    type("GST rate (%)", "18");
+    await screen.findByRole("option", { name: "18%" });
+    type("GST rate", "18");
     fireEvent.click(screen.getByRole("button", { name: "Add product" }));
     expect(await screen.findByText(/Something went wrong on our side/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Add product" }));
@@ -85,6 +88,7 @@ describe("a new product", () => {
       has_cess: false,
       rate: { rate: "18", valid_from: todayIst() },
     });
+    expect(new URL(server.sent.find((s) => s.path === RATES)!.url).searchParams.get("on")).toBe(todayIst());
   });
 
   it("sends no rate for an exempt product, and shows the server's words under the field it names", async () => {
@@ -93,7 +97,7 @@ describe("a new product", () => {
     server.reply(LIST, { status: 422, body: { error: { code: "code_taken", message: "Another product already uses this code", field: "code" } } });
     type("Product code", "SOAP-1");
     fireEvent.click(screen.getByRole("radio", { name: "Exempt" }));
-    expect(screen.queryByLabelText("GST rate (%)")).toBeNull();
+    expect(screen.queryByLabelText("GST rate")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Add product" }));
     expect(await screen.findByText("Another product already uses this code")).toBeInTheDocument();
     expect(screen.getByLabelText("Product code")).toHaveAttribute("aria-invalid", "true");
