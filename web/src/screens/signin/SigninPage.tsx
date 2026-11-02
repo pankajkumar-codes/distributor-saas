@@ -3,18 +3,18 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { api, call } from "../../api/client";
+import type { components } from "../../api/schema";
 import { errorText, type ApiError } from "../../api/errors";
 import { safeNext } from "../../auth/AuthProvider";
-import { landingPath, type Membership } from "../../auth/landing";
+import { landingPath } from "../../auth/landing";
 import { startSession } from "../../auth/session";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { Field } from "../../kit/Field";
 import { TotpStep } from "./TotpStep";
 
-// The sign-in route types are hand-written until the auth routes get response models (S1-c3).
-export type SignedIn = { access_token: string; expires_in: number; memberships: Membership[] };
-type SigninReply = SignedIn | { step: "totp"; challenge: string };
+export type SignedIn = components["schemas"]["SignedInOut"];
+type SigninReply = SignedIn | components["schemas"]["TotpStepOut"];
 
 /**
  * /signin, then the authenticator-app step on the same URL. The TOTP challenge and the
@@ -39,7 +39,7 @@ export function SigninPage() {
     mutationFn: () =>
       call(() => api.POST("/api/v1/auth/signin", { body: { email: email.trim(), password } }), {
         refresh: false,
-      }) as Promise<SigninReply>,
+      }),
     onMutate: () => setExpired(false),
     onSuccess: (reply) => {
       setPassword(""); // not needed past this point

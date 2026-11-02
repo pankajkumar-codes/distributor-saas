@@ -9,7 +9,7 @@ Tests replace them through FastAPI's dependency_overrides.
 import os
 from functools import cache
 
-from platform_common.auth import debug_env
+from platform_common.auth import debug_env, set_local_verifier
 from platform_common.authprovider import AuthProvider
 from platform_common.mailer import LocalFileMailer, Mailer
 
@@ -20,7 +20,13 @@ def auth_provider() -> AuthProvider:
         raise RuntimeError("no AuthProvider for this environment yet (CognitoAuthProvider is S1-d)")
     from platform_common.fake_auth import FakeAuthProvider
 
-    return FakeAuthProvider()
+    # The API verifies the bearer tokens this provider issues against its keys, as the
+    # API Gateway authorizer does with Cognito's in AWS. Without this, every signed-in
+    # route refuses a locally issued token.
+    provider = FakeAuthProvider()
+    issuer, client_id = token_issuer_and_client()
+    set_local_verifier(provider.jwks(), issuer=issuer, client_id=client_id)
+    return provider
 
 
 @cache
