@@ -85,7 +85,7 @@ describe("the customers list", () => {
   it("asks the server for each tab and keeps it in the URL", async () => {
     server.reply(LIST, page([]), page([]));
     open();
-    await screen.findByText("No customers yet.");
+    await screen.findByText("No customers yet. Add your first with New customer.");
     fireEvent.click(screen.getByRole("button", { name: "Archived" }));
     await vi.waitFor(() => expect(queries()).toHaveLength(2));
     expect(queries()[1]).toMatchObject({ status: "archived" });
@@ -96,7 +96,7 @@ describe("the customers list", () => {
   it("searches by name or GSTIN once typing pauses, and keeps the search in the URL", async () => {
     server.reply(LIST, page([]), page([customer()]));
     open();
-    await screen.findByText("No customers yet.");
+    await screen.findByText("No customers yet. Add your first with New customer.");
     fireEvent.change(screen.getByLabelText("Search by name or GSTIN"), { target: { value: "19" } });
     fireEvent.change(screen.getByLabelText("Search by name or GSTIN"), { target: { value: " 19AAAAA " } });
     expect(await screen.findByText("Sharma Traders")).toBeInTheDocument();

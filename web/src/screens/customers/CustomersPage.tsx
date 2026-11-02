@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 
 import { api, call } from "../../api/client";
 import { errorText, type ApiError } from "../../api/errors";
@@ -96,7 +96,12 @@ export function CustomersPage() {
     <>
       <TopBar title={business.display_name} gstin={business.gstin} />
       <main className="page page-wide">
-        <h1>Customers</h1>
+        <div className="actions">
+          <h1>Customers</h1>
+          <Link className="btn btn-primary" to={`/b/${businessId}/customers/new`}>
+            New customer
+          </Link>
+        </div>
         <div className="field">
           <label htmlFor="customer-search">Search by name or GSTIN</label>
           <input
@@ -127,7 +132,7 @@ export function CustomersPage() {
           </Banner>
         )}
         {list.isPending && <p aria-busy="true">Loading…</p>}
-        {list.isSuccess && items.length === 0 && <p>{q || status !== "active" ? "No customers match." : "No customers yet."}</p>}
+        {list.isSuccess && items.length === 0 && <p>{q || status !== "active" ? "No customers match." : "No customers yet. Add your first with New customer."}</p>}
 
         {items.length > 0 && (
           <table className="products">
@@ -143,7 +148,9 @@ export function CustomersPage() {
               {items.map((c) => (
                 <tr key={c.id}>
                   <td data-label="Customer">
-                    <strong>{c.name}</strong>{" "}
+                    <Link to={`/b/${businessId}/customers/${c.id}`}>
+                      <strong>{c.name}</strong>
+                    </Link>{" "}
                     {(c.warnings.length > 0 || c.status === "archived") && (
                       <span className="chips">
                         {c.warnings.map((w) => (
