@@ -1,5 +1,4 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 
 import { api, call } from "../../api/client";
@@ -11,7 +10,7 @@ import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
-import { useDebounced } from "../../kit/useDebounced";
+import { uniqueById, useUrlSearch } from "../../kit/lists";
 
 type Page = components["schemas"]["CustomerPageOut"];
 type Status = "active" | "archived" | "all";
@@ -34,20 +33,7 @@ export function CustomersPage() {
   const business = businesses.data?.find((b) => b.business_id === businessId);
   const states = useStateCodes();
   const status = (STATUSES.find((s) => s.value === params.get("status"))?.value ?? "active") as Status;
-  const [search, setSearch] = useState(params.get("q") ?? "");
-  const q = useDebounced(search.trim());
-
-  useEffect(() => {
-    setParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        if (q) next.set("q", q);
-        else next.delete("q");
-        return next;
-      },
-      { replace: true },
-    );
-  }, [q, setParams]);
+  const { search, setSearch, q } = useUrlSearch(params, setParams);
 
   const setStatus = (value: Status) =>
     setParams((prev) => {
@@ -89,7 +75,7 @@ export function CustomersPage() {
   }
   if (!business) return <NotFound />;
 
-  const items = list.data?.pages.flatMap((p) => p.items) ?? [];
+  const items = uniqueById(list.data?.pages.flatMap((p) => p.items) ?? []);
   const stateName = (code: string | null) => (code ? states.data?.find((s) => s.code === code)?.name ?? code : "—");
 
   return (
