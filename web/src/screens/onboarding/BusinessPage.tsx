@@ -1,8 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { api, call } from "../../api/client";
+import { useStateCodes } from "../../api/useStateCodes";
 import { errorText, type ApiError } from "../../api/errors";
 import type { components } from "../../api/schema";
 import { quarterStartIst } from "../../format/dates";
@@ -43,16 +44,6 @@ export function fieldError(error: ApiError, gstin: string): { field: string; tex
     ? gstinMessage(error.code, gstin)
     : (BY_CODE[error.code] ?? (error.code === "invalid" ? (INVALID[field] ?? "Check this entry.") : errorText(error)));
   return { field, text };
-}
-
-function useStateCodes() {
-  return useQuery<components["schemas"]["StateCode"][], ApiError>({
-    queryKey: ["refdata", "state-codes"],
-    // 96 (other country) is a place of supply only, never a registration or address state.
-    queryFn: async () =>
-      (await call(() => api.GET("/api/v1/refdata/state-codes"))).states.filter((s) => s.code !== "96"),
-    staleTime: Infinity,
-  });
 }
 
 const display = (day: string) =>

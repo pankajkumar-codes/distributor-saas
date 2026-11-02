@@ -61,8 +61,9 @@ describe("Home", () => {
     expect(within(setup).getByText("2 of 6 done")).toBeInTheDocument();
     expect(within(setup).getByText("Business details").closest("li")).toHaveTextContent("(done)");
     expect(within(setup).getByRole("link", { name: "Add your first product" })).toHaveAttribute("href", "/b/b-1/products");
-    expect(within(setup).getAllByText("Coming soon")).toHaveLength(3);
-    expect(within(setup).getAllByRole("link")).toHaveLength(1); // no dead links
+    expect(within(setup).getByRole("link", { name: "Add your first customer" })).toHaveAttribute("href", "/b/b-1/customers");
+    expect(within(setup).getAllByText("Coming soon")).toHaveLength(2);
+    expect(within(setup).getAllByRole("link")).toHaveLength(2); // no dead links
   });
 
   it("hides the checklist once every step is done, and leaves out keys it doesn't know", async () => {
