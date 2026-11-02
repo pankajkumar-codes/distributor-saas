@@ -48,6 +48,11 @@ ACTIONS: dict[str, tuple[str, str]] = {
     "product.rate_voided": ("Voided a GST rate", "invoices"),
     "product.rate_confirmed": ("Marked a GST rate confirmed with CA", "invoices"),
     "product.rate_unconfirmed": ("Removed a GST rate's CA confirmation", "invoices"),
+    "customer.created": ("Added a customer", "invoices"),
+    "customer.updated": ("Edited a customer", "invoices"),
+    "customer.archived": ("Archived a customer", "invoices"),
+    "customer.unarchived": ("Restored a customer", "invoices"),
+    "customer.deleted": ("Deleted a customer", "invoices"),
     # Rows copied from identity.audit_events (LLD-1 §3.6) keep their stock-era names.
     "tenant.created": ("Created the business", "team_settings"),
     "member.added": ("Added a member", "team_settings"),
@@ -73,6 +78,7 @@ def label(action: str) -> str:
 TARGETS: dict[str, tuple[str, Permission]] = {
     "document": ("/invoices/{id}", Permission.CATALOG_VIEW),
     "product": ("/products/{id}", Permission.CATALOG_VIEW),
+    "customer": ("/customers/{id}", Permission.CATALOG_VIEW),
     "return_instance": ("/returns/{id}", Permission.RETURNS_PREPARE),
     "member": ("/settings/team", Permission.MEMBERS_MANAGE),
     "membership": ("/settings/team", Permission.MEMBERS_MANAGE),

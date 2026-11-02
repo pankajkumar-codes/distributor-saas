@@ -32,7 +32,15 @@ def name(raw: str) -> str:
     value = (raw or "").strip()
     if not value or len(value) > 200:
         raise Invalid("name_invalid", "Enter a name of up to 200 characters", field="name")
+    printable(value, "name")
     return value
+
+
+def printable(value: str, field: str) -> None:
+    """Names and addresses print on invoices and go into GSTR and CSV exports, where a
+    newline or tab would break the line or the row."""
+    if not value.isprintable():
+        raise Invalid("text_invalid", "Remove line breaks, tabs and other hidden characters", field=field)
 
 
 def hsn(tx: Session, raw: str | None, today: date) -> str | None:
