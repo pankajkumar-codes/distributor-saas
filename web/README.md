@@ -4,7 +4,7 @@ React + TypeScript (Vite), React Router and TanStack Query, per TD-2 and HLD §9
 `/signup` (email and password, then the emailed code), `/signin` (password, then the
 authenticator-app code when two-step sign-in is on), `/businesses`, `/onboarding/business`
 (M2 step 3: GSTIN or enrolment number, names, turnover band, e-invoicing history, address
-and GSTR-1 frequency), `/b/:businessId/home` (M3: greeting, setup checklist, attention list), and `/b/:businessId/products` (M8 list: search, status tabs, filters).
+and GSTR-1 frequency), `/b/:businessId/home` (M3: greeting, setup checklist, attention list), `/b/:businessId/products` (M8 list: search, status tabs, filters), and `/products/new` and `/products/:productId` (M8 form: create, edit with If-Match, archive, delete if unused; rate history: add a rate from a date, void with a reason, and mark confirmed with CA for owner and admin).
 
 The GSTIN hint (`src/format/gstin.ts`) is a port of `business/gstin.py` for as-you-type
 feedback only; the server decides. Both test suites read

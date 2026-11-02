@@ -69,3 +69,5 @@ table.products th, table.products td { text-align: left; padding: 10px 8px; bord
   table.products td:first-child { display: block; }
   table.products td:first-child::before { content: none; }
 }
+a.btn { display: inline-flex; align-items: center; text-decoration: none; }
+.actions h1 { margin: 0; }
