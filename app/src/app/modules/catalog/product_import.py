@@ -22,7 +22,7 @@ from sqlalchemy.types import JSON
 
 from app.modules.imports.interface import FileRejected, looks_like_formula, read_table
 from app.modules.refdata import value_on
-from platform_common import audit
+from platform_common import audit, storage
 from platform_common.errors import AppError, Conflict, Deny, Invalid
 from platform_common.ids import uuid7
 from platform_common.uow import UnitOfWork
@@ -94,7 +94,8 @@ def _set_run(uow: UnitOfWork, run_id: uuid.UUID, **cols) -> None:
 
 
 def start(uow: UnitOfWork, file_name: str, size_bytes: int, today: date) -> Run:
-    """A run waiting for its upload (§6.3). The object key is fixed by the run's ID."""
+    """A run waiting for its upload (§6.3). The object key is fixed by the run's ID, in the
+    uploads area, whose lifecycle rule expires raw files (TD-18)."""
     name = (file_name or "").strip()
     if not name or len(name) > 255 or not name.isprintable():
         raise Invalid("file_name_invalid", "Give the file's name", field="file_name")
@@ -105,7 +106,7 @@ def start(uow: UnitOfWork, file_name: str, size_bytes: int, today: date) -> Run:
     uow.tx.execute(
         text("insert into catalog.import_runs (id, business_id, file_name, s3_key, size_bytes, created_by)"
              " values (:r, :b, :n, :k, :s, :me)"),
-        {"r": run_id, "b": _business(uow), "n": name, "k": f"b/{_business(uow)}/catalog-imports/{run_id}",
+        {"r": run_id, "b": _business(uow), "n": name, "k": storage.key_for(_business(uow), "uploads", run_id),
          "s": size_bytes, "me": _me(uow)},
     )
     return get_run(uow, run_id)

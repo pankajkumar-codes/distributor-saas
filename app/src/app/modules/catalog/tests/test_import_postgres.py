@@ -14,6 +14,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app import api as app_api
+from platform_common import storage
 from platform_common.clock import IST, FrozenClock, get_clock
 from platform_common.errors import Conflict, Deny
 from platform_common.uow import Principal
@@ -94,6 +95,7 @@ def test_a_clean_file_previews_then_applies_new_products(shop):  # AC3-13, AC3-1
     assert (run.status, run.counts) == ("preview", {"new": 3, "changed": 0, "unchanged": 0, "invalid": 0,
                                                      "conflict": 0})
     assert products(shop) == {}  # nothing is saved before confirm
+    assert run.s3_key == storage.key_for(shop[1], "uploads", run.id)  # area-first (#58)
     done = run_in(shop, lambda u: imp.apply(u, run.id, apply_changes=True))
     assert done.status == "applied" and done.counts["applied"] == 3
     saved = products(shop)
@@ -183,21 +185,21 @@ def test_changed_rows_add_a_rate_row_and_apply_only_when_asked(shop):  # AC3-14
     run_in(shop, lambda u: imp.apply(u, first.id, apply_changes=True))
     run = upload(shop, csv_file(
         "SOAP-1,Neem soap 100 g,3401,PCS,45.5,18,01-04-2026,8901234567890,taxable,no",  # 45.5 == 45.50
-        "OIL-1,Coconut oil 500 ml,1513,BTL,125,12,2026-07-01,,taxable,",
+        "OIL-1,Coconut oil 500 ml,1513,BTL,125,18,2026-07-01,,taxable,",
     ))
     assert (run.counts["unchanged"], run.counts["changed"]) == (1, 1)
     changed = preview(shop, run.id, "changed")[0]
     assert {d["field"]: (d["saved"], d["file"]) for d in changed["diff"]} == {
-        "sale_rate": ("120", "125"), "gst_rate": ("5", "12 from 2026-07-01")}
+        "sale_rate": ("120", "125"), "gst_rate": ("5", "18 from 2026-07-01")}
     skipped = run_in(shop, lambda u: imp.apply(u, run.id, apply_changes=False))
     assert (skipped.counts["skipped"], products(shop)["OIL-1"].sale_rate) == (1, Decimal("120.00"))
 
-    again = upload(shop, csv_file("OIL-1,Coconut oil 500 ml,1513,BTL,125,12,2026-07-01,,taxable,"))
+    again = upload(shop, csv_file("OIL-1,Coconut oil 500 ml,1513,BTL,125,18,2026-07-01,,taxable,"))
     run_in(shop, lambda u: imp.apply(u, again.id, apply_changes=True))
     assert products(shop)["OIL-1"].sale_rate == Decimal("125.00")
     # History is kept: the old rate ends where the new one starts (L3-1).
     assert [(r, f) for r, f, _, _ in rates(shop, "OIL-1")] == [
-        (Decimal("5.00"), date(2026, 4, 1)), (Decimal("12.00"), date(2026, 7, 1))]
+        (Decimal("5.00"), date(2026, 4, 1)), (Decimal("18.00"), date(2026, 7, 1))]
 
 
 def test_an_archived_product_comes_back_explicitly(shop):
@@ -223,7 +225,7 @@ def test_rows_that_moved_after_the_preview_are_stale(shop):  # AC3-22, RM43-6
     hand = {"code": "soap-1", "name": "Made by hand", "uqc": "PCS", "sale_rate": "1", "tax_category": "exempt"}
     assert pg.client.post(f"/api/v1/b/{biz}/products", json=hand, headers=h).status_code == 201
     pid = pg.client.get(f"/api/v1/b/{biz}/products?q=OIL", headers=as_user("alice")).json()["items"][0]["id"]
-    r = pg.client.post(f"/api/v1/b/{biz}/products/{pid}/rates", json={"rate": "12", "valid_from": "2026-09-01"},
+    r = pg.client.post(f"/api/v1/b/{biz}/products/{pid}/rates", json={"rate": "18", "valid_from": "2026-09-01"},
                        headers={**as_user("alice"), "Idempotency-Key": uuid.uuid4().hex})
     assert r.status_code == 201
     done = run_in(shop, lambda u: imp.apply(u, run.id, apply_changes=True))
