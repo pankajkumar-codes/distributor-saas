@@ -6,6 +6,8 @@
 -- - every cutoff comes from refdata. A table whose key has no row today is kept, and the
 --   rule as a whole does nothing until refdata `retention.purge_operational.enabled` is
 --   true. Every row ships provisional and the rule ships disabled (default keep);
+-- - no percent sign anywhere in this file: some tests apply it through a driver that parses
+--   placeholders, so dynamic SQL is built by concatenating the constant specs below;
 -- - at most max_rows rows per table per call; `more` says to call again;
 -- - dry_run counts without deleting; every call that runs writes a retention_runs row.
 --
@@ -31,9 +33,6 @@ create table platform.retention_runs (
 );
 grant usage on schema platform to retention_owner;
 grant insert on platform.retention_runs to retention_owner;
-
-grant usage on schema refdata to retention_owner;
-grant select on refdata.values to retention_owner;
 
 grant select, delete on platform.jobs, platform.outbox to retention_owner;
 create policy retention_purge_select on platform.jobs for select to retention_owner
@@ -105,16 +104,16 @@ begin
         end if;
         keep := raw::int;
         if keep < 0 then
-            raise exception 'refdata % is negative', spec[3];
+            raise exception using message = 'refdata ' || spec[3] || ' is negative';
         end if;
         cutoff := now() - make_interval(days => case when spec[4] = 'days' then keep else 0 end,
                                         hours => case when spec[4] = 'hours' then keep else 0 end);
         if dry_run then
-            execute format('select count(*) from (select 1 from %s where %s limit $2) x', spec[2], spec[5])
+            execute 'select count(*) from (select 1 from ' || spec[2] || ' where ' || spec[5] || ' limit $2) x'
                 into n using cutoff, lim;
         else
-            execute format('delete from %1$s where ctid in (select ctid from %1$s where %2$s limit $2)',
-                           spec[2], spec[5])
+            execute 'delete from ' || spec[2] || ' where ctid in (select ctid from ' || spec[2]
+                    || ' where ' || spec[5] || ' limit $2)'
                 using cutoff, lim;
             get diagnostics n = row_count;
         end if;
