@@ -55,29 +55,34 @@ const choose = async (name = "products.csv") =>
 const started = { status: 201, body: { import_id: "i-1", upload: { url: `${window.location.origin}${UPLOAD}`, fields: { key: "uploads/b/b-1/i-1", token: "t" }, expires_at: "2026-11-02T10:05:00Z" } } };
 
 describe("importing products", () => {
-  it("uploads, waits for the check, previews the server's outcomes, then imports once", async () => {
+  it("uploads, waits on the job (the run never reads parsing or applying), previews, then imports once", async () => {
+    // Like the server: each job changes its run in one transaction, so the run reads
+    // awaiting_upload until the parse job is done, and preview until the apply job is done.
     server.reply(START, { status: 503 }, started);
     server.reply(UPLOAD, { status: 204 });
     server.reply(`${RUN}/complete`, { status: 202, body: { job_id: "j-1" } });
-    server.reply("/api/v1/b/b-1/jobs/j-1", job("j-1", "done"));
-    server.reply(RUN, { status: 200, body: run({ status: "parsing", rows: [], counts: null }) }, { status: 200, body: run() });
+    server.reply("/api/v1/b/b-1/jobs/j-1", job("j-1", "queued"), job("j-1", "done"));
+    server.reply(RUN, { status: 200, body: run({ status: "awaiting_upload", rows: [], counts: null }) }, { status: 200, body: run() });
     open();
     await choose();
     fireEvent.click(screen.getByRole("button", { name: "Upload and check" }));
     expect(await screen.findByText(/Something went wrong on our side/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Upload and check" }));
 
+    expect(await screen.findByText("Checking your file…")).toBeInTheDocument();
+    expect(screen.queryByText(/didn't finish uploading/)).toBeNull();
     const changed = (await screen.findByText("Neem soap", {}, { timeout: 4000 })).closest("tr")!;
     expect(within(changed).getByText("45.00 → 48")).toBeInTheDocument();
     expect(within(screen.getByText("4").closest("tr")!).getByText("HSN is 4, 6 or 8 digits")).toBeInTheDocument();
+    expect(screen.queryByText("Checking your file…")).toBeNull();
     expect(window.location.search).toBe("?run=i-1&job=j-1");
     const [first, second] = sent(START);
     expect(second.headers.get("Idempotency-Key")).toBe(first.headers.get("Idempotency-Key"));
     expect(first.body).toEqual({ file_name: "products.csv", size_bytes: "code,name\nSOAP-2,Rose soap\n".length });
 
     server.reply(`${RUN}/confirm`, { status: 202, body: { job_id: "j-2" } });
-    server.reply("/api/v1/b/b-1/jobs/j-2", job("j-2", "done"));
-    server.reply(RUN, {
+    server.reply("/api/v1/b/b-1/jobs/j-2", { ...job("j-2", "running"), body: { ...job("j-2", "running").body, type: "catalog.import_apply" } }, job("j-2", "done"));
+    server.reply(RUN, { status: 200, body: run() }, {
       status: 200,
       body: run({
         status: "applied",
@@ -88,20 +93,51 @@ describe("importing products", () => {
     });
     fireEvent.click(screen.getByRole("checkbox", { name: /Also apply the 1 changes/ }));
     fireEvent.click(screen.getByRole("button", { name: "Import 1 product" }));
-    expect(await screen.findByText(/Imported: 1 applied, 1 skipped, 0 not applied/)).toBeInTheDocument();
+    expect(await screen.findByText("Importing…")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Import 1 product" })).toBeNull();
+    expect(await screen.findByText(/Imported: 1 applied, 1 skipped, 0 not applied/, {}, { timeout: 4000 })).toBeInTheDocument();
+    expect(screen.queryByText("Importing…")).toBeNull();
     expect(sent(`${RUN}/confirm`)).toHaveLength(1);
     expect(sent(`${RUN}/confirm`)[0].body).toEqual({ apply_changes: false });
     expect(sent(`${RUN}/confirm`)[0].headers.get("Idempotency-Key")).toBeNull();
   });
 
+  it("shows the server's failure, not Imported, when the apply job is done but the run failed", async () => {
+    const applyJob = (status: string) => ({ ...job("j-2", status), body: { ...job("j-2", status).body, type: "catalog.import_apply" } });
+    server.reply("/api/v1/b/b-1/jobs/j-2", applyJob("running"), applyJob("done"));
+    server.reply(
+      RUN,
+      { status: 200, body: run() },
+      { status: 200, body: run({ status: "failed", error_code: "apply_failed", error_message: "The import couldn't be applied; nothing was saved", rows: [] }) },
+    );
+    open("/b/b-1/products/import?run=i-1&job=j-2");
+    expect(await screen.findByText("Importing…")).toBeInTheDocument();
+    expect(await screen.findByText(/The import couldn't be applied; nothing was saved/, {}, { timeout: 4000 })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start a new import" })).toBeInTheDocument();
+    expect(screen.queryByText(/Imported:/)).toBeNull();
+  });
+
+  it("says the import stopped, not that the upload didn't finish, when the job failed", async () => {
+    server.reply("/api/v1/b/b-1/jobs/j-1", { ...job("j-1", "failed"), body: { ...job("j-1", "failed").body, error_code: "parse_failed" } });
+    server.reply(RUN, { status: 200, body: run({ status: "awaiting_upload", rows: [], counts: null }) }, { status: 200, body: run({ status: "awaiting_upload", rows: [], counts: null }) });
+    open("/b/b-1/products/import?run=i-1&job=j-1");
+    expect(await screen.findByText(/The import stopped before it finished \(parse_failed\)/)).toBeInTheDocument();
+    expect(screen.queryByText(/didn't finish uploading/)).toBeNull();
+    expect(screen.queryByText("Checking your file…")).toBeNull();
+  });
+
   it("asks for the file again when storage refuses the upload", async () => {
-    server.reply(START, started);
-    server.reply(UPLOAD, { status: 403 });
+    server.reply(START, started, started);
+    server.reply(UPLOAD, { status: 403 }, { status: 403 });
     open();
     await choose();
     fireEvent.click(screen.getByRole("button", { name: "Upload and check" }));
     expect(await screen.findByText("The upload was refused. Choose the file again.")).toBeInTheDocument();
     expect(sent(`${RUN}/complete`)).toHaveLength(0);
+    // A retry starts a new run: the first one's upload link may have expired.
+    fireEvent.click(screen.getByRole("button", { name: "Upload and check" }));
+    await vi.waitFor(() => expect(sent(START)).toHaveLength(2));
+    expect(sent(START)[1].headers.get("Idempotency-Key")).not.toBe(sent(START)[0].headers.get("Idempotency-Key"));
   });
 
   it("filters the preview rows on the server and keeps the filter in the URL", async () => {
@@ -147,7 +183,7 @@ describe("importing products", () => {
     server.reply(RUN, { status: 200, body: run({ status: "applied", apply_changes: true, counts: { ...run().counts, applied: 0, stale: 1, skipped: 2 }, rows: [stale] }) });
     open("/b/b-1/products/import?run=i-1");
     const row = (await screen.findByText("Rose soap")).closest("tr")!;
-    expect(within(row).getByText("Not imported: changed after the preview")).toBeInTheDocument();
+    expect(within(row).getByText("Not imported: the product or the GST rate list changed after the preview")).toBeInTheDocument();
     expect(within(row).getByText("The GST rate list changed after the preview")).toBeInTheDocument();
   });
 

@@ -1,12 +1,12 @@
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 
 import { api, call } from "../../api/client";
 import { errorText, type ApiError } from "../../api/errors";
 import type { components } from "../../api/schema";
 import { uploadTo } from "../../api/upload";
-import { pollDelay, useJob } from "../../api/useJob";
+import { finished, useJob } from "../../api/useJob";
 import { useMyBusinesses } from "../../auth/useMyBusinesses";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
@@ -17,6 +17,7 @@ import { ImportRows, STATUS_LABEL, type RowStatus } from "./ImportRows";
 type Run = components["schemas"]["ImportOut"];
 const PAGE = 50;
 const BUSY = new Set<Run["status"]>(["parsing", "applying"]);
+const ENDED = new Set<Run["status"]>(["applied", "failed", "discarded"]);
 const TABS: RowStatus[] = ["new", "changed", "unchanged", "invalid", "conflict"];
 
 /**
@@ -61,12 +62,15 @@ export function ImportPage() {
       ),
     getNextPageParam: (last, pages) => (last.has_more ? pages.length * PAGE : undefined),
     enabled: Boolean(business && runId),
-    // While the server works, look again with the job poll's gaps; a job that failed stops it.
-    refetchInterval: (q) => {
-      const status = q.state.data?.pages[0]?.status;
-      return status && BUSY.has(status) && job.data?.status !== "failed" ? pollDelay(q.state.dataUpdateCount) : false;
-    },
   });
+  // The job, not the run, says when the server is working: each job commits its run change in
+  // one transaction, so the run never reads "parsing" or "applying" while it runs. When the job
+  // ends, the run is read again.
+  const waiting = Boolean(jobId) && !job.error && !finished(job.data);
+  const jobStatus = job.data?.status;
+  useEffect(() => {
+    if (jobStatus === "done" || jobStatus === "failed") queryClient.invalidateQueries({ queryKey: ["b", businessId, "import", runId] });
+  }, [jobStatus, businessId, runId, queryClient]);
 
   const start = useMutation<void, ApiError>({
     mutationFn: async () => {
@@ -77,7 +81,14 @@ export function ImportPage() {
           body: { file_name: f.name, size_bytes: f.size },
         }),
       );
-      await uploadTo(started.upload, f);
+      try {
+        await uploadTo(started.upload, f);
+      } catch (e) {
+        // The run is left waiting for a file whose upload link may have expired: the next try
+        // starts a new run rather than replaying this one.
+        startKey.current = crypto.randomUUID();
+        throw e;
+      }
       const done = await call(() =>
         api.POST("/api/v1/b/{business_id}/product-imports/{import_id}/complete", { params: { path: { ...path, import_id: started.import_id } } }),
       );
@@ -120,7 +131,7 @@ export function ImportPage() {
       const url = URL.createObjectURL(new Blob([text as string], { type: "text/csv" }));
       const a = Object.assign(document.createElement("a"), { href: url, download: "products-template.csv" });
       a.click();
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 1000); // Safari drops the download if it is revoked at once
     },
   });
 
@@ -170,7 +181,7 @@ export function ImportPage() {
         </p>
         <h1>Import products from a file</h1>
         {run.error && <Banner tone="error">{errorText(run.error)}</Banner>}
-        {job.data?.status === "failed" && current && BUSY.has(current.status) && (
+        {job.data?.status === "failed" && current && !ENDED.has(current.status) && (
           <Banner tone="error">
             The import stopped before it finished ({job.data.error_code ?? "error"}). Nothing was saved.{" "}
             <Button type="button" variant="link" onClick={startOver}>
@@ -224,7 +235,7 @@ export function ImportPage() {
           </form>
         )}
 
-        {current?.status === "awaiting_upload" && (
+        {current?.status === "awaiting_upload" && !waiting && jobStatus !== "failed" && (
           <Banner tone="error">
             The file didn't finish uploading.{" "}
             <Button type="button" variant="link" onClick={startOver}>
@@ -232,14 +243,14 @@ export function ImportPage() {
             </Button>
           </Banner>
         )}
-        {current && BUSY.has(current.status) && (
+        {current && !ENDED.has(current.status) && (waiting || BUSY.has(current.status)) && (
           <p aria-busy="true" role="status">
-            {current.status === "parsing" ? "Checking your file…" : "Importing…"}
+            {job.data?.type === "catalog.import_apply" || current.status === "applying" ? "Importing…" : "Checking your file…"}
             {job.data?.progress?.out_of ? ` ${job.data.progress.done} of ${job.data.progress.out_of} rows.` : ""}
           </p>
         )}
 
-        {current?.status === "preview" && (
+        {current?.status === "preview" && !waiting && (
           <>
             <p role="status">
               {current.file_name}: {n("new")} new, {n("changed")} changed, {n("unchanged")} unchanged, {n("invalid")} with errors,{" "}
@@ -280,8 +291,8 @@ export function ImportPage() {
         {current?.status === "applied" && (
           <>
             <Banner>
-              Imported: {n("applied")} applied, {n("skipped")} skipped, {n("stale")} not applied because the product changed after
-              the preview. New GST rates are marked not confirmed until you confirm them with your CA.
+              Imported: {n("applied")} applied, {n("skipped")} skipped, {n("stale")} not applied because the product or the GST rate
+              list changed after the preview. New GST rates are marked not confirmed until you confirm them with your CA.
             </Banner>
             {n("stale") > 0 && <p>To bring in the rows that weren't applied, upload the file again for a fresh preview.</p>}
             {table}

@@ -26,7 +26,7 @@ const FIELD: Record<string, string> = {
 const OUTCOME: Record<string, string> = {
   applied: "Imported",
   skipped: "Not imported",
-  stale: "Not imported: changed after the preview",
+  stale: "Not imported: the product or the GST rate list changed after the preview",
 };
 
 const label = (field: string | undefined) => (field ? (FIELD[field] ?? field) : "");
