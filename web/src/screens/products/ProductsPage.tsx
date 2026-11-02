@@ -104,7 +104,8 @@ export function ProductsPage() {
           <h1>Products</h1>
           <Link className="btn btn-primary" to={`/b/${businessId}/products/new`}>
             New product
-          </Link>
+          </Link>{" "}
+          <Link to={`/b/${businessId}/products/import`}>Import from a file</Link>
         </div>
         <div className="field">
           <label htmlFor="product-search">Search by name, code or barcode</label>

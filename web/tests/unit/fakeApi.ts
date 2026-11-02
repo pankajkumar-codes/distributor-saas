@@ -2,7 +2,7 @@ import { vi } from "vitest";
 
 // A stand-in for the API: tests queue replies per path and read back what was sent.
 export type Reply = { status: number; body?: unknown; headers?: Record<string, string>; wait?: Promise<void> };
-export type Sent = { path: string; url: string; method: string; headers: Headers; body: Record<string, string> | null };
+export type Sent = { path: string; url: string; method: string; headers: Headers; body: Record<string, string> | null; request: Request };
 
 export function fakeApi() {
   const sent: Sent[] = [];
@@ -10,8 +10,8 @@ export function fakeApi() {
   const fetch = vi.fn(async (input: Request | string, init?: RequestInit) => {
     const request = typeof input === "string" ? new Request(input, init) : input;
     const path = new URL(request.url).pathname;
-    const text = await request.clone().text();
-    sent.push({ path, url: request.url, method: request.method, headers: request.headers, body: text ? JSON.parse(text) : null });
+    const json = (request.headers.get("Content-Type") ?? "").startsWith("multipart/") ? "" : await request.clone().text();
+    sent.push({ path, url: request.url, method: request.method, headers: request.headers, body: json ? JSON.parse(json) : null, request: request.clone() });
     // With nothing queued, refresh says "no session" and anything else is a server error.
     const answer: Reply = replies[path]?.shift() ?? { status: path === "/api/v1/auth/refresh" ? 401 : 500 };
     await answer.wait; // lets a test hold a reply back to look at the loading state
