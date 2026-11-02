@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../src/App";
 import { resetSessionForTests } from "../../src/auth/session";
 import { greeting } from "../../src/screens/home/HomePage";
+import { formatDate } from "../../src/format/dates";
 import { screenPath } from "../../src/screens/home/links";
 import { fakeApi } from "./fakeApi";
 
@@ -59,9 +60,9 @@ describe("Home", () => {
     const setup = screen.getByRole("region", { name: "Set up your business" });
     expect(within(setup).getByText("2 of 6 done")).toBeInTheDocument();
     expect(within(setup).getByText("Business details").closest("li")).toHaveTextContent("(done)");
-    expect(within(setup).getByText("Add your first product").closest("a")).toBeNull();
-    expect(within(setup).getAllByText("Coming soon")).toHaveLength(4);
-    expect(within(setup).queryAllByRole("link")).toHaveLength(0); // no dead links
+    expect(within(setup).getByRole("link", { name: "Add your first product" })).toHaveAttribute("href", "/b/b-1/products");
+    expect(within(setup).getAllByText("Coming soon")).toHaveLength(3);
+    expect(within(setup).getAllByRole("link")).toHaveLength(1); // no dead links
   });
 
   it("hides the checklist once every step is done, and leaves out keys it doesn't know", async () => {
@@ -122,6 +123,13 @@ describe("helpers", () => {
     expect(screenPath("/b/b-1/products\\x", "b-1", screens)).toBeNull();
     expect(screenPath("/b/b-1/pro\nducts", "b-1", screens)).toBeNull();
     expect(screenPath(42, "b-1", screens)).toBeNull();
+  });
+
+  it("shows a date it can't read as the server sent it", () => {
+    expect(formatDate("2026-11-02")).toBe("02-Nov-2026");
+    expect(formatDate("2026-13-02")).toBe("2026-13-02");
+    expect(formatDate("2026-00-02")).toBe("2026-00-02");
+    expect(formatDate("soon")).toBe("soon");
   });
 
   it("greets by the hour in India", () => {

@@ -17,7 +17,8 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 /** YYYY-MM-DD as DD-MMM-YYYY (LLD-1 §11.1), straight from the string: no time zone involved. */
 export function formatDate(day: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(day);
-  return m ? `${m[3]}-${MONTHS[Number(m[2]) - 1]}-${m[1]}` : day;
+  const month = m ? MONTHS[Number(m[2]) - 1] : undefined;
+  return m && month ? `${m[3]}-${month}-${m[1]}` : day;
 }
 
 /** The hour of the day in India, 0 to 23. */
