@@ -4,7 +4,9 @@ are S3-c2). Every file is made up in the test: no real catalogue. Skipped unless
 PG_ADMIN_URL is set.
 """
 
+import concurrent.futures
 import io
+import time
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
@@ -298,3 +300,48 @@ def test_another_business_run_is_not_found(shop):
         with pytest.raises(Deny):
             imp.apply(uow, run.id, apply_changes=True)
         assert tx.execute(text("select count(*) from catalog.import_rows")).scalar() == 0
+
+
+def test_every_save_names_the_run_and_file_row_it_came_from(shop):  # CLAUDE.md rule 10
+    pg, biz, _ = shop
+    first = upload(shop, csv_file(OIL))
+    run_in(shop, lambda u: imp.apply(u, first.id, apply_changes=True))
+    run = upload(shop, csv_file(RICE, "OIL-1,Coconut oil 1 l,1513,BTL,120,18,2026-07-01,,taxable,"))
+    run_in(shop, lambda u: imp.apply(u, run.id, apply_changes=True))
+    with pg.owner.connect() as c:
+        audited = {(r.action, r.data.get("import_run_id"), r.data.get("row_number")) for r in c.execute(text(
+            "select action, data from platform.audit_log where business_id = :b and action like 'product.%'"),
+            {"b": biz})}
+        sources = c.execute(text(
+            "select r.valid_from, i.run_id, i.row_number from catalog.product_rates r"
+            " join catalog.import_rows i on i.id = r.source_import_row_id where r.business_id = :b"
+            " order by r.valid_from"), {"b": biz}).all()
+    first_id, run_id = str(first.id), str(run.id)
+    assert {("product.created", first_id, 2), ("product.rate_added", first_id, 2), ("product.created", run_id, 2),
+            ("product.updated", run_id, 3), ("product.rate_added", run_id, 3)} <= audited
+    assert all(r[1] is not None for r in audited)  # nothing the import wrote looks like a hand edit
+    assert [(f, str(r), n) for f, r, n in sources] == [
+        (date(2026, 4, 1), first_id, 2), (date(2026, 7, 1), run_id, 3)]
+
+
+def test_two_parses_of_the_same_file_at_once_leave_one_preview(shop):  # RM43-5, AC3-21
+    """The second parse waits on import_runs_open_preview until the first commits, then
+    supersedes it, as a later upload does: no 500, and a retry is safe."""
+    pg, biz, alice = shop
+    content = csv_file(SOAP)
+    a = run_in(shop, lambda u: imp.start(u, "a.csv", len(content), TODAY))
+    b = run_in(shop, lambda u: imp.start(u, "b.csv", len(content), TODAY))
+    principal = Principal(user_sub="alice", request_id="test", user_id=alice, business_id=biz, role="owner")
+    with Session(pg.app_rw) as first:
+        first.begin()
+        ctx(first, alice, biz)
+        u = type("U", (), {"tx": first, "principal": principal})()
+        assert imp.parse(u, a.id, content, TODAY).status == "preview"  # not committed yet
+        with concurrent.futures.ThreadPoolExecutor(1) as pool:
+            second = pool.submit(run_in, shop, lambda v: imp.parse(v, b.id, content, TODAY))
+            time.sleep(0.5)
+            assert not second.done()  # waiting on the open-preview index
+            first.commit()
+            assert second.result(timeout=10).status == "preview"
+    old = run_in(shop, lambda u: imp.get_run(u, a.id))
+    assert (old.status, old.superseded_by) == ("discarded", b.id)

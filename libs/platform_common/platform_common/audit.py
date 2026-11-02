@@ -38,15 +38,17 @@ ALLOWED_DATA: dict[str, frozenset[str]] = {
     "member.invite_cancel": frozenset(),
     "member.accept": frozenset({"role"}),
     "member.role_change": frozenset({"from", "to"}),
+    # One row per request under a support grant (LLD-2 §6.2), written by business_uow.
+    "support.view": frozenset({"method", "route_template", "object_id"}),
     # Reason-required actions (permissions.yaml); their data keys come with their slices.
     **{action: frozenset() for action in REASON_REQUIRED},
     # Catalog (LLD-3 §9): IDs, product codes, changed field names and GST rate values only.
-    "product.created": frozenset({"code"}),
-    "product.updated": frozenset({"code", "fields"}),
+    "product.created": frozenset({"code", "import_run_id", "row_number"}),
+    "product.updated": frozenset({"code", "fields", "import_run_id", "row_number"}),
     "product.archived": frozenset({"code"}),
-    "product.unarchived": frozenset({"code"}),
+    "product.unarchived": frozenset({"code", "import_run_id", "row_number"}),
     "product.deleted": frozenset({"code"}),
-    "product.rate_added": frozenset({"rate_id", "rate", "valid_from"}),
+    "product.rate_added": frozenset({"rate_id", "rate", "valid_from", "import_run_id", "row_number"}),
     "product.rate_voided": frozenset({"rate_id", "rate", "valid_from"}),
     "product.rate_confirmed": frozenset({"rate_id", "rate"}),
     "product.rate_unconfirmed": frozenset({"rate_id", "rate"}),

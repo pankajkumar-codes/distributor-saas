@@ -411,13 +411,7 @@ def parse(uow: UnitOfWork, run_id: uuid.UUID, content: bytes, today: date) -> Ru
         _set_run(uow, run_id, status="discarded", duplicate_of=done, error_code="already_imported",
                  error_message="This file was already imported; nothing was added")
         return get_run(uow, run_id)
-    for (old,) in uow.tx.execute(
-        text("select id from catalog.import_runs where business_id = :b and sha256 = :s and status = 'preview'"
-             " and id <> :r for update"),
-        {"b": _business(uow), "s": sha, "r": run_id},
-    ).all():
-        _set_run(uow, old, status="discarded", superseded_by=run_id)
-        audit.record(uow, "catalog.import_superseded", "product_import", old, data={"superseded_by": str(run_id)})
+    _supersede(uow, run_id, sha)
 
     if not table.rows:
         fail(uow, run_id, "header_missing", "The file has no header row")
@@ -450,8 +444,27 @@ def parse(uow: UnitOfWork, run_id: uuid.UUID, content: bytes, today: date) -> Ru
     _classify(uow, rows)
     _insert_rows(uow, run_id, rows)
     counts = {s: sum(1 for r in rows if r.status == s) for s in ("new", "changed", "unchanged", "invalid", "conflict")}
-    _set_run(uow, run_id, status="preview", counts=counts)
+    try:
+        with uow.tx.begin_nested():
+            _set_run(uow, run_id, status="preview", counts=counts)
+    except IntegrityError:
+        # import_runs_open_preview: a parse of the same file reached preview while this one
+        # ran, and has committed now that the index let this update through. The later
+        # upload wins, as it does when the two don't overlap.
+        _supersede(uow, run_id, sha)
+        _set_run(uow, run_id, status="preview", counts=counts)
     return get_run(uow, run_id)
+
+
+def _supersede(uow: UnitOfWork, run_id: uuid.UUID, sha: str) -> None:
+    """An open preview of the same file is replaced by this run (AC3-21)."""
+    for (old,) in uow.tx.execute(
+        text("select id from catalog.import_runs where business_id = :b and sha256 = :s and status = 'preview'"
+             " and id <> :r for update"),
+        {"b": _business(uow), "s": sha, "r": run_id},
+    ).all():
+        _set_run(uow, old, status="discarded", superseded_by=run_id)
+        audit.record(uow, "catalog.import_superseded", "product_import", old, data={"superseded_by": str(run_id)})
 
 
 def _header_problem(header: list[str]) -> str | None:
@@ -525,9 +538,9 @@ def apply(uow: UnitOfWork, run_id: uuid.UUID, apply_changes: bool) -> Run:
         if row.status == "changed" and not apply_changes:
             result = "skipped"
         elif row.status == "new":
-            result = _apply_new(uow, row)
+            result = _apply_new(uow, run_id, row)
         else:
-            result = _apply_changed(uow, row)
+            result = _apply_changed(uow, run_id, row)
         outcome[result] += 1
         uow.tx.execute(text("update catalog.import_rows set outcome = :o where id = :i and business_id = :b"),
                        {"o": result, "i": row.id, "b": _business(uow)})
@@ -539,17 +552,25 @@ def apply(uow: UnitOfWork, run_id: uuid.UUID, apply_changes: bool) -> Run:
     return get_run(uow, run_id)
 
 
-def _insert_rate(uow: UnitOfWork, product_id: uuid.UUID, parsed: dict) -> None:
-    """An imported rate is unconfirmed, whatever the file says (§7.4, BH-2)."""
+def _source(run_id: uuid.UUID, row) -> dict:
+    """What every audit row the import writes carries, so it never reads as a hand edit."""
+    return {"import_run_id": str(run_id), "row_number": row.row_number}
+
+
+def _insert_rate(uow: UnitOfWork, run_id: uuid.UUID, product_id: uuid.UUID, row) -> None:
+    """An imported rate is unconfirmed, whatever the file says (§7.4, BH-2), and names
+    the file row it came from."""
+    parsed = row.parsed
     rate_id = uuid7()
     uow.tx.execute(
-        text("insert into catalog.product_rates (id, business_id, product_id, rate, valid_from, source, created_by)"
-             " values (:id, :b, :p, :r, :f, 'csv_import', :me)"),
+        text("insert into catalog.product_rates (id, business_id, product_id, rate, valid_from, source,"
+             " source_import_row_id, created_by) values (:id, :b, :p, :r, :f, 'csv_import', :row, :me)"),
         {"id": rate_id, "b": _business(uow), "p": product_id, "r": Decimal(parsed["gst_rate"]),
-         "f": date.fromisoformat(parsed["gst_rate_valid_from"]), "me": _me(uow)},
+         "f": date.fromisoformat(parsed["gst_rate_valid_from"]), "row": row.id, "me": _me(uow)},
     )
     audit.record(uow, "product.rate_added", "product", product_id,
-                 data={"rate_id": str(rate_id), "rate": parsed["gst_rate"], "valid_from": parsed["gst_rate_valid_from"]})
+                 data={"rate_id": str(rate_id), "rate": parsed["gst_rate"], "valid_from": parsed["gst_rate_valid_from"],
+                       **_source(run_id, row)})
 
 
 _COLUMNS = ("code", "name", "hsn", "uqc", "sale_rate", "barcode", "tax_category", "has_cess")
@@ -561,7 +582,7 @@ def _values(parsed: dict) -> dict:
     return out
 
 
-def _apply_new(uow: UnitOfWork, row) -> str:
+def _apply_new(uow: UnitOfWork, run_id: uuid.UUID, row) -> str:
     taken = uow.tx.execute(
         text("select id from catalog.products where business_id = :b and lower(code) = :k and status <> 'deleted'"
              " for update"),
@@ -582,13 +603,14 @@ def _apply_new(uow: UnitOfWork, row) -> str:
             )
     except IntegrityError:  # a code or barcode taken in the moment since the check
         return "stale"
-    audit.record(uow, "product.created", "product", product_id, data={"code": row.parsed["code"]})
+    audit.record(uow, "product.created", "product", product_id,
+                 data={"code": row.parsed["code"], **_source(run_id, row)})
     if row.parsed.get("gst_rate") is not None:
-        _insert_rate(uow, product_id, row.parsed)
+        _insert_rate(uow, run_id, product_id, row)
     return "applied"
 
 
-def _apply_changed(uow: UnitOfWork, row) -> str:
+def _apply_changed(uow: UnitOfWork, run_id: uuid.UUID, row) -> str:
     p = uow.tx.execute(
         text("select code, status, version from catalog.products where id = :p and business_id = :b for update"),
         {"p": row.product_id, "b": _business(uow)},
@@ -613,9 +635,9 @@ def _apply_changed(uow: UnitOfWork, row) -> str:
     code = row.parsed["code"]
     if cols.keys() - {"status"}:
         audit.record(uow, "product.updated", "product", row.product_id,
-                     data={"code": code, "fields": sorted(cols.keys() - {"status"})})
+                     data={"code": code, "fields": sorted(cols.keys() - {"status"}), **_source(run_id, row)})
     if "status" in cols:
-        audit.record(uow, "product.unarchived", "product", row.product_id, data={"code": code})
+        audit.record(uow, "product.unarchived", "product", row.product_id, data={"code": code, **_source(run_id, row)})
     if "gst_rate" in fields:
-        _insert_rate(uow, row.product_id, row.parsed)
+        _insert_rate(uow, run_id, row.product_id, row)
     return "applied"

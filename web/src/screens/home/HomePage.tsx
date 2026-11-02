@@ -110,10 +110,10 @@ export function HomePage() {
           <section className="card" aria-labelledby="attention">
             <h2 id="attention">Needs your attention</h2>
             <ul className="list">
-              {nudges.map((n) => {
+              {nudges.map((n, i) => {
                 const to = screenPath(n.href, businessId);
                 return (
-                  <li key={n.key} className={`nudge nudge-${n.severity}`}>
+                  <li key={`${n.key}-${i}`} className={`nudge nudge-${n.severity}`}>
                     <strong>
                       <span className="tag">{SEVERITY[n.severity]}</span> {n.title}
                     </strong>

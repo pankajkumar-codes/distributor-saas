@@ -134,7 +134,13 @@ class ErrorOut(BaseModel):
 
 # Set here rather than taken from http.HTTPStatus, whose 422 phrase differs between
 # Python 3.12 and 3.13, so openapi.json comes out the same on both.
-_ERROR_DESCRIPTIONS = {400: "Bad Request", 401: "Unauthorized", 422: "Unprocessable Content", 429: "Too Many Requests"}
+_ERROR_DESCRIPTIONS = {
+    400: "Bad Request",
+    401: "Unauthorized",
+    409: "Conflict",
+    422: "Unprocessable Content",
+    429: "Too Many Requests",
+}
 
 
 def error_responses(*statuses: int) -> dict:

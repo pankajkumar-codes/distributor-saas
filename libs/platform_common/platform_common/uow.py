@@ -16,6 +16,11 @@ membership: not a member, a deactivated one, an unknown business.
 The transaction commits once, after the endpoint returns and before the response is
 sent (`scope="function"`), and rolls back on any exception. Every `app.*` setting is
 transaction-local, so nothing leaks into the next request on the same connection.
+
+A support user under a grant takes two steps (LLD-0 §3.1 [L0v3-2], LLD-2 §6.2): a short
+read-write transaction records the `support.view` row and commits, then the request runs
+in a read-only one that resolves the caller again, so a grant revoked in between is
+refused and the view stays recorded even if the read fails.
 """
 
 import logging
@@ -196,11 +201,29 @@ def _resolve(uow: UnitOfWork, caller: Caller, business_id: uuid.UUID | None) -> 
     principal = _resolver(uow.tx, caller, business_id, uow.principal.request_id)
     if principal.business_id != business_id or principal.user_sub != caller.user_sub:
         raise RuntimeError("principal resolver returned a principal for another business or user")
-    if principal.support_grant_id is not None:
-        # The two-step support flow (LLD-0 §3.1 [L0v3-2]) needs LLD-1's support_grants and
-        # the audit module. Until both exist a support principal is refused.
-        raise Deny("support_no_grant")
+    if principal.support_grant_id is not None and business_id is None:
+        raise RuntimeError("principal resolver returned a support grant outside a business")
     return principal
+
+
+def _record_support_view(uow: UnitOfWork, request: Request) -> None:
+    """Step 1: one `support.view` row in the business's log (NF-1). Method, route template
+    and the object's ID only: never the query string or body."""
+    from . import audit  # audit -> permissions -> uow
+
+    business = str(uow.principal.business_id)
+    object_id = None
+    for name, value in request.path_params.items():
+        if name == "business_id":
+            continue
+        try:
+            object_id = uuid.UUID(str(value))
+        except ValueError:
+            continue
+    route = request.scope.get("route")
+    data = {"method": request.method, "route_template": getattr(route, "path", None),
+            "object_id": None if object_id is None or str(object_id) == business else str(object_id)}
+    audit.record(uow, "support.view", "route", object_id, data=data)
 
 
 # The dependencies are async on purpose. FastAPI runs a sync dependency and a sync
@@ -215,8 +238,24 @@ async def business_uow(business_id: str, request: Request) -> AsyncIterator[Unit
     """FastAPI dependency for every `/api/v1/b/{business_id}/...` route."""
     bid = parse_id(business_id)
     caller = current_caller(request)
-    with unit_of_work(Principal(user_sub=caller.user_sub, request_id=request_id(request))) as uow:
-        uow._bind(_resolve(uow, caller, bid))
+    rid = request_id(request)
+    with unit_of_work(Principal(user_sub=caller.user_sub, request_id=rid)) as uow:
+        principal = _resolve(uow, caller, bid)
+        uow._bind(principal)
+        if principal.support_grant_id is None:
+            yield uow
+            return
+        _record_support_view(uow, request)
+    # Step 2. Read only from here on: Postgres refuses any write, definer functions
+    # included, and the mode can't be turned back. The resolver still runs as app_rw
+    # (identity.auth_resolve is app_rw only) and skips its session touch when read only.
+    with unit_of_work(Principal(user_sub=caller.user_sub, request_id=rid)) as uow:
+        uow.tx.execute(text("set transaction read only"))
+        again = _resolve(uow, caller, bid)
+        if again.support_grant_id != principal.support_grant_id:
+            raise Deny("support_no_grant")  # revoked, expired or replaced since step 1
+        uow._bind(again)
+        uow.become_read_only()
         yield uow
 
 
