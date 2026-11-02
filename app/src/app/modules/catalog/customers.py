@@ -138,6 +138,7 @@ def _text(value: str | None, limit: int, field: str) -> str | None:
         return None
     if len(value) > limit:
         raise Invalid("text_too_long", f"Use at most {limit} characters", field=field)
+    checks.printable(value, field)
     return value
 
 
@@ -177,7 +178,9 @@ def _columns(uow: UnitOfWork, body: dict, today: date) -> dict:
     # BH-3: the state is required; it defaults to the GSTIN's (§4).
     cols.update(_address(uow, body.get("billing"), "billing", cols["gstin_state_code"], today))
     same = body.get("delivery_same_as_billing", True)
-    cols["delivery_same_as_billing"] = bool(same)
+    if not isinstance(same, bool):  # a PATCH null would otherwise read as "two addresses"
+        raise Invalid("delivery_same_as_billing_invalid", "Say true or false", field="delivery_same_as_billing")
+    cols["delivery_same_as_billing"] = same
     if same:
         if any((body.get("delivery") or {}).get(k) for k in ADDRESS):
             raise Invalid("delivery_not_allowed", "Leave the delivery address out when it's the billing address",

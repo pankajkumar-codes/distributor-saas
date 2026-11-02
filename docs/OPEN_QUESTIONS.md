@@ -61,6 +61,10 @@ POST /b already reads `identity.max_owned_businesses` (5, provisional; **Pankaj 
 ## Auth follow-ups (owner: Senior)
 - **Mail timing on sign-up and reset (Staff and Staff 2, #48).** `send_after_commit` sends inside the request. So that both branches take the same time, every branch of sign-up and reset now sends exactly one mail: reset mails an unknown email a `reset_no_account` notice, as sign-up mails `already_registered` (EM decision, #48). Long term, when SES lands, send auth mail off the request path (outbox or worker), so a slow send can't show in the reply at all.
 - **`reset_no_account` wording (provisional; PO or Designer to confirm).** "Someone asked to reset the password for this address, but there's no account with it. If that was you, you can sign up here; otherwise, ignore this email." It carries no code and no link other than sign-up.
+- **Cognito error mapping (S1-c4c, EM on #55).** Each Cognito error maps to its own reply, not one catch-all `AuthRefused`: for example `NotAuthorizedException` on `ChangePassword` is `current_password_wrong`, `InvalidPasswordException` is `password_weak`, and `LimitExceededException` or `TooManyRequestsException` is 429.
+- **`limits.read` opens one short read-only transaction per request (Staff 2, #48 nit; deferred).** Fine with the refdata reader's snapshot cache. If background refresh polls show up in RDS connection counts, serve the limits from the cached snapshot without a transaction.
+- **`/me/password` is not on `me_uow` (S1-c4).** `rate.hit` must commit before the first transaction, so the route resolves the caller in its own short transaction, the same check `me_uow` runs (`service/account.py`).
+- **`PATCH /me {name}` has no product rule yet.** The code trims it, stores a blank as no name, and refuses more than 100 characters or any character that is not printable, such as a line break or a direction override (422). **PO** to confirm the limit and whether a name is required.
 
 ## Business profile (S1-d) items waiting on the GST expert or PO
 | Item | What the code does until then | Source needed |
@@ -74,6 +78,9 @@ POST /b already reads `identity.max_owned_businesses` (5, provisional; **Pankaj 
 | Address state different from GSTIN state | A warning, `address_state_mismatch` (L1-12, BRD ON-3); `gstin.md` §4 says refuse | GST expert confirms |
 | 14th GSTIN character not `Z` on the business's own GSTIN | A warning, `gstin_not_z` (`gstin.md` §1, §4 item 5) | none |
 | Home checklist links for screens not built yet (`/settings/filing`, `/products`, `/customers`, `/settings/team`) | Home returns these paths under `/b/{id}` | Junior and Designer confirm the SPA routes |
+| Onboarding labels that would name an amount: the turnover band and the e-invoicing history question (mock v11 and `refdata-lld4.md` say "₹5 crore") | The web names no amount: "Up to the limit for quarterly filing (QRMP)" / "Above that limit", and "…been above the e-invoicing limit in any financial year since 2017-18?". No threshold is in refdata yet | GST expert loads the thresholds with citations; PO and Designer confirm the words, or a refdata route serves the label |
+| Onboarding warning words (`window_unknown`, `outside_window`, `last_return_unfiled`, `aato_above_threshold`, `address_state_mismatch`, `pan_shape`, `gstin_not_z`) | Provisional text in `web/src/screens/onboarding/warnings.ts`; each says "check with your CA" and names no date or amount | PO and GST expert confirm |
+| Frequency `effective_from` from onboarding | The current quarter's start, in India's time zone; the web never offers the FY start that L1-13 allows a first row | PO confirms, with L1-13 |
 
 ## Catalog (S3) items waiting on the GST expert, CA or PO
 | Item | What the code does until then | Source needed |

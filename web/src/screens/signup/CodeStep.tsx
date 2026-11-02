@@ -3,6 +3,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { api, call } from "../../api/client";
+import type { components } from "../../api/schema";
 import { errorText, type ApiError } from "../../api/errors";
 import { startSession } from "../../auth/session";
 import { Banner } from "../../kit/Banner";
@@ -10,8 +11,7 @@ import { Button } from "../../kit/Button";
 import { Field } from "../../kit/Field";
 import { OtpInput } from "../../kit/OtpInput";
 
-// The verify route has no response model yet, so the generated type is `unknown`.
-type Verified = { access_token: string; expires_in: number };
+type Verified = components["schemas"]["SignedUpOut"];
 
 const CODE_TTL_MS = 10 * 60 * 1000; // auth.code_ttl_minutes; the server decides, this is the countdown
 
@@ -48,7 +48,7 @@ export function CodeStep({ email, sentAt, password, onResent, onBack, onPassword
 
   const verify = useMutation<Verified, ApiError>({
     mutationFn: () =>
-      call(() => api.POST("/api/v1/auth/signup/verify", { body: { email, code, password } }), { refresh: false }) as Promise<Verified>,
+      call(() => api.POST("/api/v1/auth/signup/verify", { body: { email, code, password } }), { refresh: false }),
     onSuccess: (done) => {
       startSession(done.access_token, done.expires_in);
       navigate("/onboarding/business", { replace: true }); // drops the entry holding the email
