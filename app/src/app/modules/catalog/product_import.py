@@ -117,6 +117,54 @@ def fail(uow: UnitOfWork, run_id: uuid.UUID, code: str, message: str) -> None:
     _set_run(uow, run_id, status="failed", error_code=code, error_message=message[:500])
 
 
+def uploaded(uow: UnitOfWork, run_id: uuid.UUID, today: date) -> Run:
+    """The complete route (§6.3): the file must be in the store, within the size limit,
+    before the parse job is queued. The store is asked, never the client."""
+    run = get_run(uow, run_id, lock=True)
+    if run.status != "awaiting_upload":
+        return run  # already queued or read: the route returns the same parse job
+    info = storage.get_store().head(_business(uow), storage.check_key(_business(uow), run.s3_key))
+    if info is None:
+        raise Conflict("upload_missing", "The file hasn't finished uploading. Upload it again")
+    most = int(value_on(uow.tx, "catalog.import.max_bytes", today))
+    if not 0 < info.size <= most:
+        raise Invalid("file_too_large", f"The file can be at most {most // 1024} KB", field="size_bytes")
+    return run
+
+
+def read_upload(uow: UnitOfWork, run: Run) -> bytes:
+    """For the parse job: the uploaded bytes, from this business's key only."""
+    return storage.get_store().get_bytes(_business(uow), storage.check_key(_business(uow), run.s3_key))
+
+
+def request_apply(uow: UnitOfWork, run_id: uuid.UUID, apply_changes: bool) -> Run:
+    """The confirm route (§6.3): records the user's choice before the apply job runs. A
+    second confirm with the same choice is the same request; a different one is refused,
+    because the first is already on its way (AC3-13)."""
+    run = get_run(uow, run_id, lock=True)
+    if run.status in ("applying", "applied"):
+        raise Conflict("import_already_applied", "This file has already been imported")
+    if run.status != "preview":
+        raise Conflict("import_not_ready", "This upload isn't ready to import")
+    if run.apply_changes is not None and run.apply_changes != apply_changes:
+        raise Conflict("import_already_applied", "This file is already being imported")
+    if run.apply_changes is None:
+        _set_run(uow, run_id, apply_changes=apply_changes)
+    return get_run(uow, run_id)
+
+
+def discard(uow: UnitOfWork, run_id: uuid.UUID) -> Run:
+    """The discard route: a run nobody confirmed ends with nothing saved. Discarding a
+    discarded run is a no-op."""
+    run = get_run(uow, run_id, lock=True)
+    if run.status == "discarded":
+        return run
+    if run.status not in ("awaiting_upload", "preview", "failed") or run.apply_changes is not None:
+        raise Conflict("import_not_discardable", "This import has already started and can't be discarded")
+    _set_run(uow, run_id, status="discarded", error_code="discarded", error_message="Discarded by the user")
+    return get_run(uow, run_id)
+
+
 # --- Parse -------------------------------------------------------------------------
 
 
