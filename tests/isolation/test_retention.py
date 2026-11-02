@@ -68,6 +68,16 @@ def test_audit_and_business_tables_are_out_of_reach(migrated_db):
         assert name.split(".")[0] in ("platform", "identity", "refdata"), name
 
 
+@pytest.mark.parametrize("role, login", [("retention_owner", False), ("app_retention", True)])
+def test_role_attributes(migrated_db, role, login):
+    row = migrated_db.execute(
+        "select rolsuper, rolbypassrls, rolcreaterole, rolcreatedb, rolreplication, rolcanlogin"
+        " from pg_roles where rolname = %s",
+        (role,),
+    ).fetchone()
+    assert row == (False, False, False, False, False, login), role
+
+
 def test_login_role_only_executes(migrated_db):
     assert _privileges(migrated_db, "app_retention") == {}
     fns = migrated_db.execute(
@@ -164,6 +174,12 @@ def _plant(c):
             " (%s, now() - interval '3 days', now() - interval '25 hours'), (%s, now() - interval '3 days', now() - interval '1 hour')",
             (f"go-{b}@example.test", f"stay-{b}@example.test"),
         )
+        # Old enough to go by its own dates, but its sign-up code is still usable.
+        c.execute(
+            "insert into identity.pending_signups (email, created_at, last_code_at)"
+            " values (%s, now() - interval '3 days', now() - interval '3 days')",
+            (f"stay-live-{b}@example.test",),
+        )
         invites = (
             ("go-accepted", "accepted", "now() - interval '31 days'", "null", "now() + interval '1 day'"),
             ("go-cancelled", "cancelled", "null", "now() - interval '31 days'", "now() + interval '1 day'"),
@@ -233,6 +249,14 @@ def test_deletes_only_expired_rows_of_both_businesses(tx):
         assert stay > 0, table
     run = tx.execute("select rule, dry_run, counts from platform.retention_runs").fetchall()
     assert run == [("purge_operational", False, out["counts"])]
+    assert tx.execute("select current_setting('retention.active', true)").fetchone()[0] == "off"
+    live = tx.execute(
+        "select count(*) from identity.pending_signups where email like 'stay-live-%%'"
+        " union all select count(*) from identity.sessions where key_value like 'stay-live-%%'"
+        " union all select count(*) from identity.verification_codes where email like 'stay-live-%%'"
+        " union all select count(*) from identity.invitations where email like 'stay-pending-%%'"
+    ).fetchall()
+    assert live == [(2,), (2,), (2,), (2,)]  # still usable, so kept in both businesses
 
 
 def test_dry_run_counts_without_deleting(tx):

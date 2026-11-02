@@ -7,7 +7,10 @@
 --   rule as a whole does nothing until refdata `retention.purge_operational.enabled` is
 --   true. Every row ships provisional and the rule ships disabled (default keep);
 -- - no percent sign anywhere in this file: some tests apply it through a driver that parses
---   placeholders, so dynamic SQL is built by concatenating the constant specs below;
+--   placeholders, so dynamic SQL is built by concatenation. Everything concatenated is
+--   a constant in `specs` below (schema and table each through quote_ident), never a
+--   parameter or a refdata value; the cutoff and the limit are bound with EXECUTE ... USING;
+-- - retention.active is switched off again before the function returns;
 -- - at most max_rows rows per table per call; `more` says to call again;
 -- - dry_run counts without deleting; every call that runs writes a retention_runs row.
 --
@@ -62,7 +65,9 @@ declare
         ['rate_counters', 'platform.rate_counters', 'retention.rate_window_keep_hours', 'hours',
          'window_start < $1'],
         ['pending_signups', 'identity.pending_signups', 'retention.pending_signup_keep_hours', 'hours',
-         'created_at < $1 and last_code_at < $1'],
+         'created_at < $1 and last_code_at < $1 and not exists (select 1 from identity.verification_codes c'
+         ' where c.email = pending_signups.email and c.purpose = ''signup'''
+         ' and c.consumed_at is null and c.voided_at is null and c.expires_at > now())'],
         ['verification_codes', 'identity.verification_codes', 'retention.code_keep_hours', 'hours',
          '(consumed_at is not null or voided_at is not null or expires_at <= now())'
          ' and coalesce(consumed_at, voided_at, expires_at) < $1'],
@@ -75,6 +80,7 @@ declare
          ' when ''cancelled'' then cancelled_at end, expires_at) < $1']
     ];
     spec text[];
+    tbl text;
     raw text;
     keep int;
     cutoff timestamptz;
@@ -90,6 +96,7 @@ begin
     where v.key = 'retention.purge_operational.enabled'
       and v.valid_from <= today and (v.valid_to is null or v.valid_to > today);
     if coalesce(raw, 'false') <> 'true' and not dry_run then
+        perform set_config('retention.active', 'off', true);
         return jsonb_build_object('rule', 'purge_operational', 'skipped', 'disabled');
     end if;
 
@@ -108,11 +115,12 @@ begin
         end if;
         cutoff := now() - make_interval(days => case when spec[4] = 'days' then keep else 0 end,
                                         hours => case when spec[4] = 'hours' then keep else 0 end);
+        tbl := quote_ident(split_part(spec[2], '.', 1)) || '.' || quote_ident(split_part(spec[2], '.', 2));
         if dry_run then
-            execute 'select count(*) from (select 1 from ' || spec[2] || ' where ' || spec[5] || ' limit $2) x'
+            execute 'select count(*) from (select 1 from ' || tbl || ' where ' || spec[5] || ' limit $2) x'
                 into n using cutoff, lim;
         else
-            execute 'delete from ' || spec[2] || ' where ctid in (select ctid from ' || spec[2]
+            execute 'delete from ' || tbl || ' where ctid in (select ctid from ' || tbl
                     || ' where ' || spec[5] || ' limit $2)'
                 using cutoff, lim;
             get diagnostics n = row_count;
@@ -126,6 +134,7 @@ begin
     values ('purge_operational', dry_run, cutoffs, counts, more);
     result := jsonb_build_object('rule', 'purge_operational', 'dry_run', dry_run,
                                  'cutoffs', cutoffs, 'counts', counts, 'more', more);
+    perform set_config('retention.active', 'off', true);
     return result;
 end
 $$;
