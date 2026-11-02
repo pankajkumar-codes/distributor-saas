@@ -7,9 +7,11 @@ retry can't change (the run moved on, say) fails the job with the error's code.
 
 import uuid
 
+from app.modules.identity.interface import member_role
 from platform_common import jobs
 from platform_common.clock import get_clock
 from platform_common.errors import AppError, Deny
+from platform_common.permissions import Permission, has_permission
 
 from . import product_import as imp
 
@@ -26,9 +28,23 @@ def _run_id(ctx: jobs.JobContext) -> uuid.UUID:
     return uuid.UUID(view.natural_key)
 
 
+def _still_allowed(ctx: jobs.JobContext, run_id: uuid.UUID) -> bool:
+    """The job runs as the user who queued it, minutes later at most, but that user may
+    have left the business or lost catalog.edit since (#69 review). Checked again here,
+    from the membership as it is now; if not, the run ends failed with nothing saved."""
+    p = ctx.uow.principal
+    if has_permission(member_role(ctx.uow.tx, p.business_id, p.user_id), Permission.CATALOG_EDIT):
+        return True
+    if imp.get_run(ctx.uow, run_id).status in ("awaiting_upload", "parsing", "preview"):
+        imp.fail(ctx.uow, run_id, "not_allowed", "Whoever started this import can no longer edit products")
+    return False
+
+
 @jobs.handler(PARSE)
 def parse(ctx: jobs.JobContext) -> dict:
     run_id = _run_id(ctx)
+    if not _still_allowed(ctx, run_id):
+        return {"run_id": str(run_id), "status": "failed"}
     try:
         run = imp.get_run(ctx.uow, run_id)
         content = imp.read_upload(ctx.uow, run)
@@ -44,6 +60,8 @@ def apply(ctx: jobs.JobContext) -> dict:
     its work is rolled back and the run ends `failed` in the same transaction, so the user
     sees why and can discard it or upload again instead of waiting on a dead job."""
     run_id = _run_id(ctx)
+    if not _still_allowed(ctx, run_id):
+        return {"run_id": str(run_id), "status": "failed"}
     run = imp.get_run(ctx.uow, run_id)
     try:
         with ctx.uow.tx.begin_nested():
