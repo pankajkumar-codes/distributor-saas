@@ -228,6 +228,22 @@ export function ProductPage() {
     );
   }
   if (!business || product.error?.status === 404) return <NotFound />;
+  // Any other failure to load is not an empty form: saving one would have nothing to edit against.
+  if (!isNew && !opened && product.error) {
+    return (
+      <>
+        <TopBar title={business.display_name} gstin={business.gstin} />
+        <main className="page">
+          <Banner tone="error">
+            We couldn't load this product. {errorText(product.error)}{" "}
+            <Button type="button" variant="link" onClick={() => product.refetch()}>
+              Try again
+            </Button>
+          </Banner>
+        </main>
+      </>
+    );
+  }
 
   const error = save.error && save.error.code !== "stale_record" ? save.error : null;
   const errorFor = (field: string) =>

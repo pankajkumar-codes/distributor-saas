@@ -194,6 +194,22 @@ export function CustomerPage() {
     );
   }
   if (!business || customer.error?.status === 404) return <NotFound />;
+  // Any other failure to load is not an empty form: saving one would have nothing to edit against.
+  if (!isNew && !opened && customer.error) {
+    return (
+      <>
+        <TopBar title={business.display_name} gstin={business.gstin} />
+        <main className="page">
+          <Banner tone="error">
+            We couldn't load this customer. {errorText(customer.error)}{" "}
+            <Button type="button" variant="link" onClick={() => customer.refetch()}>
+              Try again
+            </Button>
+          </Banner>
+        </main>
+      </>
+    );
+  }
 
   const error = save.error && save.error.code !== "stale_record" ? save.error : null;
   const words = (e: ApiError) => e.fix ?? (e.message || errorText(e));

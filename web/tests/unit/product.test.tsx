@@ -215,6 +215,16 @@ describe("editing a product", () => {
     expect(screen.getByRole("button", { name: "Unarchive" })).toBeInTheDocument();
   });
 
+  it("shows an error with Try again, not an empty form, when loading fails", async () => {
+    server.reply(ONE, { status: 500 }, { status: 500 }, { status: 500 }, { status: 200, body: detail() });
+    open("/b/b-1/products/p-1");
+    expect(await screen.findByText(/We couldn't load this product/, {}, { timeout: 8000 })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save changes" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByRole("heading", { name: "Neem soap" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeInTheDocument();
+  }, 12000);
+
   it("is NotFound when the server doesn't know the product", async () => {
     server.reply(ONE, { status: 404, body: { error: { code: "not_found", message: "" } } });
     open("/b/b-1/products/p-1");

@@ -172,6 +172,16 @@ describe("editing a customer", () => {
     expect(sent(ONE, "DELETE")[0].headers.get("If-Match")).toBe("3");
   });
 
+  it("shows an error with Try again, not an empty form, when loading fails", async () => {
+    server.reply(ONE, { status: 500 }, { status: 500 }, { status: 500 }, { status: 200, body: detail() });
+    open("/b/b-1/customers/c-1");
+    expect(await screen.findByText(/We couldn't load this customer/, {}, { timeout: 8000 })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save changes" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByRole("heading", { name: "Sharma Traders" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeInTheDocument();
+  }, 12000);
+
   it("doesn't offer Delete for a customer on invoices", async () => {
     server.reply(ONE, { status: 200, body: detail({ in_use: true }) });
     open("/b/b-1/customers/c-1");
