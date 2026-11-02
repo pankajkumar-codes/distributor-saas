@@ -123,13 +123,13 @@ Every row in `refdata/` is `provisional`. Before go-live:
 - `retention.purge_operational()` is built (D-041) and ships **disabled**. Still open:
   - **Periods (PO):** every row in `refdata/values/retention.yaml` is a provisional LLD design period, not a statutory one: jobs and sent outbox 14 days, idempotency keys 24 h, pending sign-ups and codes 24 h, sessions and closed invitations 30 days.
   - **Rate windows:** LLD-0 says "old windows" with no period, so there is no `retention.rate_window_keep_hours` row and the table is kept. The longest window in use is one hour; the PO picks a period.
-  - **Switching it on:** a refdata change after a dry run on staging, which waits for the staging decision and the retention Lambda (next PR).
+  - **Switching it on:** a refdata change after a dry run on staging, which waits for the staging decision. The retention Lambda and its two schedules exist in Terraform, both schedules disabled.
   - **Sessions past the 24 h idle limit** but before absolute expiry are kept until absolute expiry + 30 days. That is conservative; LLD-1 §12 names only revocation and absolute expiry.
 - A job whose last SQS message is lost while `failed_retryable` stays there; the outbox sweep only resends unsent rows. The DLQ alarm covers exhausted messages, not this. A "stuck jobs" sweep can come with the alarms (TD-24).
 - The real-S3 policy checks (limit + 1 byte, other key, after 5 minutes, other KMS key) are QA's staging checks (HLD §6.5); the local store only mirrors them.
 
 ## Staging infrastructure follow-ups (S0b, D-040)
-- The worker has no `purge_operational` or `retention` task yet, so those schedules stay off. Raw uploads now expire 90 days after upload through the `uploads/` lifecycle rule (TD-18; `upload_retention_days`).
+- The `purge` (hourly) and `retention` (daily, 02:30 IST) schedules target the `retention` Lambda (L6-5) and stay **disabled** until the staging decision; each rule is also off in refdata. Raw uploads now expire 90 days after upload through the `uploads/` lifecycle rule (TD-18; `upload_retention_days`).
 - **Mail wording** (`platform_common/mail_templates.py`) is a first draft with no product name and no code lifetime in it. The PO should review it before launch.
 - **Backlog (infra):** a least-privilege policy for the deploy role. Today it needs broad rights to create the stack (docs/DEPLOYMENT.md).
 - **Staging checks only a real AWS account can answer** (QA and Staff 2, at the first staging deploy): whether CloudFront passes `Authorization` and cookies through to the JWT authorizer with the managed AllViewerExceptHostHeader policy; whether the Cognito endpoint exists in ap-south-1 and the admin calls work through it (tech plan §4.5); the exact Cognito admin actions CognitoAuthProvider uses (S1-c4), so the IAM list can be trimmed; `SHOW max_connections`; and the account's Lambda concurrency quota.
