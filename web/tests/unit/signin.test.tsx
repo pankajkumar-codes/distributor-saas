@@ -10,6 +10,7 @@ import { fakeApi } from "./fakeApi";
 
 const SIGNIN = "/api/v1/auth/signin";
 const TOTP = "/api/v1/auth/signin/totp";
+const HOME = /^(Welcome|Good (morning|afternoon|evening))/; // Home's h1 is the greeting
 const REFRESH = "/api/v1/auth/refresh";
 const ME = "/api/v1/me/businesses";
 const EMAIL = "owner@vashi.example";
@@ -66,7 +67,7 @@ describe("sign-in", () => {
     server.reply(SIGNIN, signedIn([A]));
     server.reply(ME, { status: 200, body: { businesses: [A] } });
     await signIn();
-    expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: HOME })).toBeInTheDocument();
     expect(screen.getByText("Vashi Essentials")).toBeInTheDocument();
     expect(window.location.pathname).toBe("/b/b-1/home");
     expect(window.location.href).not.toContain("vashi.example");
@@ -140,7 +141,7 @@ describe("a reload", () => {
     server.reply(REFRESH, { status: 200, body: { access_token: "t-r", expires_in: 3600 } });
     server.reply(ME, { status: 200, body: { businesses: [A] } });
     open("/b/b-1/home");
-    expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: HOME })).toBeInTheDocument();
     expect(server.sent.find((s) => s.path === ME)?.headers.get("Authorization")).toBe("Bearer t-r");
   });
 
@@ -155,7 +156,7 @@ describe("a reload", () => {
     server.reply(ME, { status: 200, body: { businesses: [A] } });
     open("/b/b-1/home");
     fireEvent.click(await screen.findByRole("button", { name: "Try again" }));
-    expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: HOME })).toBeInTheDocument();
     expect(window.location.pathname).toBe("/b/b-1/home");
   });
 

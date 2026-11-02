@@ -45,3 +45,9 @@ input[aria-invalid="true"], select[aria-invalid="true"] { border-color: var(--er
 .topbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 16px; border-bottom: 1px solid var(--line); }
 .list { list-style: none; padding: 0; }
 .list li { padding: 12px 0; border-bottom: 1px solid var(--line); }
+.card { border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin: 0 0 16px; }
+.card h2 { margin-top: 0; }
+.tag { color: var(--muted); font-size: 0.875rem; font-weight: 400; }
+.nudge-block .tag { color: var(--error); font-weight: 600; }
+.check { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
