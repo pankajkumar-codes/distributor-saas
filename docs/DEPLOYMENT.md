@@ -45,6 +45,13 @@ manual workflow `.github/workflows/deploy-staging.yml` are written but **not app
 no AWS resource exists until Pankaj decides on staging, and the first staging deploy needs
 the CEO's approval (TD-20, TD-21). How to deploy and test: `docs/TESTING.md` §3.
 
+The stack has five functions: `api`, `worker`, `mailer`, `migrator`, and `retention`
+(D-041, L6-5), the only one that logs in as `app_retention`. The `retention` function's
+`purge` and `retention` schedules are written **disabled**. Its errors alarm is a standard
+CloudWatch alarm, about USD 0.10 a month once applied; the function itself costs nothing
+while its schedules are off. Hourly runs of a few seconds would be well under USD 0.01
+a month at Lambda list prices (not verified against an AWS bill).
+
 ## Launch prerequisites (AWS account actions, Pankaj)
 - **Lambda concurrency quota of at least 156 in ap-south-1 before the first prod apply.**
   Prod reserves TD-6's caps (api 40, worker 10, mailer 5, migrator 1 = 56), and Lambda

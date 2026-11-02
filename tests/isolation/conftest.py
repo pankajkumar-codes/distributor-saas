@@ -16,6 +16,10 @@ import pytest
 PG_DSN = os.environ.get("PG_DSN")
 REPO = Path(__file__).resolve().parents[2]
 
+# A Postgres test that skips fails instead under CI=true or REQUIRE_PG=1 (tests/require_pg.py).
+sys.path.append(str(REPO / "tests"))
+from require_pg import pytest_runtest_makereport  # noqa: E402, F401
+
 
 @pytest.fixture(scope="session")
 def migrated_db():

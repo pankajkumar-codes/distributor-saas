@@ -158,3 +158,13 @@ describe("dayBefore", () => {
     expect(dayBefore("soon")).toBe("soon");
   });
 });
+
+describe("a product that isn't taxable", () => {
+  it("shows its old rate history without offering to add a rate", async () => {
+    await open("owner", detail({ tax_category: "exempt", rate_on: null }));
+    expect(screen.queryByRole("button", { name: "Add rate" })).toBeNull();
+    expect(screen.queryByLabelText("New GST rate")).toBeNull();
+    expect(within(rowOf("12%")).getByRole("button", { name: "Void" })).toBeInTheDocument();
+    expect(server.paths()).not.toContain(GST);
+  });
+});

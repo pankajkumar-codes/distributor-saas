@@ -20,6 +20,9 @@ PG_ADMIN_URL=postgresql+psycopg://postgres:local-only@localhost:5432/postgres \
 PG_DSN=postgresql://postgres:local-only@localhost:5432/postgres make test
 ```
 
+Without those variables the PostgreSQL tests skip. Under `CI=true` (GitHub Actions) or
+`REQUIRE_PG=1` they fail instead, so a missing variable can't hide a suite (`tests/require_pg.py`).
+
 GitHub Actions runs all of these on every pull request, plus:
 
 - `ruff check app migrator libs tests scripts` (rules in `ruff.toml`), including the
