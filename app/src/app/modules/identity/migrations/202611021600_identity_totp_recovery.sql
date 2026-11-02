@@ -91,6 +91,20 @@ begin
     return true;
 end $$;
 
+-- Before the provider is called (Staff 2 (4), #76): the provider sub of the account a
+-- claimed recovery code is for, or null if that account is support, is the caller, or
+-- has no live claimed code. The caller compares it with the provider's own answer, so
+-- the provider is never asked to change an account this recovery may not touch.
+create function identity.auth_totp_recovery_target(p_code_id uuid) returns text
+language sql stable security definer set search_path = pg_catalog, identity, pg_temp as $$
+    select u.cognito_sub
+    from identity.verification_codes v
+    join identity.users u on u.email = v.email
+    where v.id = p_code_id and v.purpose = 'totp_recovery'
+      and v.claimed_at is not null and v.consumed_at is null and v.voided_at is null
+      and not u.is_support and u.id <> identity.auth_support_caller()
+$$;
+
 -- After the provider removed the account's TOTP: one row (user_id, email) for the
 -- account, or none if the code isn't claimed and live, the account has no TOTP any more
 -- or is support, or its sub isn't `p_sub` (the provider user support just changed).
@@ -137,11 +151,20 @@ end $$;
 -- are definers owned by identity_auth, so they see every user and membership whoever
 -- writes the row (app_rw sees only its own users row). They run after the row, so RLS
 -- refuses a write it doesn't allow first, with its own error.
+-- The two guards read each other's table, so on their own two concurrent writes could
+-- each pass (write skew: one adds a membership while the other makes the user support).
+-- Reading the user FOR SHARE closes it: whichever writes second waits for the first to
+-- commit, and then sees its row (Staff 2 (4), #76).
 create function identity.guard_support_membership() returns trigger
 language plpgsql security definer set search_path = pg_catalog, identity, pg_temp as $$
+declare
+    support boolean;
 begin
-    if new.status = 'active' and exists (select 1 from identity.users where id = new.user_id and is_support) then
-        raise exception 'a support user can''t be a member of a business' using errcode = 'IDS01';
+    if new.status = 'active' then
+        select is_support into support from identity.users where id = new.user_id for share;
+        if support then
+            raise exception 'a support user can''t be a member of a business' using errcode = 'IDS01';
+        end if;
     end if;
     return new;
 end $$;
@@ -163,6 +186,8 @@ revoke all on function identity.guard_support_flag() from public;
 revoke all on function identity.auth_support_caller() from public;
 revoke all on function identity.auth_issue_totp_recovery_code(uuid, text, bytea, interval, int) from public;
 revoke all on function identity.auth_totp_recovery_complete(uuid, text, uuid) from public;
+revoke all on function identity.auth_totp_recovery_target(uuid) from public;
+grant execute on function identity.auth_totp_recovery_target(uuid) to app_rw;
 grant execute on function identity.auth_issue_totp_recovery_code(uuid, text, bytea, interval, int) to app_rw;
 grant execute on function identity.auth_totp_recovery_complete(uuid, text, uuid) to app_rw;
 

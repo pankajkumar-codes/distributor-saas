@@ -12,7 +12,9 @@ first unit of work opens (as in service/account.py):
            non-support account with TOTP on, mail totp_recovery_code after commit.
            The reply is the same whatever the email.
   confirm: tx A as start -> rate.hit per IP -> tx 1 check the code (committed whatever
-           the answer: 5 tries, 10 minutes, claim) -> provider removes the account's
+           the answer: 5 tries, 10 minutes, claim) and its account (not support, not
+           the caller, and the provider's sub for the email is that account's)
+           -> provider removes the account's
            TOTP -> tx 2 identity.auth_totp_recovery_complete: consume the code, clear
            totp_enabled_at, revoke every session ('support'), audit row
            auth.totp_removed_by_support -> after commit: provider global sign-out, mail
@@ -104,14 +106,20 @@ def confirm(
     rate.hit(rate.bucket("code_check:ip", ip), per_ip, HOUR)
     digest = codes.code_hmac("totp_recovery", email, code)
     with unit_of_work(Principal(user_sub=None, request_id=request_id)) as uow:  # tx 1: committed whatever the answer
+        uow.become_user(me.user_id, me.user_sub)
         code_id = uow.tx.execute(
             text("select identity.auth_check_code('totp_recovery', :e, :h)"), {"e": email, "h": digest}
         ).scalar()
-    if code_id is None:  # wrong, expired, voided, claimed, or no account for this email
+        # Who the code is for, checked before the provider is touched: not support, not
+        # the caller (tx 2 checks again, as the last guard).
+        target = None if code_id is None else uow.tx.execute(
+            text("select identity.auth_totp_recovery_target(:c)"), {"c": code_id}
+        ).scalar()
+    if target is None:  # wrong, expired, voided, claimed, no account, or one support can't touch
         raise CodeNotAccepted()
 
     sub = idp.get_sub(email)
-    if sub is None:  # a users row with no provider user: nothing to remove
+    if sub is None or sub != target:  # the provider's user isn't the account the code was sent for
         raise CodeNotAccepted()
     idp.remove_totp(sub)
 

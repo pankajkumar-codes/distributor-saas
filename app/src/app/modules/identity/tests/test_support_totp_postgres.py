@@ -246,3 +246,71 @@ def test_a_support_user_cant_be_a_member_and_a_member_cant_become_support(env): 
             ),
             {"b": business, "u": sam},
         )
+
+
+@pytest.mark.parametrize("change", ["now_support", "other_sub"])
+def test_the_account_is_checked_before_the_provider_is_touched(env, change, monkeypatch):
+    """Staff 2 (4), #76: a code for an account support may not touch, or whose provider
+    user isn't the one in our table, is refused before remove_totp runs."""
+    client, idp, mail, admin, _, sam = env
+    start(client, sam)
+    [params] = sent_to(mail, "totp_recovery_code", USER)
+    with admin.begin() as c:
+        if change == "now_support":
+            c.execute(text("update identity.users set is_support = true where email = :e"), {"e": USER})
+        else:
+            c.execute(text("update identity.users set cognito_sub = 'someone-else' where email = :e"), {"e": USER})
+    calls = []
+    monkeypatch.setattr(idp, "remove_totp", lambda sub: calls.append(sub))
+    r = confirm(client, sam, params["code"])
+    assert (r.status_code, r.json()["error"]["code"]) == (400, "code_not_accepted")
+    assert calls == [] and idp.user(USER).totp_enabled and removed_rows(admin) == []
+
+
+@pytest.mark.parametrize("first", ["membership", "support_flag"])
+def test_a_membership_and_the_support_flag_racing_cant_both_land(env, first):
+    """Staff 2 (4), #76: the two AC2-14 guards read each other's table, so without a lock
+    two concurrent writes could both pass. With the user read FOR SHARE the second waits
+    for the first to commit, then refuses."""
+    import threading
+
+    client, _, _, admin, user, _ = env
+    r = client.post("/api/v1/b", json=BUSINESS, headers={**user, "Idempotency-Key": "k2"})
+    assert r.status_code == 201, r.text
+    business = r.json()["business_id"]
+    ravi = "ravi@example.com"
+    with admin.begin() as c:  # a plain user, not yet a member of anything
+        c.execute(text("insert into identity.users (id, cognito_sub, email) values (gen_random_uuid(), 'ravi', :e)"),
+                  {"e": ravi})
+    ravi_id = one(admin, "select id from identity.users where email = :e", e=ravi)
+    add = text("insert into identity.memberships (id, business_id, user_id, role, status)"
+               " values (gen_random_uuid(), :b, :u, 'admin', 'active')")
+    flag = text("update identity.users set is_support = true where id = :u")
+    statements = [(add, {"b": business, "u": ravi_id}), (flag, {"u": ravi_id})]
+    if first == "support_flag":
+        statements.reverse()
+    errors = []
+
+    held = admin.connect()
+    tx = held.begin()
+    held.execute(*statements[0])  # holds its row lock until commit
+
+    def second():
+        try:
+            with admin.begin() as c:
+                c.execute(text("set local lock_timeout = '10s'"))
+                c.execute(*statements[1])
+        except Exception as e:  # noqa: BLE001 (collected for the assert)
+            errors.append(e)
+
+    t = threading.Thread(target=second)
+    t.start()
+    t.join(0.5)
+    assert t.is_alive(), "the second write didn't wait for the first"
+    tx.commit()
+    held.close()
+    t.join(15)
+    assert len(errors) == 1 and "IDS01" in str(getattr(errors[0].orig, "sqlstate", "")) + str(errors[0])
+    both = one(admin, "select count(*) from identity.memberships m join identity.users u on u.id = m.user_id"
+                      " where u.id = :u and u.is_support and m.status = 'active'", u=ravi_id)
+    assert both == 0
