@@ -120,7 +120,11 @@ Every row in `refdata/` is `provisional`. Before go-live:
   question or message it answers) and `confirmed_on` in the same PR (D-038).
 
 ## Job runner follow-ups (S0b, D-039)
-- `retention.purge_operational()` (done/failed jobs and sent outbox rows after 14 days, idempotency keys, rate windows; LLD-0 §4.4) is not built yet. It needs a decision on its run record: `platform.audit_log` requires a business or a user, and a retention run has neither.
+- `retention.purge_operational()` is built (D-041) and ships **disabled**. Still open:
+  - **Periods (PO):** every row in `refdata/values/retention.yaml` is a provisional LLD design period, not a statutory one: jobs and sent outbox 14 days, idempotency keys 24 h, pending sign-ups and codes 24 h, sessions and closed invitations 30 days.
+  - **Rate windows:** LLD-0 says "old windows" with no period, so there is no `retention.rate_window_keep_hours` row and the table is kept. The longest window in use is one hour; the PO picks a period.
+  - **Switching it on:** a refdata change after a dry run on staging, which waits for the staging decision and the retention Lambda (next PR).
+  - **Sessions past the 24 h idle limit** but before absolute expiry are kept until absolute expiry + 30 days. That is conservative; LLD-1 §12 names only revocation and absolute expiry.
 - A job whose last SQS message is lost while `failed_retryable` stays there; the outbox sweep only resends unsent rows. The DLQ alarm covers exhausted messages, not this. A "stuck jobs" sweep can come with the alarms (TD-24).
 - The real-S3 policy checks (limit + 1 byte, other key, after 5 minutes, other KMS key) are QA's staging checks (HLD §6.5); the local store only mirrors them.
 
