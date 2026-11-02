@@ -57,7 +57,8 @@ GitHub Actions runs all of these on every pull request, plus:
   ESLint, Vitest and the production build (`web/README.md`)
 - `web-e2e`: Playwright at 360 px and 1280 px against the API on PostgreSQL (sign-up with
   the emailed code, the reload fallback, a reload keeping the session, sign-out and
-  sign-in), with axe finding nothing serious or critical
+  sign-in, creating a business with a GSTIN and landing on its Home), with axe finding
+  nothing serious or critical
 - the end-to-end suite below, against identity on real PostgreSQL, after migrating twice
 - `tests/isolation`: role guards after every migration. No role but the migrating superuser
   has superuser, BYPASSRLS, CREATEROLE or replication; the app and owner roles from the
