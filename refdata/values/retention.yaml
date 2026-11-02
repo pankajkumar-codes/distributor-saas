@@ -1,0 +1,86 @@
+# Operational retention periods (LLD-0 §4.4, LLD-6 §6; D-041). Design periods from the
+# LLDs, not statutory ones: product rows, provisional until the PO confirms them. A
+# table with no row here is kept (rate windows: OPEN_QUESTIONS). GST-record retention is
+# not here; it waits for the CA (GC-27) and the CEO (LLD-6 §6.5).
+
+- key: retention.purge_operational.enabled
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-02
+  source_url: team/docs/lld-6.md
+  source_title: "LLD-6 §6.1: a rule runs only while retention.<rule>.enabled is true"
+  last_checked: 2026-11-02
+  status: provisional
+  note: "Ships off (default keep). Switching it on is a later refdata change, after a dry run on staging."
+
+- key: retention.jobs_keep_days
+  value: "14"
+  type: integer
+  kind: product
+  valid_from: 2026-11-02
+  source_url: team/docs/lld-0.md
+  source_title: "LLD-0 §3.7: done and failed jobs are deleted after 14 days"
+  last_checked: 2026-11-02
+  status: provisional
+
+- key: retention.outbox_keep_days
+  value: "14"
+  type: integer
+  kind: product
+  valid_from: 2026-11-02
+  source_url: team/docs/lld-0.md
+  source_title: "LLD-0 §3.7: sent outbox rows are deleted after 14 days"
+  last_checked: 2026-11-02
+  status: provisional
+
+- key: retention.idempotency_keep_hours
+  value: "24"
+  type: integer
+  kind: product
+  valid_from: 2026-11-02
+  source_url: team/docs/lld-0.md
+  source_title: "LLD-0 §3.8: idempotency keys are kept 24 hours"
+  last_checked: 2026-11-02
+  status: provisional
+
+- key: retention.pending_signup_keep_hours
+  value: "24"
+  type: integer
+  kind: product
+  valid_from: 2026-11-02
+  source_url: team/docs/lld-1.md
+  source_title: "LLD-1 §12: pending sign-ups are purged after 24 hours"
+  last_checked: 2026-11-02
+  status: provisional
+  note: "Counted from the later of created_at and last_code_at."
+
+- key: retention.code_keep_hours
+  value: "24"
+  type: integer
+  kind: product
+  valid_from: 2026-11-02
+  source_url: team/docs/lld-1.md
+  source_title: "LLD-1 §12: verification codes are purged 24 hours after expiry or use"
+  last_checked: 2026-11-02
+  status: provisional
+
+- key: retention.session_keep_days
+  value: "30"
+  type: integer
+  kind: product
+  valid_from: 2026-11-02
+  source_url: team/docs/lld-1.md
+  source_title: "LLD-1 §12: sessions are purged 30 days after revocation or absolute expiry"
+  last_checked: 2026-11-02
+  status: provisional
+
+- key: retention.invitation_keep_days
+  value: "30"
+  type: integer
+  kind: product
+  valid_from: 2026-11-02
+  source_url: team/docs/lld-2.md
+  source_title: "LLD-2 §11: accepted, cancelled and expired invitations are purged 30 days after they close"
+  last_checked: 2026-11-02
+  status: provisional
