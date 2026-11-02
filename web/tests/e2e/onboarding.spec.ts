@@ -34,8 +34,29 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   // The checklist's product step opens the (still empty) products list.
   await setup.getByRole("link", { name: "Add your first product" }).click();
   await expect(page.getByRole("heading", { name: "Products" })).toBeVisible();
-  await expect(page.getByText("No products yet. Products you add appear here.")).toBeVisible();
+  await expect(page.getByText("No products yet. Add your first with New product.")).toBeVisible();
   await noSeriousAxeFindings(page);
+
+  // Add one, then find it in the list (cards at 360 px, a table at 1280 px).
+  await page.getByRole("link", { name: "New product" }).click();
+  await page.getByLabel("Product code").fill("SOAP-1");
+  await page.getByLabel("Name", { exact: true }).fill("Neem soap");
+  await page.getByLabel("HSN (optional)").fill("3401");
+  await page.getByLabel("Unit", { exact: true }).selectOption("NOS");
+  await page.getByLabel("Sale rate per unit, excluding GST (₹)").fill("1234.5");
+  await page.getByRole("radio", { name: "Taxable" }).check();
+  await page.getByLabel("GST rate", { exact: true }).selectOption("18");
+  await noSeriousAxeFindings(page);
+  await page.getByRole("button", { name: "Add product" }).click();
+  await expect(page.getByRole("heading", { name: "Neem soap" })).toBeVisible();
+  await page.getByRole("link", { name: "Products" }).click();
+  const row = page.getByRole("row").filter({ hasText: "Neem soap" });
+  await expect(row.getByText("₹1,234.50")).toBeVisible();
+  await expect(row.getByText("18%")).toBeVisible();
+  await expect(row.getByText("Not confirmed")).toBeVisible();
+  await noSeriousAxeFindings(page);
+  const overflow2 = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflow2).toBeLessThanOrEqual(0);
   await noSeriousAxeFindings(page);
 });
 
