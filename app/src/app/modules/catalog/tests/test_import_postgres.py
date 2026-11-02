@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from app import api as app_api
 from platform_common import storage
 from platform_common.clock import IST, FrozenClock, get_clock
-from platform_common.errors import Conflict, Deny
+from platform_common.errors import Conflict, Deny, Invalid
 from platform_common.uow import Principal
 
 from .. import product_import as imp
@@ -179,7 +179,9 @@ def test_a_wrong_header_fails_the_whole_file(shop, header, code):
 def test_files_the_reader_refuses_fail_the_run(shop):
     run = upload(shop, b"\xff\xfe not utf-8")
     assert (run.status, run.error_code) == ("failed", "file_rejected")
-    assert upload(shop, b"code\n", name="products.pdf").error_code == "file_rejected"
+    with pytest.raises(Invalid) as refused:  # only .csv and .xlsx get an upload at all
+        run_in(shop, lambda u: imp.start(u, "products.pdf", 5, TODAY))
+    assert refused.value.code == "file_type_unsupported"
 
 
 def test_changed_rows_add_a_rate_row_and_apply_only_when_asked(shop):  # AC3-14
@@ -354,3 +356,6 @@ def test_a_rate_that_no_longer_passes_at_confirm_is_left_stale(shop):  # #63 rev
     done = run_in(shop, lambda u: imp.apply(u, run.id, apply_changes=True, today=date(2025, 1, 1)))
     assert (done.counts["applied"], done.counts["stale"]) == (1, 1)
     assert set(products(shop)) == {"RICE-1"}  # RICE has no rate to re-check
+    oil = preview(shop, run.id)[0]
+    assert oil["outcome"] == "stale" and oil["errors"][0]["field"] == "gst_rate"
+    assert "rate list changed" in oil["errors"][0]["message"]  # not mistaken for someone's edit

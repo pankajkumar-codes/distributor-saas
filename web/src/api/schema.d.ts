@@ -496,7 +496,7 @@ export interface paths {
         put?: never;
         /**
          * Start Import
-         * @description A run and a presigned POST for exactly its key, at most catalog.import.max_bytes.
+         * @description A run and a presigned POST for exactly its key, type and declared size.
          */
         post: operations["start_import_api_v1_b__business_id__product_imports_post"];
         delete?: never;

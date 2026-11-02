@@ -40,10 +40,21 @@ def parse(ctx: jobs.JobContext) -> dict:
 
 @jobs.handler(APPLY)
 def apply(ctx: jobs.JobContext) -> dict:
+    """All or nothing. If the apply can't finish (a refusal, or the last attempt's error),
+    its work is rolled back and the run ends `failed` in the same transaction, so the user
+    sees why and can discard it or upload again instead of waiting on a dead job."""
     run_id = _run_id(ctx)
+    run = imp.get_run(ctx.uow, run_id)
     try:
-        run = imp.get_run(ctx.uow, run_id)
-        done = imp.apply(ctx.uow, run_id, bool(run.apply_changes), get_clock().today())
-    except (AppError, Deny) as exc:
-        raise jobs.JobFailed(getattr(exc, "code", None) or str(exc)) from None
+        with ctx.uow.tx.begin_nested():
+            done = imp.apply(ctx.uow, run_id, bool(run.apply_changes), get_clock().today())
+    except Exception as exc:
+        last = ctx.attempt >= jobs.MAX_ATTEMPTS
+        if not isinstance(exc, (AppError, Deny)) and not last:
+            raise  # retried by the runner
+        if imp.get_run(ctx.uow, run_id).status != "preview":
+            raise jobs.JobFailed(getattr(exc, "code", None) or "error") from None  # applied meanwhile
+        code = getattr(exc, "code", None) if isinstance(exc, AppError) else "apply_failed"
+        imp.fail(ctx.uow, run_id, code, "The import couldn't be saved; nothing was changed. Upload the file again")
+        return {"run_id": str(run_id), "status": "failed"}
     return {"run_id": str(run_id), "status": done.status}

@@ -168,3 +168,64 @@ def test_permissions_and_another_business(shop):  # AC3-7
              else post(pg, url, {"apply_changes": True} if path == "/confirm" else None, sub="bob"))
         assert r.status_code == 404, (path, r.text)
     assert get(shop, "not-a-uuid").status_code == 404
+
+
+def test_only_csv_or_xlsx_and_the_upload_must_keep_its_type_and_size(shop):  # H-4, #69 review
+    pg, biz, _ = shop
+    pdf = post(pg, f"/api/v1/b/{biz}/product-imports", {"file_name": "p.pdf", "size_bytes": 10}, key=uuid.uuid4().hex)
+    assert (pdf.status_code, pdf.json()["error"]["code"]) == (422, "file_type_unsupported")
+    content = csv_file(SOAP)
+    r = post(pg, f"/api/v1/b/{biz}/product-imports", {"file_name": "p.csv", "size_bytes": len(content) + 1},
+             key=uuid.uuid4().hex)
+    import_id, up = r.json()["import_id"], r.json()["upload"]
+    assert up["fields"]["Content-Type"] == "text/csv"
+    other_type = pg.client.post(up["url"], data={**up["fields"], "Content-Type": "text/html"},
+                                files={"file": ("p.csv", content, "text/html")})
+    assert (other_type.status_code, other_type.text) == (403, "content_type")
+    pg.client.post(up["url"], data=up["fields"], files={"file": ("p.csv", content, "text/csv")})
+    short = post(pg, f"/api/v1/b/{biz}/product-imports/{import_id}/complete")  # declared one byte more
+    assert (short.status_code, short.json()["error"]["code"]) == (409, "upload_size_mismatch")
+
+
+def test_an_apply_that_cant_finish_ends_the_run_failed_not_stuck(shop, monkeypatch):  # #69 review
+    from platform_common.errors import Conflict
+
+    from .. import import_jobs
+
+    pg, biz, _ = shop
+    import_id, _ = upload(shop, csv_file(SOAP))
+    run_jobs(shop)
+
+    def refuse(*args, **kwargs):
+        raise Conflict("import_not_ready", "refused for the test")
+
+    monkeypatch.setattr(import_jobs.imp, "apply", refuse)
+    job_id = post(pg, f"/api/v1/b/{biz}/product-imports/{import_id}/confirm", {"apply_changes": True}).json()["job_id"]
+    assert run_jobs(shop) == ["done"]
+    job = pg.client.get(f"/api/v1/b/{biz}/jobs/{job_id}", headers=as_user("alice")).json()
+    assert job["result"]["status"] == "failed"
+    out = get(shop, import_id).json()
+    assert (out["status"], out["error_code"]) == ("failed", "import_not_ready")
+    assert post(pg, f"/api/v1/b/{biz}/product-imports/{import_id}/discard").json()["status"] == "failed"
+    assert pg.client.get(f"/api/v1/b/{biz}/products", headers=as_user("alice")).json()["items"] == []
+
+
+def test_a_confirmed_run_superseded_before_its_apply_ends_without_saving(shop):  # #69 review
+    """Run A is confirmed but its job hasn't run; the same file is uploaded again (B), which
+    supersedes A. A's apply job then refuses (A is no longer a preview) and saves nothing;
+    B can still be confirmed and applied once."""
+    pg, biz, _ = shop
+    content = csv_file(SOAP)
+    a, _ = upload(shop, content)
+    run_jobs(shop)
+    post(pg, f"/api/v1/b/{biz}/product-imports/{a}/confirm", {"apply_changes": True})
+    b, _ = upload(shop, content)
+    shop[2].sent.reverse()  # B's parse runs before A's apply (SQS gives no order)
+    assert run_jobs(shop) == ["done", "failed"]  # B's parse supersedes A; A's apply is refused
+    assert (get(shop, a).json()["status"], get(shop, a).json()["superseded_by"]) == ("discarded", b)
+    assert post(pg, f"/api/v1/b/{biz}/product-imports/{a}/discard").json()["status"] == "discarded"
+    post(pg, f"/api/v1/b/{biz}/product-imports/{b}/confirm", {"apply_changes": True})
+    assert run_jobs(shop) == ["done"]
+    assert get(shop, b).json()["counts"]["applied"] == 1
+    items = pg.client.get(f"/api/v1/b/{biz}/products", headers=as_user("alice")).json()["items"]
+    assert [p["code"] for p in items] == ["SOAP-1"]

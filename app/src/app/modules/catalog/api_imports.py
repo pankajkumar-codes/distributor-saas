@@ -14,7 +14,6 @@ from fastapi import APIRouter, Depends, Header, Request, Response
 from fastapi import status as http
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
 
-from app.modules.refdata import value_on
 from platform_common import jobs, storage
 from platform_common.clock import Clock, get_clock
 from platform_common.paging import PageParams, page_params
@@ -113,13 +112,15 @@ def start_import(
     clock: Annotated[Clock, Depends(get_clock)],
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ):
-    """A run and a presigned POST for exactly its key, at most catalog.import.max_bytes."""
+    """A run and a presigned POST for exactly its key, type and declared size."""
     today = clock.today()
 
     def start():
         run = imp.start(uow, body.file_name, body.size_bytes, today)
-        most = int(value_on(uow.tx, "catalog.import.max_bytes", today))
-        post = storage.get_store().presign_post(uow.principal.business_id, run.s3_key, max_bytes=most)
+        # The cap is the size the client declared (itself at most catalog.import.max_bytes);
+        # complete then requires exactly that size.
+        post = storage.get_store().presign_post(uow.principal.business_id, run.s3_key, max_bytes=body.size_bytes,
+                                               content_type=imp.content_type_for(run.file_name))
         return ImportStartOut(import_id=str(run.id), upload=UploadOut(
             url=post.url, fields=post.fields, expires_at=post.expires_at)).model_dump(mode="json")
 

@@ -37,6 +37,17 @@ _YES, _NO = ("yes", "y", "true", "1"), ("", "no", "n", "false", "0")
 _DATE_FORMATS = ("%d-%m-%Y", "%Y-%m-%d")
 _BATCH = 500  # rows per insert
 MAX_FILE_NAME = 255  # matches import_runs.file_name's check
+# The upload's Content-Type, by the file name's extension; the presigned POST pins it (H-4).
+CONTENT_TYPES = {".csv": "text/csv", ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
+
+
+def content_type_for(file_name: str) -> str:
+    """The one Content-Type a file may be uploaded with; any other kind of file is refused."""
+    dot = file_name.rfind(".")
+    kind = CONTENT_TYPES.get(file_name[dot:].lower()) if dot >= 0 else None
+    if kind is None:
+        raise Invalid("file_type_unsupported", "Upload a .csv or .xlsx file", field="file_name")
+    return kind
 
 
 def template_csv() -> bytes:
@@ -100,6 +111,7 @@ def start(uow: UnitOfWork, file_name: str, size_bytes: int, today: date) -> Run:
     name = (file_name or "").strip()
     if not name or len(name) > MAX_FILE_NAME or not name.isprintable():
         raise Invalid("file_name_invalid", "Give the file's name", field="file_name")
+    content_type_for(name)
     most = int(value_on(uow.tx, "catalog.import.max_bytes", today))
     if isinstance(size_bytes, bool) or not isinstance(size_bytes, int) or not 0 < size_bytes <= most:
         raise Invalid("file_too_large", f"The file can be at most {most // 1024} KB", field="size_bytes")
@@ -132,6 +144,10 @@ def uploaded(uow: UnitOfWork, run_id: uuid.UUID, today: date) -> Run:
     most = int(value_on(uow.tx, "catalog.import.max_bytes", today))
     if not 0 < info.size <= most:
         raise Invalid("file_too_large", f"The file can be at most {most // 1024} KB", field="size_bytes")
+    declared = uow.tx.execute(text("select size_bytes from catalog.import_runs where id = :r and business_id = :b"),
+                              {"r": run_id, "b": _business(uow)}).scalar_one()
+    if info.size != declared:
+        raise Conflict("upload_size_mismatch", "The uploaded file isn't the one you chose. Upload it again")
     return run
 
 
@@ -162,7 +178,9 @@ def discard(uow: UnitOfWork, run_id: uuid.UUID) -> Run:
     run = get_run(uow, run_id, lock=True)
     if run.status == "discarded":
         return run
-    if run.status not in ("awaiting_upload", "preview", "failed") or run.apply_changes is not None:
+    if run.status == "failed":
+        return run  # already ended, with nothing saved
+    if run.status not in ("awaiting_upload", "preview") or run.apply_changes is not None:
         raise Conflict("import_not_discardable", "This import has already started and can't be discarded")
     _set_run(uow, run_id, status="discarded", error_code="discarded", error_message="Discarded by the user")
     return get_run(uow, run_id)
@@ -540,15 +558,21 @@ def apply(uow: UnitOfWork, run_id: uuid.UUID, apply_changes: bool, today: date) 
         {"r": run_id, "b": _business(uow)},
     ).all()
     for row in pending:
+        problem = None
         if row.status == "changed" and not apply_changes:
             result = "skipped"
+        elif problem := _rate_problem(uow, row, today):
+            result = "stale"
         elif row.status == "new":
-            result = _apply_new(uow, run_id, row, today)
+            result = _apply_new(uow, run_id, row)
         else:
-            result = _apply_changed(uow, run_id, row, today)
+            result = _apply_changed(uow, run_id, row)
         outcome[result] += 1
-        uow.tx.execute(text("update catalog.import_rows set outcome = :o where id = :i and business_id = :b"),
-                       {"o": result, "i": row.id, "b": _business(uow)})
+        stmt = text("update catalog.import_rows set outcome = :o" + (", errors = :e" if problem else "")
+                    + " where id = :i and business_id = :b")
+        if problem:
+            stmt = stmt.bindparams(bindparam("e", type_=JSON))
+        uow.tx.execute(stmt, {"o": result, "e": [problem] if problem else None, "i": row.id, "b": _business(uow)})
     counts = {**(run.counts or {}), **outcome}
     _set_run(uow, run_id, status="applied", counts=counts, apply_changes=apply_changes, confirmed_by=_me(uow))
     uow.tx.execute(text("update catalog.import_runs set confirmed_at = now() where id = :r and business_id = :b"),
@@ -587,21 +611,22 @@ def _values(parsed: dict) -> dict:
     return out
 
 
-def _rate_still_allowed(uow: UnitOfWork, parsed: dict, today: date) -> bool:
-    """The preview checked the rate against refdata as it was then; refdata may have
-    changed before the confirm. A row whose rate no longer passes is left as stale."""
-    if parsed.get("gst_rate") is None:
-        return True
+def _rate_problem(uow: UnitOfWork, row, today: date) -> dict | None:
+    """The preview checked the rate against refdata as it stood then, and refdata may
+    have changed before the confirm. A rate that no longer passes leaves the row stale,
+    with the reason in its errors (so it doesn't read as someone else's edit)."""
+    parsed = row.parsed
+    adds_rate = row.status == "new" or any(d["field"] == "gst_rate" for d in row.diff or [])
+    if not adds_rate or parsed.get("gst_rate") is None:
+        return None
     try:
         check_rate(uow.tx, Decimal(parsed["gst_rate"]), date.fromisoformat(parsed["gst_rate_valid_from"]), today)
-    except AppError:
-        return False
-    return True
+    except AppError as exc:
+        return _error("gst_rate", exc.code, f"Not saved: {exc.message}. The GST rate list changed after the preview")
+    return None
 
 
-def _apply_new(uow: UnitOfWork, run_id: uuid.UUID, row, today: date) -> str:
-    if not _rate_still_allowed(uow, row.parsed, today):
-        return "stale"
+def _apply_new(uow: UnitOfWork, run_id: uuid.UUID, row) -> str:
     taken = uow.tx.execute(
         text("select id from catalog.products where business_id = :b and lower(code) = :k and status <> 'deleted'"
              " for update"),
@@ -629,9 +654,7 @@ def _apply_new(uow: UnitOfWork, run_id: uuid.UUID, row, today: date) -> str:
     return "applied"
 
 
-def _apply_changed(uow: UnitOfWork, run_id: uuid.UUID, row, today: date) -> str:
-    if any(d["field"] == "gst_rate" for d in row.diff) and not _rate_still_allowed(uow, row.parsed, today):
-        return "stale"
+def _apply_changed(uow: UnitOfWork, run_id: uuid.UUID, row) -> str:
     p = uow.tx.execute(
         text("select code, status, version from catalog.products where id = :p and business_id = :b for update"),
         {"p": row.product_id, "b": _business(uow)},
