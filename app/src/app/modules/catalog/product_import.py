@@ -36,6 +36,18 @@ REQUIRED = ("code", "name", "unit", "sale_rate", "gst_rate", "gst_rate_valid_fro
 _YES, _NO = ("yes", "y", "true", "1"), ("", "no", "n", "false", "0")
 _DATE_FORMATS = ("%d-%m-%Y", "%Y-%m-%d")
 _BATCH = 500  # rows per insert
+MAX_FILE_NAME = 255  # matches import_runs.file_name's check
+# The upload's Content-Type, by the file name's extension; the presigned POST pins it (H-4).
+CONTENT_TYPES = {".csv": "text/csv", ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
+
+
+def content_type_for(file_name: str) -> str:
+    """The one Content-Type a file may be uploaded with; any other kind of file is refused."""
+    dot = file_name.rfind(".")
+    kind = CONTENT_TYPES.get(file_name[dot:].lower()) if dot >= 0 else None
+    if kind is None:
+        raise Invalid("file_type_unsupported", "Upload a .csv or .xlsx file", field="file_name")
+    return kind
 
 
 def template_csv() -> bytes:
@@ -97,8 +109,9 @@ def start(uow: UnitOfWork, file_name: str, size_bytes: int, today: date) -> Run:
     """A run waiting for its upload (§6.3). The object key is fixed by the run's ID, in the
     uploads area, whose lifecycle rule expires raw files (TD-18)."""
     name = (file_name or "").strip()
-    if not name or len(name) > 255 or not name.isprintable():
+    if not name or len(name) > MAX_FILE_NAME or not name.isprintable():
         raise Invalid("file_name_invalid", "Give the file's name", field="file_name")
+    content_type_for(name)
     most = int(value_on(uow.tx, "catalog.import.max_bytes", today))
     if isinstance(size_bytes, bool) or not isinstance(size_bytes, int) or not 0 < size_bytes <= most:
         raise Invalid("file_too_large", f"The file can be at most {most // 1024} KB", field="size_bytes")
@@ -115,6 +128,62 @@ def start(uow: UnitOfWork, file_name: str, size_bytes: int, today: date) -> Run:
 def fail(uow: UnitOfWork, run_id: uuid.UUID, code: str, message: str) -> None:
     """For the jobs: a run that can't go on, with the reason shown to the user."""
     _set_run(uow, run_id, status="failed", error_code=code, error_message=message[:500])
+
+
+def uploaded(uow: UnitOfWork, run_id: uuid.UUID, today: date) -> Run:
+    """The complete route (§6.3): the file must be in the store, within the size limit,
+    before the parse job is queued. The store is asked, never the client."""
+    run = get_run(uow, run_id, lock=True)
+    if run.status == "discarded":
+        raise Conflict("import_discarded", "This upload was discarded. Upload the file again")
+    if run.status != "awaiting_upload":
+        return run  # already queued or read: the route returns the same parse job
+    info = storage.get_store().head(_business(uow), storage.check_key(_business(uow), run.s3_key))
+    if info is None:
+        raise Conflict("upload_missing", "The file hasn't finished uploading. Upload it again")
+    most = int(value_on(uow.tx, "catalog.import.max_bytes", today))
+    if not 0 < info.size <= most:
+        raise Invalid("file_too_large", f"The file can be at most {most // 1024} KB", field="size_bytes")
+    declared = uow.tx.execute(text("select size_bytes from catalog.import_runs where id = :r and business_id = :b"),
+                              {"r": run_id, "b": _business(uow)}).scalar_one()
+    if info.size != declared:
+        raise Conflict("upload_size_mismatch", "The uploaded file isn't the one you chose. Upload it again")
+    return run
+
+
+def read_upload(uow: UnitOfWork, run: Run) -> bytes:
+    """For the parse job: the uploaded bytes, from this business's key only."""
+    return storage.get_store().get_bytes(_business(uow), storage.check_key(_business(uow), run.s3_key))
+
+
+def request_apply(uow: UnitOfWork, run_id: uuid.UUID, apply_changes: bool) -> Run:
+    """The confirm route (§6.3): records the user's choice before the apply job runs. A
+    second confirm with the same choice is the same request; a different one is refused,
+    because the first is already on its way (AC3-13)."""
+    run = get_run(uow, run_id, lock=True)
+    if run.status in ("applying", "applied"):
+        raise Conflict("import_already_applied", "This file has already been imported")
+    if run.status != "preview":
+        raise Conflict("import_not_ready", "This upload isn't ready to import")
+    if run.apply_changes is not None and run.apply_changes != apply_changes:
+        raise Conflict("import_already_applied", "This file is already being imported")
+    if run.apply_changes is None:
+        _set_run(uow, run_id, apply_changes=apply_changes)
+    return get_run(uow, run_id)
+
+
+def discard(uow: UnitOfWork, run_id: uuid.UUID) -> Run:
+    """The discard route: a run nobody confirmed ends with nothing saved. Discarding a
+    discarded run is a no-op."""
+    run = get_run(uow, run_id, lock=True)
+    if run.status == "discarded":
+        return run
+    if run.status == "failed":
+        return run  # already ended, with nothing saved
+    if run.status not in ("awaiting_upload", "preview") or run.apply_changes is not None:
+        raise Conflict("import_not_discardable", "This import has already started and can't be discarded")
+    _set_run(uow, run_id, status="discarded", error_code="discarded", error_message="Discarded by the user")
+    return get_run(uow, run_id)
 
 
 # --- Parse -------------------------------------------------------------------------
@@ -162,7 +231,9 @@ def _check_row(uow: UnitOfWork, row: _Row, today: date) -> None:
     tx, cells, errors, fields = uow.tx, row.cells, [], {}
     for column, value in cells.items():
         if value and looks_like_formula(value):
-            errors.append(_error(column, "formula", "This looks like a spreadsheet formula; type the value instead"))
+            errors.append(_error(column, "formula", "A cell can't start with =, +, - or @: a spreadsheet would run it as a"
+                                                 " formula. Remove that first character, or add the product on the"
+                                                 " Products screen"))
     if errors:
         row.errors = errors
         return
@@ -465,7 +536,7 @@ def rows(uow: UnitOfWork, run_id: uuid.UUID, status: str | None, limit: int, off
 # --- Apply -------------------------------------------------------------------------
 
 
-def apply(uow: UnitOfWork, run_id: uuid.UUID, apply_changes: bool) -> Run:
+def apply(uow: UnitOfWork, run_id: uuid.UUID, apply_changes: bool, today: date) -> Run:
     """§7.4, in the caller's transaction: all or nothing. new rows become products with
     their first rate; changed rows apply when `apply_changes`; invalid and conflict rows
     never do. A row whose product moved after the preview is stale [RM43-6]."""
@@ -487,15 +558,21 @@ def apply(uow: UnitOfWork, run_id: uuid.UUID, apply_changes: bool) -> Run:
         {"r": run_id, "b": _business(uow)},
     ).all()
     for row in pending:
+        problem = None
         if row.status == "changed" and not apply_changes:
             result = "skipped"
+        elif problem := _rate_problem(uow, row, today):
+            result = "stale"
         elif row.status == "new":
             result = _apply_new(uow, run_id, row)
         else:
             result = _apply_changed(uow, run_id, row)
         outcome[result] += 1
-        uow.tx.execute(text("update catalog.import_rows set outcome = :o where id = :i and business_id = :b"),
-                       {"o": result, "i": row.id, "b": _business(uow)})
+        stmt = text("update catalog.import_rows set outcome = :o" + (", errors = :e" if problem else "")
+                    + " where id = :i and business_id = :b")
+        if problem:
+            stmt = stmt.bindparams(bindparam("e", type_=JSON))
+        uow.tx.execute(stmt, {"o": result, "e": [problem] if problem else None, "i": row.id, "b": _business(uow)})
     counts = {**(run.counts or {}), **outcome}
     _set_run(uow, run_id, status="applied", counts=counts, apply_changes=apply_changes, confirmed_by=_me(uow))
     uow.tx.execute(text("update catalog.import_runs set confirmed_at = now() where id = :r and business_id = :b"),
@@ -532,6 +609,21 @@ def _values(parsed: dict) -> dict:
     out = {k: parsed.get(k) for k in _COLUMNS}
     out["sale_rate"] = Decimal(out["sale_rate"])
     return out
+
+
+def _rate_problem(uow: UnitOfWork, row, today: date) -> dict | None:
+    """The preview checked the rate against refdata as it stood then, and refdata may
+    have changed before the confirm. A rate that no longer passes leaves the row stale,
+    with the reason in its errors (so it doesn't read as someone else's edit)."""
+    parsed = row.parsed
+    adds_rate = row.status == "new" or any(d["field"] == "gst_rate" for d in row.diff or [])
+    if not adds_rate or parsed.get("gst_rate") is None:
+        return None
+    try:
+        check_rate(uow.tx, Decimal(parsed["gst_rate"]), date.fromisoformat(parsed["gst_rate_valid_from"]), today)
+    except AppError as exc:
+        return _error("gst_rate", exc.code, f"Not saved: {exc.message}. The GST rate list changed after the preview")
+    return None
 
 
 def _apply_new(uow: UnitOfWork, run_id: uuid.UUID, row) -> str:

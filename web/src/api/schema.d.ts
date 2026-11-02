@@ -485,6 +485,104 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/product-imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Import
+         * @description A run and a presigned POST for exactly its key, type and declared size.
+         */
+        post: operations["start_import_api_v1_b__business_id__product_imports_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/product-imports/{import_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Import
+         * @description The run and its preview rows of one status (or all), in file order.
+         */
+        get: operations["get_import_api_v1_b__business_id__product_imports__import_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/product-imports/{import_id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete Import
+         * @description The upload finished: check it is there, then queue the parse. Calling it again
+         *     returns the same job.
+         */
+        post: operations["complete_import_api_v1_b__business_id__product_imports__import_id__complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/product-imports/{import_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Import
+         * @description Queue the apply (AC3-13). The same confirm again, while it is queued, returns the same job.
+         */
+        post: operations["confirm_import_api_v1_b__business_id__product_imports__import_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/product-imports/{import_id}/discard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Discard Import */
+        post: operations["discard_import_api_v1_b__business_id__product_imports__import_id__discard_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/products": {
         parameters: {
             query?: never;
@@ -1110,6 +1208,11 @@ export interface components {
              */
             status: "code_sent";
         };
+        /** ConfirmIn */
+        ConfirmIn: {
+            /** Apply Changes */
+            apply_changes: boolean;
+        };
         /** Confirmation */
         Confirmation: {
             /** At */
@@ -1317,6 +1420,80 @@ export interface components {
                 [key: string]: unknown;
             } | null;
         };
+        /** ImportOut */
+        ImportOut: {
+            /** Apply Changes */
+            apply_changes: boolean | null;
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            } | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Duplicate Of */
+            duplicate_of: string | null;
+            /** Error Code */
+            error_code: string | null;
+            /** Error Message */
+            error_message: string | null;
+            /** File Name */
+            file_name: string;
+            /** Has More */
+            has_more: boolean;
+            /** Id */
+            id: string;
+            /** Rows */
+            rows: components["schemas"]["ImportRowOut"][];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "awaiting_upload" | "parsing" | "preview" | "applying" | "applied" | "discarded" | "failed";
+            /** Superseded By */
+            superseded_by: string | null;
+        };
+        /** ImportRowOut */
+        ImportRowOut: {
+            /** Diff */
+            diff: {
+                [key: string]: string | null;
+            }[] | null;
+            /** Errors */
+            errors: {
+                [key: string]: string;
+            }[] | null;
+            /** Outcome */
+            outcome: ("applied" | "stale" | "skipped") | null;
+            /** Product Id */
+            product_id: string | null;
+            /** Row Number */
+            row_number: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "new" | "changed" | "unchanged" | "invalid" | "conflict";
+            /** Values */
+            values: {
+                [key: string]: string | boolean | null;
+            };
+        };
+        /** ImportStartIn */
+        ImportStartIn: {
+            /** File Name */
+            file_name: string;
+            /** Size Bytes */
+            size_bytes: number;
+        };
+        /** ImportStartOut */
+        ImportStartOut: {
+            /** Import Id */
+            import_id: string;
+            upload: components["schemas"]["UploadOut"];
+        };
         /** InviteIn */
         InviteIn: {
             /** Display Name */
@@ -1392,6 +1569,11 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /** JobRef */
+        JobRef: {
+            /** Job Id */
+            job_id: string;
         };
         /** JobsOut */
         JobsOut: {
@@ -1929,6 +2111,20 @@ export interface components {
             code: string;
             /** Name */
             name: string;
+        };
+        /** UploadOut */
+        UploadOut: {
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Fields */
+            fields: {
+                [key: string]: string;
+            };
+            /** Url */
+            url: string;
         };
         /** UserOut */
         UserOut: {
@@ -3123,6 +3319,179 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MemberOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_import_api_v1_b__business_id__product_imports_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportStartIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportStartOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_import_api_v1_b__business_id__product_imports__import_id__get: {
+        parameters: {
+            query?: {
+                rows?: ("new" | "changed" | "unchanged" | "invalid" | "conflict") | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                import_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    complete_import_api_v1_b__business_id__product_imports__import_id__complete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                import_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobRef"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_import_api_v1_b__business_id__product_imports__import_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                import_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobRef"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    discard_import_api_v1_b__business_id__product_imports__import_id__discard_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                import_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportOut"];
                 };
             };
             /** @description Validation Error */

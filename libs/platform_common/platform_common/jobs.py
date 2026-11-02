@@ -194,9 +194,11 @@ class JobView:
     error_code: str | None
     created_at: object
     updated_at: object
+    natural_key: str | None  # what the job is about, e.g. an import run's ID (never shown in the API)
 
 
-_COLUMNS = ("id, type, status, attempt, progress_done, progress_total, result, error_code, created_at, updated_at")
+_COLUMNS = ("id, type, status, attempt, progress_done, progress_total, result, error_code, created_at, updated_at,"
+            " natural_key")
 
 
 def get(uow: UnitOfWork, job_id: uuid.UUID) -> JobView | None:
