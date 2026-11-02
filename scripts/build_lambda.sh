@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds build/<name>.zip for the arm64 Python 3.12 Lambda runtime (LLD-0 §8).
-#   app.zip       the API and worker Lambdas (one artefact, two handlers:
-#                 app.api.handler and app.worker.handler)
+#   app.zip       the API, worker and mailer Lambdas (one artefact, three handlers:
+#                 app.api.handler, app.worker.handler and app.mailer.handler)
 #   migrator.zip  migrator.handler.handler, with every module's migrations,
 #                 platform_common's (as module "platform") and refdata/ (LLD-0 §6)
 # Usage: scripts/build_lambda.sh app   (or: migrator, all)

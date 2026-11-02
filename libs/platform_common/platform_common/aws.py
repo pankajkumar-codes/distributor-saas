@@ -1,8 +1,9 @@
-"""AWS adapters for the queue and storage ports: SqsQueue and S3ObjectStore.
+"""AWS adapters: SqsQueue, S3ObjectStore, SesSender and get_parameter.
 
-This is the only module that imports boto3, and only the app's start-up code imports
-it, when JOBS_QUEUE_URL / UPLOADS_BUCKET are set (in AWS). Tests and local runs use
-FakeQueue, InlineQueue and LocalObjectStore and never load this file.
+This is the only module that imports boto3, and it is loaded only on Lambda: by the
+app's start-up code when JOBS_QUEUE_URL / UPLOADS_BUCKET / MAIL_QUEUE_URL are set, by
+`secrets` for a `*_PARAM` setting, and by the mailer Lambda. Tests and local runs use
+FakeQueue, InlineQueue, LocalObjectStore and FakeMailer and never load this file.
 """
 
 import json
@@ -82,3 +83,26 @@ class S3ObjectStore:
     def delete(self, business_id, key) -> None:
         check_key(business_id, key)
         self.client.delete_object(Bucket=self.bucket, Key=key)
+
+
+class SesSender:
+    """Sends one plain-text email through SES v2 from our verified domain. The mailer
+    Lambda's role may call ses:SendEmail on that identity only (HLD §4)."""
+
+    def __init__(self, from_address: str, client=None):
+        self.from_address = from_address
+        self.client = client or boto3.client("sesv2")
+
+    def send(self, to: str, subject: str, body: str) -> str:
+        r = self.client.send_email(
+            FromEmailAddress=self.from_address,
+            Destination={"ToAddresses": [to]},
+            Content={"Simple": {"Subject": {"Data": subject, "Charset": "UTF-8"},
+                                "Body": {"Text": {"Data": body, "Charset": "UTF-8"}}}},
+        )
+        return r["MessageId"]
+
+
+def get_parameter(name: str) -> str:
+    """A Parameter Store SecureString, decrypted (the aws/ssm key)."""
+    return boto3.client("ssm").get_parameter(Name=name, WithDecryption=True)["Parameter"]["Value"]
