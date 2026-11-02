@@ -22,6 +22,9 @@ permissions:
   catalog.edit:
     row: Products and customers
     roles: [owner, admin, billing]
+  documents.view:
+    row: View invoices and credit notes
+    roles: [owner, admin, billing, ca]
   documents.create:
     row: Create and finalize invoices and credit notes
     roles: [owner, admin, billing]
