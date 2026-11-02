@@ -5271,6 +5271,45 @@
         ]
       }
     },
+    "/api/v1/b/{business_id}/products/import-template": {
+      "get": {
+        "description": "The header row of the product file (\u00a77.1). Column names are matched exactly.",
+        "operationId": "import_template_api_v1_b__business_id__products_import_template_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/csv": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Template",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
     "/api/v1/b/{business_id}/products/{product_id}": {
       "delete": {
         "operationId": "delete_product_api_v1_b__business_id__products__product_id__delete",

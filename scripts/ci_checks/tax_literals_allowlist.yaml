@@ -57,3 +57,12 @@
 - path: app/src/app/modules/catalog/customers.py
   value: "200"
   reason: "address line widths, the columns' varchar(200)"
+- path: app/src/app/modules/catalog/product_import.py
+  value: "500"
+  reason: "rows per insert batch, and the cap on a stored error message; not tax rules"
+- path: app/src/app/modules/catalog/product_import.py
+  value: "255"
+  reason: "longest file name kept for an import run (matches the column check)"
+- path: app/src/app/modules/catalog/product_import.py
+  value: "1024"
+  reason: "bytes per KB in the file-size message"

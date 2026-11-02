@@ -53,6 +53,8 @@ ACTIONS: dict[str, tuple[str, str]] = {
     "customer.archived": ("Archived a customer", "invoices"),
     "customer.unarchived": ("Restored a customer", "invoices"),
     "customer.deleted": ("Deleted a customer", "invoices"),
+    "catalog.import_applied": ("Imported products from a file", "invoices"),
+    "catalog.import_superseded": ("Replaced a product file preview with a new upload", "invoices"),
     # Rows copied from identity.audit_events (LLD-1 §3.6) keep their stock-era names.
     "tenant.created": ("Created the business", "team_settings"),
     "member.added": ("Added a member", "team_settings"),
@@ -79,6 +81,7 @@ TARGETS: dict[str, tuple[str, Permission]] = {
     "document": ("/invoices/{id}", Permission.CATALOG_VIEW),
     "product": ("/products/{id}", Permission.CATALOG_VIEW),
     "customer": ("/customers/{id}", Permission.CATALOG_VIEW),
+    "product_import": ("/products/imports/{id}", Permission.CATALOG_VIEW),
     "return_instance": ("/returns/{id}", Permission.RETURNS_PREPARE),
     "member": ("/settings/team", Permission.MEMBERS_MANAGE),
     "membership": ("/settings/team", Permission.MEMBERS_MANAGE),

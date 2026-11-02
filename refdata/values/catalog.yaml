@@ -1,6 +1,6 @@
 # Catalog rules (LLD-3 §3, §4, §11). The product rows are LLD-3's proposals, provisional
 # until the PO confirms them; the tax row is the GST expert's rate-change warning
-# window. Rows for the CSV import come with S3-c.
+# window.
 
 - key: catalog.rate_change_warning_days
   value: "30"
@@ -54,3 +54,33 @@
   last_checked: 2026-10-27
   status: provisional
   note: "Shape only; it never says whether a PIN exists or matches the state."
+
+- key: catalog.import.max_bytes
+  value: "2097152"
+  type: integer
+  kind: product
+  valid_from: 2017-07-01
+  source_url: team/docs/lld-3.md
+  source_title: "LLD-3 §7.1, §7.2 and §11: the largest product CSV or XLSX accepted, in bytes (proposal 2 MB)"
+  last_checked: 2026-11-02
+  status: provisional
+
+- key: catalog.import.max_rows
+  value: "5000"
+  type: integer
+  kind: product
+  valid_from: 2017-07-01
+  source_url: team/docs/lld-3.md
+  source_title: "LLD-3 §7.1, §7.2 and §11: the most data rows in one product file (proposal 5,000)"
+  last_checked: 2026-11-02
+  status: provisional
+
+- key: catalog.import.keep_days
+  value: "90"
+  type: integer
+  kind: product
+  valid_from: 2017-07-01
+  source_url: team/docs/lld-3.md
+  source_title: "LLD-3 §7.1, §7.2 and §11: how long import runs and rows are kept (proposal 90, matching raw uploads, NF-4)"
+  last_checked: 2026-11-02
+  status: provisional
