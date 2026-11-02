@@ -359,3 +359,18 @@ def test_a_rate_that_no_longer_passes_at_confirm_is_left_stale(shop):  # #63 rev
     oil = preview(shop, run.id)[0]
     assert oil["outcome"] == "stale" and oil["errors"][0]["field"] == "gst_rate"
     assert "rate list changed" in oil["errors"][0]["message"]  # not mistaken for someone's edit
+
+
+def test_an_import_rows_outcome_and_errors_are_set_once(shop):  # #69 review (Staff)
+    run = upload(shop, csv_file(OIL))
+    run_in(shop, lambda u: imp.apply(u, run.id, apply_changes=True, today=TODAY))
+
+    def update(sql):
+        return lambda u: u.tx.execute(text(f"update catalog.import_rows set {sql} where run_id = :r"), {"r": run.id})
+
+    with pytest.raises(Exception, match="outcome is set once"):
+        run_in(shop, update("outcome = 'stale'"))
+    run_in(shop, update("errors = '[]'::jsonb"))  # errors were empty: the first write is allowed
+    with pytest.raises(Exception, match="errors are set once"):
+        run_in(shop, update("errors = '[{}]'::jsonb"))
+    assert preview(shop, run.id)[0]["outcome"] == "applied"
