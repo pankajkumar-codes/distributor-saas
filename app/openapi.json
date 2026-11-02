@@ -472,6 +472,20 @@
         "title": "CodeSent",
         "type": "object"
       },
+      "ConfirmIn": {
+        "additionalProperties": false,
+        "properties": {
+          "apply_changes": {
+            "title": "Apply Changes",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "apply_changes"
+        ],
+        "title": "ConfirmIn",
+        "type": "object"
+      },
       "Confirmation": {
         "properties": {
           "at": {
@@ -1103,6 +1117,284 @@
         "title": "HomeOut",
         "type": "object"
       },
+      "ImportOut": {
+        "properties": {
+          "apply_changes": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Apply Changes"
+          },
+          "counts": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counts"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "duplicate_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duplicate Of"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "file_name": {
+            "title": "File Name",
+            "type": "string"
+          },
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/ImportRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "awaiting_upload",
+              "parsing",
+              "preview",
+              "applying",
+              "applied",
+              "discarded",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "superseded_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Superseded By"
+          }
+        },
+        "required": [
+          "id",
+          "file_name",
+          "status",
+          "counts",
+          "error_code",
+          "error_message",
+          "duplicate_of",
+          "superseded_by",
+          "apply_changes",
+          "created_at",
+          "rows",
+          "has_more"
+        ],
+        "title": "ImportOut",
+        "type": "object"
+      },
+      "ImportRowOut": {
+        "properties": {
+          "diff": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Diff"
+          },
+          "errors": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errors"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "enum": [
+                  "applied",
+                  "stale",
+                  "skipped"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome"
+          },
+          "product_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Id"
+          },
+          "row_number": {
+            "title": "Row Number",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "new",
+              "changed",
+              "unchanged",
+              "invalid",
+              "conflict"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "values": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "row_number",
+          "status",
+          "values",
+          "product_id",
+          "diff",
+          "errors",
+          "outcome"
+        ],
+        "title": "ImportRowOut",
+        "type": "object"
+      },
+      "ImportStartIn": {
+        "additionalProperties": false,
+        "properties": {
+          "file_name": {
+            "maxLength": 300,
+            "title": "File Name",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "file_name",
+          "size_bytes"
+        ],
+        "title": "ImportStartIn",
+        "type": "object"
+      },
+      "ImportStartOut": {
+        "properties": {
+          "import_id": {
+            "title": "Import Id",
+            "type": "string"
+          },
+          "upload": {
+            "$ref": "#/components/schemas/UploadOut"
+          }
+        },
+        "required": [
+          "import_id",
+          "upload"
+        ],
+        "title": "ImportStartOut",
+        "type": "object"
+      },
       "InviteIn": {
         "properties": {
           "display_name": {
@@ -1300,6 +1592,19 @@
           "updated_at"
         ],
         "title": "JobOut",
+        "type": "object"
+      },
+      "JobRef": {
+        "properties": {
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "title": "JobRef",
         "type": "object"
       },
       "JobsOut": {
@@ -3037,6 +3342,33 @@
           "name"
         ],
         "title": "UnitOut",
+        "type": "object"
+      },
+      "UploadOut": {
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "fields": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Fields",
+            "type": "object"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "fields",
+          "expires_at"
+        ],
+        "title": "UploadOut",
         "type": "object"
       },
       "UserOut": {
@@ -5067,6 +5399,339 @@
         "summary": "Reactivate Member",
         "tags": [
           "team"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/product-imports": {
+      "post": {
+        "description": "A run and a presigned POST for exactly its key, at most catalog.import.max_bytes.",
+        "operationId": "start_import_api_v1_b__business_id__product_imports_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportStartIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportStartOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Import",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/product-imports/{import_id}": {
+      "get": {
+        "description": "The run and its preview rows of one status (or all), in file order.",
+        "operationId": "get_import_api_v1_b__business_id__product_imports__import_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "import_id",
+            "required": true,
+            "schema": {
+              "title": "Import Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "rows",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "new",
+                    "changed",
+                    "unchanged",
+                    "invalid",
+                    "conflict"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Rows"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 1000000,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Import",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/product-imports/{import_id}/complete": {
+      "post": {
+        "description": "The upload finished: check it is there, then queue the parse. Calling it again\nreturns the same job.",
+        "operationId": "complete_import_api_v1_b__business_id__product_imports__import_id__complete_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "import_id",
+            "required": true,
+            "schema": {
+              "title": "Import Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobRef"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Complete Import",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/product-imports/{import_id}/confirm": {
+      "post": {
+        "description": "Queue the apply (AC3-13). The same confirm again, while it is queued, returns the same job.",
+        "operationId": "confirm_import_api_v1_b__business_id__product_imports__import_id__confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "import_id",
+            "required": true,
+            "schema": {
+              "title": "Import Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobRef"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm Import",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/product-imports/{import_id}/discard": {
+      "post": {
+        "operationId": "discard_import_api_v1_b__business_id__product_imports__import_id__discard_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "import_id",
+            "required": true,
+            "schema": {
+              "title": "Import Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Discard Import",
+        "tags": [
+          "catalog"
         ]
       }
     },

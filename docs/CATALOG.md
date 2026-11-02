@@ -18,6 +18,11 @@ LLD-3 parts S3-a (products) and S3-b (customers). The code is in `app/src/app/mo
 | `GET /units` | `catalog.view` | The UQC list for the unit picker. |
 | `GET /api/v1/refdata/gst-rates?on=` | signed in (refdata, `me_uow`) | The rates on `gst.rate_values` on `on` (default today in India), ascending, as decimal strings, for the rate picker. Empty before GST began. It lists rates and never suggests one. |
 | `GET /products/import-template` | `catalog.view` | The CSV header row (`products-template.csv`): code, name, hsn, unit, sale_rate, gst_rate, gst_rate_valid_from, barcode, tax_category, has_cess. |
+| `POST /product-imports` | `catalog.edit` | `{file_name, size_bytes}` with an `Idempotency-Key`. 201 `{import_id, upload: {url, fields, expires_at}}`: a presigned POST for exactly `uploads/b/<business>/<import>`, at most `catalog.import.max_bytes`. |
+| `POST /product-imports/{id}/complete` | `catalog.edit` | Checks the file is in the store, then 202 `{job_id}` for the parse job. 409 `upload_missing` before the upload lands; calling it again returns the same job. |
+| `GET /product-imports/{id}` | `catalog.view` | Status, counts, error, and the preview rows (`rows=new|changed|unchanged|invalid|conflict`, `limit`, `offset`) with each row's values, diff, errors and outcome. |
+| `POST /product-imports/{id}/confirm` | `catalog.edit` | `{apply_changes}`. 202 `{job_id}` for the apply job; the same confirm while queued returns the same job. 409 `import_not_ready`, `import_already_applied`. |
+| `POST /product-imports/{id}/discard` | `catalog.edit` | Ends an unconfirmed run with nothing saved. 409 `import_not_discardable` once confirmed. |
 | `GET /customers` | `catalog.view` | `q` matches a name fragment or a GSTIN prefix. `status` is `active` (default), `archived` or `all`. Paging with `limit` and `offset`. |
 | `POST /customers` | `catalog.edit` | `{name, gstin?, billing: {line1?, line2?, city?, pin?, state_code?}, delivery_same_as_billing, delivery?, credit_days}`, with an `Idempotency-Key`. |
 | `GET /customers/{cid}` | `catalog.view` | The customer, with `version`, `in_use` and `warnings`. |
@@ -58,7 +63,7 @@ LLD-3 parts S3-a (products) and S3-b (customers). The code is in `app/src/app/mo
 
 ## Product import (S3-c1: the core, LLD-3 §7)
 
-`catalog/product_import.py` holds the import as plain functions over the file's bytes; S3-c2 adds the upload, preview and confirm routes and runs them as jobs.
+`catalog/product_import.py` holds the import as plain functions over the file's bytes; `catalog/import_jobs.py` runs parse and apply as jobs (`catalog.import_parse`, `catalog.import_apply`, keyed by the run, so one of each per run). Made-up 5,000-row file, locally: parse about 9 s, apply about 39 s, inside the worker's 15-minute limit.
 
 - `start` makes a run waiting for its upload. Its object key is `uploads/b/<business>/<run>` (`storage.key_for`, #58), never the user's file name. The file's size is checked against `catalog.import.max_bytes`.
 - `parse` reads the file with imports' `read_table` (CSV or Excel), checks the header (no missing, repeated or unknown column), checks every row and classifies it against the saved products: `new`, `changed` (with a diff of saved and file values), `unchanged`, `invalid` (with each field's error) (also a move between taxable and not taxable) or `conflict` (a code or barcode repeated in the file, or a barcode another product has). Nothing is saved to products yet. A cell that would run as a spreadsheet formula makes its row invalid.
@@ -75,7 +80,7 @@ LLD-3 parts S3-a (products) and S3-b (customers). The code is in `app/src/app/mo
 
 ## Not yet
 
-- The import's routes, jobs and upload (S3-c2), and deleting old runs after `catalog.import.keep_days` (LLD-6 retention).
+- Deleting old runs and their uploads after `catalog.import.keep_days` (LLD-6 retention), and the web screens for the import.
 - Customer retention after business closure (LLD-6 owns the rule; the table holds buyer business data).
 - Home's `first_product` and `first_customer` steps still read "not done"; wiring them to `setup_counts` is Home's change.
 - The HSN-digits-by-turnover warning (`hsn_min_digits`), which needs business refdata.

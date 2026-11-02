@@ -98,7 +98,7 @@ def test_a_clean_file_previews_then_applies_new_products(shop):  # AC3-13, AC3-1
                                                      "conflict": 0})
     assert products(shop) == {}  # nothing is saved before confirm
     assert run.s3_key == storage.key_for(shop[1], "uploads", run.id)  # area-first (#58)
-    done = run_in(shop, lambda u: imp.apply(u, run.id, apply_changes=True))
+    done = run_in(shop, lambda u: imp.apply(u, run.id, apply_changes=True, today=TODAY))
     assert done.status == "applied" and done.counts["applied"] == 3
     saved = products(shop)
     assert saved["SOAP-1"].sale_rate == Decimal("45.50") and saved["RICE-1"].status == "active"
@@ -116,12 +116,12 @@ def test_a_clean_file_previews_then_applies_new_products(shop):  # AC3-13, AC3-1
 def test_the_same_file_twice_is_already_imported(shop):  # AC3-12, AC3-21
     content = csv_file(SOAP)
     first = upload(shop, content)
-    run_in(shop, lambda u: imp.apply(u, first.id, apply_changes=True))
+    run_in(shop, lambda u: imp.apply(u, first.id, apply_changes=True, today=TODAY))
     again = upload(shop, content, name="products (1).csv")
     assert (again.status, again.duplicate_of, again.error_code) == ("discarded", first.id, "already_imported")
     assert len(products(shop)) == 1
     with pytest.raises(Conflict) as e:
-        run_in(shop, lambda u: imp.apply(u, again.id, apply_changes=True))
+        run_in(shop, lambda u: imp.apply(u, again.id, apply_changes=True, today=TODAY))
     assert e.value.code == "import_not_ready"
 
 
@@ -133,7 +133,7 @@ def test_a_second_upload_supersedes_an_open_preview(shop):  # AC3-21
     old = run_in(shop, lambda u: imp.get_run(u, first.id))
     assert (old.status, old.superseded_by) == ("discarded", second.id)
     with pytest.raises(Conflict):
-        run_in(shop, lambda u: imp.apply(u, first.id, apply_changes=True))
+        run_in(shop, lambda u: imp.apply(u, first.id, apply_changes=True, today=TODAY))
 
 
 def test_repeated_codes_invalid_rows_and_formulas_are_never_applied(shop):  # AC3-12
@@ -157,7 +157,7 @@ def test_repeated_codes_invalid_rows_and_formulas_are_never_applied(shop):  # AC
     assert by_row[6]["errors"][0]["code"] == "rate_required"
     assert by_row[7]["errors"][0]["code"] == "date_invalid"
     assert by_row[8]["errors"][0]["code"] == "uqc_unknown"
-    run_in(shop, lambda u: imp.apply(u, run.id, apply_changes=True))
+    run_in(shop, lambda u: imp.apply(u, run.id, apply_changes=True, today=TODAY))
     assert set(products(shop)) == {"OIL-1"}
 
 
@@ -184,7 +184,7 @@ def test_files_the_reader_refuses_fail_the_run(shop):
 
 def test_changed_rows_add_a_rate_row_and_apply_only_when_asked(shop):  # AC3-14
     first = upload(shop, csv_file(SOAP, OIL))
-    run_in(shop, lambda u: imp.apply(u, first.id, apply_changes=True))
+    run_in(shop, lambda u: imp.apply(u, first.id, apply_changes=True, today=TODAY))
     run = upload(shop, csv_file(
         "SOAP-1,Neem soap 100 g,3401,PCS,45.5,18,01-04-2026,8901234567890,taxable,no",  # 45.5 == 45.50
         "OIL-1,Coconut oil 500 ml,1513,BTL,125,18,2026-07-01,,taxable,",
@@ -193,11 +193,11 @@ def test_changed_rows_add_a_rate_row_and_apply_only_when_asked(shop):  # AC3-14
     changed = preview(shop, run.id, "changed")[0]
     assert {d["field"]: (d["saved"], d["file"]) for d in changed["diff"]} == {
         "sale_rate": ("120", "125"), "gst_rate": ("5", "18 from 2026-07-01")}
-    skipped = run_in(shop, lambda u: imp.apply(u, run.id, apply_changes=False))
+    skipped = run_in(shop, lambda u: imp.apply(u, run.id, apply_changes=False, today=TODAY))
     assert (skipped.counts["skipped"], products(shop)["OIL-1"].sale_rate) == (1, Decimal("120.00"))
 
     again = upload(shop, csv_file("OIL-1,Coconut oil 500 ml,1513,BTL,125,18,2026-07-01,,taxable,"))
-    run_in(shop, lambda u: imp.apply(u, again.id, apply_changes=True))
+    run_in(shop, lambda u: imp.apply(u, again.id, apply_changes=True, today=TODAY))
     assert products(shop)["OIL-1"].sale_rate == Decimal("125.00")
     # History is kept: the old rate ends where the new one starts (L3-1).
     assert [(r, f) for r, f, _, _ in rates(shop, "OIL-1")] == [
@@ -206,20 +206,20 @@ def test_changed_rows_add_a_rate_row_and_apply_only_when_asked(shop):  # AC3-14
 
 def test_an_archived_product_comes_back_explicitly(shop):
     first = upload(shop, csv_file(OIL))
-    run_in(shop, lambda u: imp.apply(u, first.id, apply_changes=True))
+    run_in(shop, lambda u: imp.apply(u, first.id, apply_changes=True, today=TODAY))
     pg, biz, _ = shop
     pid = pg.client.get(f"/api/v1/b/{biz}/products?q=OIL", headers=as_user("alice")).json()["items"][0]["id"]
     pg.client.post(f"/api/v1/b/{biz}/products/{pid}/archive", headers=as_user("alice"))
     run = upload(shop, csv_file(OIL + " "))  # a different file, same content
     diff = preview(shop, run.id, "changed")[0]["diff"]
     assert diff == [{"field": "status", "saved": "archived", "file": "active"}]
-    run_in(shop, lambda u: imp.apply(u, run.id, apply_changes=True))
+    run_in(shop, lambda u: imp.apply(u, run.id, apply_changes=True, today=TODAY))
     assert products(shop)["OIL-1"].status == "active"
 
 
 def test_rows_that_moved_after_the_preview_are_stale(shop):  # AC3-22, RM43-6
     first = upload(shop, csv_file(OIL))
-    run_in(shop, lambda u: imp.apply(u, first.id, apply_changes=True))
+    run_in(shop, lambda u: imp.apply(u, first.id, apply_changes=True, today=TODAY))
     run = upload(shop, csv_file(SOAP, "OIL-1,Coconut oil 500 ml,1513,BTL,130,5,2026-04-01,,taxable,", RICE))
     assert run.counts["new"] == 2 and run.counts["changed"] == 1
     pg, biz, _ = shop
@@ -230,7 +230,7 @@ def test_rows_that_moved_after_the_preview_are_stale(shop):  # AC3-22, RM43-6
     r = pg.client.post(f"/api/v1/b/{biz}/products/{pid}/rates", json={"rate": "18", "valid_from": "2026-09-01"},
                        headers={**as_user("alice"), "Idempotency-Key": uuid.uuid4().hex})
     assert r.status_code == 201
-    done = run_in(shop, lambda u: imp.apply(u, run.id, apply_changes=True))
+    done = run_in(shop, lambda u: imp.apply(u, run.id, apply_changes=True, today=TODAY))
     assert (done.counts["applied"], done.counts["stale"]) == (1, 2)
     outcomes = {r["row_number"]: r["outcome"] for r in preview(shop, run.id)}
     assert outcomes == {2: "stale", 3: "stale", 4: "applied"}
@@ -241,9 +241,9 @@ def test_rows_that_moved_after_the_preview_are_stale(shop):  # AC3-22, RM43-6
 
 def test_a_double_confirm_applies_once(shop):  # AC3-13
     run = upload(shop, csv_file(SOAP))
-    run_in(shop, lambda u: imp.apply(u, run.id, apply_changes=True))
+    run_in(shop, lambda u: imp.apply(u, run.id, apply_changes=True, today=TODAY))
     with pytest.raises(Conflict) as e:
-        run_in(shop, lambda u: imp.apply(u, run.id, apply_changes=True))
+        run_in(shop, lambda u: imp.apply(u, run.id, apply_changes=True, today=TODAY))
     assert e.value.code == "import_already_applied"
     assert len(products(shop)) == 1
 
@@ -252,7 +252,7 @@ def test_a_failed_apply_rolls_back_everything(shop):  # AC3-13: all or nothing
     run = upload(shop, csv_file(SOAP, OIL))
 
     def boom(u):
-        imp.apply(u, run.id, apply_changes=True)
+        imp.apply(u, run.id, apply_changes=True, today=TODAY)
         raise RuntimeError("worker died")
 
     with pytest.raises(RuntimeError):
@@ -298,16 +298,16 @@ def test_another_business_run_is_not_found(shop):
         with pytest.raises(Deny):
             imp.get_run(uow, run.id)
         with pytest.raises(Deny):
-            imp.apply(uow, run.id, apply_changes=True)
+            imp.apply(uow, run.id, apply_changes=True, today=TODAY)
         assert tx.execute(text("select count(*) from catalog.import_rows")).scalar() == 0
 
 
 def test_every_save_names_the_run_and_file_row_it_came_from(shop):  # CLAUDE.md rule 10
     pg, biz, _ = shop
     first = upload(shop, csv_file(OIL))
-    run_in(shop, lambda u: imp.apply(u, first.id, apply_changes=True))
+    run_in(shop, lambda u: imp.apply(u, first.id, apply_changes=True, today=TODAY))
     run = upload(shop, csv_file(RICE, "OIL-1,Coconut oil 1 l,1513,BTL,120,18,2026-07-01,,taxable,"))
-    run_in(shop, lambda u: imp.apply(u, run.id, apply_changes=True))
+    run_in(shop, lambda u: imp.apply(u, run.id, apply_changes=True, today=TODAY))
     with pg.owner.connect() as c:
         audited = {(r.action, r.data.get("import_run_id"), r.data.get("row_number")) for r in c.execute(text(
             "select action, data from platform.audit_log where business_id = :b and action like 'product.%'"),
@@ -345,3 +345,12 @@ def test_two_parses_of_the_same_file_at_once_leave_one_preview(shop):  # RM43-5,
             assert second.result(timeout=10).status == "preview"
     old = run_in(shop, lambda u: imp.get_run(u, a.id))
     assert (old.status, old.superseded_by) == ("discarded", b.id)
+
+
+def test_a_rate_that_no_longer_passes_at_confirm_is_left_stale(shop):  # #63 review nit
+    """The preview checked the rate as refdata stood then; the apply checks it again. Here
+    the date window has moved (the same check that a changed gst.rate_values would fail)."""
+    run = upload(shop, csv_file(OIL, RICE))
+    done = run_in(shop, lambda u: imp.apply(u, run.id, apply_changes=True, today=date(2025, 1, 1)))
+    assert (done.counts["applied"], done.counts["stale"]) == (1, 1)
+    assert set(products(shop)) == {"RICE-1"}  # RICE has no rate to re-check

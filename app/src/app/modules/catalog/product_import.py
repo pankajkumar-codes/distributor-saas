@@ -36,6 +36,7 @@ REQUIRED = ("code", "name", "unit", "sale_rate", "gst_rate", "gst_rate_valid_fro
 _YES, _NO = ("yes", "y", "true", "1"), ("", "no", "n", "false", "0")
 _DATE_FORMATS = ("%d-%m-%Y", "%Y-%m-%d")
 _BATCH = 500  # rows per insert
+MAX_FILE_NAME = 255  # matches import_runs.file_name's check
 
 
 def template_csv() -> bytes:
@@ -97,7 +98,7 @@ def start(uow: UnitOfWork, file_name: str, size_bytes: int, today: date) -> Run:
     """A run waiting for its upload (§6.3). The object key is fixed by the run's ID, in the
     uploads area, whose lifecycle rule expires raw files (TD-18)."""
     name = (file_name or "").strip()
-    if not name or len(name) > 255 or not name.isprintable():
+    if not name or len(name) > MAX_FILE_NAME or not name.isprintable():
         raise Invalid("file_name_invalid", "Give the file's name", field="file_name")
     most = int(value_on(uow.tx, "catalog.import.max_bytes", today))
     if isinstance(size_bytes, bool) or not isinstance(size_bytes, int) or not 0 < size_bytes <= most:
@@ -121,6 +122,8 @@ def uploaded(uow: UnitOfWork, run_id: uuid.UUID, today: date) -> Run:
     """The complete route (§6.3): the file must be in the store, within the size limit,
     before the parse job is queued. The store is asked, never the client."""
     run = get_run(uow, run_id, lock=True)
+    if run.status == "discarded":
+        raise Conflict("import_discarded", "This upload was discarded. Upload the file again")
     if run.status != "awaiting_upload":
         return run  # already queued or read: the route returns the same parse job
     info = storage.get_store().head(_business(uow), storage.check_key(_business(uow), run.s3_key))
@@ -210,7 +213,9 @@ def _check_row(uow: UnitOfWork, row: _Row, today: date) -> None:
     tx, cells, errors, fields = uow.tx, row.cells, [], {}
     for column, value in cells.items():
         if value and looks_like_formula(value):
-            errors.append(_error(column, "formula", "This looks like a spreadsheet formula; type the value instead"))
+            errors.append(_error(column, "formula", "A cell can't start with =, +, - or @: a spreadsheet would run it as a"
+                                                 " formula. Remove that first character, or add the product on the"
+                                                 " Products screen"))
     if errors:
         row.errors = errors
         return
@@ -513,7 +518,7 @@ def rows(uow: UnitOfWork, run_id: uuid.UUID, status: str | None, limit: int, off
 # --- Apply -------------------------------------------------------------------------
 
 
-def apply(uow: UnitOfWork, run_id: uuid.UUID, apply_changes: bool) -> Run:
+def apply(uow: UnitOfWork, run_id: uuid.UUID, apply_changes: bool, today: date) -> Run:
     """§7.4, in the caller's transaction: all or nothing. new rows become products with
     their first rate; changed rows apply when `apply_changes`; invalid and conflict rows
     never do. A row whose product moved after the preview is stale [RM43-6]."""
@@ -538,9 +543,9 @@ def apply(uow: UnitOfWork, run_id: uuid.UUID, apply_changes: bool) -> Run:
         if row.status == "changed" and not apply_changes:
             result = "skipped"
         elif row.status == "new":
-            result = _apply_new(uow, run_id, row)
+            result = _apply_new(uow, run_id, row, today)
         else:
-            result = _apply_changed(uow, run_id, row)
+            result = _apply_changed(uow, run_id, row, today)
         outcome[result] += 1
         uow.tx.execute(text("update catalog.import_rows set outcome = :o where id = :i and business_id = :b"),
                        {"o": result, "i": row.id, "b": _business(uow)})
@@ -582,7 +587,21 @@ def _values(parsed: dict) -> dict:
     return out
 
 
-def _apply_new(uow: UnitOfWork, run_id: uuid.UUID, row) -> str:
+def _rate_still_allowed(uow: UnitOfWork, parsed: dict, today: date) -> bool:
+    """The preview checked the rate against refdata as it was then; refdata may have
+    changed before the confirm. A row whose rate no longer passes is left as stale."""
+    if parsed.get("gst_rate") is None:
+        return True
+    try:
+        check_rate(uow.tx, Decimal(parsed["gst_rate"]), date.fromisoformat(parsed["gst_rate_valid_from"]), today)
+    except AppError:
+        return False
+    return True
+
+
+def _apply_new(uow: UnitOfWork, run_id: uuid.UUID, row, today: date) -> str:
+    if not _rate_still_allowed(uow, row.parsed, today):
+        return "stale"
     taken = uow.tx.execute(
         text("select id from catalog.products where business_id = :b and lower(code) = :k and status <> 'deleted'"
              " for update"),
@@ -610,7 +629,9 @@ def _apply_new(uow: UnitOfWork, run_id: uuid.UUID, row) -> str:
     return "applied"
 
 
-def _apply_changed(uow: UnitOfWork, run_id: uuid.UUID, row) -> str:
+def _apply_changed(uow: UnitOfWork, run_id: uuid.UUID, row, today: date) -> str:
+    if any(d["field"] == "gst_rate" for d in row.diff) and not _rate_still_allowed(uow, row.parsed, today):
+        return "stale"
     p = uow.tx.execute(
         text("select code, status, version from catalog.products where id = :p and business_id = :b for update"),
         {"p": row.product_id, "b": _business(uow)},
