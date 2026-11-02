@@ -23,6 +23,8 @@ export function useJob(businessId: string, jobId: string | null | undefined) {
       call(() => api.GET("/api/v1/b/{business_id}/jobs/{job_id}", { params: { path: { business_id: businessId, job_id: jobId ?? "" } } })),
     enabled: Boolean(businessId && jobId),
     refetchIntervalInBackground: true, // a hidden tab still finds out the import finished
-    refetchInterval: (query) => (finished(query.state.data) || query.state.error ? false : pollDelay(query.state.dataUpdateCount)),
+    // dataUpdateCount is already 1 after the first answer, so the gap after answer n is pollDelay(n - 1).
+    refetchInterval: (query) =>
+      finished(query.state.data) || query.state.error ? false : pollDelay(Math.max(0, query.state.dataUpdateCount - 1)),
   });
 }

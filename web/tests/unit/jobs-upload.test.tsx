@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { tokenStore } from "../../src/auth/tokenStore";
@@ -44,13 +44,34 @@ const mount = (id: string | null) =>
 
 describe("useJob", () => {
   it("polls until the job is done, then stops", async () => {
+    // Fake clock: the poll gaps (1 s, then 2 s) are stepped through, not waited for.
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] });
     server.reply(JOB, { status: 200, body: job("queued") }, { status: 200, body: job("running") }, { status: 200, body: job("done") });
+    const step = (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms));
+    const polls = () => server.paths().filter((p) => p === JOB).length;
+    // Lets the fake response be read in 1 ms clock steps (the response body is read on timers).
+    const shows = async (text: string) => {
+      for (let i = 0; i < 50 && !screen.queryByText(text); i++) {
+        await new Promise((r) => setImmediate(r));
+        await step(1);
+      }
+      expect(screen.getByText(text)).toBeInTheDocument();
+    };
     mount("j-1");
-    await screen.findByText("status queued");
-    expect(await screen.findByText("status done", {}, { timeout: 6000 })).toBeInTheDocument();
-    await new Promise((r) => setTimeout(r, 1200));
-    expect(server.paths().filter((p) => p === JOB)).toHaveLength(3);
-  }, 10000);
+    await shows("status queued");
+    // The gaps are 1 s, then 2 s, then 4 s: nothing new is asked before a gap ends.
+    await step(900);
+    expect(polls()).toBe(1);
+    await step(100);
+    await shows("status running");
+    expect(polls()).toBe(2);
+    await step(1800);
+    expect(polls()).toBe(2);
+    await step(200);
+    await shows("status done");
+    await step(30000);
+    expect(polls()).toBe(3);
+  });
 
   it("asks nothing without a job ID", async () => {
     mount(null);
