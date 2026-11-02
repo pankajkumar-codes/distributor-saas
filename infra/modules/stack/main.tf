@@ -302,27 +302,49 @@ resource "aws_lambda_invocation" "migrate" {
   }
 }
 
-# Worker schedules (TD-25, HLD §4). Only the outbox sweep has a handler today; the purge
-# and retention rules exist switched off until the worker handles those tasks.
+# The retention Lambda (LLD-6 §6.1, L6-5; D-041): same zip as the worker, its own role,
+# and the only function that logs in as app_retention, which can execute the retention.*
+# functions and nothing else. No S3 rights yet: no rule built so far deletes a file. Left
+# unreserved, so TD-6's caps and the prod quota of 156 are unchanged; its two schedules
+# never overlap and a second run would find nothing left to delete.
+module "retention" {
+  source          = "../function"
+  name            = "${local.name}-retention"
+  package_path    = local.app_zip
+  handler         = "app.retention.handler"
+  timeout_seconds = 900 # the handler stops itself after 10 minutes (BUDGET_SECONDS)
+  vpc             = local.vpc
+  db_user         = "app_retention"
+  db_resource_id  = module.database.resource_id
+  environment     = merge(local.db_env, local.after_migrations)
+}
+
+# Schedules (TD-25, HLD §4, LLD-6 §6.1). The purge and retention rules stay DISABLED until
+# Pankaj's staging decision and a dry run there; every rule also ships disabled in
+# refdata (retention.<rule>.enabled), so enabling a schedule alone deletes nothing.
 locals {
+  schedule_targets = {
+    worker    = { arn = module.worker.function_arn, name = module.worker.function_name }
+    retention = { arn = module.retention.function_arn, name = module.retention.function_name }
+  }
   schedules = {
-    sweep-outbox = { expression = "rate(1 minute)", task = "sweep_outbox", enabled = true }
-    purge        = { expression = "rate(1 hour)", task = "purge_operational", enabled = false }
-    retention    = { expression = "cron(30 21 * * ? *)", task = "retention", enabled = false } # 03:00 IST
+    sweep-outbox = { expression = "rate(1 minute)", target = "worker", task = "sweep_outbox", enabled = true }
+    purge        = { expression = "rate(1 hour)", target = "retention", task = "purge_operational", enabled = false }
+    retention    = { expression = "cron(0 21 * * ? *)", target = "retention", task = "retention", enabled = false } # 02:30 IST
   }
 }
 
-resource "aws_cloudwatch_event_rule" "worker" {
+resource "aws_cloudwatch_event_rule" "schedule" {
   for_each            = local.schedules
   name                = "${local.name}-${each.key}"
   schedule_expression = each.value.expression
   state               = each.value.enabled ? "ENABLED" : "DISABLED"
 }
 
-resource "aws_cloudwatch_event_target" "worker" {
+resource "aws_cloudwatch_event_target" "schedule" {
   for_each = local.schedules
-  rule     = aws_cloudwatch_event_rule.worker[each.key].name
-  arn      = module.worker.function_arn
+  rule     = aws_cloudwatch_event_rule.schedule[each.key].name
+  arn      = local.schedule_targets[each.value.target].arn
   input    = jsonencode({ task = each.value.task })
 }
 
@@ -330,9 +352,9 @@ resource "aws_lambda_permission" "schedule" {
   for_each      = local.schedules
   statement_id  = "AllowEventBridge-${each.key}"
   action        = "lambda:InvokeFunction"
-  function_name = module.worker.function_name
+  function_name = local.schedule_targets[each.value.target].name
   principal     = "events.amazonaws.com"
-  source_arn    = aws_cloudwatch_event_rule.worker[each.key].arn
+  source_arn    = aws_cloudwatch_event_rule.schedule[each.key].arn
 }
 
 # Alarms (TD-24): a message in either DLQ is a job or an email that failed five times.
@@ -355,6 +377,21 @@ resource "aws_cloudwatch_metric_alarm" "dlq" {
   dimensions          = { QueueName = each.value }
   statistic           = "Maximum"
   period              = 300
+  evaluation_periods  = 1
+  threshold           = 0
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [aws_sns_topic.alarms.arn]
+}
+
+# A failed retention run: the log line names the rule and the exception class only.
+resource "aws_cloudwatch_metric_alarm" "retention_errors" {
+  alarm_name          = "${local.name}-retention-errors"
+  namespace           = "AWS/Lambda"
+  metric_name         = "Errors"
+  dimensions          = { FunctionName = module.retention.function_name }
+  statistic           = "Sum"
+  period              = 3600
   evaluation_periods  = 1
   threshold           = 0
   comparison_operator = "GreaterThanThreshold"
