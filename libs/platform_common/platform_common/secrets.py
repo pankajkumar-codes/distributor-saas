@@ -2,7 +2,9 @@
 
 In AWS, Terraform keeps each key in a Parameter Store SecureString and sets
 `<NAME>_PARAM` to the parameter's name; the value is read once per container through the
-ssm endpoint. A plain `<NAME>` environment variable still wins, for local runs and tests.
+ssm endpoint. A plain `<NAME>` environment variable still wins, for local runs and tests,
+so Terraform must never set the plain name next to `_PARAM`, or the plain value would be
+used and the parameter ignored (tests/tools/test_infra_secrets.py checks it never does).
 Reading a parameter happens on Lambda only, so a stray `_PARAM` setting in CI fails
 instead of reaching AWS.
 """

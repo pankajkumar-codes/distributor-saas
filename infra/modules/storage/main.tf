@@ -25,7 +25,8 @@ variable "upload_retention_days" {
 }
 
 locals {
-  # One lifecycle rule per area, so no two rules ever cover the same key.
+  # One lifecycle rule per area, so no two of them cover the same key. The bucket-wide
+  # delete-marker rule below only clears markers that no longer hide any version.
   areas = {
     uploads   = { expire_days = var.upload_retention_days, noncurrent_days = 1 }
     documents = { expire_days = null, noncurrent_days = var.noncurrent_version_days }
@@ -110,6 +111,18 @@ resource "aws_s3_bucket_lifecycle_configuration" "objects" {
       abort_incomplete_multipart_upload {
         days_after_initiation = 1
       }
+    }
+  }
+
+  # An expired upload leaves a delete marker; once its old version is gone (day 91) the
+  # marker hides nothing, and only this flag lets S3 remove it. It can't share an
+  # expiration block with `days`, so it is a rule of its own.
+  rule {
+    id     = "expired-delete-markers"
+    status = "Enabled"
+    filter {}
+    expiration {
+      expired_object_delete_marker = true
     }
   }
 }
