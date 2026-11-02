@@ -30,6 +30,12 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   const setup = page.getByRole("region", { name: "Set up your business" });
   await expect(setup.getByText("2 of 6 done")).toBeVisible();
   await expect(setup.getByText("Coming soon").first()).toBeVisible();
+
+  // The checklist's product step opens the (still empty) products list.
+  await setup.getByRole("link", { name: "Add your first product" }).click();
+  await expect(page.getByRole("heading", { name: "Products" })).toBeVisible();
+  await expect(page.getByText("No products yet. Products you add appear here.")).toBeVisible();
+  await noSeriousAxeFindings(page);
   await noSeriousAxeFindings(page);
 });
 
