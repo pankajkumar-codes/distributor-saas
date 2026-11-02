@@ -10,6 +10,7 @@ import json
 from datetime import timedelta
 
 import boto3
+from botocore.config import Config
 
 from .clock import Clock
 from .storage import (
@@ -103,10 +104,16 @@ class SesSender:
         return r["MessageId"]
 
 
+# Sign-in waits on Cognito, so a slow call fails fast instead of holding the request until
+# API Gateway's 29 s limit: 3 attempts in all, the first included (botocore's
+# max_attempts would count retries only). The SQS, S3 and SES clients move onto it later.
+CLIENT_CONFIG = Config(connect_timeout=2, read_timeout=5, retries={"mode": "standard", "total_max_attempts": 3})
+
+
 def cognito_client():
     """The cognito-idp client identity's CognitoAuthProvider drives (LLD-1 §7.2). Built
     here because boto3 is imported only in this module (D-039)."""
-    return boto3.client("cognito-idp")
+    return boto3.client("cognito-idp", config=CLIENT_CONFIG)
 
 
 def get_parameter(name: str) -> str:

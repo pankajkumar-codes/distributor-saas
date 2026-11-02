@@ -2,7 +2,10 @@
 the stubbed client checks each call's parameters against Cognito's API model.
 """
 
+import ast
 import logging
+import re
+from pathlib import Path
 
 import boto3
 import pytest
@@ -17,14 +20,44 @@ EMAIL, SUB = "asha@example.com", "0f6c2a3e-1111-4222-8333-444455556666"
 SESSION = "session-string-" + "x" * 32  # the model wants at least 20 characters
 SECRET = "JBSWY3DPEHPK3PXPJBSWY3DP"
 TOKENS = {"AccessToken": "access", "ExpiresIn": 300, "TokenType": "Bearer", "RefreshToken": "refresh"}
+ROOT = Path(__file__).resolve().parents[6]
+
+
+def new_client():
+    return boto3.client("cognito-idp", region_name="ap-south-1", aws_access_key_id="x", aws_secret_access_key="x")
+
+
+def operations_in_source() -> set[str]:
+    """Every Cognito API operation cognito.py can call: `self._c.<method>(...)` and
+    `self._call("<method>", ...)`, mapped with botocore's own method-to-API table."""
+    methods = set()
+    for node in ast.walk(ast.parse((ROOT / "app/src/app/modules/identity/cognito.py").read_text())):
+        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+            continue
+        f = node.func
+        if isinstance(f.value, ast.Attribute) and f.value.attr == "_c":  # self._c.admin_get_user(...)
+            methods.add(f.attr)
+        elif f.attr == "_call" and node.args and isinstance(node.args[0], ast.Constant):
+            methods.add(node.args[0].value)
+    mapping = new_client().meta.method_to_api_mapping
+    unknown = methods - mapping.keys()
+    assert not unknown, f"not cognito-idp operations: {sorted(unknown)}"
+    return {mapping[m] for m in methods}
+
+
+SOURCE_OPERATIONS = operations_in_source()
 
 
 @pytest.fixture()
 def stub():
-    client = boto3.client("cognito-idp", region_name="ap-south-1", aws_access_key_id="x", aws_secret_access_key="x")
+    client, made = new_client(), set()
+    client.meta.events.register("before-call.cognito-idp", lambda model, **_: made.add(model.name))
     with Stubber(client) as s:
         yield s, CognitoAuthProvider(client, POOL, CLIENT, ISSUER, fetch_json=lambda url: {"keys": [], "url": url})
         s.assert_no_pending_responses()
+    # Every call the adapter really made is one the source scan found, so the IAM test
+    # below can't miss a call written some other way.
+    assert made <= SOURCE_OPERATIONS, sorted(made - SOURCE_OPERATIONS)
 
 
 def error(s, operation, code, message="refused", expected=None):
@@ -235,14 +268,29 @@ def test_jwks_is_fetched_once_from_the_issuer(stub):
     assert first["url"] == f"{ISSUER}/.well-known/jwks.json" and idp.jwks() is first
 
 
-def test_the_api_role_allows_exactly_the_admin_calls_the_adapter_makes():
-    import re
-    from pathlib import Path
+def api_function_cognito_actions() -> set[str]:
+    """Every "cognito-idp:..." action in the API Lambda's policy (module "api_function")."""
+    policy = (ROOT / "infra/modules/stack/main.tf").read_text()
+    block = re.search(r'^module "api_function" \{\n(.*?)^\}', policy, re.S | re.M)
+    assert block, 'module "api_function" not found in infra/modules/stack/main.tf'
+    return set(re.findall(r'"cognito-idp:([^"]+)"', block.group(1)))
 
-    root = Path(__file__).resolve().parents[6]
-    source = (root / "app/src/app/modules/identity/cognito.py").read_text()
-    made = {"".join(w.capitalize() for w in op.split("_")) for op in re.findall(r'"(admin_[a-z_]+)"', source)}
-    made = {m.replace("Mfa", "MFA") for m in made}
-    policy = (root / "infra/modules/stack/main.tf").read_text()
-    allowed = set(re.findall(r'"cognito-idp:(Admin\w+)"', policy))
-    assert made == allowed, (sorted(made - allowed), sorted(allowed - made))
+
+def test_the_api_role_allows_exactly_the_admin_calls_the_adapter_makes():  # Staff 2 (3), #77
+    # Calls made with the user's own token (ChangePassword, the TOTP enrolment calls,
+    # RevokeToken) aren't governed by IAM, so the role allows the Admin* calls and nothing
+    # else: a wildcard, a non-Admin action or a missing one fails.
+    admin = {op for op in SOURCE_OPERATIONS if op.startswith("Admin")}
+    allowed = api_function_cognito_actions()
+    assert admin == allowed, (sorted(admin - allowed), sorted(allowed - admin))
+    both_forms = {"AdminGetUser", "AdminDeleteSoftwareToken", "ChangePassword"}  # direct and via _call
+    assert both_forms <= SOURCE_OPERATIONS
+
+
+def test_the_cognito_client_fails_fast(monkeypatch):  # Staff 2 (3), #77
+    from platform_common import aws
+
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "ap-south-1")
+    config = aws.cognito_client().meta.config
+    assert (config.connect_timeout, config.read_timeout) == (2, 5)
+    assert config.retries == {"mode": "standard", "total_max_attempts": 3}  # the first attempt and two retries
