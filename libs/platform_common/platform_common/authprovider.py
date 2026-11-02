@@ -30,8 +30,10 @@ class AuthRefused(Exception):
     """The provider said no. `code` is ours, never the provider's message text.
 
     Codes: not_authorized (wrong password, unknown user, revoked or bad refresh token),
-    user_exists, totp_not_accepted (`challenge` may carry a new session string),
-    challenge_expired, password_rejected.
+    token_invalid (an access token the provider no longer accepts: expired, revoked or
+    malformed), user_exists, totp_not_accepted (`challenge` may carry a new session
+    string), challenge_expired, password_rejected (the provider's own policy),
+    rate_limited (the provider's own limits).
     """
 
     def __init__(self, code: str, *, challenge: str | None = None):
@@ -63,7 +65,8 @@ class AuthProvider(Protocol):
     def set_password(self, sub: str, password: str) -> None: ...
 
     def change_password(self, access_token: str, old: str, new: str) -> None:
-        """Raises AuthRefused("not_authorized") when `old` is wrong."""
+        """Raises AuthRefused: not_authorized when `old` is wrong, token_invalid,
+        password_rejected or rate_limited."""
 
     def global_sign_out(self, sub: str) -> None: ...
 

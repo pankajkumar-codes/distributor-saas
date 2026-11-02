@@ -140,3 +140,52 @@ def test_change_password_needs_a_bearer_token(env):
     assert r.status_code == 401
     assert change(client, {}).status_code == 401
     assert idp.user(EMAIL).password == PASSWORD
+
+
+def test_the_same_password_is_refused_before_the_provider(env):  # Staff 2, #55
+    client, idp, _, _ = env
+    r = change(client, bearer(client), new=PASSWORD)
+    assert (r.status_code, r.json()["error"]["code"]) == (422, "password_unchanged")
+    assert idp.user(EMAIL).password == PASSWORD
+
+
+@pytest.mark.parametrize(
+    "refusal, status, code",
+    [
+        ("token_invalid", 401, "session_invalid"),  # expired or revoked at the provider
+        ("password_rejected", 422, "password_weak"),
+        ("rate_limited", 429, "rate_limited"),
+        ("not_authorized", 422, "current_password_wrong"),
+    ],
+)
+def test_each_provider_refusal_gets_its_own_reply(env, monkeypatch, refusal, status, code):  # Staff 2, #55
+    from platform_common.authprovider import AuthRefused
+
+    client, idp, _, admin = env
+    me = bearer(client)
+
+    def refuse(*_):
+        raise AuthRefused(refusal)
+
+    monkeypatch.setattr(idp, "change_password", refuse)
+    r = change(client, me)
+    assert (r.status_code, r.json()["error"]["code"]) == (status, code)
+    assert live(admin) == 2
+
+
+def test_a_failed_tx_b_still_signs_out_at_the_provider(env, monkeypatch, caplog):  # Staff 2, #55
+    from app.modules.identity.service import account
+
+    client, idp, mail, admin = env
+    me, sent = bearer(client), len(mail.sent)
+
+    def broken(*_, **__):
+        raise RuntimeError("audit write failed")
+
+    monkeypatch.setattr(account.audit, "record", broken)
+    r = change(client, me)
+    assert r.status_code == 500
+    assert idp.user(EMAIL).password == NEW  # the provider had already changed it
+    assert all(t.revoked for t in idp._refresh.values())  # so every provider token is ended
+    assert live(admin) == 2 and len(mail.sent) == sent  # tx B rolled back: no rows revoked, no mail
+    assert any(r.levelname == "ERROR" and "tx B failed" in r.getMessage() for r in caplog.records)

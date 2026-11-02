@@ -5,7 +5,8 @@
            which goes back to the SPA for the QR code and is never logged or stored here.
   confirm: provider VerifySoftwareToken (and turns TOTP on) -> users.totp_enabled_at,
            audit auth.totp_on, mail totp_on after commit.
-  remove:  step-up first: the token's auth_time must be within auth.stepup_minutes,
+  remove:  refused with 409 totp_already_off when it's off (no audit row, no mail); then
+           step-up: the token's auth_time must be within auth.stepup_minutes,
            else 409 reauth_required -> provider removes TOTP -> clear totp_enabled_at,
            audit auth.totp_off, mail totp_off after commit.
 The provider decides whether sign-in asks for a code; totp_enabled_at only mirrors it
@@ -47,6 +48,8 @@ def confirm(uow: UnitOfWork, access_token: str, code: str, idp: AuthProvider, ma
 
 
 def remove(uow: UnitOfWork, caller: Caller, idp: AuthProvider, mail: Mailer, now: datetime, today: date) -> None:
+    if not _is_on(uow):
+        raise Conflict("totp_already_off", "two-step sign-in is already off")
     minutes = value_on(uow.tx, "auth.stepup_minutes", today)
     try:  # API Gateway passes claims as strings
         signed_in_at = datetime.fromtimestamp(int(caller.claims["auth_time"]), UTC)
@@ -61,11 +64,14 @@ def remove(uow: UnitOfWork, caller: Caller, idp: AuthProvider, mail: Mailer, now
 def _refuse_if_on(uow: UnitOfWork) -> None:
     """A session without a fresh step-up must not replace the factor: changing it means
     turning TOTP off (which needs the step-up), then enrolling again (Staff 2, #60)."""
-    on = uow.tx.execute(
+    if _is_on(uow):
+        raise Conflict("totp_already_on", "two-step sign-in is already on; turn it off first to change it")
+
+
+def _is_on(uow: UnitOfWork) -> bool:
+    return uow.tx.execute(
         text("select totp_enabled_at is not null from identity.users where id = :me"), {"me": uow.principal.user_id}
     ).scalar_one()
-    if on:
-        raise Conflict("totp_already_on", "two-step sign-in is already on; turn it off first to change it")
 
 
 def _record(uow: UnitOfWork, mail: Mailer, *, on: bool) -> None:
