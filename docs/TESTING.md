@@ -21,7 +21,7 @@ PG_DSN=postgresql://postgres:local-only@localhost:5432/postgres make test
 ```
 
 Without those variables the PostgreSQL tests skip. Under `CI=true` (GitHub Actions) or
-`REQUIRE_PG=1` they fail instead, so a missing variable can't hide a suite (`tests/require_pg.py`).
+`REQUIRE_PG=1` they fail instead, so a missing variable can't hide a suite (`tests/require_pg.py`). That works only for a skip whose reason names `PG_ADMIN_URL` or `PG_DSN`; `tests/tools/test_pg_skip_guard.py` fails on any other wording.
 
 GitHub Actions runs all of these on every pull request, plus:
 
