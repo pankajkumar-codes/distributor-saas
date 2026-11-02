@@ -9,7 +9,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi import status as http
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, StrictInt
 
 from platform_common.clock import Clock, get_clock
 from platform_common.paging import PageParams, page_params
@@ -39,7 +39,7 @@ class CustomerIn(BaseModel):
     billing: AddressIn = AddressIn()
     delivery_same_as_billing: bool = True
     delivery: AddressIn | None = None
-    credit_days: int = 0
+    credit_days: StrictInt = 0  # true or "30" is refused, not read as 1 or 30
 
 
 class CustomerPatch(BaseModel):
@@ -50,7 +50,7 @@ class CustomerPatch(BaseModel):
     billing: AddressIn | None = None
     delivery_same_as_billing: bool | None = None
     delivery: AddressIn | None = None
-    credit_days: int | None = None
+    credit_days: StrictInt | None = None
 
 
 class AddressOut(BaseModel):

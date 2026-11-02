@@ -124,11 +124,32 @@ def test_a_gstin_whose_first_two_digits_are_no_state_is_refused(shop):
         ({"name": "   "}, "name_invalid"),
         ({"delivery_same_as_billing": False}, "state_code_required"),
         ({"delivery": {"city": "Mumbai"}}, "delivery_not_allowed"),
+        ({"name": "Sharma\nStores"}, "text_invalid"),
+        ({"name": "Sharma\tStores"}, "text_invalid"),
+        ({"billing": {"line1": "12 MG Road\r\nPune", "state_code": "27"}}, "text_invalid"),
+        ({"billing": {"city": "Pune\u200b", "state_code": "27"}}, "text_invalid"),
     ],
 )
 def test_field_checks(shop, change, code):
     pg, biz = shop
     assert err(post(pg, url(biz), customer(**change))) == (422, code)
+
+
+@pytest.mark.parametrize("days", [True, "30", 30.0])
+def test_credit_days_must_be_a_json_integer(shop, days):  # #56 review: true was stored as 1
+    pg, biz = shop
+    assert post(pg, url(biz), customer(credit_days=days)).status_code == 422
+    c = make(pg, biz)
+    assert patch(pg, biz, c, {"credit_days": days}).status_code == 422
+    assert pg.client.get(url(biz, f"/{c['id']}"), headers=as_user("alice")).json()["credit_days"] == 30
+
+
+def test_patch_refuses_null_flags_and_control_characters(shop):  # #56 review
+    pg, biz = shop
+    c = make(pg, biz)
+    assert err(patch(pg, biz, c, {"delivery_same_as_billing": None})) == (422, "delivery_same_as_billing_invalid")
+    assert err(patch(pg, biz, c, {"name": "A\nB"})) == (422, "text_invalid")
+    assert pg.client.get(url(biz, f"/{c['id']}"), headers=as_user("alice")).json()["version"] == 1
 
 
 def test_credit_days_edges_and_a_separate_delivery_address(shop):

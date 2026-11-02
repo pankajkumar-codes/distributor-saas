@@ -180,6 +180,12 @@ def test_null_flags_json_number_rates_and_unknown_fields_are_refused(shop):  # #
     assert post(pg, url(biz), product(code="EXTRA-1", colour="red")).status_code == 422
 
 
+def test_product_names_refuse_control_characters(shop):  # #56 review, shared checks.name
+    pg, biz = shop
+    r = post(pg, url(biz), product(code="TAB-1", name="Neem\tsoap"))
+    assert (r.status_code, r.json()["error"]["code"]) == (422, "text_invalid")
+
+
 def test_code_is_unique_ignoring_case_including_archived_and_barcode_among_active(shop):
     """AC3-8."""
     pg, biz = shop
