@@ -1,5 +1,6 @@
 """TOTP enrolment on the caller's me_uow (LLD-1 §5.9).
 
+  setup and confirm are refused with 409 totp_already_on while TOTP is on.
   setup:   provider AssociateSoftwareToken with the caller's access token -> the secret,
            which goes back to the SPA for the QR code and is never logged or stored here.
   confirm: provider VerifySoftwareToken (and turns TOTP on) -> users.totp_enabled_at,
@@ -33,11 +34,13 @@ class TotpCodeWrong(AppError):
         super().__init__(message="the code is wrong; try the current one", field="code")
 
 
-def setup(access_token: str, idp: AuthProvider) -> str:
+def setup(uow: UnitOfWork, access_token: str, idp: AuthProvider) -> str:
+    _refuse_if_on(uow)
     return idp.associate_totp(access_token)
 
 
 def confirm(uow: UnitOfWork, access_token: str, code: str, idp: AuthProvider, mail: Mailer) -> None:
+    _refuse_if_on(uow)
     if not idp.verify_totp(access_token, code):
         raise TotpCodeWrong()
     _record(uow, mail, on=True)
@@ -53,6 +56,16 @@ def remove(uow: UnitOfWork, caller: Caller, idp: AuthProvider, mail: Mailer, now
         raise Conflict("reauth_required", "sign in again to turn off two-step sign-in")
     idp.remove_totp(uow.principal.user_sub)
     _record(uow, mail, on=False)
+
+
+def _refuse_if_on(uow: UnitOfWork) -> None:
+    """A session without a fresh step-up must not replace the factor: changing it means
+    turning TOTP off (which needs the step-up), then enrolling again (Staff 2, #60)."""
+    on = uow.tx.execute(
+        text("select totp_enabled_at is not null from identity.users where id = :me"), {"me": uow.principal.user_id}
+    ).scalar_one()
+    if on:
+        raise Conflict("totp_already_on", "two-step sign-in is already on; turn it off first to change it")
 
 
 def _record(uow: UnitOfWork, mail: Mailer, *, on: bool) -> None:

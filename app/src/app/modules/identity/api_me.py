@@ -142,13 +142,13 @@ def change_password(
     return done
 
 
-@router.post("/me/totp/setup")
+@router.post("/me/totp/setup", responses=error_responses(409))
 def totp_setup(request: Request, uow: MeUoW, idp: Annotated[AuthProvider, Depends(auth_provider)]) -> TotpSecretOut:
     """§5.9. The SPA draws otpauth://totp/<app>:<email>?secret=…&issuer=<app>."""
-    return TotpSecretOut(secret=totp.setup(_access_token(request), idp))
+    return TotpSecretOut(secret=totp.setup(uow, _access_token(request), idp))
 
 
-@router.post("/me/totp/confirm", status_code=204, responses=error_responses(422))
+@router.post("/me/totp/confirm", status_code=204, responses=error_responses(409, 422))
 def totp_confirm(
     body: TotpCodeBody,
     request: Request,

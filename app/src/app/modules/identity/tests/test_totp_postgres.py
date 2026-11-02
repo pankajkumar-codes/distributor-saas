@@ -68,6 +68,19 @@ def test_setup_then_confirm_turns_totp_on(env):  # AC-14
     assert signin(client).json()["step"] == "totp"  # the provider now asks for a code
 
 
+def test_setup_and_confirm_are_refused_while_totp_is_on(env):  # Staff 2, #60
+    client, idp, _, admin = env
+    me = bearer(client)
+    secret = enrol(client, idp, me)
+    r = client.post("/api/v1/me/totp/setup", headers=me)
+    assert (r.status_code, r.json()["error"]["code"]) == (409, "totp_already_on")
+    r = client.post("/api/v1/me/totp/confirm", json={"code": idp.totp_code(secret)}, headers=me)
+    assert (r.status_code, r.json()["error"]["code"]) == (409, "totp_already_on")
+    assert idp.user(EMAIL).totp_secret == secret and audit_actions(admin) == ["auth.totp_on"]  # the factor is unchanged
+    assert client.delete("/api/v1/me/totp", headers=me).status_code == 204  # off (with the step-up), then again
+    enrol(client, idp, me)
+
+
 def test_a_wrong_code_turns_nothing_on(env):
     client, idp, mail, admin = env
     me, sent = bearer(client), len(mail.sent)
