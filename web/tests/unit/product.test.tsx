@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../src/App";
 import { resetSessionForTests } from "../../src/auth/session";
 import { todayIst } from "../../src/format/dates";
-import { changedFields, formField } from "../../src/screens/products/ProductPage";
+import { changedFields, formField, rebase } from "../../src/screens/products/ProductPage";
 import { fakeApi } from "./fakeApi";
 
 const REFRESH = "/api/v1/auth/refresh";
@@ -91,6 +91,23 @@ describe("a new product", () => {
     expect(new URL(server.sent.find((s) => s.path === RATES)!.url).searchParams.get("on")).toBe(todayIst());
   });
 
+  it("drops the chosen rate when it isn't in force on the new date", async () => {
+    open("/b/b-1/products/new");
+    await screen.findByRole("option", { name: "Numbers (NOS)" });
+    server.reply(RATES, { status: 200, body: { on: todayIst(), rates: ["5", "18", "28"] } }, { status: 200, body: { on: "2026-03-01", rates: ["5", "18", "40"] } });
+    fireEvent.click(screen.getByRole("radio", { name: "Taxable" }));
+    await screen.findByRole("option", { name: "28%" });
+    type("GST rate", "28");
+    expect(screen.getByLabelText("GST rate")).toHaveValue("28");
+    type("Rate applies from", "2026-03-01");
+    await screen.findByRole("option", { name: "40%" });
+    expect(screen.getByLabelText("GST rate")).toHaveValue("");
+    server.reply(LIST, { status: 422, body: { error: { code: "invalid", message: "Choose a rate", field: "rate.rate" } } });
+    fireEvent.click(screen.getByRole("button", { name: "Add product" }));
+    await screen.findByText("Choose a rate");
+    expect(sent(LIST, "POST")[0].body).toMatchObject({ rate: { rate: "", valid_from: "2026-03-01" } });
+  });
+
   it("sends no rate for an exempt product, and shows the server's words under the field it names", async () => {
     open("/b/b-1/products/new");
     await screen.findByRole("option", { name: "Numbers (NOS)" });
@@ -142,6 +159,40 @@ describe("editing a product", () => {
     expect(patches[1].body).toEqual({ sale_rate: "48.00" });
   });
 
+  it("after a reload, sends only the user's own edit and keeps the other person's change to another field", async () => {
+    server.reply(ONE, { status: 200, body: detail() });
+    open("/b/b-1/products/p-1");
+    await screen.findByRole("heading", { name: "Neem soap" });
+    server.reply(
+      ONE,
+      { status: 409, body: { error: { code: "stale_record", message: "Someone changed this product since you opened it" } } },
+      { status: 200, body: detail({ sale_rate: "50.00", version: 4 }) },
+      { status: 200, body: detail({ name: "Neem bath soap", sale_rate: "50.00", version: 5 }) },
+    );
+    type("Name", "Neem bath soap");
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(await screen.findByText("Someone else changed this.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Sale rate per unit, excluding GST (₹)")).toHaveValue("50.00");
+    expect(screen.getByLabelText("Name")).toHaveValue("Neem bath soap");
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await screen.findByText(/Saved\./);
+    const patches = sent(ONE, "PATCH");
+    expect(patches[1].headers.get("If-Match")).toBe("4");
+    expect(patches[1].body).toEqual({ name: "Neem bath soap" });
+  });
+
+  it("won't archive while there are unsaved edits", async () => {
+    server.reply(ONE, { status: 200, body: detail() });
+    open("/b/b-1/products/p-1");
+    await screen.findByRole("heading", { name: "Neem soap" });
+    expect(screen.getByRole("button", { name: "Archive" })).toBeEnabled();
+    type("Name", "Neem bath soap");
+    expect(screen.getByRole("button", { name: "Archive" })).toBeDisabled();
+    expect(screen.getByText("Save or undo your changes first.")).toBeInTheDocument();
+    type("Name", "Neem soap");
+    expect(screen.getByRole("button", { name: "Archive" })).toBeEnabled();
+  });
+
   it("offers Delete only for a product never used, and asks first", async () => {
     server.reply(ONE, { status: 200, body: detail() }, { status: 204 });
     server.reply(LIST, { status: 200, body: { items: [], has_more: false } });
@@ -177,6 +228,12 @@ describe("helpers", () => {
     expect(changedFields(v, { ...v })).toEqual({});
     expect(changedFields(v, { ...v, name: " N " })).toEqual({});
     expect(changedFields(v, { ...v, barcode: "890", has_cess: true })).toEqual({ barcode: "890", has_cess: true });
+  });
+
+  it("rebases the user's edits onto a newer version", () => {
+    const v = { code: "A", name: "N", hsn: "3401", uqc: "NOS", sale_rate: "1.00", barcode: "", tax_category: "taxable" as const, has_cess: false };
+    expect(rebase(v, { ...v, sale_rate: "2.00" }, { ...v, name: "M" })).toEqual({ ...v, name: "M", sale_rate: "2.00" });
+    expect(rebase(v, { ...v, name: "Theirs" }, { ...v, name: "Mine" })).toEqual({ ...v, name: "Mine" });
   });
 
   it("maps validation paths for the nested rate", () => {

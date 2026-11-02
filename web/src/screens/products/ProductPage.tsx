@@ -63,6 +63,19 @@ export function changedFields(from: Values, to: Values): components["schemas"]["
   return out;
 }
 
+/**
+ * After a reload brings a newer version: the newer saved values with the user's own edits
+ * (what differs from the version they opened) laid over them, so nobody else's change is
+ * sent back as if the user had made it.
+ */
+export function rebase(opened: Values, latest: Values, values: Values): Values {
+  const out = { ...latest };
+  for (const key of Object.keys(changedFields(opened, values)) as (keyof Values)[]) {
+    (out as Record<keyof Values, string | boolean>)[key] = values[key];
+  }
+  return out;
+}
+
 /** Server field paths ("rate.valid_from" from validation) to this form's fields. */
 export function formField(field: string | undefined): string | undefined {
   if (!field) return undefined;
@@ -102,7 +115,10 @@ export function ProductPage() {
   });
 
   const [values, setValues] = useState<Values>(EMPTY);
-  const [base, setBase] = useState<Detail | null>(null); // the version the user is editing
+  // The version the form's edits are against: the diff base and the If-Match. It moves only
+  // with a save, or with the "someone changed this" banner when a reload brings a newer one.
+  const [opened, setOpened] = useState<Detail | null>(null);
+  const [theirFields, setTheirFields] = useState<(keyof Values)[]>([]);
   const [rate, setRate] = useState("");
   const [validFrom, setValidFrom] = useState(todayIst());
   const [stale, setStale] = useState(false);
@@ -115,19 +131,35 @@ export function ProductPage() {
     staleTime: Infinity,
   });
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const latest = product.data ?? null;
 
   useEffect(() => {
-    if (!product.data) return;
-    if (!base) setValues(valuesOf(product.data)); // after a 409, keep what the user typed
-    setBase(product.data);
-  }, [product.data]); // base is read only to tell the first load from a reload after a 409
+    if (!latest || latest.version === opened?.version) return;
+    if (!opened) {
+      setValues(valuesOf(latest));
+    } else {
+      const before = valuesOf(opened);
+      const now = valuesOf(latest);
+      setValues(rebase(before, now, values));
+      setTheirFields(Object.keys(changedFields(before, now)) as (keyof Values)[]);
+      setStale(true);
+    }
+    setOpened(latest);
+  }, [latest]); // opened and values are read to rebase onto a newer version, not to trigger it
+
+  // A rate that isn't in force on the newly chosen date is not kept, nor sent before it's cleared.
+  const chosenRate = rates.data?.includes(rate) ? rate : "";
+  useEffect(() => {
+    if (rates.data && rate && !rates.data.includes(rate)) setRate("");
+  }, [rates.data, rate]);
 
   const saved = (p: Detail) => {
     queryClient.setQueryData(["b", businessId, "product", p.id], p);
     queryClient.invalidateQueries({ queryKey: ["b", businessId, "products"] });
-    setBase(p);
+    setOpened(p);
     setValues(valuesOf(p));
     setStale(false);
+    setTheirFields([]);
   };
 
   const save = useMutation<Detail, ApiError>({
@@ -142,7 +174,7 @@ export function ProductPage() {
           barcode: blank(values.barcode),
           tax_category: values.tax_category as Category,
           has_cess: values.has_cess,
-          rate: values.tax_category === "taxable" ? { rate: rate.trim(), valid_from: validFrom } : null,
+          rate: values.tax_category === "taxable" ? { rate: chosenRate, valid_from: validFrom } : null,
         };
         return call(() =>
           api.POST("/api/v1/b/{business_id}/products", {
@@ -153,8 +185,8 @@ export function ProductPage() {
       }
       return call(() =>
         api.PATCH("/api/v1/b/{business_id}/products/{product_id}", {
-          params: { path: { ...path, product_id: productId }, header: { "If-Match": String(base?.version) } },
-          body: changedFields(valuesOf(base!), values),
+          params: { path: { ...path, product_id: productId }, header: { "If-Match": String(opened?.version) } },
+          body: changedFields(valuesOf(opened!), values),
         }),
       );
     },
@@ -163,10 +195,7 @@ export function ProductPage() {
       if (isNew) navigate(`/b/${businessId}/products/${p.id}`, { replace: true });
     },
     onError: (e) => {
-      if (e.code === "stale_record") {
-        setStale(true);
-        product.refetch();
-      }
+      if (e.code === "stale_record") product.refetch(); // the newer version brings the banner
     },
   });
 
@@ -184,9 +213,12 @@ export function ProductPage() {
     mutationFn: () =>
       call(() =>
         api.DELETE("/api/v1/b/{business_id}/products/{product_id}", {
-          params: { path: { ...path, product_id: productId! }, header: { "If-Match": String(base?.version) } },
+          params: { path: { ...path, product_id: productId! }, header: { "If-Match": String(opened?.version) } },
         }),
       ),
+    onError: (e) => {
+      if (e.code === "stale_record") product.refetch();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["b", businessId, "products"] });
       navigate(`/b/${businessId}/products`, { replace: true });
@@ -205,11 +237,14 @@ export function ProductPage() {
   const error = save.error && save.error.code !== "stale_record" ? save.error : null;
   const errorFor = (field: string) =>
     error && formField(error.field) === field ? error.fix ?? (error.message || errorText(error)) : undefined;
+  const base = opened;
+  const dirty = Boolean(opened) && Object.keys(changedFields(valuesOf(opened!), values)).length > 0;
   const warningFor = (field: string) => base?.warnings.find((w) => w.field === field)?.message;
   const theirs = (field: keyof Values) => {
-    if (!stale || !base) return undefined;
+    if (!stale || !base || !theirFields.includes(field)) return undefined;
     const now = valuesOf(base)[field];
-    return now !== values[field] ? `Now saved as: ${typeof now === "boolean" ? (now ? "yes" : "no") : now || "(blank)"}` : undefined;
+    if (now === values[field]) return "Someone else changed this.";
+    return `Now saved as: ${typeof now === "boolean" ? (now ? "yes" : "no") : now || "(blank)"}`;
   };
   const hint = (field: keyof Values, normal?: string) => theirs(field) ?? warningFor(field) ?? normal;
   const set = (field: keyof Values) => (e: { target: { value: string } }) => setValues({ ...values, [field]: e.target.value });
@@ -292,7 +327,7 @@ export function ProductPage() {
               <SelectField
                 label="GST rate"
                 options={(rates.data ?? []).map((r) => ({ value: r, label: formatRate(r) }))}
-                value={rates.data?.includes(rate) ? rate : ""}
+                value={chosenRate}
                 onChange={(e) => setRate(e.target.value)}
                 hint="The rate your CA advised. The list is the GST rates in force on that date."
                 error={errorFor("rate") ?? (rates.error ? errorText(rates.error) : undefined)}
@@ -309,9 +344,16 @@ export function ProductPage() {
         {!isNew && base && (
           <section className="card" aria-labelledby="manage">
             <h2 id="manage">Archive or delete</h2>
-            <Button type="button" variant="link" busy={archive.isPending} onClick={() => archive.mutate(base.status !== "archived")}>
+            <Button
+              type="button"
+              variant="link"
+              busy={archive.isPending}
+              disabled={dirty}
+              onClick={() => archive.mutate(base.status !== "archived")}
+            >
               {base.status === "archived" ? "Unarchive" : "Archive"}
             </Button>
+            {dirty && <p className="hint">Save or undo your changes first.</p>}
             {!base.in_use &&
               (confirmDelete ? (
                 <p>
