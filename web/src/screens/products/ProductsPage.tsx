@@ -11,6 +11,7 @@ import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
+import { useDebounced } from "../../kit/useDebounced";
 
 type Page = components["schemas"]["ProductPageOut"];
 type Product = components["schemas"]["ProductOut"];
@@ -27,16 +28,6 @@ const FILTERS: { value: Filter; label: string }[] = [
   { value: "no_hsn", label: "No HSN" },
   { value: "rate_unconfirmed", label: "Rate not confirmed" },
 ];
-
-/** Keeps the search box responsive: the list asks the server only once typing pauses. */
-function useDebounced(value: string, ms = 300) {
-  const [settled, setSettled] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setSettled(value), ms);
-    return () => clearTimeout(t);
-  }, [value, ms]);
-  return settled;
-}
 
 function Chips({ p }: { p: Product }) {
   const unconfirmed = p.rate_on && !p.rate_on.confirmed;

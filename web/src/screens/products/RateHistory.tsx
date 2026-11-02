@@ -44,7 +44,9 @@ export function RateHistory(props: {
   const [rate, setRate] = useState("");
   const [action, setAction] = useState<Action | null>(null);
   const [text, setText] = useState("");
-  const rates = useGstRates(validFrom, true);
+  // Only a taxable product takes a rate; an older history stays visible for the others.
+  const taxable = product.tax_category === "taxable";
+  const rates = useGstRates(validFrom, taxable);
   const chosenRate = rates.data?.includes(rate) ? rate : "";
   useEffect(() => {
     if (rates.data && rate && !rates.data.includes(rate)) setRate("");
@@ -165,6 +167,7 @@ export function RateHistory(props: {
         </form>
       )}
 
+      {taxable && (
       <form onSubmit={submitAdd} noValidate aria-labelledby="add-rate">
         <h3 id="add-rate">Add a new rate from a date</h3>
         <Field label="New rate applies from" type="date" value={validFrom} onChange={(e) => setValidFrom(e.target.value)} />
@@ -182,6 +185,7 @@ export function RateHistory(props: {
           </Button>
         </div>
       </form>
+      )}
     </section>
   );
 }

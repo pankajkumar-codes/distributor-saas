@@ -6,6 +6,7 @@ import { NotFound } from "./kit/NotFound";
 import { BusinessesPage } from "./screens/businesses/BusinessesPage";
 import { HomePage } from "./screens/home/HomePage";
 import { BusinessPage } from "./screens/onboarding/BusinessPage";
+import { CustomersPage } from "./screens/customers/CustomersPage";
 import { ProductPage } from "./screens/products/ProductPage";
 import { ProductsPage } from "./screens/products/ProductsPage";
 import { SigninPage } from "./screens/signin/SigninPage";
@@ -19,6 +20,7 @@ export const routes: RouteObject[] = [
   { path: "/onboarding/business", element: <RequireAuth><BusinessPage /></RequireAuth> },
   { path: "/businesses", element: <RequireAuth><BusinessesPage /></RequireAuth> },
   { path: "/b/:businessId/home", element: <RequireAuth><HomePage /></RequireAuth> },
+  { path: "/b/:businessId/customers", element: <RequireAuth><CustomersPage /></RequireAuth> },
   { path: "/b/:businessId/products", element: <RequireAuth><ProductsPage /></RequireAuth> },
   { path: "/b/:businessId/products/new", element: <RequireAuth><ProductPage /></RequireAuth> },
   { path: "/b/:businessId/products/:productId", element: <RequireAuth><ProductPage /></RequireAuth> },
