@@ -1362,7 +1362,7 @@
         "additionalProperties": false,
         "properties": {
           "file_name": {
-            "maxLength": 300,
+            "maxLength": 255,
             "title": "File Name",
             "type": "string"
           },
