@@ -26,11 +26,13 @@ def seed(sql, **params):
         return c.execute(text(sql), params)
 
 
-def user(sub, *, support=False):
+def user(sub, *, support=False, totp=None):
+    """A support user has TOTP on unless `totp=False` (L2-5)."""
     uid = uuid.uuid4()
     seed(
-        "insert into identity.users (id, cognito_sub, email, is_support) values (:id, :sub, :email, :s)",
-        id=uid, sub=sub, email=f"{sub}@example.com", s=support,
+        "insert into identity.users (id, cognito_sub, email, is_support, totp_enabled_at)"
+        " values (:id, :sub, :email, :s, case when :t then now() end)",
+        id=uid, sub=sub, email=f"{sub}@example.com", s=support, t=support if totp is None else totp,
     )
     return uid
 
@@ -163,6 +165,17 @@ def test_support_user_needs_a_live_grant(pg_client):
     # A grant for one business opens no other.
     b = business(asha)
     assert deny_reason(svc, "sam", jti, b) == "support_no_grant"
+
+
+def test_a_support_user_without_totp_is_signed_out_of_every_business(pg_client):
+    """L2-5, AC2-10: even with a live grant; /me still resolves, to turn TOTP on."""
+    _, svc = pg_client
+    asha, sam = user("asha"), user("sam", support=True, totp=False)
+    a = business(asha)
+    grant(a, asha)
+    jti = session(sam)
+    assert deny_reason(svc, "sam", jti, a) == "session_invalid"
+    assert resolve(svc, "sam", jti).user_id == sam
 
 
 def test_touch_moves_the_idle_clock_at_most_once_a_minute(pg_client):

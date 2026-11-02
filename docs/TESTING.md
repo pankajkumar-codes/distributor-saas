@@ -72,6 +72,10 @@ imports boto3, which no test loads. On Lambda the HMAC keys come from Parameter 
 runs as soon as its request commits (`InlineQueue`), and presigned uploads and
 downloads go to `/api/v1/dev/objects/*`, which exist only in a debug environment.
 
+Storage keys are `<area>/b/<business>/<id>` since #58. Files a local run stored under the
+old `b/<business>/<area>/` layout now read as missing: delete `build/objects` (or your
+`LOCAL_OBJECTS_DIR`) after pulling that change.
+
 LLD-0 §7 checks not in CI yet, and why:
 - `route-coverage` (every route declares its permission and has a tenant test): waits
   for the LLD-1 routes to settle; the stock-era routes in `identity/api.py` go first.
