@@ -7,6 +7,7 @@ import uuid
 from datetime import datetime
 
 import pytest
+from sqlalchemy import text
 
 from app import api as app_api
 from platform_common import jobs
@@ -229,3 +230,38 @@ def test_a_confirmed_run_superseded_before_its_apply_ends_without_saving(shop): 
     assert get(shop, b).json()["counts"]["applied"] == 1
     items = pg.client.get(f"/api/v1/b/{biz}/products", headers=as_user("alice")).json()["items"]
     assert [p["code"] for p in items] == ["SOAP-1"]
+
+
+def test_a_second_post_in_the_window_is_not_read_as_the_checked_file(shop):  # #69 review nit 3
+    pg, biz, _ = shop
+    content = csv_file(SOAP, OIL)
+    r = post(pg, f"/api/v1/b/{biz}/product-imports", {"file_name": "p.csv", "size_bytes": len(content)},
+             key=uuid.uuid4().hex)
+    import_id, up = r.json()["import_id"], r.json()["upload"]
+    pg.client.post(up["url"], data=up["fields"], files={"file": ("p.csv", content, "text/csv")})
+    assert post(pg, f"/api/v1/b/{biz}/product-imports/{import_id}/complete").status_code == 202
+    swapped = csv_file(SOAP)  # still within the POST's size cap and 5 minutes
+    assert pg.client.post(up["url"], data=up["fields"], files={"file": ("p.csv", swapped, "text/csv")}).status_code == 204
+    assert run_jobs(shop) == ["done"]
+    out = get(shop, import_id).json()
+    assert (out["status"], out["error_code"]) == ("failed", "upload_size_mismatch")
+
+
+def test_a_job_whose_user_lost_catalog_edit_saves_nothing(shop):  # #69 review nit 5
+    pg, biz, _ = shop
+    seed_member(pg, biz, "bill", "billing")
+    content = csv_file(SOAP)
+    r = post(pg, f"/api/v1/b/{biz}/product-imports", {"file_name": "p.csv", "size_bytes": len(content)},
+             sub="bill", key=uuid.uuid4().hex)
+    import_id, up = r.json()["import_id"], r.json()["upload"]
+    pg.client.post(up["url"], data=up["fields"], files={"file": ("p.csv", content, "text/csv")})
+    post(pg, f"/api/v1/b/{biz}/product-imports/{import_id}/complete", sub="bill")
+    assert run_jobs(shop) == ["done"]
+    post(pg, f"/api/v1/b/{biz}/product-imports/{import_id}/confirm", {"apply_changes": True}, sub="bill")
+    with pg.owner.begin() as c:  # bill becomes the CA before the apply job runs
+        c.execute(text("update identity.memberships set role = 'ca' where business_id = :b and user_id ="
+                       " (select id from identity.users where cognito_sub = 'bill')"), {"b": biz})
+    assert run_jobs(shop) == ["done"]
+    out = get(shop, import_id).json()
+    assert (out["status"], out["error_code"]) == ("failed", "not_allowed")
+    assert pg.client.get(f"/api/v1/b/{biz}/products", headers=as_user("alice")).json()["items"] == []
