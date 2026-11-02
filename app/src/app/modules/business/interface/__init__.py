@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from ..fiscal import fy_of
 from ..frequency import FrequencyRow, add_frequency_row, filing_frequency_on
 from ..gstin import GstinCheck, check_gstin
+from ..gstin import message as gstin_message
 from ..profile import (
     BusinessSetup,
     Channels,
@@ -50,6 +51,7 @@ __all__ = [
     "display_name",
     "filing_frequency_on",
     "get_profile",
+    "gstin_message",
     "lock_gstin",
     "ready_for_documents",
     "setup_state",

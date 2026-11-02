@@ -8,6 +8,7 @@ from mangum import Mangum
 from app import runtime
 from app.home.api import router as home_router
 from app.modules.business.api import router as business_router
+from app.modules.catalog.api_customers import router as customers_router
 from app.modules.catalog.api_products import router as products_router
 from app.modules.identity.api import router as identity_router
 from app.modules.identity.api_auth import router as auth_router
@@ -43,6 +44,7 @@ app.include_router(team_router, prefix=API_PREFIX)
 app.include_router(business_router, prefix=API_PREFIX)
 app.include_router(home_router, prefix=API_PREFIX)
 app.include_router(products_router, prefix=API_PREFIX)
+app.include_router(customers_router, prefix=API_PREFIX)
 app.include_router(refdata_router, prefix=API_PREFIX)
 app.include_router(jobs_router, prefix=API_PREFIX)  # platform routes (LLD-0 §3.7)
 if debug_env():

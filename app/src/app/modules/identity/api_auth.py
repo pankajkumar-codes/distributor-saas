@@ -137,11 +137,11 @@ class ErrorOut(BaseModel):
 _ERROR_DESCRIPTIONS = {400: "Bad Request", 401: "Unauthorized", 422: "Unprocessable Content", 429: "Too Many Requests"}
 
 
-def _errors(*statuses: int) -> dict:
+def error_responses(*statuses: int) -> dict:
     return {status: {"model": ErrorOut, "description": _ERROR_DESCRIPTIONS[status]} for status in statuses}
 
 
-@router.post("/signup", status_code=202, response_model=CodeSent, responses=_errors(422, 429))
+@router.post("/signup", status_code=202, response_model=CodeSent, responses=error_responses(422, 429))
 def signup_request(
     body: EmailBody,
     request: Request,
@@ -152,7 +152,7 @@ def signup_request(
     return CodeSent(code_ttl_minutes=terms.ttl_minutes, code_max_tries=terms.max_tries)
 
 
-@router.post("/signup/verify", response_model=SignedUpOut, responses=_errors(400, 401, 422, 429))
+@router.post("/signup/verify", response_model=SignedUpOut, responses=error_responses(400, 401, 422, 429))
 def signup_verify(
     body: VerifyBody,
     request: Request,
@@ -172,7 +172,7 @@ def signup_verify(
     }
 
 
-@router.post("/reset", status_code=202, response_model=CodeSent, responses=_errors(422, 429))
+@router.post("/reset", status_code=202, response_model=CodeSent, responses=error_responses(422, 429))
 def reset_request(
     body: EmailBody,
     request: Request,
@@ -184,7 +184,7 @@ def reset_request(
     return CodeSent(code_ttl_minutes=terms.ttl_minutes, code_max_tries=terms.max_tries)
 
 
-@router.post("/reset/verify", response_model=PasswordSetOut, responses=_errors(400, 422, 429))
+@router.post("/reset/verify", response_model=PasswordSetOut, responses=error_responses(400, 422, 429))
 def reset_verify(
     body: ResetVerifyBody,
     request: Request,
@@ -206,7 +206,7 @@ def reset_verify(
     return PasswordSetOut()
 
 
-@router.post("/signin", response_model=SignedInOut | TotpStepOut, responses=_errors(401, 422, 429))
+@router.post("/signin", response_model=SignedInOut | TotpStepOut, responses=error_responses(401, 422, 429))
 def signin_password(
     body: SigninBody,
     request: Request,
@@ -223,7 +223,7 @@ def signin_password(
     return _signed_in(response, done)
 
 
-@router.post("/signin/totp", response_model=SignedInOut, responses=_errors(401, 422, 429))
+@router.post("/signin/totp", response_model=SignedInOut, responses=error_responses(401, 422, 429))
 def signin_totp(
     body: TotpBody,
     request: Request,
@@ -267,7 +267,7 @@ def clear_refresh_cookie(response: Response) -> None:
     response.delete_cookie(REFRESH_COOKIE, path=COOKIE_PATH, secure=True, httponly=True, samesite="strict")
 
 
-@router.post("/refresh", response_model=AccessTokenOut, responses=_errors(401, 429))
+@router.post("/refresh", response_model=AccessTokenOut, responses=error_responses(401, 429))
 def refresh(
     request: Request,
     idp: Annotated[AuthProvider, Depends(auth_provider)],
