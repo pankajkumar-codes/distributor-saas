@@ -125,7 +125,7 @@ export function ProductsPage() {
       <main className="page page-wide">
         <h1>Products</h1>
         <div className="field">
-          <label htmlFor="product-search">Search by name, code or HSN</label>
+          <label htmlFor="product-search">Search by name, code or barcode</label>
           <input id="product-search" type="search" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         <div className="tabs" role="group" aria-label="Show">

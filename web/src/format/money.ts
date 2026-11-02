@@ -8,9 +8,10 @@ export function formatRupees(amount: string): string {
   const [, sign, whole, fraction = ""] = m;
   if (fraction.length > 2 && /[1-9]/.test(fraction.slice(2))) return amount; // not ours to round
   const digits = whole.replace(/^0+(?=\d)/, "");
+  const zero = /^0+$/.test(digits) && !/[1-9]/.test(fraction);
   const last3 = digits.slice(-3);
   const rest = digits.slice(0, -3).replace(/\B(?=(\d{2})+$)/g, ",");
-  return `${sign}₹${rest ? `${rest},` : ""}${last3}.${fraction.slice(0, 2).padEnd(2, "0")}`;
+  return `${zero ? "" : sign}₹${rest ? `${rest},` : ""}${last3}.${fraction.slice(0, 2).padEnd(2, "0")}`;
 }
 
 /** A GST rate string such as "18" or "0.25" as "18%". */

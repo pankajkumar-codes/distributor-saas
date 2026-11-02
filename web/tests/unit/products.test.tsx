@@ -86,8 +86,8 @@ describe("the products list", () => {
     server.reply(LIST, page([]), page([product()]));
     open();
     await screen.findByText(/No products yet/);
-    fireEvent.change(screen.getByLabelText("Search by name, code or HSN"), { target: { value: "ne" } });
-    fireEvent.change(screen.getByLabelText("Search by name, code or HSN"), { target: { value: " neem " } });
+    fireEvent.change(screen.getByLabelText("Search by name, code or barcode"), { target: { value: "ne" } });
+    fireEvent.change(screen.getByLabelText("Search by name, code or barcode"), { target: { value: " neem " } });
     expect(await screen.findByText("Neem soap")).toBeInTheDocument();
     expect(queries().map((q) => q.q)).toEqual([undefined, "neem"]);
   });
@@ -118,6 +118,7 @@ describe("money and rates from strings", () => {
     expect(formatRupees("98765432109876543.21")).toBe("₹98,76,54,32,10,98,76,543.21"); // past Number's precision
     expect(formatRupees("0012.10")).toBe("₹12.10");
     expect(formatRupees("-50")).toBe("-₹50.00");
+    expect(formatRupees("-0.00")).toBe("₹0.00"); // no "minus zero"
     expect(formatRupees("12.345")).toBe("12.345"); // would need rounding: shown as sent
     expect(formatRupees("12.3400")).toBe("₹12.34");
     expect(formatRupees("abc")).toBe("abc");
