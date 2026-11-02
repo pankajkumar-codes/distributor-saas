@@ -11,6 +11,7 @@ has already changed the password, so the sessions are revoked even if this one e
 in between.
 """
 
+import logging
 import uuid
 from dataclasses import dataclass
 from datetime import date, timedelta
@@ -20,7 +21,7 @@ from sqlalchemy import text
 from platform_common import audit, rate
 from platform_common.auth import Caller
 from platform_common.authprovider import AuthProvider, AuthRefused
-from platform_common.errors import AppError, Deny
+from platform_common.errors import AppError, Deny, Invalid, RateLimited
 from platform_common.mailer import Mailer, send_after_commit
 from platform_common.permissions import Permission, has_permission
 from platform_common.uow import Principal, UnitOfWork, unit_of_work
@@ -28,6 +29,8 @@ from platform_common.uow import Principal, UnitOfWork, unit_of_work
 from ..interface import list_my_businesses, resolve_principal
 from . import limits
 from .passwords import check_password
+
+log = logging.getLogger(__name__)
 
 QUARTER_HOUR = timedelta(minutes=15)
 
@@ -50,9 +53,11 @@ def change_password(
     mail: Mailer,
     today: date,
 ) -> None:
-    """§5.9. Raises Invalid("password_weak"), Deny("session_invalid"), RateLimited or
-    CurrentPasswordWrong."""
+    """§5.9. Raises Invalid("password_weak" or "password_unchanged"), Deny("session_invalid"),
+    RateLimited or CurrentPasswordWrong."""
     check_password(new)  # before anything else, so a weak password spends no try
+    if new == current:
+        raise Invalid("password_unchanged", "choose a password you aren't using now", field="new_password")
     with unit_of_work(Principal(user_sub=caller.user_sub, request_id=request_id)) as uow:  # tx A
         me = resolve_principal(uow.tx, caller, None, request_id)
         email = uow.tx.execute(text("select email from identity.auth_user_by_sub(:s)"), {"s": me.user_sub}).scalar()
@@ -62,16 +67,39 @@ def change_password(
     rate.hit(rate.bucket("signin:email", email), per_email, QUARTER_HOUR)
     try:
         idp.change_password(access_token, current, new)
-    except AuthRefused:
-        raise CurrentPasswordWrong() from None
+    except AuthRefused as e:
+        raise _refusal(e) from None
 
-    with unit_of_work(Principal(user_sub=None, request_id=request_id)) as uow:  # tx B
-        uow.become_user(me.user_id, me.user_sub)
-        uow.tx.execute(text("select * from identity.auth_revoke_my_sessions('password_change')")).all()
-        audit.record(uow, "auth.password_change", "user", me.user_id, user_level=True)
-        sub = me.user_sub
-        uow.after_commit(lambda: idp.global_sign_out(sub))  # a failure is logged; the rows are revoked
-        send_after_commit(uow, mail, "password_changed", email, {})
+    sub = me.user_sub
+    try:
+        with unit_of_work(Principal(user_sub=None, request_id=request_id)) as uow:  # tx B
+            uow.become_user(me.user_id, sub)
+            uow.tx.execute(text("select * from identity.auth_revoke_my_sessions('password_change')")).all()
+            audit.record(uow, "auth.password_change", "user", me.user_id, user_level=True)
+            uow.after_commit(lambda: idp.global_sign_out(sub))  # a failure is logged; the rows are revoked
+            send_after_commit(uow, mail, "password_changed", email, {})
+    except Exception:
+        # The provider already has the new password. The session rows stay until their
+        # idle limit, so at least end every provider token now (Staff 2, #55).
+        log.error("change password: tx B failed after the provider accepted", extra={"request_id": request_id})
+        try:
+            idp.global_sign_out(sub)
+        except Exception:
+            log.exception("change password: global sign-out failed too", extra={"request_id": request_id})
+        raise
+
+
+def _refusal(e: AuthRefused) -> Exception:
+    """Each provider refusal gets its own reply (Staff 2, #55)."""
+    if e.code == "not_authorized":
+        return CurrentPasswordWrong()
+    if e.code == "token_invalid":  # expired or revoked at the provider: sign in again
+        return Deny("session_invalid")
+    if e.code == "password_rejected":
+        return Invalid("password_weak", "the password is too weak", field="new_password")
+    if e.code == "rate_limited":
+        return RateLimited(retry_after=60)
+    return RuntimeError(f"change password: unexpected provider refusal {e.code}")  # a 500, never a guess
 
 
 @dataclass(frozen=True)
