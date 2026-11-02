@@ -59,5 +59,8 @@ def _record(uow: UnitOfWork, mail: Mailer, *, on: bool) -> None:
     if not uow.tx.execute(text("select identity.auth_set_my_totp(:on)"), {"on": on}).scalar():
         raise RuntimeError("auth_set_my_totp found no bound user under me_uow")
     audit.record(uow, "auth.totp_on" if on else "auth.totp_off", "user", uow.principal.user_id, user_level=True)
-    email = uow.tx.execute(text("select email from identity.users")).scalar_one()  # users_self: the caller's row
+    # users_self also limits app_rw to the caller's row; the filter says so here too.
+    email = uow.tx.execute(
+        text("select email from identity.users where id = :me"), {"me": uow.principal.user_id}
+    ).scalar_one()
     send_after_commit(uow, mail, "totp_on" if on else "totp_off", email, {})
