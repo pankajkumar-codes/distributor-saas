@@ -22,11 +22,14 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   expect(overflow).toBeLessThanOrEqual(0);
 
   await page.getByRole("button", { name: "Continue" }).click();
-  await expect(page.getByRole("heading", { name: "Home" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^(Welcome|Good (morning|afternoon|evening))/ })).toBeVisible();
   expect(page.url()).toMatch(/\/b\/[0-9a-f-]{36}\/home$/);
   await expect(page.getByText("E2E Traders Private Limited")).toBeVisible();
   // Whether Home shows a rule 61A warning depends on today's date against the window, so
-  // the unit tests cover the warning words; here it is enough that Home loads.
+  // the unit tests cover the warning words. The details and the frequency are both done.
+  const setup = page.getByRole("region", { name: "Set up your business" });
+  await expect(setup.getByText("2 of 6 done")).toBeVisible();
+  await expect(setup.getByText("Coming soon").first()).toBeVisible();
   await noSeriousAxeFindings(page);
 });
 

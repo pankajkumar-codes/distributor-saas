@@ -51,3 +51,9 @@ export function errorText(error: ApiError): string {
   if (error.status >= 500) return "Something went wrong on our side. Nothing was lost; try again.";
   return error.fix ?? BY_CODE[error.code] ?? "That didn't work. Try again.";
 }
+
+/** The server or the network failed, so the same request may work if tried again. */
+export function transient(error: unknown): boolean {
+  const status = (error as ApiError | undefined)?.status;
+  return status === 0 || (typeof status === "number" && status >= 500);
+}

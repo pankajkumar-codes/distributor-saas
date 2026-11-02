@@ -323,15 +323,18 @@ def test_resolver_answering_for_another_business_is_a_500(t):
     assert _app().get(f"/b/{t['a']}/notes", headers={"x-debug-user": t["alice"]}).status_code == 500
 
 
-def test_support_principal_is_refused_until_grants_exist(t, caplog):
-    caplog.set_level(logging.INFO, "platform_common.errors")
+def test_a_support_grant_the_database_does_not_back_records_nothing_and_reads_nothing(t):
+    """Step 1's support.view insert passes only platform.support_grant_active (identity's
+    audit_support_view policy); a resolver's word alone gets no row and no read. The real
+    two-step flow is tested on the full schema in business/tests/test_support_view_postgres."""
     uow_mod.set_principal_resolver(
         lambda tx, caller, bid, rid: Principal(
             user_sub=caller.user_sub, request_id=rid, business_id=bid, role=None, support_grant_id=uuid.uuid4()
         )
     )
-    assert _app().get(f"/b/{t['a']}/notes", headers={"x-debug-user": t["alice"]}).status_code == 404
-    assert [r.reason for r in caplog.records if getattr(r, "event", None) == "deny"] == ["support_no_grant"]
+    assert _app().get(f"/b/{t['a']}/notes", headers={"x-debug-user": t["alice"]}).status_code == 500
+    with t["owner"].connect() as c:
+        assert c.execute(text("select count(*) from platform.audit_log where action = 'support.view'")).scalar() == 0
 
 
 def test_no_resolver_is_a_500(t):
