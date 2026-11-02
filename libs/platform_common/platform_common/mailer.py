@@ -2,10 +2,10 @@
 
 Mail that carries a code is handed over only after the request's transaction commits,
 through `send_after_commit`, and never through the outbox, so a code never lands in
-Postgres (HLD §7). In AWS the sender will be SqsMailer, which queues the message for
-the mailer Lambda; it comes with Staff 2's mail queue and SES access (S0b).
+Postgres (HLD §7). In AWS the sender is QueueMailer on the SQS mail queue (15-minute
+retention); the mailer Lambda (`app.mailer`) renders the message and sends it with SES.
 
-Until then two senders exist, and neither sends anything real:
+Locally and in tests two senders exist, and neither sends anything real:
 - FakeMailer records messages for tests.
 - LocalFileMailer appends each message as a JSON line to a file, so a developer can
   read a sign-up code locally. It refuses to start outside PLATFORM_ENV local or test,
@@ -18,31 +18,17 @@ from pathlib import Path
 from typing import Protocol
 
 from .auth import debug_env
-
-# Templates the mailer Lambda will render (LLD-1 §2 mailer/templates/).
-TEMPLATES = frozenset(
-    {
-        "signup_code",
-        "already_registered",
-        "reset_code",
-        "reset_no_account",
-        "password_changed",
-        "totp_on",
-        "totp_off",
-        "invitation",
-    }
-)
-
+from .mail_templates import TEMPLATES, render  # noqa: F401 (TEMPLATES is re-exported)
+from .queue import Queue
 
 class Mailer(Protocol):
     def send(self, template: str, to: str, params: dict[str, str]) -> None: ...
 
 
 def _check(template: str, to: str, params: dict[str, str]) -> None:
-    if template not in TEMPLATES:
-        raise ValueError(f"unknown mail template {template!r}")
-    if "@" not in to or not all(isinstance(v, str) for v in params.values()):
-        raise ValueError("mail needs an address and string params")
+    if not isinstance(to, str) or "@" not in to:
+        raise ValueError("mail needs an address")
+    render(template, params)
 
 
 @dataclass
@@ -70,6 +56,18 @@ class LocalFileMailer:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.path.open("a", encoding="utf-8") as f:
             f.write(json.dumps({"template": template, "to": to, "params": params}) + "\n")
+
+
+class QueueMailer:
+    """Queues {template, to, params} for the mailer Lambda (HLD §7). The queue is
+    SqsQueue(MAIL_QUEUE_URL) in AWS and FakeQueue in tests."""
+
+    def __init__(self, queue: Queue):
+        self.queue = queue
+
+    def send(self, template: str, to: str, params: dict[str, str]) -> None:
+        _check(template, to, params)
+        self.queue.send({"template": template, "to": to, "params": dict(params)})
 
 
 def send_after_commit(uow, mailer: Mailer, template: str, to: str, params: dict[str, str]) -> None:

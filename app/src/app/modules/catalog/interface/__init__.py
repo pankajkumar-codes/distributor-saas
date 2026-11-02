@@ -2,8 +2,7 @@
 invoice lines and marks them used at finalize; Home reads the setup counts.
 
 Every function takes the caller's transaction (uow.tx) and runs under its business's
-row-level security, so another business's product is simply not found. Customers
-(customer_snapshot, the customer half of mark_used and setup_counts) come with S3-b.
+row-level security, so another business's product or customer is simply not found.
 """
 
 import uuid
@@ -22,7 +21,17 @@ from ..rates import RateRow, rate_on
 # Explicit as well as row-level security (#52 review): the bound business only.
 _MINE = "business_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
 
-__all__ = ["ProductForLine", "SetupCounts", "mark_used", "product_for_line", "products_for_lines", "setup_counts"]
+__all__ = [
+    "Address",
+    "CustomerSnapshot",
+    "ProductForLine",
+    "SetupCounts",
+    "customer_snapshot",
+    "mark_used",
+    "product_for_line",
+    "products_for_lines",
+    "setup_counts",
+]
 
 
 @dataclass(frozen=True)
@@ -44,10 +53,33 @@ class ProductForLine:
 
 
 @dataclass(frozen=True)
+class Address:
+    line1: str | None
+    line2: str | None
+    city: str | None
+    pin: str | None
+    state_code: str
+
+
+@dataclass(frozen=True)
+class CustomerSnapshot:
+    customer_id: uuid.UUID
+    name: str
+    gstin: str | None
+    gstin_state_code: str | None
+    billing: Address
+    delivery: Address  # the billing address again when delivery_same_as_billing
+    delivery_same_as_billing: bool
+    credit_days: int
+    status: str  # active or archived; LLD-4 decides what an archived customer may do
+
+
+@dataclass(frozen=True)
 class SetupCounts:
     active_products: int
     products_missing_hsn: int
     products_unconfirmed_rate: int
+    active_customers: int
 
 
 def products_for_lines(tx: Session, product_ids: list[uuid.UUID], on: date) -> dict[uuid.UUID, ProductForLine]:
@@ -102,23 +134,48 @@ def product_for_line(tx: Session, product_id: uuid.UUID, on: date) -> ProductFor
     return found
 
 
-def mark_used(tx: Session, product_ids: list[uuid.UUID]) -> None:
-    """Inside sales' finalize transaction (L3-6, [RM43-4]): sets first_used_at once, and
-    raises Conflict("product_deleted") if any product was deleted meanwhile, so the
-    finalize rolls back. One product on two lines counts once (RM-4.3 row 14). It takes
-    the same row lock as delete and doesn't bump version."""
-    ids = list(dict.fromkeys(product_ids))
-    if not ids:
-        return
-    marked = tx.execute(
+def customer_snapshot(tx: Session, customer_id: uuid.UUID) -> CustomerSnapshot:
+    """What sales copies onto a draft (§8.1). Deny("not_found") for an unknown, another
+    business's or deleted customer."""
+    row = tx.execute(
         text(
-            "update catalog.products set first_used_at = coalesce(first_used_at, now())"
+            "select id, name, gstin, gstin_state_code, billing_line1, billing_line2, billing_city, billing_pin,"
+            " billing_state_code, delivery_same_as_billing, delivery_line1, delivery_line2, delivery_city,"
+            " delivery_pin, delivery_state_code, credit_days, status"
+            f" from catalog.customers where id = :c and {_MINE} and status <> 'deleted'"
+        ),
+        {"c": customer_id},
+    ).one_or_none()
+    if row is None:
+        raise Deny("not_found")
+    billing = Address(row.billing_line1, row.billing_line2, row.billing_city, row.billing_pin, row.billing_state_code)
+    delivery = billing if row.delivery_same_as_billing else Address(
+        row.delivery_line1, row.delivery_line2, row.delivery_city, row.delivery_pin, row.delivery_state_code
+    )
+    return CustomerSnapshot(row.id, row.name, row.gstin, row.gstin_state_code, billing, delivery,
+                            row.delivery_same_as_billing, row.credit_days, row.status)
+
+
+def _mark(tx: Session, table: str, ids: list[uuid.UUID]) -> int:
+    return len(tx.execute(
+        text(
+            f"update catalog.{table} set first_used_at = coalesce(first_used_at, now())"
             f" where id in :ids and {_MINE} and status <> 'deleted' returning id"
         ).bindparams(bindparam("ids", expanding=True)),
         {"ids": ids},
-    ).all()
-    if len(marked) != len(ids):
+    ).all())
+
+
+def mark_used(tx: Session, product_ids: list[uuid.UUID], customer_id: uuid.UUID | None = None) -> None:
+    """Inside sales' finalize transaction (L3-6, [RM43-4]): sets first_used_at once, and
+    raises Conflict("product_deleted") or Conflict("customer_deleted") if one was deleted
+    meanwhile, so the finalize rolls back. One product on two lines counts once (RM-4.3
+    row 14). It takes the same row lock as delete and doesn't bump version."""
+    ids = list(dict.fromkeys(product_ids))
+    if ids and _mark(tx, "products", ids) != len(ids):
         raise Conflict("product_deleted", "A product on this invoice was deleted", fix="Remove the line and add it again")
+    if customer_id is not None and _mark(tx, "customers", [customer_id]) != 1:
+        raise Conflict("customer_deleted", "This invoice's customer was deleted", fix="Choose the customer again")
 
 
 def setup_counts(tx: Session, on: date) -> SetupCounts:
@@ -128,7 +185,8 @@ def setup_counts(tx: Session, on: date) -> SetupCounts:
             "select count(*) filter (where p.status = 'active'),"
             " count(*) filter (where p.status = 'active' and p.hsn is null),"
             " count(*) filter (where p.status = 'active' and p.tax_category = 'taxable'"
-            "                  and not coalesce(cr.confirmed, false))"
+            "                  and not coalesce(cr.confirmed, false)),"
+            f" (select count(*) from catalog.customers c where c.{_MINE} and c.status = 'active')"
             " from catalog.products p left join catalog.current_rates(:on) cr on cr.product_id = p.id"
             f" where p.{_MINE} and p.status <> 'deleted'"
         ),

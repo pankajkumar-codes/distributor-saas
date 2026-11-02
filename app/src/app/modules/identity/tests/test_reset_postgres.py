@@ -145,3 +145,15 @@ def test_revoke_all_ends_every_session_of_the_caller_only(env):  # §5.7
     assert not any(t.revoked for t in idp._refresh.values() if t.sub == idp.user("ravi@example.com").sub)
     assert one(admin, "select data from platform.audit_log where action = 'auth.signout_all'") == {"sessions": 3}
     assert client.post("/api/v1/me/sessions/revoke-all", headers={"authorization": f"Bearer {a1}"}).status_code == 401
+
+
+def test_revoke_my_sessions_only_acts_for_the_bound_caller(env):  # Staff, #48
+    from platform_common.uow import Principal, unit_of_work
+
+    client, idp, _, admin = env
+    with unit_of_work(Principal(user_sub=None, request_id="t")) as uow:  # nobody bound
+        assert uow.tx.execute(text("select * from identity.auth_revoke_my_sessions('signout_all')")).all() == []
+    sub = idp.user(EMAIL).sub
+    with unit_of_work(Principal(user_sub=sub, request_id="t")) as uow:  # a sub alone isn't enough
+        assert uow.tx.execute(text("select * from identity.auth_revoke_my_sessions('signout_all')")).all() == []
+    assert live(admin) == 1

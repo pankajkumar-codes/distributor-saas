@@ -132,9 +132,10 @@ def revoke_all(uow, idp: AuthProvider) -> int:
     user, audit auth.signout_all, and the provider's global sign-out after commit.
     Returns how many rows were revoked (this request's own session included)."""
     sub = uow.principal.user_sub
-    done = uow.tx.execute(
-        text("select user_id, revoked from identity.auth_revoke_user_sessions(:s, 'signout_all')"), {"s": sub}
-    ).one()
+    # Bound to the caller in SQL (app.user_sub and app.user_id), not to an argument.
+    done = uow.tx.execute(text("select user_id, revoked from identity.auth_revoke_my_sessions('signout_all')")).first()
+    if done is None:  # me_uow resolved this user, so only a changed resolver gets here
+        raise Deny("session_invalid")
     audit.record(uow, "auth.signout_all", "user", done.user_id, data={"sessions": done.revoked}, user_level=True)
     uow.after_commit(lambda: idp.global_sign_out(sub))  # a failure is logged; the rows are revoked
     return done.revoked
