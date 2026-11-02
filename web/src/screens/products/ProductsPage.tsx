@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 
 import { api, call } from "../../api/client";
 import { errorText, type ApiError } from "../../api/errors";
@@ -123,7 +123,12 @@ export function ProductsPage() {
     <>
       <TopBar title={business.display_name} gstin={business.gstin} />
       <main className="page page-wide">
-        <h1>Products</h1>
+        <div className="actions">
+          <h1>Products</h1>
+          <Link className="btn btn-primary" to={`/b/${businessId}/products/new`}>
+            New product
+          </Link>
+        </div>
         <div className="field">
           <label htmlFor="product-search">Search by name, code or HSN</label>
           <input id="product-search" type="search" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -165,7 +170,7 @@ export function ProductsPage() {
         )}
         {list.isPending && <p aria-busy="true">Loading…</p>}
         {list.isSuccess && items.length === 0 && (
-          <p>{narrowed ? "No products match." : "No products yet. Products you add appear here."}</p>
+          <p>{narrowed ? "No products match." : "No products yet. Add your first with New product."}</p>
         )}
 
         {items.length > 0 && (
@@ -183,7 +188,10 @@ export function ProductsPage() {
               {items.map((p) => (
                 <tr key={p.id}>
                   <td data-label="Product">
-                    <strong>{p.name}</strong> <span className="hint">{p.code}</span> <Chips p={p} />
+                    <Link to={`/b/${businessId}/products/${p.id}`}>
+                      <strong>{p.name}</strong>
+                    </Link>{" "}
+                    <span className="hint">{p.code}</span> <Chips p={p} />
                   </td>
                   <td data-label="HSN">{p.hsn ?? "—"}</td>
                   <td data-label="Unit">{p.uqc}</td>
