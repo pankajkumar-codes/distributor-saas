@@ -1,4 +1,4 @@
-"""AWS adapters: SqsQueue, S3ObjectStore, SesSender and get_parameter.
+"""AWS adapters: SqsQueue, S3ObjectStore, SesSender, get_parameter and cognito_client.
 
 This is the only module that imports boto3, and it is loaded only on Lambda: by the
 app's start-up code when JOBS_QUEUE_URL / UPLOADS_BUCKET / MAIL_QUEUE_URL are set, by
@@ -101,6 +101,12 @@ class SesSender:
                                 "Body": {"Text": {"Data": body, "Charset": "UTF-8"}}}},
         )
         return r["MessageId"]
+
+
+def cognito_client():
+    """The cognito-idp client identity's CognitoAuthProvider drives (LLD-1 §7.2). Built
+    here because boto3 is imported only in this module (D-039)."""
+    return boto3.client("cognito-idp")
 
 
 def get_parameter(name: str) -> str:
