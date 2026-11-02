@@ -51,3 +51,21 @@ input[aria-invalid="true"], select[aria-invalid="true"] { border-color: var(--er
 .nudge-block .tag { color: var(--error); font-weight: 600; }
 .check { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.page-wide { max-width: 64rem; }
+.field input[type="search"] { width: 100%; }
+.tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+.tab { font: inherit; min-height: 44px; padding: 8px 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--page); color: var(--ink); cursor: pointer; }
+.tab[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: #fff; }
+.chips { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.chip { font-size: 0.75rem; padding: 2px 8px; border-radius: 999px; background: #f3f3f5; color: var(--ink); }
+.chip-warn { background: #fff4e5; color: #7a4100; }
+table.products { width: 100%; border-collapse: collapse; margin: 0 0 16px; }
+table.products th, table.products td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+@media (max-width: 600px) {
+  table.products thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  table.products tr { display: block; border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; margin: 0 0 12px; }
+  table.products td { display: flex; justify-content: space-between; gap: 12px; border: 0; padding: 4px 0; }
+  table.products td::before { content: attr(data-label); color: var(--muted); }
+  table.products td:first-child { display: block; }
+  table.products td:first-child::before { content: none; }
+}
