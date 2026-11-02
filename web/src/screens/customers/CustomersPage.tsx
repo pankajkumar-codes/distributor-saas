@@ -1,6 +1,5 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 
 import { api, call } from "../../api/client";
 import { errorText, type ApiError } from "../../api/errors";
@@ -11,7 +10,7 @@ import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
-import { useDebounced } from "../../kit/useDebounced";
+import { uniqueById, useUrlSearch } from "../../kit/lists";
 
 type Page = components["schemas"]["CustomerPageOut"];
 type Status = "active" | "archived" | "all";
@@ -34,20 +33,7 @@ export function CustomersPage() {
   const business = businesses.data?.find((b) => b.business_id === businessId);
   const states = useStateCodes();
   const status = (STATUSES.find((s) => s.value === params.get("status"))?.value ?? "active") as Status;
-  const [search, setSearch] = useState(params.get("q") ?? "");
-  const q = useDebounced(search.trim());
-
-  useEffect(() => {
-    setParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        if (q) next.set("q", q);
-        else next.delete("q");
-        return next;
-      },
-      { replace: true },
-    );
-  }, [q, setParams]);
+  const { search, setSearch, q } = useUrlSearch(params, setParams);
 
   const setStatus = (value: Status) =>
     setParams((prev) => {
@@ -89,14 +75,19 @@ export function CustomersPage() {
   }
   if (!business) return <NotFound />;
 
-  const items = list.data?.pages.flatMap((p) => p.items) ?? [];
+  const items = uniqueById(list.data?.pages.flatMap((p) => p.items) ?? []);
   const stateName = (code: string | null) => (code ? states.data?.find((s) => s.code === code)?.name ?? code : "—");
 
   return (
     <>
       <TopBar title={business.display_name} gstin={business.gstin} />
       <main className="page page-wide">
-        <h1>Customers</h1>
+        <div className="actions">
+          <h1>Customers</h1>
+          <Link className="btn btn-primary" to={`/b/${businessId}/customers/new`}>
+            New customer
+          </Link>
+        </div>
         <div className="field">
           <label htmlFor="customer-search">Search by name or GSTIN</label>
           <input
@@ -127,7 +118,7 @@ export function CustomersPage() {
           </Banner>
         )}
         {list.isPending && <p aria-busy="true">Loading…</p>}
-        {list.isSuccess && items.length === 0 && <p>{q || status !== "active" ? "No customers match." : "No customers yet."}</p>}
+        {list.isSuccess && items.length === 0 && <p>{q || status !== "active" ? "No customers match." : "No customers yet. Add your first with New customer."}</p>}
 
         {items.length > 0 && (
           <table className="products">
@@ -143,7 +134,9 @@ export function CustomersPage() {
               {items.map((c) => (
                 <tr key={c.id}>
                   <td data-label="Customer">
-                    <strong>{c.name}</strong>{" "}
+                    <Link to={`/b/${businessId}/customers/${c.id}`}>
+                      <strong>{c.name}</strong>
+                    </Link>{" "}
                     {(c.warnings.length > 0 || c.status === "archived") && (
                       <span className="chips">
                         {c.warnings.map((w) => (

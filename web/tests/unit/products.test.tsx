@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../../src/App";
@@ -100,6 +100,20 @@ describe("the products list", () => {
     expect(await screen.findByText("Rose soap")).toBeInTheDocument();
     expect(queries()[1]).toMatchObject({ offset: "50" });
     expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
+  });
+
+  it("puts the URL's search back in the box when the URL changes, and shows each product once", async () => {
+    server.reply(LIST, page([product()], true), page([product(), product({ id: "p-2", name: "Rose soap" })]), page([]));
+    open("/b/b-1/products?q=neem");
+    await screen.findByText("Neem soap");
+    fireEvent.click(screen.getByRole("button", { name: "Load more" }));
+    await screen.findByText("Rose soap");
+    expect(screen.getAllByText("Neem soap")).toHaveLength(1);
+    act(() => {
+      window.history.pushState(null, "", "/b/b-1/products?q=rose");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    await vi.waitFor(() => expect(screen.getByLabelText("Search by name, code or barcode")).toHaveValue("rose"));
   });
 
   it("is NotFound for another business, without asking the server", async () => {

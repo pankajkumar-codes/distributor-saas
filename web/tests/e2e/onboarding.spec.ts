@@ -31,12 +31,26 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   await expect(setup.getByText("2 of 6 done")).toBeVisible();
   await expect(setup.getByText("Coming soon").first()).toBeVisible();
 
-  // The customer step opens the (still empty) customers list; Back returns to Home.
+  // The customer step opens the (still empty) customers list; add one, find it, go back Home.
+  const homeUrl = page.url();
   await setup.getByRole("link", { name: "Add your first customer" }).click();
   await expect(page.getByRole("heading", { name: "Customers" })).toBeVisible();
-  await expect(page.getByText("No customers yet.")).toBeVisible();
+  await expect(page.getByText("No customers yet. Add your first with New customer.")).toBeVisible();
   await noSeriousAxeFindings(page);
-  await page.goBack();
+  await page.getByRole("link", { name: "New customer" }).click();
+  await page.getByLabel("Name", { exact: true }).fill("Asha Stores");
+  await page.getByRole("group", { name: "Billing address" }).getByLabel("State", { exact: true }).selectOption("27");
+  await page.getByLabel("Credit days").fill("15");
+  await noSeriousAxeFindings(page);
+  await page.getByRole("button", { name: "Add customer" }).click();
+  await expect(page.getByRole("heading", { name: "Asha Stores" })).toBeVisible();
+  await page.getByRole("link", { name: "Customers" }).click();
+  const customer = page.getByRole("row").filter({ hasText: "Asha Stores" });
+  await expect(customer.getByText("Unregistered")).toBeVisible();
+  await expect(customer.getByText("Maharashtra")).toBeVisible();
+  const overflowC = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflowC).toBeLessThanOrEqual(0);
+  await page.goto(homeUrl);
 
   // The checklist's product step opens the (still empty) products list.
   await setup.getByRole("link", { name: "Add your first product" }).click();
