@@ -15,6 +15,8 @@ import { NotFound } from "../../kit/NotFound";
 import { RadioGroup } from "../../kit/RadioGroup";
 import { SelectField } from "../../kit/SelectField";
 import { TopBar } from "../../kit/TopBar";
+import { RateHistory } from "./RateHistory";
+import { useGstRates } from "./useGstRates";
 
 type Detail = components["schemas"]["ProductDetailOut"];
 type Category = components["schemas"]["ProductIn"]["tax_category"];
@@ -122,14 +124,7 @@ export function ProductPage() {
   const [rate, setRate] = useState("");
   const [validFrom, setValidFrom] = useState(todayIst());
   const [stale, setStale] = useState(false);
-  // The rates allowed on the chosen date (refdata gst.rate_values): the list, never a suggestion.
-  const rates = useQuery<string[], ApiError>({
-    queryKey: ["refdata", "gst-rates", validFrom],
-    queryFn: async () =>
-      (await call(() => api.GET("/api/v1/refdata/gst-rates", { params: { query: { on: validFrom } } }))).rates,
-    enabled: isNew && values.tax_category === "taxable" && /^\d{4}-\d{2}-\d{2}$/.test(validFrom),
-    staleTime: Infinity,
-  });
+  const rates = useGstRates(validFrom, isNew && values.tax_category === "taxable");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const latest = product.data ?? null;
 
@@ -340,6 +335,16 @@ export function ProductPage() {
             </Button>
           </div>
         </form>
+
+        {!isNew && base && (base.tax_category === "taxable" || base.rates.length > 0) && (
+          <RateHistory
+            businessId={businessId}
+            product={base}
+            canConfirm={business.role === "owner" || business.role === "admin"}
+            locked={dirty}
+            onSaved={saved}
+          />
+        )}
 
         {!isNew && base && (
           <section className="card" aria-labelledby="manage">

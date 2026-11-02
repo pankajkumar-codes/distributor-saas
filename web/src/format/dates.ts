@@ -25,3 +25,11 @@ export function formatDate(day: string): string {
 export function hourIst(now: Date = new Date()): number {
   return new Date(now.getTime() + IST_OFFSET_MS).getUTCHours();
 }
+
+/** The calendar day before an ISO date ("2026-03-01" → "2026-02-28"); a malformed value as is. */
+export function dayBefore(day: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
+  if (!m) return day;
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]) - 1));
+  return d.toISOString().slice(0, 10);
+}

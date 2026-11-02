@@ -49,11 +49,22 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   await noSeriousAxeFindings(page);
   await page.getByRole("button", { name: "Add product" }).click();
   await expect(page.getByRole("heading", { name: "Neem soap" })).toBeVisible();
+
+  // The owner marks the first rate confirmed in the rate history; the list then has no chip.
+  const history = page.getByRole("table").getByRole("row").filter({ hasText: "18%" });
+  await expect(history.getByText("Not confirmed")).toBeVisible();
+  await history.getByRole("button", { name: "Mark confirmed" }).click();
+  await page.getByLabel("Your note (optional)").fill("Checked with our CA");
+  await page.getByRole("button", { name: "Mark confirmed" }).last().click();
+  await expect(history.getByText("Yes (Checked with our CA)")).toBeVisible();
+  await noSeriousAxeFindings(page);
+  const overflow3 = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflow3).toBeLessThanOrEqual(0);
   await page.getByRole("link", { name: "Products" }).click();
   const row = page.getByRole("row").filter({ hasText: "Neem soap" });
   await expect(row.getByText("₹1,234.50")).toBeVisible();
   await expect(row.getByText("18%")).toBeVisible();
-  await expect(row.getByText("Not confirmed")).toBeVisible();
+  await expect(row.getByText("Not confirmed")).toHaveCount(0);
   await noSeriousAxeFindings(page);
   const overflow2 = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow2).toBeLessThanOrEqual(0);
