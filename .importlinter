@@ -25,6 +25,8 @@ ignore_imports =
     app.modules.identity.** -> app.modules.business.interface
 ; catalog checks customer GSTINs and states through business (LLD-3 §4, §8.3).
     app.modules.catalog.** -> app.modules.business.interface
+; catalog reads product files through imports' read_table (LLD-3 §7.1).
+    app.modules.catalog.** -> app.modules.imports.interface
 ; Module tests drive the mounted app and may call other modules' interfaces, the
 ; same surface any module may use.
     app.modules.*.tests.** -> app.api

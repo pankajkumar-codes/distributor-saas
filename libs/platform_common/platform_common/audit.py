@@ -56,6 +56,8 @@ ALLOWED_DATA: dict[str, frozenset[str]] = {
     "customer.archived": frozenset(),
     "customer.unarchived": frozenset(),
     "customer.deleted": frozenset(),
+    "catalog.import_applied": frozenset({"counts"}),  # row counts only
+    "catalog.import_superseded": frozenset({"superseded_by"}),
 }
 
 _INSERT = text(
