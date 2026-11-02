@@ -250,7 +250,8 @@ def test_every_auth_route_declares_its_reply_for_the_web_client():
         ("/api/v1/auth/signin", "200"),
         ("/api/v1/auth/signin/totp", "200"),
         ("/api/v1/auth/refresh", "200"),
+        ("/api/v1/me/password", "204"),
     ]:
         op = paths[path]["post"]["responses"]
-        assert op[status]["content"]["application/json"]["schema"], path
+        assert status == "204" or op[status]["content"]["application/json"]["schema"], path
         assert "401" in op or "422" in op, path  # the error shape is declared too
