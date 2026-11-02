@@ -96,6 +96,8 @@ def test_change_and_set_password(idp):
     access = idp.initiate_auth("asha@example.com", "correct horse battery").access_token
     with pytest.raises(AuthRefused, match="not_authorized"):
         idp.change_password(access, "wrong", "new password here")
+    with pytest.raises(AuthRefused, match="token_invalid"):  # not a wrong password
+        idp.change_password("not.a.token", "correct horse battery", "new password here")
     idp.change_password(access, "correct horse battery", "new password here")
     idp.initiate_auth("asha@example.com", "new password here")
     idp.set_password(idp.get_sub("asha@example.com"), "third password!")

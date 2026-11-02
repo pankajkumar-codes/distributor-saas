@@ -135,3 +135,11 @@ def test_set_my_totp_acts_only_for_the_bound_caller(env):
     with unit_of_work(Principal(user_sub=idp.user(EMAIL).sub, request_id="t")) as uow:  # a sub alone isn't enough
         assert uow.tx.execute(text("select identity.auth_set_my_totp(true)")).scalar() is False
     assert one(admin, "select count(*) from identity.users where totp_enabled_at is not null") == 0
+
+
+def test_removing_totp_when_it_is_off_changes_nothing(env):  # EM, #60
+    client, idp, mail, admin = env
+    me, sent = bearer(client), len(mail.sent)
+    r = client.delete("/api/v1/me/totp", headers=me)
+    assert (r.status_code, r.json()["error"]["code"]) == (409, "totp_already_off")
+    assert len(mail.sent) == sent and audit_actions(admin) == []

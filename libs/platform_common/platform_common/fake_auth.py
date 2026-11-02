@@ -166,7 +166,7 @@ class FakeAuthProvider:
                 options={"verify_exp": False},
             )["sub"]
         except jwt.PyJWTError as e:
-            raise AuthRefused("not_authorized") from e
+            raise AuthRefused("token_invalid") from e
 
     def _sign_in(self, u: _User) -> AuthResult:
         origin_jti, auth_time = str(uuid.uuid4()), int(self._clock.now().timestamp())
