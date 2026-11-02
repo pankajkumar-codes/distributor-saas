@@ -8,6 +8,7 @@ import { resetSessionForTests } from "../../src/auth/session";
 import { fieldError } from "../../src/screens/onboarding/BusinessPage";
 import { fakeApi } from "./fakeApi";
 
+const HOME = /^(Welcome|Good (morning|afternoon|evening))/; // Home's h1 is the greeting
 const REFRESH = "/api/v1/auth/refresh";
 const STATES = "/api/v1/refdata/state-codes";
 const CREATE = "/api/v1/b";
@@ -109,7 +110,7 @@ describe("saving the business", () => {
     server.reply(ME, me);
     fillGstinBusiness();
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    expect(await screen.findByRole("heading", { name: "Home" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: HOME })).toBeInTheDocument();
     expect(window.location.pathname).toBe("/b/b-1/home");
 
     const [business] = sentTo(CREATE);
@@ -138,7 +139,7 @@ describe("saving the business", () => {
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     expect(await screen.findByText(/Something went wrong on our side/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    await screen.findByRole("heading", { name: "Home" });
+    await screen.findByRole("heading", { name: HOME });
     const [first, second] = sentTo(CREATE);
     expect(second.headers.get("Idempotency-Key")).toBe(first.headers.get("Idempotency-Key"));
   });
@@ -176,7 +177,7 @@ describe("saving the business", () => {
     pick("Up to the limit for quarterly filing (QRMP)");
     pick("Not sure");
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    await screen.findByRole("heading", { name: "Home" });
+    await screen.findByRole("heading", { name: HOME });
     expect(sentTo(CREATE)[0].body).toMatchObject({
       registration: { kind: "enrolment", enrolment_number: "EN123", state_code: "19" },
       address: { state_code: "19" },
@@ -201,7 +202,7 @@ describe("saving the business", () => {
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     expect(await screen.findByText(/Your business is saved, but we couldn't save how often you file/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-    await screen.findByRole("heading", { name: "Home" });
+    await screen.findByRole("heading", { name: HOME });
     expect(sentTo(CREATE)).toHaveLength(1);
     const [first, second] = sentTo(FREQUENCY);
     expect(second.headers.get("Idempotency-Key")).toBe(first.headers.get("Idempotency-Key"));

@@ -1,6 +1,6 @@
 """Object storage (HLD §6.5 H-4, §6.9, §6.10; D-036).
 
-Every object lives under its business's prefix, and only the API makes keys:
+Every object's key names its area, then its business, and only the API makes keys:
 
     key = storage.key_for(business_id, "uploads", upload_id)
 
@@ -38,15 +38,19 @@ from .errors import Deny
 AREAS = frozenset({"uploads", "documents", "exports", "branding"})
 POST_EXPIRY_SECONDS = 300  # H-4
 GET_EXPIRY_SECONDS = 60  # share-link redirect (HLD §6.9)
-_KEY = re.compile(r"^b/[0-9a-f-]{36}/[a-z]+/[0-9a-f-]{36}(/[a-z0-9_-]+(\.[a-z0-9]+)*)?$")
+# The area comes first so that one S3 lifecycle rule per area can expire it, e.g. raw
+# uploads after 90 days (TD-18); the business check below is unchanged by the order.
+_KEY = re.compile(
+    r"^(?P<area>[a-z]+)/b/(?P<business>[0-9a-f-]{36})/[0-9a-f-]{36}(/[a-z0-9_-]+(\.[a-z0-9]+)*)?$"
+)
 
 
 def key_for(business_id: uuid.UUID, area: str, object_id: uuid.UUID, name: str | None = None) -> str:
-    """b/<business>/<area>/<object>[/<name>]. `name` is a fixed suffix such as "clean.png",
+    """<area>/b/<business>/<object>[/<name>]. `name` is a fixed suffix such as "clean.png",
     never a user's file name."""
     if area not in AREAS:
         raise ValueError(f"unknown storage area {area!r}")
-    key = f"b/{uuid.UUID(str(business_id))}/{area}/{uuid.UUID(str(object_id))}"
+    key = f"{area}/b/{uuid.UUID(str(business_id))}/{uuid.UUID(str(object_id))}"
     if name is not None:
         key += f"/{name}"
     if not _KEY.match(key):
@@ -56,7 +60,8 @@ def key_for(business_id: uuid.UUID, area: str, object_id: uuid.UUID, name: str |
 
 def check_key(business_id: uuid.UUID, key: str) -> str:
     """The key, if it is a well-formed key of this business; otherwise Deny (404)."""
-    if not isinstance(key, str) or not _KEY.match(key) or not key.startswith(f"b/{business_id}/"):
+    match = _KEY.match(key) if isinstance(key, str) else None
+    if match is None or match["area"] not in AREAS or match["business"] != str(business_id):
         raise Deny("not_found")
     return key
 

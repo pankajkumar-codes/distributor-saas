@@ -175,10 +175,10 @@ locals {
   # Jobs sign nothing today, so the worker gets no keys and no Parameter Store access.
   worker_env = merge(local.db_env, local.queue_env, local.after_migrations)
   object_statements = [
-    # No DeleteObject: nothing in the app deletes a file yet.
-    { Effect = "Allow", Action = ["s3:GetObject", "s3:PutObject"], Resource = ["${module.storage.bucket_arn}/b/*"] },
+    # No DeleteObject: nothing in the app deletes a file yet; lifecycle rules expire uploads.
+    { Effect = "Allow", Action = ["s3:GetObject", "s3:PutObject"], Resource = [for a in module.storage.areas : "${module.storage.bucket_arn}/${a}/b/*"] },
     # Without ListBucket a missing key reads as 403, not 404 (S3ObjectStore.head).
-    { Effect = "Allow", Action = ["s3:ListBucket"], Resource = [module.storage.bucket_arn], Condition = { StringLike = { "s3:prefix" = ["b/*"] } } },
+    { Effect = "Allow", Action = ["s3:ListBucket"], Resource = [module.storage.bucket_arn], Condition = { StringLike = { "s3:prefix" = [for a in module.storage.areas : "${a}/b/*"] } } },
     { Effect = "Allow", Action = ["kms:GenerateDataKey", "kms:Decrypt"], Resource = [module.storage.kms_key_arn] },
   ]
   send_statements = [

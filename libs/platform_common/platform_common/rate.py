@@ -13,12 +13,12 @@ Limits come from refdata, not code; callers pass them in.
 import hashlib
 import hmac
 import math
-import os
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import text
 
 from .auth import debug_env
+from .secrets import secret
 from .clock import Clock
 from .errors import RateLimited
 
@@ -31,7 +31,7 @@ _HIT = text(
 
 
 def _key() -> bytes:
-    key = os.environ.get("RATE_HMAC_KEY")  # from Secrets Manager in AWS (S0b)
+    key = secret("RATE_HMAC_KEY")  # Parameter Store in AWS (D-040)
     if key:
         return key.encode()
     if debug_env():  # never on Lambda, even if PLATFORM_ENV wrongly says local or test
