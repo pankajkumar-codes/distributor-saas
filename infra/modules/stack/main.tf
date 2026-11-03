@@ -179,9 +179,10 @@ locals {
     RATE_HMAC_KEY_PARAM  = aws_ssm_parameter.app_key["rate-hmac-key"].name
   })
   # Jobs sign nothing today, so the worker gets no keys and no Parameter Store access.
-  worker_env = merge(local.db_env, local.queue_env, local.after_migrations)
-  # Every area but render-input, which only the renderer reads (D-042); S4 gives the
-  # worker its PutObject there with the first real render.
+  # RENDER_QUEUE_URL: the worker asks the PDF renderer for documents (D-042).
+  worker_env = merge(local.db_env, local.queue_env, local.after_migrations, { RENDER_QUEUE_URL = module.render.url })
+  # Every area but render-input, which the worker writes and only the renderer reads
+  # (D-042, worker_render_statements below).
   app_areas = [for a in module.storage.areas : a if a != "render-input"]
   object_statements = [
     # No DeleteObject: nothing in the app deletes a file yet; lifecycle rules expire uploads.
@@ -192,6 +193,12 @@ locals {
   ]
   send_statements = [
     { Effect = "Allow", Action = ["sqs:SendMessage"], Resource = [module.jobs.arn, module.mail.arn] },
+  ]
+  # The worker writes a render input and sends its key to the render queue (D-042). It
+  # never reads an input back; the API reads the PDF under documents/ with the grants above.
+  worker_render_statements = [
+    { Effect = "Allow", Action = ["s3:PutObject"], Resource = ["${module.storage.bucket_arn}/render-input/b/*"] },
+    { Effect = "Allow", Action = ["sqs:SendMessage"], Resource = [module.render.arn] },
   ]
 }
 
@@ -262,7 +269,7 @@ module "worker" {
   db_resource_id       = module.database.resource_id
   environment          = local.worker_env
   sqs_trigger          = { arn = module.jobs.arn, batch_size = 1 }
-  policy_statements    = concat(local.object_statements, local.send_statements)
+  policy_statements    = concat(local.object_statements, local.send_statements, local.worker_render_statements)
 }
 
 # Outside the VPC, no database, SES only (HLD §4). The handler comes with SqsMailer.
@@ -337,11 +344,10 @@ module "retention" {
 # The worker reaches it through the `render` queue (EM decision on #79): the worker
 # already sends to SQS through the VPC's SQS endpoint, so this needs no Lambda endpoint
 # (about USD 7-8 a month per AZ) and gets SQS's retries and a DLQ. A message carries an
-# S3 key under render-input/b/*, never the document body (EM, D-042). The renderer may
-# read that prefix and nothing else in the bucket, and decrypt with our key only through
-# S3. S4 (BH-6) adds the worker's SendMessage on this queue and the renderer's KMS
-# GenerateDataKey and PutObject on documents/b/* with the first real render. Unreserved,
-# so TD-6's caps and the quota of 156 are unchanged.
+# S3 key under render-input/b/*, never the document body (EM, D-042). The worker may put
+# inputs there and send to this queue; the renderer may read and delete them, write PDFs
+# under documents/b/*, and use our key only through S3. Unreserved, so TD-6's caps and the
+# quota of 156 are unchanged; the trigger caps it at render_max_concurrency.
 module "render" {
   source                     = "../queue"
   name                       = "${local.name}-render"
@@ -358,11 +364,17 @@ module "renderer" {
   # At most 5 renders at once, so a burst of finalized invoices waits in the queue rather
   # than taking concurrency from the API (2 is the lowest SQS allows).
   sqs_trigger = { arn = module.render.arn, batch_size = 1, maximum_concurrency = var.render_max_concurrency }
+  environment = { OBJECTS_BUCKET = module.storage.bucket }
+  # D-042: read and then delete render inputs, write PDFs under documents/, and use our
+  # key only through S3. Nothing else in the bucket, no other service.
   policy_statements = [
-    { Effect = "Allow", Action = ["s3:GetObject"], Resource = ["${module.storage.bucket_arn}/render-input/b/*"] },
+    { Effect = "Allow", Action = ["s3:GetObject", "s3:DeleteObject"], Resource = ["${module.storage.bucket_arn}/render-input/b/*"] },
+    { Effect = "Allow", Action = ["s3:PutObject"], Resource = ["${module.storage.bucket_arn}/documents/b/*"] },
+    # So a message whose input is already gone reads as NoSuchKey (acknowledged), not 403.
+    { Effect = "Allow", Action = ["s3:ListBucket"], Resource = [module.storage.bucket_arn], Condition = { StringLike = { "s3:prefix" = ["render-input/b/*"] } } },
     {
       Effect    = "Allow"
-      Action    = ["kms:Decrypt"]
+      Action    = ["kms:Decrypt", "kms:GenerateDataKey"]
       Resource  = [module.storage.kms_key_arn]
       Condition = { StringEquals = { "kms:ViaService" = "s3.${data.aws_region.current.name}.amazonaws.com" } }
     },

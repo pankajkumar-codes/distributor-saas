@@ -1,23 +1,28 @@
 # renderer: the PDF renderer Lambda
 
 WeasyPrint on the python3.12 arm64 Lambda runtime, from its own zip (TD-9; TD-1(b)
-amendment, D-042). After finalize the worker will write the render input under
-`render-input/b/<business>/` and send its S3 key to the `render` SQS queue, which
-triggers the renderer (S4, BH-6). The message never carries the document body. Until then its only task is `{"task": "selftest"}`, invoked by hand, which
-renders a fixed sample page and reports pages, bytes, render time and the embedded fonts.
+amendment, D-042). The worker writes a render input under `render-input/b/<business>/<render>/input.json`
+(`platform_common.render`) and sends only that key to the `render` SQS queue, which
+triggers the renderer. The renderer renders the PDF in memory, writes it in one PutObject
+to `documents/b/<business>/<render>/document.pdf`, and then deletes the input. The first
+caller is the draft preview (`app.modules.sales.preview`). `{"task": "selftest"}`,
+invoked by hand, renders a fixed sample page and reports pages, bytes, render time and
+the embedded fonts.
 
-**Rules for S4 (D-042):** render with a deny-all `url_fetcher`, so WeasyPrint fetches
-nothing from any URL a field could carry, and escape every field put into the HTML, with
-a test that a planted URL is never fetched. The renderer's IAM is `kms:GenerateDataKey`
-on our key and `s3:PutObject` on `documents/b/*`, plus the read it has today:
-`s3:GetObject` on `render-input/b/*` and `kms:Decrypt` only through S3.
+**Rules (D-042), all in place:**
+- Render with `DenyAllFetcher`, which refuses every URL of any scheme, with no base URL.
+- `renderer/template.py` escapes every field and refuses anything that isn't a string.
+- `renderer/tests` proves a planted URL is never fetched (a local server sees no request) and that a failed render or write leaves no PDF and keeps the input.
 
-Once the PDF is written, the renderer deletes its input with
-`renderer.inputs.delete_after_render` (S4 adds `s3:DeleteObject` on `render-input/b/*`
-for it), and refuses any key outside `render-input/b/`. An input that is never rendered
-(its message ends in the DLQ) expires after a day under the bucket's lifecycle rule, so
-redriving a DLQ message more than a day old finds nothing: the worker renders again from
-the invoice instead. At most `render_max_concurrency` (5) renders run at once.
+**IAM:**
+- `s3:GetObject` and `s3:DeleteObject` on `render-input/b/*`.
+- `s3:PutObject` on `documents/b/*`.
+- `s3:ListBucket` on the `render-input/b/` prefix only.
+- `kms:Decrypt` and `kms:GenerateDataKey` only through S3.
+
+**Retries.** A message whose input is already gone (a redelivery after the delete) is acknowledged. An input that is never rendered (its message ends in the DLQ) expires after a day, so redriving a DLQ message more than a day old finds nothing, and the user asks for the preview again. At most `render_max_concurrency` (5) renders run at once.
+
+**Tests.** `renderer/tests` need WeasyPrint's native libraries, so they run against an unpacked zip: `RENDERER_TASK=<dir> python -m pytest renderer/tests`. CI does this for the x86_64 build.
 
 ```
 make renderer-zip                    # build/renderer.zip (arm64) and its checks

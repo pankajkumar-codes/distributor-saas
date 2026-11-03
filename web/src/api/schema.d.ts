@@ -309,6 +309,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/drafts/{draft_id}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Draft
+         * @description Queues a PDF preview of the draft as saved now ("Draft, not a tax invoice"). The
+         *     same version always gives the same job; poll GET .../preview/{job_id}.
+         */
+        post: operations["preview_draft_api_v1_b__business_id__drafts__draft_id__preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/drafts/{draft_id}/preview/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Preview Status */
+        get: operations["preview_status_api_v1_b__business_id__drafts__draft_id__preview__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/filing-profile": {
         parameters: {
             query?: never;
@@ -1952,6 +1990,25 @@ export interface components {
              */
             status: "password_set";
         };
+        /** PreviewOut */
+        PreviewOut: {
+            /** Error Code */
+            error_code?: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "rendering" | "ready" | "failed";
+            /** Url */
+            url?: string | null;
+        };
+        /** PreviewRef */
+        PreviewRef: {
+            /** Draft Version */
+            draft_version: number;
+            /** Job Id */
+            job_id: string;
+        };
         /** ProductDetailOut */
         ProductDetailOut: {
             /** Barcode */
@@ -3325,6 +3382,71 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_draft_api_v1_b__business_id__drafts__draft_id__preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewRef"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_status_api_v1_b__business_id__drafts__draft_id__preview__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+                job_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewOut"];
+                };
             };
             /** @description Validation Error */
             422: {

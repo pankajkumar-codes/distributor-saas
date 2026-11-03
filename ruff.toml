@@ -28,6 +28,7 @@ extend-select = ["TID251"]
 "libs/platform_common/platform_common/aws.py" = ["TID251"]  # SQS and S3 adapters
 "libs/platform_common/platform_common/db.py" = ["TID251"]  # RDS IAM token, only when DB_HOST is set (Lambda)
 "migrator/migrator/handler.py" = ["TID251"]  # master secret from Secrets Manager, Lambda only
+"renderer/renderer/handler.py" = ["TID251"]  # its own zip without platform_common: S3 for render inputs and PDFs (D-042)
 "**/tests/**" = ["TID251"]
 "tests/**" = ["TID251"]
 "scripts/**" = ["TID251"]

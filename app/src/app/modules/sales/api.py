@@ -20,7 +20,7 @@ from platform_common.paging import PageParams, page_params
 from platform_common.permissions import Permission, require
 from platform_common.uow import BusinessUoW, parse_id
 
-from . import drafts
+from . import drafts, preview
 
 router = APIRouter(tags=["sales"])
 VIEW = [Depends(require(Permission.DOCUMENTS_VIEW))]
@@ -185,3 +185,28 @@ def save_draft(
 def delete_draft(draft_id: str, uow: BusinessUoW, if_match: Annotated[str | None, Header(alias="If-Match")] = None):
     drafts.delete(uow, parse_id(draft_id), if_match_version(if_match))
     return Response(status_code=http.HTTP_204_NO_CONTENT)
+
+
+class PreviewRef(BaseModel):
+    job_id: str
+    draft_version: int
+
+
+class PreviewOut(BaseModel):
+    status: Literal["queued", "rendering", "ready", "failed"]
+    url: str | None = None  # when ready: a link good for 60 seconds
+    error_code: str | None = None  # when failed: draft_changed, draft_not_found, not_allowed, ...
+
+
+@router.post("/b/{business_id}/drafts/{draft_id}/preview", status_code=http.HTTP_202_ACCEPTED,
+             response_model=PreviewRef, dependencies=VIEW)
+def preview_draft(draft_id: str, uow: BusinessUoW):
+    """Queues a PDF preview of the draft as saved now ("Draft, not a tax invoice"). The
+    same version always gives the same job; poll GET .../preview/{job_id}."""
+    job_id, version = preview.queue(uow, parse_id(draft_id))
+    return {"job_id": str(job_id), "draft_version": version}
+
+
+@router.get("/b/{business_id}/drafts/{draft_id}/preview/{job_id}", response_model=PreviewOut, dependencies=VIEW)
+def preview_status(draft_id: str, job_id: str, uow: BusinessUoW):
+    return preview.status(uow, parse_id(draft_id), parse_id(job_id))

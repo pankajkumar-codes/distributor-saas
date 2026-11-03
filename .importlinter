@@ -33,6 +33,8 @@ ignore_imports =
 ; sales checks buyers and products through catalog and states through business (LLD-4 §8.1).
     app.modules.sales.** -> app.modules.catalog.interface
     app.modules.sales.** -> app.modules.business.interface
+; the draft preview job re-checks the queuing user's role when it runs, as catalog's imports do.
+    app.modules.sales.** -> app.modules.identity.interface
 ; Module tests drive the mounted app and may call other modules' interfaces, the
 ; same surface any module may use.
     app.modules.*.tests.** -> app.api
