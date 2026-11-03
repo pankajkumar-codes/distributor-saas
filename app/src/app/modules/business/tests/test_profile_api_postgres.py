@@ -36,6 +36,16 @@ def url(bid, path):
     return f"/api/v1/b/{bid}{path}"
 
 
+
+def version(pg, bid) -> str:
+    """The profile's current version, as GET /profile's ETag gives it."""
+    return f'"{scalar(pg.owner, "select version from business.profiles where business_id = :b", b=bid)}"'
+
+
+def patch_profile(pg, bid, json, sub="alice"):
+    """PATCH /profile as an editor who just loaded the form (If-Match: its ETag)."""
+    return pg.client.patch(url(bid, "/profile"), headers={**as_user(sub), "If-Match": version(pg, bid)}, json=json)
+
 def add_member(pg, bid, sub, role):
     with pg.owner.connect() as c:
         uid = c.execute(text("select identity.dev_ensure_user(:s)"), {"s": sub}).scalar()
@@ -85,8 +95,7 @@ def test_get_profile_shows_the_profile_band_and_readiness(biz):
 
 def test_patch_changes_only_the_fields_sent_and_audits_their_names(biz):
     pg, bid = biz
-    r = pg.client.patch(url(bid, "/profile"), headers=as_user("alice"),
-                        json={"legal_name": "  ", "address": {"state_code": "27"}})
+    r = patch_profile(pg, bid, json={"legal_name": "  ", "address": {"state_code": "27"}})
     assert r.status_code == 200, r.text
     p = r.json()["profile"]
     assert r.json()["warnings"] == ["address_state_mismatch"]
@@ -96,13 +105,13 @@ def test_patch_changes_only_the_fields_sent_and_audits_their_names(biz):
         data = c.execute(text("select data from platform.audit_log where action = 'business.profile_update'")).scalar()
     assert data == {"fields": ["address_state_code", "legal_name"]}
     # Nothing changed: no audit row.
-    assert pg.client.patch(url(bid, "/profile"), headers=as_user("alice"), json={"trade_name": "Vashi Essentials"}
+    assert patch_profile(pg, bid, json={"trade_name": "Vashi Essentials"}
                            ).status_code == 200
     assert actions(pg, bid).count("business.profile_update") == 1
     # null clears the whole address; unknown fields are refused.
-    assert pg.client.patch(url(bid, "/profile"), headers=as_user("alice"), json={"address": None}
+    assert patch_profile(pg, bid, json={"address": None}
                            ).json()["profile"]["ready_for_documents"]["missing"] == ["legal_name", "address"]
-    assert pg.client.patch(url(bid, "/profile"), headers=as_user("alice"), json={"gstin_locked_at": None}
+    assert patch_profile(pg, bid, json={"gstin_locked_at": None}
                            ).status_code == 422
 
 
@@ -112,14 +121,57 @@ def test_a_registration_change_recomputes_the_state_from_the_gstin(biz):
     pg, bid = biz
     other = "27AAPFU0939F1Z"
     other += check_character(other)
-    r = pg.client.patch(url(bid, "/profile"), headers=as_user("alice"),
-                        json={"registration": {"kind": "gstin", "gstin": other}})
+    r = patch_profile(pg, bid, json={"registration": {"kind": "gstin", "gstin": other}})
     assert r.status_code == 200, r.text
     assert r.json()["profile"]["registration"]["state_code"] == "27"
     assert r.json()["warnings"] == ["address_state_mismatch"]  # no frequency yet, so nothing carried
-    bad = pg.client.patch(url(bid, "/profile"), headers=as_user("alice"),
-                          json={"registration": {"kind": "gstin", "gstin": GSTIN[:-1] + "A"}})
+    bad = patch_profile(pg, bid, json={"registration": {"kind": "gstin", "gstin": GSTIN[:-1] + "A"}})
     assert (bad.status_code, bad.json()["error"]["code"]) == (422, "gstin_check_char")
+
+
+# --- If-Match: no lost update on the company form ---------------------------------------
+
+def test_two_editors_one_wins_and_the_other_gets_stale_record(biz):
+    """Both load the form (same ETag); the first save wins, the second is refused and
+    saves nothing, and its retry with the new ETag goes through."""
+    pg, bid = biz
+    add_member(pg, bid, "adam", "admin")
+    got = pg.client.get(url(bid, "/profile"), headers=as_user("alice"))
+    tag = got.headers["etag"]
+    assert tag == f'"{got.json()['version']}"' == '"1"'
+    first = pg.client.patch(url(bid, "/profile"), headers={**as_user("alice"), "If-Match": tag},
+                            json={"trade_name": "Vashi One"})
+    assert first.status_code == 200, first.text
+    assert first.headers["etag"] == '"2"' and first.json()["profile"]["version"] == 2
+    second = pg.client.patch(url(bid, "/profile"), headers={**as_user("adam"), "If-Match": tag},
+                             json={"legal_name": "Overwritten LLP"})
+    assert (second.status_code, second.json()["error"]["code"]) == (409, "stale_record")
+    now = pg.client.get(url(bid, "/profile"), headers=as_user("adam")).json()
+    assert (now["trade_name"], now["legal_name"], now["version"]) == ("Vashi One", "Vashi Essentials LLP", 2)
+    assert actions(pg, bid).count("business.profile_update") == 1
+    retry = pg.client.patch(url(bid, "/profile"), headers={**as_user("adam"), "If-Match": '"2"'},
+                            json={"legal_name": "Vashi Essentials Pvt Ltd"})
+    assert retry.status_code == 200 and retry.json()["profile"]["version"] == 3
+
+
+@pytest.mark.parametrize(("header", "status", "code"), [
+    (None, 422, "if_match_required"), ('"7"', 409, "stale_record"), ("abc", 409, "stale_record"),
+    ("1", 200, None), ('W/"1"', 200, None),
+])
+def test_if_match_is_required_and_read_as_the_version(biz, header, status, code):
+    pg, bid = biz
+    headers = {**as_user("alice"), **({"If-Match": header} if header else {})}
+    r = pg.client.patch(url(bid, "/profile"), headers=headers, json={"trade_name": "Vashi"})
+    assert r.status_code == status, r.text
+    if code:
+        assert r.json()["error"]["code"] == code
+        assert scalar(pg.owner, "select trade_name from business.profiles where business_id = :b", b=bid) == "Vashi Essentials"
+
+
+def test_a_save_that_changes_nothing_keeps_the_version(biz):
+    pg, bid = biz
+    r = patch_profile(pg, bid, json={"trade_name": "Vashi Essentials"})
+    assert r.status_code == 200 and r.json()["profile"]["version"] == 1
 
 
 # --- AC-13: the GSTIN lock ---------------------------------------------------------------
@@ -135,13 +187,14 @@ def test_after_lock_gstin_a_registration_change_is_409_and_the_trigger_backs_it(
         with unit_of_work(principal) as uow:
             lock_gstin(uow)
     assert actions(pg, bid).count("business.gstin_locked") == 1
+    assert pg.client.get(url(bid, "/profile"), headers=as_user("alice")).json()["version"] == 2  # the lock moved it
 
     enrol = {"registration": {"kind": "enrolment", "enrolment_number": "E1", "state_code": "19"}}
-    r = pg.client.patch(url(bid, "/profile"), headers=as_user("alice"), json=enrol)
+    r = patch_profile(pg, bid, json=enrol)
     assert (r.status_code, r.json()["error"]["code"]) == (409, "gstin_locked")
     # The same registration again is not a change; other fields still edit.
     same = {"registration": {"kind": "gstin", "gstin": GSTIN}, "trade_name": "Vashi"}
-    assert pg.client.patch(url(bid, "/profile"), headers=as_user("alice"), json=same).status_code == 200
+    assert patch_profile(pg, bid, json=same).status_code == 200
     assert pg.client.get(url(bid, "/profile"), headers=as_user("alice")).json()["registration"]["locked"] is True
 
     for sql in ("update business.profiles set gstin = '19AAPFU0939F1ZS', state_code = '19',"
@@ -274,8 +327,7 @@ def test_a_gstin_change_before_the_lock_keeps_the_frequency(biz):
     assert choose(pg.client, bid, "monthly", "2026-04-01").status_code == 201
     new = "19AAPFU0939F2Z"
     new += check_character(new)
-    r = pg.client.patch(url(bid, "/profile"), headers=as_user("alice"),
-                        json={"registration": {"kind": "gstin", "gstin": new}})
+    r = patch_profile(pg, bid, json={"registration": {"kind": "gstin", "gstin": new}})
     assert r.status_code == 200, r.text
     assert r.json()["warnings"] == ["frequency_carried"]
     assert frequency_on(pg, bid, new, TODAY) == frequency_on(pg, bid, GSTIN, TODAY) == ("monthly", date(2026, 4, 1))
@@ -366,8 +418,8 @@ WRITES = [
 ]
 
 
-def _call(client, bid, method, path, body, sub):
-    headers = {**as_user(sub), "Idempotency-Key": uuid.uuid4().hex}
+def _call(client, bid, method, path, body, sub, if_match=None):
+    headers = {**as_user(sub), "Idempotency-Key": uuid.uuid4().hex, **({"If-Match": if_match} if if_match else {})}
     return client.request(method.upper(), url(bid, path), headers=headers, json=body)
 
 
@@ -406,7 +458,8 @@ def test_billing_and_ca_read_but_get_404_role_denied_on_writes(biz, caplog):
     assert actions(pg, bid) == ["business.create"]
     add_member(pg, bid, "adam", "admin")
     for method, path, body in WRITES:
-        assert _call(pg.client, bid, method, path, body, "adam").status_code in (200, 201), path
+        tag = version(pg, bid) if path == "/profile" else None
+        assert _call(pg.client, bid, method, path, body, "adam", tag).status_code in (200, 201), path
 
 
 # --- Onboarding reads ---------------------------------------------------------------------

@@ -24,3 +24,50 @@
   last_checked: 2026-10-14
   status: provisional
   note: "Length is invoice.number.max_length. team/gst/document-fields.md row 3 writes A-Z; the rule says alphabets, so lower case is allowed here and uniqueness is case-insensitive."
+
+# Invoice computation (LLD-4 §3, L4-1). Copied from the GST expert's
+# team/gst/refdata-lld4.md v1.0 §1. Tax rows, provisional until the CA confirms (D-022).
+- key: invoice.rounding_mode
+  value: "ROUND_HALF_UP"
+  type: text
+  kind: tax
+  valid_from: 2017-07-01
+  valid_to: null
+  source_url: https://taxinformation.cbic.gov.in/content/html/tax_repository/gst/rules/cgst_rules/active/chapter6/rule46_v1.00.html
+  source_title: "No rule prescribes invoice-line rounding (Rules 46-55 read; s.170 rounds tax payable, not invoice lines). Method from r3-invoice-examples.md R1-R5 (D-022)"
+  last_checked: 2026-10-24
+  status: provisional
+  note: "Per line, per component, half-up to paise. CA to confirm (D-022). sales accepts ROUND_HALF_UP or ROUND_HALF_EVEN."
+- key: invoice.round_off_line
+  value: "false"
+  type: boolean
+  kind: tax
+  valid_from: 2017-07-01
+  valid_to: null
+  source_url: https://taxinformation.cbic.gov.in/content/html/tax_repository/gst/rules/cgst_rules/active/chapter6/rule46_v1.00.html
+  source_title: "Not required by Rule 46; s.170 rounding applies to amounts payable under the Act, not invoice totals"
+  last_checked: 2026-10-24
+  status: provisional
+  note: "Default off (D-022). CA to confirm whether a whole-rupee round-off line is wanted."
+- key: invoice.unregistered_address_threshold
+  value: "50000.00"
+  type: decimal
+  kind: tax
+  valid_from: 2017-07-01
+  valid_to: null
+  source_url: https://taxinformation.cbic.gov.in/content/html/tax_repository/gst/rules/cgst_rules/active/chapter6/rule46_v1.00.html
+  source_title: "CGST Rule 46(e): name, address and delivery address 'if such recipient is un-registered and where the value of the taxable supply is fifty thousand rupees or more'"
+  last_checked: 2026-10-24
+  status: provisional
+  note: "Comparison >= (rule says 'or more'). Rule is on value of taxable supply; LLD-4 compares doc_total, which is stricter and safe. CA."
+- key: eway.consignment_value_threshold
+  value: "50000.00"
+  type: decimal
+  kind: tax
+  valid_from: 2018-04-01
+  valid_to: null
+  source_url: https://cbic-gst.gov.in/ewaybill-rules.html
+  source_title: "CGST Rule 138(1): movement of goods 'of consignment value exceeding fifty thousand rupees'; Explanation 2: value includes CGST/SGST/UTGST/IGST and cess, excludes exempt goods"
+  last_checked: 2026-10-24
+  status: provisional
+  note: "Comparison > (strict). Explanation 2 read only on a secondary copy. States may set other intra-state limits (UNVERIFIED); warn only (HLD 6.3). valid_from is the national e-way bill start for inter-state movement (1 April 2018), not read on an official page today. Kept in invoice.yaml because only the invoice warning reads it."

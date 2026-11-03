@@ -200,16 +200,16 @@ module "api_function" {
   environment          = local.api_env
   policy_statements = concat(local.object_statements, local.send_statements, [
     { Effect = "Allow", Action = ["ssm:GetParameter"], Resource = [for p in aws_ssm_parameter.app_key : p.arn] },
-    # The admin calls LLD-1 §7 lists, plus AdminUpdateUserAttributes to mark the email
-    # verified (TD-4); calls made with the user's own token need no IAM.
-    # CognitoAuthProvider (S1-c4) confirms the list against what it really calls.
+    # Exactly the admin calls CognitoAuthProvider makes (identity/cognito.py). AdminCreateUser
+    # marks the email verified itself, so AdminUpdateUserAttributes isn't needed. Calls made
+    # with the user's own token (ChangePassword, the TOTP enrolment calls, RevokeToken)
+    # aren't governed by IAM.
     {
       Effect = "Allow"
       Action = [
         "cognito-idp:AdminCreateUser",
         "cognito-idp:AdminGetUser",
         "cognito-idp:AdminSetUserPassword",
-        "cognito-idp:AdminUpdateUserAttributes",
         "cognito-idp:AdminInitiateAuth",
         "cognito-idp:AdminRespondToAuthChallenge",
         "cognito-idp:AdminSetUserMFAPreference",

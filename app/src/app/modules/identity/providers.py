@@ -2,8 +2,9 @@
 
 Locally and in tests these are FakeAuthProvider and LocalFileMailer, so nothing real
 is called or sent. In AWS the mailer is QueueMailer on the SQS mail queue
-(MAIL_QUEUE_URL, Lambda only); CognitoAuthProvider (S1-c4) is not built yet, so asking
-for an auth provider there raises rather than falling back to a fake.
+(MAIL_QUEUE_URL, Lambda only) and the auth provider is CognitoAuthProvider on the pool
+in COGNITO_USER_POOL_ID (Lambda only). Outside those, a non-debug environment raises
+rather than falling back to a fake.
 Tests replace them through FastAPI's dependency_overrides.
 """
 
@@ -17,8 +18,18 @@ from platform_common.mailer import LocalFileMailer, Mailer, QueueMailer
 
 @cache
 def auth_provider() -> AuthProvider:
+    pool = os.environ.get("COGNITO_USER_POOL_ID")
+    if pool:
+        if not on_lambda():
+            raise RuntimeError("COGNITO_USER_POOL_ID is for Lambda only; unset it here")
+        from platform_common.aws import cognito_client
+
+        from .cognito import CognitoAuthProvider
+
+        issuer, client_id = token_issuer_and_client()
+        return CognitoAuthProvider(cognito_client(), pool, client_id, issuer)
     if not debug_env():
-        raise RuntimeError("no AuthProvider for this environment yet (CognitoAuthProvider is S1-d)")
+        raise RuntimeError("COGNITO_USER_POOL_ID is not set")
     from platform_common.fake_auth import FakeAuthProvider
 
     # The API verifies the bearer tokens this provider issues against its keys, as the
