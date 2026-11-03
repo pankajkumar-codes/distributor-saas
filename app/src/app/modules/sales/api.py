@@ -7,6 +7,7 @@ the create-documents one.
 """
 
 from datetime import date
+from decimal import Decimal
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
@@ -21,6 +22,7 @@ from platform_common.permissions import Permission, require
 from platform_common.uow import BusinessUoW, parse_id
 
 from . import drafts, preview
+from .compute import Computation
 
 router = APIRouter(tags=["sales"])
 VIEW = [Depends(require(Permission.DOCUMENTS_VIEW))]
@@ -64,6 +66,19 @@ class EwayIn(BaseModel):
     eway_bill_no: Annotated[str, Field(max_length=20)] | None = None
 
 
+class ShipToIn(BaseModel):
+    """Where the goods go, when it isn't the customer's own delivery address (LLD-4 §3.1)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: Text | None = None  # the consignee, when goods go to someone else (case B)
+    line1: Text | None = None
+    line2: Text | None = None
+    city: Text | None = None
+    pin: Annotated[str, Field(max_length=10)] | None = None
+    state_code: Annotated[str, Field(max_length=2)]
+
+
 class DraftIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -75,6 +90,10 @@ class DraftIn(BaseModel):
     charges: Annotated[list[ChargeIn], Field(max_length=drafts.MAX_CHARGES)] = []
     eway: EwayIn | None = None
     customer_collects: StrictBool = False  # ex-works, the customer collects the goods (case D)
+    ship_to: ShipToIn | None = None  # null: the customer's delivery address (or none for a cash sale)
+    ship_to_third_party: StrictBool = False  # case B: goods go to another person on the customer's direction
+    pos_override: Annotated[str, Field(max_length=2)] | None = None  # G16: a state code replacing the computed PoS
+    pos_override_reason: Annotated[str, Field(max_length=500)] | None = None
     lines: Annotated[list[LineIn], Field(max_length=drafts.MAX_LINES)] = []
 
 
@@ -86,6 +105,59 @@ class LineOut(BaseModel):
     unit_price: str
     discount_kind: str | None
     discount_value: str | None
+
+
+class TaxOut(BaseModel):
+    component: str
+    rate: str
+    amount: str
+
+
+class ComputedLineOut(BaseModel):
+    line_no: int
+    gross: str
+    line_discount: str
+    base: str
+    discount_share: str
+    charge_share: str
+    taxable: str
+    rate: str | None
+    taxes: list[TaxOut]
+    total: str
+
+
+class IssueOut(BaseModel):
+    code: str
+    fix: str
+    field: str | None
+    line_no: int | None
+
+
+class ComputationOut(BaseModel):
+    """What the draft would be as an invoice today (LLD-4 §3). `blocks` stop a finalize,
+    `warnings` never do; neither stops a draft from being saved."""
+
+    computed_pos: str | None
+    pos_state_code: str | None
+    is_inter_state: bool | None
+    supply_class: str | None
+    lines: list[ComputedLineOut]
+    gross_total: str
+    line_discount_total: str
+    invoice_discount: str
+    charges_total: str
+    taxable_total: str
+    cgst_total: str
+    sgst_total: str  # carries UTGST when utgst
+    utgst: bool
+    igst_total: str
+    round_off: str
+    doc_total: str
+    amount_in_words: str
+    rounding_mode: str
+    method_version: str
+    blocks: list[IssueOut]
+    warnings: list[IssueOut]
 
 
 class DraftOut(BaseModel):
@@ -101,7 +173,11 @@ class DraftOut(BaseModel):
     charges: list[dict]
     eway: dict | None
     customer_collects: bool
+    ship_to_third_party: bool
+    pos_override: str | None
+    pos_override_reason: str | None
     lines: list[LineOut]
+    computation: ComputationOut | None = None  # on create and save; not on read or list
     created_at: str
     updated_at: str
 
@@ -115,12 +191,45 @@ def _s(v) -> str | None:
     return None if v is None else str(v)
 
 
-def _out(d: dict) -> dict:
+_PAISE = Decimal("0.01")
+
+
+def _m(x: Decimal) -> str:
+    """An amount as a 2-place decimal string (compute's totals are already whole paise)."""
+    return str(x.quantize(_PAISE))
+
+
+def _issues(items) -> list[dict]:
+    return [{"code": i.code, "fix": i.fix, "field": i.field, "line_no": i.line_no} for i in items]
+
+
+def _computed(c: Computation) -> dict:
     return {
+        "computed_pos": c.computed_pos, "pos_state_code": c.pos_state_code, "is_inter_state": c.is_inter_state,
+        "supply_class": c.supply_class, "utgst": c.utgst,
+        "lines": [{
+            "line_no": ln.line_no, "gross": _m(ln.gross), "line_discount": _m(ln.line_discount),
+            "base": _m(ln.base), "discount_share": _m(ln.discount_share), "charge_share": _m(ln.charge_share),
+            "taxable": _m(ln.taxable), "rate": None if ln.rate is None else str(ln.rate), "total": _m(ln.total),
+            "taxes": [{"component": t.component, "rate": str(t.rate), "amount": _m(t.amount)} for t in ln.taxes],
+        } for ln in c.lines],
+        "gross_total": _m(c.gross_total), "line_discount_total": _m(c.line_discount_total),
+        "invoice_discount": _m(c.invoice_discount), "charges_total": _m(c.charges_total),
+        "taxable_total": _m(c.taxable_total), "cgst_total": _m(c.cgst_total), "sgst_total": _m(c.sgst_total),
+        "igst_total": _m(c.igst_total), "round_off": _m(c.round_off), "doc_total": _m(c.doc_total),
+        "amount_in_words": c.amount_in_words, "rounding_mode": c.rounding_mode, "method_version": c.method_version,
+        "blocks": _issues(c.blocks), "warnings": _issues(c.warnings),
+    }
+
+
+def _out(d: dict, computation: Computation | None = None) -> dict:
+    return {
+        "computation": None if computation is None else _computed(computation),
         "id": str(d["id"]), "kind": d["kind"], "version": d["version"], "customer_id": _s(d["customer_id"]),
         "cash_buyer": d["cash_buyer"], "bill_to": d["bill_to"], "ship_to": d["ship_to"], "doc_date": d["doc_date"],
         "invoice_discount": str(d["invoice_discount"]), "charges": d["charges"], "eway": d["eway"],
-        "customer_collects": d["customer_collects"],
+        "customer_collects": d["customer_collects"], "ship_to_third_party": d["ship_to_third_party"],
+        "pos_override": d["pos_override"], "pos_override_reason": d["pos_override_reason"],
         "lines": [{**ln, "id": str(ln["id"]), "product_id": str(ln["product_id"]), "quantity": str(ln["quantity"]),
                    "unit_price": str(ln["unit_price"]), "discount_value": _s(ln["discount_value"])} for ln in d["lines"]],
         "created_at": d["created_at"].isoformat(), "updated_at": d["updated_at"].isoformat(),
@@ -155,7 +264,8 @@ def create_draft(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ):
     def create():
-        return _out(drafts.get(uow, drafts.create(uow, body.model_dump(mode="json"), clock.today())))
+        d = drafts.get(uow, drafts.create(uow, body.model_dump(mode="json"), clock.today()))
+        return _out(d, drafts.computation(uow, d, today=clock.today()))
 
     return _etag(response, run_once(uow.tx, uow.principal.business_id, idempotency_key, method=request.method,
                                     route=request.scope["route"].path, payload=body.model_dump(mode="json"),
@@ -178,7 +288,8 @@ def save_draft(
 ):
     did = parse_id(draft_id)
     drafts.replace(uow, did, body.model_dump(mode="json"), if_match_version(if_match), clock.today())
-    return _etag(response, _out(drafts.get(uow, did)))
+    d = drafts.get(uow, did)
+    return _etag(response, _out(d, drafts.computation(uow, d, today=clock.today())))
 
 
 @router.delete("/b/{business_id}/drafts/{draft_id}", status_code=http.HTTP_204_NO_CONTENT, dependencies=EDIT)

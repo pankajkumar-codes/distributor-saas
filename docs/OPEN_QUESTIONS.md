@@ -115,6 +115,12 @@ POST /b already reads `identity.max_owned_businesses` (5, provisional; **Pankaj 
 | Rate-change warning window (`catalog.rate_change_warning_days` 30, inclusive) | Warns when the rate in force began at most 30 days before the date | CA (tax-computation §5 [CA]) |
 | **A live rate that has left `gst.rate_values` by the invoice date** (for example a rate entered while it was on the list, read for a date after the list dropped it) | Catalog checks a rate against the list for its own `valid_from` only; `product_for_line` returns it with no flag (#52 review) | **LLD-4** decides: a `rate_not_on_list_on_date` flag from catalog read against refdata for the line's date (never a hard-coded date), and whether finalize warns or blocks; the CA says which |
 
+## Invoice drafts (S4) items waiting on the GST expert, CA or PO
+
+- **Place of supply 96 (other country) on a draft (S4-b3).** `pos_override = "96"` is refused (`pos_other_country_unsupported`) because exports and SEZ supplies (zero-rated, LUT or IGST paid, their own GSTR-1 tables) aren't modelled. GST expert and PO to say whether R1 needs them.
+- **A draft's own ship-to stays as typed (S4-b3).** Without `ship_to` a draft copies the customer's delivery address on every save; with one it keeps what was sent, even if the customer's address changes later. A web form that sends back the copied address therefore pins it. Designer to decide whether the form sends `ship_to` only when the user enters a different address (recommended).
+- **Case B consignee.** The ship-to's `name` is the consignee printed as the delivery party; a consignee GSTIN is not taken. GST expert to confirm none is needed on the invoice (document-fields.md).
+
 ## Refdata rows to confirm (S0b)
 Every row in `refdata/` is `provisional`. Before go-live:
 - **PO:** the `auth.*` and `identity.max_owned_businesses` rows (`kind: product`). The

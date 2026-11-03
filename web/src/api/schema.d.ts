@@ -1417,6 +1417,78 @@ export interface components {
              */
             status: "code_sent";
         };
+        /**
+         * ComputationOut
+         * @description What the draft would be as an invoice today (LLD-4 §3). `blocks` stop a finalize,
+         *     `warnings` never do; neither stops a draft from being saved.
+         */
+        ComputationOut: {
+            /** Amount In Words */
+            amount_in_words: string;
+            /** Blocks */
+            blocks: components["schemas"]["IssueOut"][];
+            /** Cgst Total */
+            cgst_total: string;
+            /** Charges Total */
+            charges_total: string;
+            /** Computed Pos */
+            computed_pos: string | null;
+            /** Doc Total */
+            doc_total: string;
+            /** Gross Total */
+            gross_total: string;
+            /** Igst Total */
+            igst_total: string;
+            /** Invoice Discount */
+            invoice_discount: string;
+            /** Is Inter State */
+            is_inter_state: boolean | null;
+            /** Line Discount Total */
+            line_discount_total: string;
+            /** Lines */
+            lines: components["schemas"]["ComputedLineOut"][];
+            /** Method Version */
+            method_version: string;
+            /** Pos State Code */
+            pos_state_code: string | null;
+            /** Round Off */
+            round_off: string;
+            /** Rounding Mode */
+            rounding_mode: string;
+            /** Sgst Total */
+            sgst_total: string;
+            /** Supply Class */
+            supply_class: string | null;
+            /** Taxable Total */
+            taxable_total: string;
+            /** Utgst */
+            utgst: boolean;
+            /** Warnings */
+            warnings: components["schemas"]["IssueOut"][];
+        };
+        /** ComputedLineOut */
+        ComputedLineOut: {
+            /** Base */
+            base: string;
+            /** Charge Share */
+            charge_share: string;
+            /** Discount Share */
+            discount_share: string;
+            /** Gross */
+            gross: string;
+            /** Line Discount */
+            line_discount: string;
+            /** Line No */
+            line_no: number;
+            /** Rate */
+            rate: string | null;
+            /** Taxable */
+            taxable: string;
+            /** Taxes */
+            taxes: components["schemas"]["TaxOut"][];
+            /** Total */
+            total: string;
+        };
         /** ConfirmIn */
         ConfirmIn: {
             /** Apply Changes */
@@ -1548,6 +1620,16 @@ export interface components {
              * @default []
              */
             lines: components["schemas"]["LineIn"][];
+            /** Pos Override */
+            pos_override?: string | null;
+            /** Pos Override Reason */
+            pos_override_reason?: string | null;
+            ship_to?: components["schemas"]["ShipToIn"] | null;
+            /**
+             * Ship To Third Party
+             * @default false
+             */
+            ship_to_third_party: boolean;
         };
         /** DraftOut */
         DraftOut: {
@@ -1563,6 +1645,7 @@ export interface components {
             charges: {
                 [key: string]: unknown;
             }[];
+            computation?: components["schemas"]["ComputationOut"] | null;
             /** Created At */
             created_at: string;
             /** Customer Collects */
@@ -1583,10 +1666,16 @@ export interface components {
             kind: string;
             /** Lines */
             lines: components["schemas"]["LineOut"][];
+            /** Pos Override */
+            pos_override: string | null;
+            /** Pos Override Reason */
+            pos_override_reason: string | null;
             /** Ship To */
             ship_to: {
                 [key: string]: unknown;
             } | null;
+            /** Ship To Third Party */
+            ship_to_third_party: boolean;
             /** Updated At */
             updated_at: string;
             /** Version */
@@ -1879,6 +1968,17 @@ export interface components {
             inviter_name: string | null;
             /** Role */
             role: string;
+        };
+        /** IssueOut */
+        IssueOut: {
+            /** Code */
+            code: string;
+            /** Field */
+            field: string | null;
+            /** Fix */
+            fix: string;
+            /** Line No */
+            line_no: number | null;
         };
         /** JobOut */
         JobOut: {
@@ -2401,6 +2501,24 @@ export interface components {
         RoleIn: {
             role: components["schemas"]["Role"];
         };
+        /**
+         * ShipToIn
+         * @description Where the goods go, when it isn't the customer's own delivery address (LLD-4 §3.1).
+         */
+        ShipToIn: {
+            /** City */
+            city?: string | null;
+            /** Line1 */
+            line1?: string | null;
+            /** Line2 */
+            line2?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Pin */
+            pin?: string | null;
+            /** State Code */
+            state_code: string;
+        };
         /** SignedInOut */
         SignedInOut: {
             /** Access Token */
@@ -2476,6 +2594,15 @@ export interface components {
             id: string | null;
             /** Kind */
             kind: string;
+        };
+        /** TaxOut */
+        TaxOut: {
+            /** Amount */
+            amount: string;
+            /** Component */
+            component: string;
+            /** Rate */
+            rate: string;
         };
         /** TenantIn */
         TenantIn: {
