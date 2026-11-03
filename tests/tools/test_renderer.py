@@ -51,7 +51,7 @@ def test_the_renderer_function_runs_its_own_zip_with_no_database_or_vpc():
     assert re.search(r'package_path\s*=\s*"\$\{var\.packages_dir\}/renderer\.zip"', module)
     assert re.search(r'handler\s*=\s*"renderer\.handler\.handler"', module)
     assert re.search(r"memory_mb\s*=\s*1024\b", module)
-    for absent in ("vpc", "db_user", "policy_statements", "reserved_concurrency"):  # S4 adds the policy
+    for absent in ("vpc", "db_user", "reserved_concurrency"):
         assert not re.search(rf"^\s*{absent}\s*=", module, re.M), f"renderer should have no {absent} yet"
     assert (RENDERER / "renderer" / "handler.py").read_text().count("def handler(") == 1
 
@@ -63,6 +63,18 @@ def test_the_renderer_is_fed_by_the_render_queue_whose_dlq_has_an_alarm():
     assert re.search(r'source\s*=\s*"\.\./queue"', queue)
     assert re.search(r"visibility_timeout_seconds\s*=\s*360\b", queue)  # 6 x the renderer's 60 s
     assert re.search(r"render\s*=\s*module\.render\.dlq_name", STACK)
+
+
+def test_the_renderer_reads_only_render_input_and_decrypts_only_through_s3():
+    """D-042 (EM): GetObject on render-input/b/* and kms:Decrypt via S3, nothing else
+    until S4 adds the documents/b/* write."""
+    module = re.search(r'module "renderer" \{(.*?)\n\}', STACK, re.S).group(1)
+    policy = re.search(r"policy_statements = \[(.*?)\n  \]", module, re.S).group(1)
+    assert re.findall(r'Action\s*=\s*\[([^\]]*)\]', policy) == ['"s3:GetObject"', '"kms:Decrypt"']
+    resources = re.findall(r'Resource\s*=\s*\[([^\]]*)\]', policy)
+    assert resources == ['"${module.storage.bucket_arn}/render-input/b/*"', "module.storage.kms_key_arn"]
+    assert '"kms:ViaService" = "s3.${data.aws_region.current.name}.amazonaws.com"' in policy
+    assert "*" not in policy.replace("render-input/b/*", "")
 
 
 def test_no_other_function_ships_the_renderer_zip():
