@@ -220,9 +220,11 @@ def _record_support_view(uow: UnitOfWork, request: Request) -> None:
             object_id = uuid.UUID(str(value))
         except ValueError:
             continue
+    if object_id is not None and str(object_id) == business:
+        object_id = None  # the business itself is no object: target_id and data agree (Staff 2 (3), #59)
     route = request.scope.get("route")
     data = {"method": request.method, "route_template": getattr(route, "path", None),
-            "object_id": None if object_id is None or str(object_id) == business else str(object_id)}
+            "object_id": None if object_id is None else str(object_id)}
     audit.record(uow, "support.view", "route", object_id, data=data)
 
 

@@ -15,6 +15,7 @@ file is the only copy in code. Every business route declares one permission with
 | `members.manage` | Invite, deactivate and reactivate members | Yes | Yes | No | No |
 | `catalog.view` | Products and customers (view) | Yes | Yes | Yes | Yes |
 | `catalog.edit` | Products and customers | Yes | Yes | Yes | No |
+| `documents.view` | View invoices and credit notes | Yes | Yes | Yes | Yes |
 | `documents.create` | Create and finalize invoices and credit notes | Yes | Yes | Yes | No |
 | `documents.mark_paid` | Mark an invoice paid | Yes | Yes | Yes | No |
 | `uploads.create` | Upload marketplace reports | Yes | Yes | No | Yes |

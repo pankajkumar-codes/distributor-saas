@@ -41,6 +41,7 @@ class Permission(str, enum.Enum):
     MEMBERS_MANAGE = "members.manage"
     CATALOG_VIEW = "catalog.view"
     CATALOG_EDIT = "catalog.edit"
+    DOCUMENTS_VIEW = "documents.view"
     DOCUMENTS_CREATE = "documents.create"
     DOCUMENTS_MARK_PAID = "documents.mark_paid"
     UPLOADS_CREATE = "uploads.create"

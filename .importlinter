@@ -20,6 +20,7 @@ modules =
     app.modules.business
     app.modules.catalog
     app.modules.imports
+    app.modules.sales
 ; identity creates the profile with a new business and shows business cards (LLD-1 §9).
 ignore_imports =
     app.modules.identity.** -> app.modules.business.interface
@@ -29,6 +30,8 @@ ignore_imports =
     app.modules.catalog.** -> app.modules.imports.interface
 ; catalog's import jobs re-check the queuing user's role when they run (#69 review).
     app.modules.catalog.** -> app.modules.identity.interface
+; sales prices and taxes draft lines from catalog products and customers (LLD-4 §3).
+    app.modules.sales.** -> app.modules.catalog.interface
 ; Module tests drive the mounted app and may call other modules' interfaces, the
 ; same surface any module may use.
     app.modules.*.tests.** -> app.api
@@ -44,6 +47,7 @@ forbidden_modules =
     app.modules.business
     app.modules.catalog
     app.modules.imports
+    app.modules.sales
 
 [importlinter:contract:modules-not-entrypoints]
 name = Modules do not import the API or worker entry points

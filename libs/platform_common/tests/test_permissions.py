@@ -35,6 +35,7 @@ EXPECTED: dict[Permission, str] = {
     P.MEMBERS_MANAGE:       "xx..",
     P.CATALOG_VIEW:         "xxxx",
     P.CATALOG_EDIT:         "xxx.",
+    P.DOCUMENTS_VIEW:       "xxxx",
     P.DOCUMENTS_CREATE:     "xxx.",
     P.DOCUMENTS_MARK_PAID:  "xxx.",
     P.UPLOADS_CREATE:       "xx.x",
