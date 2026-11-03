@@ -11,7 +11,7 @@ stricter answer: 6 HSN digits, or 'unsure' for e-invoicing. Every number is refd
 
 from datetime import date
 from decimal import Decimal
-from typing import Literal
+from typing import Literal, NamedTuple
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -31,12 +31,9 @@ def min_digits_for(band: str | None, band_threshold: Decimal, rule_threshold: De
     return low if band == "up_to_threshold" and band_threshold <= rule_threshold else high
 
 
-def hsn_min_digits(tx: Session, on: date) -> int:
-    """Minimum HSN digits on an invoice dated `on`, from the band of the FY before `on`'s
-    FY (the rule is on the preceding FY's turnover)."""
-    band = turnover_band(tx, previous_fy(fy_of(on)))
+def _hsn_digits(tx: Session, on: date, band: str | None) -> int:
     return min_digits_for(
-        None if band is None else band.band,
+        band,
         value_on(tx, "business.turnover_band_threshold", on),
         value_on(tx, "hsn.min_digits_aato_threshold", on),
         value_on(tx, "hsn.min_digits_up_to_threshold", on),
@@ -44,11 +41,27 @@ def hsn_min_digits(tx: Session, on: date) -> int:
     )
 
 
-def hsn_band_missing(tx: Session, on: date) -> str | None:
-    """The FY whose band hsn_min_digits needs for `on` when the business hasn't set it
-    (then the stricter count applies), else None. Lets the invoice say which band to set."""
+def hsn_min_digits(tx: Session, on: date) -> int:
+    """Minimum HSN digits on an invoice dated `on`, from the band of the FY before `on`'s
+    FY (the rule is on the preceding FY's turnover)."""
+    band = turnover_band(tx, previous_fy(fy_of(on)))
+    return _hsn_digits(tx, on, None if band is None else band.band)
+
+
+class HsnBandMissing(NamedTuple):
+    fy: str  # the preceding FY, whose band is unset
+    digits_if_up_to: int  # the minimum once that band is set "up to" (refdata on `on`)
+
+
+def hsn_band_missing(tx: Session, on: date) -> HsnBandMissing | None:
+    """The FY whose band hsn_min_digits needs for `on` when the business hasn't set it,
+    with the count an "up to" band would allow; None when the band is set or setting it
+    could not lower the count. Lets the invoice say which band to set and what it allows."""
     fy = previous_fy(fy_of(on))
-    return fy if turnover_band(tx, fy) is None else None
+    if turnover_band(tx, fy) is not None:
+        return None
+    digits = _hsn_digits(tx, on, "up_to_threshold")
+    return HsnBandMissing(fy, digits) if digits < _hsn_digits(tx, on, None) else None
 
 
 def einvoice_status_for(

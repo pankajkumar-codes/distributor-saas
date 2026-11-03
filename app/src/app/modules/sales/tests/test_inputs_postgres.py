@@ -99,7 +99,7 @@ def test_hsn_digits_come_from_the_preceding_fy_band(shop):
     # Sign-up set only 2026-27's band, so 2025-26 is unknown: the stricter 6 digits.
     (block,) = run(pg, biz, alice, draft, lines).blocks
     assert (block.code, block.field, block.line_no) == ("hsn_needs_turnover_band", "business.turnover_band", 1)
-    assert "FY 2025-26" in block.fix and "6 digits" in block.fix
+    assert "FY 2025-26" in block.fix and "4-digit" in block.fix and "6 digits" in block.fix  # both from refdata
     r = pg.client.put(
         f"/api/v1/b/{biz}/turnover-bands/2025-26", json={"band": "up_to_threshold"}, headers=as_user("alice")
     )

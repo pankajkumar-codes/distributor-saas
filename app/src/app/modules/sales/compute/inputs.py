@@ -36,18 +36,21 @@ def load_inputs(tx: Session, draft: DraftIn, lines: list[DraftLineIn], *, today:
         raise Invalid("business_profile_missing", "Add your business details first.", field="business")
     try:
         rules = _rules(tx, on)
+        band_missing = hsn_band_missing(tx, on)
         seller = Seller(
             state_code=profile.state_code,
             hsn_min_digits=hsn_min_digits(tx, on),
             einvoice_status=einvoice_status(tx, on),
             ready_missing=tuple(ready_for_documents(tx).missing),
-            hsn_band_missing_fy=hsn_band_missing(tx, on),
+            hsn_band_missing_fy=band_missing and band_missing.fy,
+            hsn_min_digits_if_band_set=band_missing and band_missing.digits_if_up_to,
         )
+        # Inside the handler: it reads catalog refdata on doc_date too (Lead, #89).
+        products = products_for_lines(tx, [ln.product_id for ln in lines if ln.product_id], on)
     except RefdataMissing:
         raise Invalid(
             "doc_date_not_supported", "The app has no GST rules for this invoice date.", field="doc_date"
         ) from None
-    products = products_for_lines(tx, [ln.product_id for ln in lines if ln.product_id], on)
     return ComputeInput(
         doc_date=on,
         today=today,
