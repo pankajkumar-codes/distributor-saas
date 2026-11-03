@@ -10,6 +10,7 @@ module only reads them. No row covering the date, or two, raises RefdataMissing:
 from .reader import (
     RefdataMissing,
     RefdataUnconfirmed,
+    first_valid_from,
     gst_rates,
     require_confirmed,
     state_codes,
@@ -22,6 +23,7 @@ from .reader import (
 __all__ = [
     "RefdataMissing",
     "RefdataUnconfirmed",
+    "first_valid_from",
     "gst_rates",
     "require_confirmed",
     "state_codes",

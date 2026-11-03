@@ -410,6 +410,31 @@ def test_line_and_product_blocks():
     ]
 
 
+def test_a_short_hsn_without_last_year_s_band_says_which_band_to_set():  # EM decision (b), #85
+    seller = Seller(
+        state_code=MH,
+        hsn_min_digits=6,
+        einvoice_status="no",
+        hsn_band_missing_fy="2025-26",
+        hsn_min_digits_if_band_set=4,
+    )
+    inp = ComputeInput(
+        doc_date=TODAY,
+        today=TODAY,
+        seller=seller,
+        buyer=registered(MH),
+        lines=numbered([line(1, 100, 18, hsn="3401"), line(1, 100, 18, hsn="340111"), line(1, 100, 18, hsn="34")]),
+        rules=RULES,
+    )
+    blocks = compute(inp).blocks
+    # A code the band would allow says which band to set; one too short either way does not.
+    assert [(b.code, b.field, b.line_no) for b in blocks] == [
+        ("hsn_needs_turnover_band", "business.turnover_band", 1),
+        ("hsn_too_short", "lines.2.product_id", 3),
+    ]
+    assert blocks[0].fix.startswith("Tell us last year's turnover band (FY 2025-26) to use 4-digit HSN codes.")
+
+
 def test_document_blocks_and_warnings():
     seller = Seller(state_code=MH, hsn_min_digits=4, einvoice_status="applies", ready_missing=("address",))
     inp = ComputeInput(

@@ -126,6 +126,14 @@ def value_on(tx: Session, key: str, on: dt.date) -> Decimal | int | str | bool |
     return _typed(_row(tx, key, on))
 
 
+def first_valid_from(tx: Session, key: str) -> dt.date | None:
+    """The earliest date `key` has a row for, or None for a key with no rows. Lets a caller
+    tell "this date is before the rule's history" (a date the app doesn't support) from a
+    gap, an overlap or a missing key (a refdata defect: 500)."""
+    rows = _current(tx).values.get(key, ())
+    return min((r.valid_from for r in rows), default=None)
+
+
 def require_confirmed(tx: Session, key: str, on: dt.date) -> None:
     """For go-live checks: raises unless the row in force is confirmed by the right party
     (po_confirmed for product rows; expert_ or ca_confirmed for tax rows) [RM4-9]."""

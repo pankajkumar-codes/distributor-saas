@@ -251,6 +251,23 @@ def _line_checks(i: int, line: LineIn, inp: ComputeInput, checks: _Checks) -> De
     hsn = p.hsn or ""
     if not hsn:
         checks.block("hsn_missing", "Add the product's HSN code.", f"{at}.product_id", n)
+    elif (
+        len(hsn) < inp.seller.hsn_min_digits
+        and inp.seller.hsn_band_missing_fy
+        and inp.seller.hsn_min_digits_if_band_set is not None
+        and len(hsn) >= inp.seller.hsn_min_digits_if_band_set
+    ):
+        # No band for the preceding FY, so the stricter count applies (LLD-1 §8.3, [S4P-1]);
+        # setting the band would allow this code (EM decision (b), #85). Both counts come
+        # from refdata through Seller (Lead, #89).
+        fy, low = inp.seller.hsn_band_missing_fy, inp.seller.hsn_min_digits_if_band_set
+        checks.block(
+            "hsn_needs_turnover_band",
+            f"Tell us last year's turnover band (FY {fy}) to use {low}-digit HSN codes."
+            f" Until then, HSN codes need at least {inp.seller.hsn_min_digits} digits.",  # mock-note-last-fy-band.md
+            "business.turnover_band",
+            n,
+        )
     elif len(hsn) < inp.seller.hsn_min_digits:
         checks.block(
             "hsn_too_short",

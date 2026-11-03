@@ -17,7 +17,14 @@ import pytest
 from sqlalchemy import create_engine, make_url, text
 from sqlalchemy.orm import Session
 
-from app.modules.refdata import RefdataMissing, RefdataUnconfirmed, require_confirmed, state_name, value_on
+from app.modules.refdata import (
+    RefdataMissing,
+    RefdataUnconfirmed,
+    first_valid_from,
+    require_confirmed,
+    state_name,
+    value_on,
+)
 from app.modules.refdata import reader
 
 PG_ADMIN_URL = os.environ.get("PG_ADMIN_URL")
@@ -87,6 +94,13 @@ def test_no_row_on_the_date_raises_never_a_default(tx):
     assert (e.value.key, e.value.found) == ("qrmp.option_window.start", 0)
     with pytest.raises(RefdataMissing):
         value_on(tx, "auth.code_ttl_minutes", dt.date(2026, 10, 23))  # before valid_from
+
+
+def test_first_valid_from_tells_an_early_date_from_a_missing_key(tx):
+    first = first_valid_from(tx, "auth.code_ttl_minutes")
+    assert first is not None and first > dt.date(2026, 10, 23)  # the date above is before it
+    value_on(tx, "auth.code_ttl_minutes", first)
+    assert first_valid_from(tx, "no.such.key") is None
 
 
 def test_a_new_load_is_seen_by_the_next_call_and_dates_pick_the_row(engines, tx):
