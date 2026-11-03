@@ -1,6 +1,7 @@
 # The whole environment. envs/staging and envs/prod call this with different sizes.
 # Deployables (TD-1, HLD §4): the API and worker Lambdas share app.zip, the mailer runs
-# outside the VPC with SES only, and the migrator applies migrations as the master.
+# outside the VPC with SES only, the migrator applies migrations as the master, and the
+# PDF renderer runs from its own renderer.zip (TD-1(b) amendment, D-042).
 
 terraform {
   required_providers {
@@ -27,7 +28,7 @@ variable "cdn_certificate_arn" {
   default = ""
 }
 variable "packages_dir" {
-  description = "Directory holding app.zip and migrator.zip from scripts/build_lambda.sh"
+  description = "Directory holding app.zip and migrator.zip (scripts/build_lambda.sh) and renderer.zip (scripts/build_renderer.py)"
   type        = string
 }
 variable "git_sha" {
@@ -319,6 +320,45 @@ module "retention" {
   environment     = merge(local.db_env, local.after_migrations)
 }
 
+# The PDF renderer (TD-9; TD-1(b) amendment, D-042): WeasyPrint with its own native
+# libraries and fonts, from its own zip (scripts/build_renderer.py), so none of that is in
+# the API's or the worker's package or cold start. 1024 MB: about 0.3 s warm and 1.3 s
+# cold for a one-page invoice in the local measurements, to be re-measured on arm64 on the
+# first staging deploy (the self-test task). Outside the VPC, with no database login.
+#
+# The worker reaches it through the `render` queue (EM decision on #79): the worker
+# already sends to SQS through the VPC's SQS endpoint, so this needs no Lambda endpoint
+# (about USD 7-8 a month per AZ) and gets SQS's retries and a DLQ. A message carries an
+# S3 key under render-input/b/*, never the document body (EM, D-042). The renderer may
+# read that prefix and nothing else in the bucket, and decrypt with our key only through
+# S3. S4 (BH-6) adds the worker's SendMessage on this queue and the renderer's KMS
+# GenerateDataKey and PutObject on documents/b/* with the first real render. Unreserved,
+# so TD-6's caps and the quota of 156 are unchanged.
+module "render" {
+  source                     = "../queue"
+  name                       = "${local.name}-render"
+  visibility_timeout_seconds = 360 # AWS's guidance for a Lambda trigger: 6 x the function's timeout
+}
+
+module "renderer" {
+  source          = "../function"
+  name            = "${local.name}-renderer"
+  package_path    = "${var.packages_dir}/renderer.zip"
+  handler         = "renderer.handler.handler"
+  memory_mb       = 1024
+  timeout_seconds = 60 # a 1000-line invoice took 12 s locally at this size
+  sqs_trigger     = { arn = module.render.arn, batch_size = 1 }
+  policy_statements = [
+    { Effect = "Allow", Action = ["s3:GetObject"], Resource = ["${module.storage.bucket_arn}/render-input/b/*"] },
+    {
+      Effect    = "Allow"
+      Action    = ["kms:Decrypt"]
+      Resource  = [module.storage.kms_key_arn]
+      Condition = { StringEquals = { "kms:ViaService" = "s3.${data.aws_region.current.name}.amazonaws.com" } }
+    },
+  ]
+}
+
 # Schedules (TD-25, HLD §4, LLD-6 §6.1). The purge and retention rules stay DISABLED until
 # Pankaj's staging decision and a dry run there; every rule also ships disabled in
 # refdata (retention.<rule>.enabled), so enabling a schedule alone deletes nothing.
@@ -357,7 +397,7 @@ resource "aws_lambda_permission" "schedule" {
   source_arn    = aws_cloudwatch_event_rule.schedule[each.key].arn
 }
 
-# Alarms (TD-24): a message in either DLQ is a job or an email that failed five times.
+# Alarms (TD-24): a message in a DLQ is a job, an email or a render that failed five times.
 resource "aws_sns_topic" "alarms" {
   name = "${local.name}-alarms"
 }
@@ -370,7 +410,7 @@ resource "aws_sns_topic_subscription" "alarms" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "dlq" {
-  for_each            = { jobs = module.jobs.dlq_name, mail = module.mail.dlq_name }
+  for_each            = { jobs = module.jobs.dlq_name, mail = module.mail.dlq_name, render = module.render.dlq_name }
   alarm_name          = "${local.name}-${each.key}-dlq"
   namespace           = "AWS/SQS"
   metric_name         = "ApproximateNumberOfMessagesVisible"
@@ -428,6 +468,7 @@ output "api_endpoint" { value = module.api.endpoint }
 output "user_pool_id" { value = module.auth.user_pool_id }
 output "user_pool_client_id" { value = module.auth.client_id }
 output "migrator_function" { value = module.migrator.function_name }
+output "renderer_function" { value = module.renderer.function_name }
 output "objects_bucket" { value = module.storage.bucket }
 output "web_bucket" { value = module.cdn.web_bucket }
 output "cdn_distribution_id" { value = module.cdn.distribution_id }

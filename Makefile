@@ -2,7 +2,7 @@
 PY ?= python3
 LOCAL_DB := postgresql://postgres:local-only@localhost:5432/saas
 
-.PHONY: setup openapi test isolation-local e2e-local db-up db-down db-migrate run-api smoke-local build
+.PHONY: setup openapi test isolation-local e2e-local db-up db-down db-migrate run-api smoke-local build renderer-zip
 
 setup:            ## install the app, platform_common and the migrator with dev dependencies
 	$(PY) -m pip install -e libs/platform_common -e "app[dev]" -r migrator/requirements.txt
@@ -40,3 +40,7 @@ smoke-local:      ## end-to-end checks against the running local service
 
 build:            ## build app.zip and migrator.zip into build/
 	scripts/build_lambda.sh all
+
+renderer-zip:     ## build build/renderer.zip, the arm64 PDF renderer (TD-9); ARCH=x86_64 for the smoke build
+	$(PY) scripts/build_renderer.py --arch $(or $(ARCH),aarch64)
+	$(PY) scripts/check_renderer_zip.py --arch $(or $(ARCH),aarch64) build/$(if $(filter x86_64,$(ARCH)),renderer-x86_64.zip,renderer.zip)
