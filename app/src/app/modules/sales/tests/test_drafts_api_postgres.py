@@ -288,3 +288,14 @@ def test_a_customer_deleted_after_the_draft_was_saved_is_customer_not_found_on_s
     assert gone.status_code == 204
     r = put(pg, biz, d, draft_body(p, customer_id=c))
     assert r.status_code == 422 and r.json()["error"]["code"] == "customer_not_found"
+
+
+def test_money_output_never_rounds_silently():
+    from decimal import Decimal as D
+    from decimal import Inexact
+
+    from app.modules.sales.api import _m
+
+    assert _m(D("5")) == "5.00" and _m(D("113.750")) == "113.75"
+    with pytest.raises(Inexact):
+        _m(D("20.475"))

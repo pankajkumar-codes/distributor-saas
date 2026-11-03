@@ -7,7 +7,7 @@ the create-documents one.
 """
 
 from datetime import date
-from decimal import Decimal
+from decimal import Decimal, Context, Inexact
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
@@ -172,11 +172,13 @@ def _s(v) -> str | None:
 
 
 _PAISE = Decimal("0.01")
+_EXACT = Context(prec=40, traps=[Inexact])
 
 
 def _m(x: Decimal) -> str:
-    """An amount as a 2-place decimal string (compute's totals are already whole paise)."""
-    return str(x.quantize(_PAISE))
+    """An amount as a 2-place decimal string. compute's amounts are already whole paise, so
+    this only fixes the scale; one that is not raises Inexact rather than rounding silently."""
+    return str(x.quantize(_PAISE, context=_EXACT))
 
 
 def _issues(items) -> list[dict]:
