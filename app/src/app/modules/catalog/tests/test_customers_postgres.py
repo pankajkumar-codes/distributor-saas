@@ -360,3 +360,14 @@ def test_finalize_first_makes_a_waiting_delete_answer_in_use(shop):  # AC3-20, m
         tx.commit()
     t.join(timeout=10)
     assert err(result["r"]) == (409, "customer_in_use")
+
+
+def test_etag_is_the_version_and_a_weak_if_match_is_stale(shop):  # platform_common.etag
+    pg, biz = shop
+    c = make(pg, biz)
+    got = pg.client.get(url(biz, f"/{c['id']}"), headers=as_user("alice"))
+    assert got.headers["etag"] == '"1"'
+    r = patch(pg, biz, c, {"credit_days": 7}, version='W/"1"')
+    assert (r.status_code, r.json()["error"]["code"]) == (409, "stale_record")
+    r = patch(pg, biz, c, {"credit_days": 7}, version='"1"')
+    assert r.status_code == 200 and r.headers["etag"] == '"2"'

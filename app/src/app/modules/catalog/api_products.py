@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.modules.refdata import uqc_codes
 from platform_common.clock import Clock, get_clock
+from platform_common.etag import if_match_version, set_etag
 from platform_common.idempotency import run_once
 from platform_common.paging import PageParams, page_params
 from platform_common.permissions import Permission, require
@@ -198,15 +199,6 @@ def _once(request: Request, uow, key: str | None, payload: dict, operation):
                     route=request.scope["route"].path, payload=payload, operation=operation)
 
 
-def _version(if_match: str | None) -> int | None:
-    if if_match is None:
-        return None
-    try:
-        return int(if_match.strip().strip('"'))
-    except ValueError:
-        return -1  # never a real version, so it reads as stale
-
-
 @router.get("/b/{business_id}/units", response_model=list[UnitOut], dependencies=VIEW)
 def list_units(uow: BusinessUoW, clock: Annotated[Clock, Depends(get_clock)]):
     """The UQC picker (refdata.uqc_codes)."""
@@ -245,9 +237,11 @@ def create_product(
 
 
 @router.get("/b/{business_id}/products/{product_id}", response_model=ProductDetailOut, dependencies=VIEW)
-def get_product(product_id: str, uow: BusinessUoW, clock: Annotated[Clock, Depends(get_clock)],
+def get_product(product_id: str, uow: BusinessUoW, clock: Annotated[Clock, Depends(get_clock)], response: Response,
                 on: date | None = None):
-    return _detail(uow, parse_id(product_id), on or clock.today())
+    out = _detail(uow, parse_id(product_id), on or clock.today())
+    set_etag(response, out["version"])
+    return out
 
 
 @router.patch("/b/{business_id}/products/{product_id}", response_model=ProductDetailOut, dependencies=EDIT)
@@ -256,12 +250,15 @@ def update_product(
     body: ProductPatch,
     uow: BusinessUoW,
     clock: Annotated[Clock, Depends(get_clock)],
+    response: Response,
     if_match: Annotated[str | None, Header(alias="If-Match")] = None,
 ):
     pid = parse_id(product_id)
     today = clock.today()
-    products.update(uow, pid, body.model_dump(exclude_unset=True), _version(if_match), today)
-    return _detail(uow, pid, today)
+    products.update(uow, pid, body.model_dump(exclude_unset=True), if_match_version(if_match), today)
+    out = _detail(uow, pid, today)
+    set_etag(response, out["version"])
+    return out
 
 
 @router.post("/b/{business_id}/products/{product_id}/archive", response_model=ProductDetailOut, dependencies=EDIT)
@@ -282,7 +279,7 @@ def unarchive_product(product_id: str, uow: BusinessUoW, clock: Annotated[Clock,
 @router.delete("/b/{business_id}/products/{product_id}", status_code=http.HTTP_204_NO_CONTENT, dependencies=EDIT)
 def delete_product(product_id: str, uow: BusinessUoW,
                    if_match: Annotated[str | None, Header(alias="If-Match")] = None):
-    products.delete(uow, parse_id(product_id), _version(if_match))
+    products.delete(uow, parse_id(product_id), if_match_version(if_match))
     return Response(status_code=http.HTTP_204_NO_CONTENT)
 
 

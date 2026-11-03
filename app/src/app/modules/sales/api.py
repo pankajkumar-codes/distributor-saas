@@ -14,6 +14,7 @@ from fastapi import status as http
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
 from platform_common.clock import Clock, get_clock
+from platform_common.etag import if_match_version, set_etag
 from platform_common.idempotency import run_once
 from platform_common.paging import PageParams, page_params
 from platform_common.permissions import Permission, require
@@ -127,18 +128,10 @@ def _out(d: dict) -> dict:
 
 
 def _etag(response: Response, d: dict) -> dict:
-    """The version is the entity tag: send it back as If-Match on PUT and DELETE."""
-    response.headers["ETag"] = f'"{d["version"]}"'
+    """The version is the entity tag (platform_common.etag): send it back as If-Match on
+    PUT and DELETE."""
+    set_etag(response, d["version"])
     return d
-
-
-def _version(if_match: str | None) -> int | None:
-    if if_match is None:
-        return None
-    try:
-        return int(if_match.strip().removeprefix("W/").strip('"'))  # a weak tag is as good
-    except ValueError:
-        return -1  # never a real version, so it reads as stale
 
 
 @router.get("/b/{business_id}/drafts", response_model=DraftPageOut, dependencies=VIEW)
@@ -184,11 +177,11 @@ def save_draft(
     if_match: Annotated[str | None, Header(alias="If-Match")] = None,
 ):
     did = parse_id(draft_id)
-    drafts.replace(uow, did, body.model_dump(mode="json"), _version(if_match), clock.today())
+    drafts.replace(uow, did, body.model_dump(mode="json"), if_match_version(if_match), clock.today())
     return _etag(response, _out(drafts.get(uow, did)))
 
 
 @router.delete("/b/{business_id}/drafts/{draft_id}", status_code=http.HTTP_204_NO_CONTENT, dependencies=EDIT)
 def delete_draft(draft_id: str, uow: BusinessUoW, if_match: Annotated[str | None, Header(alias="If-Match")] = None):
-    drafts.delete(uow, parse_id(draft_id), _version(if_match))
+    drafts.delete(uow, parse_id(draft_id), if_match_version(if_match))
     return Response(status_code=http.HTTP_204_NO_CONTENT)

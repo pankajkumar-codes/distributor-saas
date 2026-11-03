@@ -21,6 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.modules.refdata import state_name
 from platform_common.clock import Clock, get_clock
 from platform_common.errors import Deny
+from platform_common.etag import if_match_version, set_etag
 from platform_common.idempotency import run_once
 from platform_common.permissions import Permission, require
 from platform_common.uow import BusinessUoW
@@ -181,26 +182,11 @@ Today = Annotated[Clock, Depends(get_clock)]
 
 # --- Profile --------------------------------------------------------------------------
 
-def _etag(response: Response, version: int) -> None:
-    response.headers["ETag"] = f'"{version}"'
-
-
-def _if_match(raw: str | None) -> int | None:
-    """The version from If-Match, quoted (an ETag) or bare. Anything else is never a real
-    version, so it reads as stale rather than as missing."""
-    if raw is None:
-        return None
-    try:
-        return int(raw.strip().removeprefix("W/").strip('"'))
-    except ValueError:
-        return -1
-
-
 @router.get("/profile")
 def get_profile(uow: BusinessUoW, clock: Today, response: Response) -> ProfileOut:
     uow.become_read_only()
     out = _profile_out(uow, clock.today())
-    _etag(response, out.version)
+    set_etag(response, out.version)
     return out
 
 
@@ -214,9 +200,9 @@ def patch_profile(
 ) -> ProfileUpdateOut:
     """If-Match is required: the version (or ETag) from GET /profile. If the business
     details changed since, 409 stale_record and nothing is saved (L3-9's rule)."""
-    warnings = prof.update_profile(uow, body, today=clock.today(), if_match=_if_match(if_match))
+    warnings = prof.update_profile(uow, body, today=clock.today(), if_match=if_match_version(if_match))
     out = _profile_out(uow, clock.today())
-    _etag(response, out.version)
+    set_etag(response, out.version)
     return ProfileUpdateOut(profile=out, warnings=warnings)
 
 

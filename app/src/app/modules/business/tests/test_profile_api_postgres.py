@@ -156,7 +156,9 @@ def test_two_editors_one_wins_and_the_other_gets_stale_record(biz):
 
 @pytest.mark.parametrize(("header", "status", "code"), [
     (None, 422, "if_match_required"), ('"7"', 409, "stale_record"), ("abc", 409, "stale_record"),
-    ("1", 200, None), ('W/"1"', 200, None),
+    ("1", 200, None), ('"1"', 200, None),
+    # One rule for every If-Match route (platform_common.etag): strong comparison only.
+    ('W/"1"', 409, "stale_record"), ("*", 409, "stale_record"), ('"1", "2"', 409, "stale_record"),
 ])
 def test_if_match_is_required_and_read_as_the_version(biz, header, status, code):
     pg, bid = biz

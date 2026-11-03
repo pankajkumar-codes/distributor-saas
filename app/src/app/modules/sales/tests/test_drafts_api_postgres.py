@@ -70,7 +70,7 @@ def test_create_then_read_with_money_as_strings(shop):
     assert got.status_code == 200 and got.json() == d
 
 
-def test_etag_carries_the_version_and_a_weak_tag_is_accepted(shop):
+def test_etag_carries_the_version_and_a_weak_tag_is_stale(shop):  # platform_common.etag
     pg, biz, _ = shop
     p = make_product(pg, biz)
     made = create(pg, biz, draft_body(p))
@@ -78,7 +78,10 @@ def test_etag_carries_the_version_and_a_weak_tag_is_accepted(shop):
     d = made.json()
     got = pg.client.get(f"/api/v1/b/{biz}/drafts/{d['id']}", headers=h())
     assert got.headers["etag"] == '"1"'
-    r = pg.client.put(f"/api/v1/b/{biz}/drafts/{d['id']}", json=draft_body(p), headers=h(**{"If-Match": 'W/"1"'}))
+    for tag in ('W/"1"', "*"):  # strong comparison only, and a blind write is refused
+        r = pg.client.put(f"/api/v1/b/{biz}/drafts/{d['id']}", json=draft_body(p), headers=h(**{"If-Match": tag}))
+        assert (r.status_code, r.json()["error"]["code"]) == (409, "stale_record")
+    r = pg.client.put(f"/api/v1/b/{biz}/drafts/{d['id']}", json=draft_body(p), headers=h(**{"If-Match": '"1"'}))
     assert r.status_code == 200 and r.headers["etag"] == '"2"'
     assert pg.client.put(f"/api/v1/b/{biz}/drafts/{d['id']}", json=draft_body(p, kind="credit_note"),
                          headers=h(**{"If-Match": '"2"'})).status_code == 422
