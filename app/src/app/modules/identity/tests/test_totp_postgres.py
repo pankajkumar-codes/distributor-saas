@@ -143,3 +143,26 @@ def test_removing_totp_when_it_is_off_changes_nothing(env):  # EM, #60
     r = client.delete("/api/v1/me/totp", headers=me)
     assert (r.status_code, r.json()["error"]["code"]) == (409, "totp_already_off")
     assert len(mail.sent) == sent and audit_actions(admin) == []
+
+
+@pytest.mark.parametrize("route", ["setup", "confirm", "remove"])
+def test_a_token_the_provider_no_longer_accepts_is_401(env, monkeypatch, route):  # Staff 2, #65
+    from platform_common.authprovider import AuthRefused
+
+    client, idp, _, _ = env
+    me = bearer(client)
+    if route == "remove":
+        enrol(client, idp, me)
+
+    def refuse(*_):
+        raise AuthRefused("token_invalid")
+
+    monkeypatch.setattr(
+        idp, {"setup": "associate_totp", "confirm": "verify_totp", "remove": "remove_totp"}[route], refuse
+    )
+    r = {
+        "setup": lambda: client.post("/api/v1/me/totp/setup", headers=me),
+        "confirm": lambda: client.post("/api/v1/me/totp/confirm", json={"code": "123456"}, headers=me),
+        "remove": lambda: client.delete("/api/v1/me/totp", headers=me),
+    }[route]()
+    assert (r.status_code, r.json()["error"]["code"]) == (401, "session_invalid")

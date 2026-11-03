@@ -21,8 +21,8 @@ from sqlalchemy import text
 from app.modules.refdata import value_on
 from platform_common import audit
 from platform_common.auth import Caller
-from platform_common.authprovider import AuthProvider
-from platform_common.errors import AppError, Conflict
+from platform_common.authprovider import AuthProvider, AuthRefused
+from platform_common.errors import AppError, Conflict, Deny, RateLimited
 from platform_common.mailer import Mailer, send_after_commit
 from platform_common.uow import UnitOfWork
 
@@ -37,12 +37,19 @@ class TotpCodeWrong(AppError):
 
 def setup(uow: UnitOfWork, access_token: str, idp: AuthProvider) -> str:
     _refuse_if_on(uow)
-    return idp.associate_totp(access_token)
+    try:
+        return idp.associate_totp(access_token)
+    except AuthRefused as e:
+        raise _refusal(e) from None
 
 
 def confirm(uow: UnitOfWork, access_token: str, code: str, idp: AuthProvider, mail: Mailer) -> None:
     _refuse_if_on(uow)
-    if not idp.verify_totp(access_token, code):
+    try:
+        accepted = idp.verify_totp(access_token, code)
+    except AuthRefused as e:
+        raise _refusal(e) from None
+    if not accepted:
         raise TotpCodeWrong()
     _record(uow, mail, on=True)
 
@@ -57,8 +64,20 @@ def remove(uow: UnitOfWork, caller: Caller, idp: AuthProvider, mail: Mailer, now
         signed_in_at = None
     if signed_in_at is None or now - signed_in_at > timedelta(minutes=minutes):
         raise Conflict("reauth_required", "sign in again to turn off two-step sign-in")
-    idp.remove_totp(uow.principal.user_sub)
+    try:
+        idp.remove_totp(uow.principal.user_sub)
+    except AuthRefused as e:
+        raise _refusal(e) from None
     _record(uow, mail, on=False)
+
+
+def _refusal(e: AuthRefused) -> Exception:
+    """As account._refusal: an access token the provider no longer accepts is 401."""
+    if e.code == "token_invalid":
+        return Deny("session_invalid")
+    if e.code == "rate_limited":
+        return RateLimited(retry_after=60)
+    return RuntimeError(f"totp: unexpected provider refusal {e.code}")  # a 500, never a guess
 
 
 def _refuse_if_on(uow: UnitOfWork) -> None:
