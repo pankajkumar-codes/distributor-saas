@@ -143,3 +143,20 @@ def test_app_ro_reads_but_never_writes(two):
         with pg.app_rw.begin() as c:
             ctx(c, alice, a, role="app_ro")
             add_draft(c, a, alice)
+
+
+def test_next_value_never_goes_back(two):
+    pg, a, _b, alice, _ = two
+    with pg.app_rw.begin() as c:
+        ctx(c, alice, a)
+        add_series(c, a)
+        c.execute(text("update sales.number_series set next_value = 5"))
+        c.execute(text("update sales.number_series set next_value = 5"))  # staying put is fine
+    with pytest.raises(DBAPIError) as err:
+        with pg.app_rw.begin() as c:
+            ctx(c, alice, a)
+            c.execute(text("update sales.number_series set next_value = 4"))
+    assert err.value.orig.sqlstate == "SNS01"
+    with pg.app_rw.begin() as c:
+        ctx(c, alice, a)
+        assert c.execute(text("select next_value from sales.number_series")).scalar() == 5

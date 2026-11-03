@@ -117,6 +117,22 @@ create policy tenant_read_ro on sales.number_series for select to app_ro
 create policy support_read on sales.number_series for select to app_rw, app_ro
     using (platform.support_grant_active(business_id));
 
+-- A number is never issued twice: next_value can only go up, even for the one column app_rw
+-- may update. Allocation (not built yet, pending the numbering-scope approval) sets it to
+-- next_value + 1 and cannot go back.
+create function sales.guard_series_forward() returns trigger
+language plpgsql as $$
+begin
+    if new.next_value < old.next_value then
+        raise exception 'number series % cannot go back from % to %', old.id, old.next_value, new.next_value
+            using errcode = 'SNS01';
+    end if;
+    return new;
+end
+$$;
+create trigger series_only_forward before update on sales.number_series
+    for each row execute function sales.guard_series_forward();
+
 -- Grants: drafts are mutable and deletable while open; the series only ever advances.
 grant select, insert, update, delete on sales.drafts, sales.draft_lines to app_rw;
 grant select on sales.drafts, sales.draft_lines, sales.number_series to app_ro;
