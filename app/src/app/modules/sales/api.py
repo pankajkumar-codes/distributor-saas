@@ -172,7 +172,7 @@ def _s(v) -> str | None:
 
 
 _PAISE = Decimal("0.01")
-_EXACT = Context(prec=40, traps=[Inexact])
+_EXACT = Context(traps=[Inexact])  # the default 28 digits cover any amount here
 
 
 def _m(x: Decimal) -> str:
