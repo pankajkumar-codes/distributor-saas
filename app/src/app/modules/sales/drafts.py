@@ -4,10 +4,11 @@ A draft is mutable while open and is not a GST record: it is saved whole (PUT) u
 If-Match, and an open draft can be hard-deleted (audited). Nothing here computes tax or
 allocates a number; that is later slices. Money and quantities are decimal strings and
 only strings (AC4-15). Customers and products are read through catalog.interface, and the
-bill-to / ship-to copy is taken at every save (§8.1). Columns the table has but no route writes yet (bill_to / ship_to overrides,
-ship_to_third_party, pos_override and its reason, the credit-note fields) wait for the
-computation and credit-note slices. Only invoice drafts for now; credit
-note drafts come with the credit-note slice.
+bill-to copy is taken at every save (§8.1); so is the ship-to, unless the draft gives its
+own (`ship_to`, with `ship_to_third_party` for case B). `pos_override` and its reason
+(G16) are stored together: an override without a reason is refused here (and by the
+table's check), and finalize writes its audit row. The credit-note columns wait for the credit-note slice. Only
+invoice drafts for now.
 """
 
 import re
@@ -20,6 +21,7 @@ from sqlalchemy.types import JSON
 
 from app.modules.business.interface import check_state
 from app.modules.catalog.interface import customer_snapshot, products_for_lines
+from app.modules.refdata import value_on
 from platform_common import audit
 from platform_common.money import to_decimal
 from platform_common.errors import Conflict, Deny, Invalid
@@ -34,6 +36,7 @@ _MONEY = re.compile(r"^[0-9]{1,16}(\.[0-9]{1,2})?$")
 _QTY = re.compile(r"^[0-9]{1,15}(\.[0-9]{1,3})?$")
 _TWO, _THREE = Decimal("0.01"), Decimal("0.001")
 _HUNDRED = Decimal(100)
+_OTHER_COUNTRY = "96"  # a place of supply only (gstin.md §3); exports aren't supported yet
 _COLUMNS = ("id, kind, status, version, customer_id, cash_buyer, bill_to, ship_to, ship_to_third_party, doc_date,"
             " invoice_discount, charges, eway, customer_collects, pos_override, pos_override_reason, created_at, updated_at")
 
@@ -84,6 +87,7 @@ def _checked(uow: UnitOfWork, body: dict, today: date) -> tuple[dict, list[dict]
         check_state(tx, buyer.get("state_code") or "", today, "cash_buyer.state_code")
         cols["cash_buyer"] = {k: (buyer.get(k) or "").strip() or None for k in ("name", "state_code", "address")}
         cols["bill_to"] = {"name": cols["cash_buyer"]["name"], "state_code": buyer["state_code"]}
+    cols.update(_delivery(uow, body, cols, today))
     cols["doc_date"] = body.get("doc_date")
     cols["invoice_discount"] = money(body.get("invoice_discount", "0"), "invoice_discount")
     if len(body.get("charges") or []) > MAX_CHARGES:
@@ -125,6 +129,51 @@ def _checked(uow: UnitOfWork, body: dict, today: date) -> tuple[dict, list[dict]
         out.append({"id": uuid7(), "line_no": i, "product_id": pid, "quantity": quantity(ln.get("quantity"), f"{field}.quantity"),
                     "unit_price": price, "discount_kind": kind, "discount_value": disc})
     return cols, out
+
+
+def _strip(v) -> str | None:
+    return (v or "").strip() or None
+
+
+def _delivery(uow: UnitOfWork, body: dict, cols: dict, today: date) -> dict:
+    """ship_to, ship_to_third_party, pos_override and its reason, or Invalid (LLD-4 §3.1)."""
+    tx, out = uow.tx, {}
+    ship = body.get("ship_to")
+    if ship is not None:
+        state = _strip(ship.get("state_code"))
+        if state is None:
+            raise Invalid("state_code_required", "Choose the state", field="ship_to.state_code")
+        check_state(tx, state, today, "ship_to.state_code")
+        pin = _strip(ship.get("pin"))
+        if pin is not None and not value_on(tx, "address.pin_pattern", today).fullmatch(pin):
+            raise Invalid("pin_invalid", "A PIN code is 6 digits and doesn't start with 0", field="ship_to.pin")
+        out["ship_to"] = {k: _strip(ship.get(k)) for k in ("name", "line1", "line2", "city")} | {
+            "pin": pin, "state_code": state}
+    third_party = bool(body.get("ship_to_third_party", False))
+    if third_party:
+        if cols["customer_id"] is None:
+            raise Invalid("third_party_needs_customer", "Goods sent to someone else need a customer to bill",
+                          field="ship_to_third_party")
+        if ship is None:
+            raise Invalid("ship_to_required", "Add the address the goods go to", field="ship_to")
+        if body.get("customer_collects"):
+            raise Invalid("ship_to_conflict", "Goods the customer collects aren't sent anywhere",
+                          field="ship_to_third_party")
+    out["ship_to_third_party"] = third_party
+    pos = _strip(body.get("pos_override"))
+    if pos == _OTHER_COUNTRY:
+        raise Invalid("pos_other_country_unsupported", "Supplies outside India aren't supported yet",
+                      field="pos_override")
+    if pos is not None:
+        check_state(tx, pos, today, "pos_override")
+    out["pos_override"] = pos
+    reason = _strip(body.get("pos_override_reason"))
+    if pos is not None and reason is None:  # the table's check holds this too (sales schema)
+        raise Invalid("pos_override_reason_missing", "Say why you changed the place of supply.",
+                      field="pos_override_reason")
+    # A reason belongs to an override: without one there is nothing to explain, so it isn't kept.
+    out["pos_override_reason"] = reason if pos is not None else None
+    return out
 
 
 def _lines(uow: UnitOfWork, draft_id: uuid.UUID) -> list[dict]:
@@ -187,8 +236,10 @@ def create(uow: UnitOfWork, body: dict, today: date) -> uuid.UUID:
     draft_id, me = uuid7(), uow.principal.user_id
     uow.tx.execute(
         _bind("insert into sales.drafts (id, business_id, kind, customer_id, cash_buyer, bill_to, ship_to, doc_date,"
-              " invoice_discount, charges, eway, customer_collects, created_by, updated_by) values (:id, :b, 'invoice', :customer_id,"
-              " :cash_buyer, :bill_to, :ship_to, :doc_date, :invoice_discount, :charges, :eway, :customer_collects, :me, :me)"),
+              " invoice_discount, charges, eway, customer_collects, ship_to_third_party, pos_override, pos_override_reason,"
+              " created_by, updated_by) values (:id, :b, 'invoice', :customer_id, :cash_buyer, :bill_to, :ship_to,"
+              " :doc_date, :invoice_discount, :charges, :eway, :customer_collects, :ship_to_third_party, :pos_override,"
+              " :pos_override_reason, :me, :me)"),
         {"id": draft_id, "b": _business(uow), "me": me, **cols})
     _write_lines(uow, draft_id, lines)
     audit.record(uow, "draft.created", "draft", draft_id, data={})
@@ -204,7 +255,9 @@ def replace(uow: UnitOfWork, draft_id: uuid.UUID, body: dict, if_match: int | No
     uow.tx.execute(
         _bind("update sales.drafts set customer_id = :customer_id, cash_buyer = :cash_buyer, bill_to = :bill_to,"
               " ship_to = :ship_to, doc_date = :doc_date, invoice_discount = :invoice_discount, charges = :charges,"
-              " eway = :eway, customer_collects = :customer_collects, version = version + 1, updated_at = now(), updated_by = :me"
+              " eway = :eway, customer_collects = :customer_collects, ship_to_third_party = :ship_to_third_party,"
+              " pos_override = :pos_override, pos_override_reason = :pos_override_reason,"
+              " version = version + 1, updated_at = now(), updated_by = :me"
               " where id = :id and business_id = :b and status = 'open'"),
         {"id": draft_id, "b": _business(uow), "me": uow.principal.user_id, **cols})
     _write_lines(uow, draft_id, lines)
