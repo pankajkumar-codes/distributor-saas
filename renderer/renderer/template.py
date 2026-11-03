@@ -32,7 +32,7 @@ MAX_LIST = 50
 
 STYLE = """
 @page { size: A4; margin: 12mm }
-body { font-family: "Noto Sans", "Noto Sans Devanagari"; font-size: 9pt; color: #000 }
+body { font-family: "Noto Sans", "Noto Sans Devanagari", "Noto Sans Bengali"; font-size: 9pt; color: #000 }
 h1 { font-size: 14pt; margin: 0 0 2mm }
 .draft { border: 1pt solid #000; padding: 1.5mm; font-size: 7pt; text-align: center; margin-bottom: 3mm }
 .parties { width: 100%; border-collapse: collapse; margin-bottom: 3mm }
