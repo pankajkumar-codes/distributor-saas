@@ -90,6 +90,29 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   const overflow2 = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow2).toBeLessThanOrEqual(0);
   await noSeriousAxeFindings(page);
+
+  // Import a file: one new product, one change to Neem soap, one row with a bad HSN.
+  await page.getByRole("link", { name: "Import from a file" }).click();
+  const csv = [
+    "code,name,hsn,unit,sale_rate,gst_rate,gst_rate_valid_from,barcode,tax_category,has_cess",
+    "SOAP-2,Rose soap,3401,NOS,40,18,2025-09-22,,taxable,no",
+    "SOAP-1,Neem soap,3401,NOS,1300,18,2025-09-22,,taxable,no",
+    "SOAP-3,Bad soap,34X,NOS,10,18,2025-09-22,,taxable,no",
+  ].join("\r\n");
+  await page.getByLabel("File").setInputFiles({ name: "products.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
+  await page.getByRole("button", { name: "Upload and check" }).click();
+  await expect(page.getByText(/products\.csv: 1 new, 1 changed, 0 unchanged, 1 with errors/)).toBeVisible({ timeout: 15000 });
+  const changed = page.getByRole("row").filter({ hasText: "SOAP-1" });
+  await expect(changed.getByText(/→ 1300/)).toBeVisible();
+  await expect(page.getByRole("row").filter({ hasText: "SOAP-3" }).getByText("Has errors")).toBeVisible();
+  await noSeriousAxeFindings(page);
+  const overflow4 = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflow4).toBeLessThanOrEqual(0);
+  await page.getByRole("button", { name: "Import 2 products" }).click();
+  await expect(page.getByText(/Imported: 2 applied/)).toBeVisible({ timeout: 15000 });
+  await page.getByRole("link", { name: "Go to products" }).click();
+  await expect(page.getByRole("row").filter({ hasText: "Rose soap" }).getByText("Not confirmed")).toBeVisible();
+  await expect(page.getByRole("row").filter({ hasText: "Neem soap" }).getByText("₹1,300.00")).toBeVisible();
 });
 
 test("a wrong check character is caught before sending", async ({ page }, info) => {
