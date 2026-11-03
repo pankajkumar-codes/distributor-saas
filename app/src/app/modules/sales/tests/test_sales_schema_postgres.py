@@ -160,3 +160,36 @@ def test_next_value_never_goes_back(two):
     with pg.app_rw.begin() as c:
         ctx(c, alice, a)
         assert c.execute(text("select next_value from sales.number_series")).scalar() == 5
+
+
+def test_a_finalized_draft_and_its_lines_are_frozen(two):
+    pg, a, _b, alice, _ = two
+    with pg.app_rw.begin() as c:
+        ctx(c, alice, a)
+        d = add_draft(c, a, alice)
+    with pg.owner.connect() as c:  # finalize is a later slice; the owner stands in for it
+        c.execute(text("update sales.drafts set status = 'finalized' where id = :d"), {"d": d})
+    for sql in ("update sales.drafts set version = version + 1",
+                "delete from sales.drafts",
+                "delete from sales.draft_lines",
+                "insert into sales.draft_lines (id, business_id, draft_id, line_no)"
+                " values (gen_random_uuid(), :b, :d, 2)"):
+        with pytest.raises(DBAPIError) as err:
+            with pg.app_rw.begin() as c:
+                ctx(c, alice, a)
+                c.execute(text(sql), {"b": a, "d": d})
+        assert err.value.orig.sqlstate == "SDR01", sql
+
+
+def test_app_rw_cannot_edit_identity_or_status_columns(two):
+    pg, a, _b, alice, _ = two
+    with pg.app_rw.begin() as c:
+        ctx(c, alice, a)
+        add_draft(c, a, alice)
+        c.execute(text("update sales.drafts set customer_collects = true, version = version + 1"))
+    for sql in ("update sales.drafts set status = 'finalized'", "update sales.drafts set kind = 'credit_note'",
+                "update sales.drafts set business_id = gen_random_uuid()", "update sales.draft_lines set quantity = 1"):
+        with pytest.raises(DBAPIError):
+            with pg.app_rw.begin() as c:
+                ctx(c, alice, a)
+                c.execute(text(sql))

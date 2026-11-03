@@ -61,6 +61,10 @@ ALLOWED_DATA: dict[str, frozenset[str]] = {
     "customer.archived": frozenset(),
     "customer.unarchived": frozenset(),
     "customer.deleted": frozenset(),
+    # Drafts are not GST records; no buyer or amounts in audit data.
+    "draft.created": frozenset(),
+    "draft.updated": frozenset(),
+    "draft.deleted": frozenset(),
     "catalog.import_applied": frozenset({"counts"}),  # row counts only
     "catalog.import_superseded": frozenset({"superseded_by"}),
 }
