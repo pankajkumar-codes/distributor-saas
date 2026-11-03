@@ -570,3 +570,16 @@ def test_the_rate_picker_lists_the_loaded_rates_as_strings(shop):  # refdata GET
     before = pg.client.get("/api/v1/refdata/gst-rates?on=2017-06-30", headers=h).json()
     assert before == {"on": "2017-06-30", "rates": []}
     assert pg.client.get("/api/v1/refdata/gst-rates").status_code == 401
+
+
+def test_etag_is_the_version_and_a_weak_or_star_if_match_is_stale(shop):  # platform_common.etag
+    pg, biz = shop
+    h = as_user("alice")
+    p = make(pg, biz, code="TAG-1")
+    got = pg.client.get(url(biz, f"/{p['id']}"), headers=h)
+    assert got.headers["etag"] == '"1"'
+    for tag in ('W/"1"', "*"):
+        r = pg.client.patch(url(biz, f"/{p['id']}"), json={"name": "x"}, headers={**h, "If-Match": tag})
+        assert (r.status_code, r.json()["error"]["code"]) == (409, "stale_record")
+    r = pg.client.patch(url(biz, f"/{p['id']}"), json={"name": "x"}, headers={**h, "If-Match": got.headers["etag"]})
+    assert r.status_code == 200 and r.headers["etag"] == '"2"'

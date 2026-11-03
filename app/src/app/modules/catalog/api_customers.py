@@ -12,11 +12,12 @@ from fastapi import status as http
 from pydantic import BaseModel, ConfigDict, StrictInt
 
 from platform_common.clock import Clock, get_clock
+from platform_common.etag import if_match_version, set_etag
 from platform_common.paging import PageParams, page_params
 from platform_common.uow import BusinessUoW, parse_id
 
 from . import customers
-from .api_products import EDIT, VIEW, Text, Warning, _once, _version
+from .api_products import EDIT, VIEW, Text, Warning, _once
 
 router = APIRouter(tags=["catalog"])
 
@@ -125,8 +126,10 @@ def create_customer(
 
 
 @router.get("/b/{business_id}/customers/{customer_id}", response_model=CustomerOut, dependencies=VIEW)
-def get_customer(customer_id: str, uow: BusinessUoW):
-    return _out(customers.get(uow, parse_id(customer_id)))
+def get_customer(customer_id: str, uow: BusinessUoW, response: Response):
+    out = _out(customers.get(uow, parse_id(customer_id)))
+    set_etag(response, out["version"])
+    return out
 
 
 @router.patch("/b/{business_id}/customers/{customer_id}", response_model=CustomerOut, dependencies=EDIT)
@@ -135,11 +138,14 @@ def update_customer(
     body: CustomerPatch,
     uow: BusinessUoW,
     clock: Annotated[Clock, Depends(get_clock)],
+    response: Response,
     if_match: Annotated[str | None, Header(alias="If-Match")] = None,
 ):
     cid = parse_id(customer_id)
-    customers.update(uow, cid, body.model_dump(exclude_unset=True), _version(if_match), clock.today())
-    return _out(customers.get(uow, cid))
+    customers.update(uow, cid, body.model_dump(exclude_unset=True), if_match_version(if_match), clock.today())
+    out = _out(customers.get(uow, cid))
+    set_etag(response, out["version"])
+    return out
 
 
 @router.post("/b/{business_id}/customers/{customer_id}/archive", response_model=CustomerOut, dependencies=EDIT)
@@ -160,5 +166,5 @@ def unarchive_customer(customer_id: str, uow: BusinessUoW):
                dependencies=EDIT)
 def delete_customer(customer_id: str, uow: BusinessUoW,
                     if_match: Annotated[str | None, Header(alias="If-Match")] = None):
-    customers.delete(uow, parse_id(customer_id), _version(if_match))
+    customers.delete(uow, parse_id(customer_id), if_match_version(if_match))
     return Response(status_code=http.HTTP_204_NO_CONTENT)
