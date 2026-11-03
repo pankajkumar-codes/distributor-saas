@@ -10,7 +10,7 @@ from typing import Literal
 
 from app.modules.catalog.interface import ProductForLine
 
-METHOD_VERSION = "apportion-v1"  # stored on the document with the rounding mode (L4-1)
+METHOD_VERSION = "apportion-v2"  # stored on the document with the rounding mode (L4-1); v2: largest remainder
 
 Component = Literal["CGST", "SGST", "UTGST", "IGST"]
 SupplyClass = Literal["B2B", "B2CL", "B2CS"]

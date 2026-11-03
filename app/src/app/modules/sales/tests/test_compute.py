@@ -122,7 +122,7 @@ def test_example_1_same_state():
     )
     assert (c.pos_state_code, c.is_inter_state, c.utgst, c.supply_class) == (MH, False, False, "B2B")
     assert (c.gross_total, c.line_discount_total) == (D("1349.92"), D("50.00"))  # 999.99 - 949.99 shown as discount
-    assert (c.rounding_mode, c.method_version, c.blocks) == ("ROUND_HALF_UP", "apportion-v1", ())
+    assert (c.rounding_mode, c.method_version, c.blocks) == ("ROUND_HALF_UP", "apportion-v2", ())
     assert c.amount_in_words == "Rupees One Thousand Four Hundred Eighty Eight and Forty Two Paise Only"
 
 
@@ -181,6 +181,48 @@ def test_example_7_the_last_line_takes_the_remainder():
         (D("0.33"), D("99.67")),
         (D("0.34"), D("99.66")),
     ]
+
+
+def test_no_share_is_ever_negative():  # Staff 2 (4), #80: rounding each share half-up gave -0.01
+    c = run([line(1, 1, 18)] * 4, registered(MH), invoice_discount=D("0.02"))
+    assert [ln.discount_share for ln in c.lines] == [D("0.00"), D("0.00"), D("0.01"), D("0.01")]
+    c = run([line(1, 1, 18)] * 4 + [line(1, "0.01", 18)], registered(MH), invoice_discount=D("2.42"))
+    assert [ln.discount_share for ln in c.lines] == [
+        D("0.60"),
+        D("0.60"),
+        D("0.60"),
+        D("0.61"),
+        D("0.01"),
+    ]  # 0.6035 x4, 0.0060
+    assert c.method_version == "apportion-v2"
+
+
+def test_apportion_sweep_shares_sum_to_the_total_and_stay_within_a_paisa():
+    from app.modules.sales.compute.core import _apportion
+
+    weight_sets = [
+        [D(w) for w in ws]
+        for ws in (
+            ["1.00"] * 4,
+            ["1.00"] * 7,
+            ["0.01", "0.01", "0.01"],
+            ["0.03", "0.03", "0.01"],
+            ["100.00", "0.01"],
+            ["0.01", "100.00"],
+            ["949.99", "349.93", "350.00"],
+            ["0.00", "5.00", "0.00"],
+            ["2.50", "2.50", "2.50", "2.49"],
+        )
+    ]
+    for weights in weight_sets:
+        whole = sum(weights)
+        for paise in range(1, int(whole * 100) + 1, max(1, int(whole * 100) // 400)):
+            total = D(paise) / 100
+            shares = _apportion(total, weights, "invoice_discount")
+            assert sum(shares) == total, (weights, total, shares)
+            for s, w in zip(shares, weights, strict=True):
+                exact = total * w / whole
+                assert D(0) <= s <= w and abs(s - exact) < D("0.01"), (weights, total, shares)
 
 
 # -- One rounding for the line base (RM44-1, AC4-19) -----------------------------------
@@ -326,7 +368,7 @@ def test_a_charge_with_no_value_left_is_refused():  # AC4-24
     [
         ([line(1, 100, 18)], {"invoice_discount": D("100.01")}, "invoice_discount_above_value"),
         ([line(1, 0, 18)], {"invoice_discount": D("1")}, "invoice_discount_without_value"),
-        ([line(1, 1, 18)] * 4 + [line(1, "0.01", 18)], {"invoice_discount": D("2.42")}, "discount_makes_line_negative"),
+        ([line(1, 100, 18)], {"invoice_discount": D("0.005")}, "invoice_discount_not_paise"),
         ([line(1, 100, 18, amount="100.01")], {}, "discount_above_value"),
         ([line(1, 100, 18, pct="100.5")], {}, "discount_percent_range"),
         ([line(0, 100, 18)], {}, "quantity_not_positive"),

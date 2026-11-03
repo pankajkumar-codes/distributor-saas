@@ -2,15 +2,20 @@
 discount and charges apportioned to lines, tax per line and component, totals,
 classification, and the block and warn checks of §3.4.
 
+Contract for S4-b (agreed with the Lead): pos_override is validated as a state code by
+the draft route before it gets here; the locked-return check, credit-note limits,
+s.34(2), numbering, the PoS-override audit row and the marketplace info line belong to
+finalize and the draft routes, not to this function.
+
 Pure: it reads only its input. load_inputs (inputs.py) does the database reads, so the
 golden tests drive this function directly. Every amount is Decimal and is rounded once,
 where LLD-4 says, with the rounding mode from refdata.
 """
 
-from decimal import Decimal
+from decimal import ROUND_FLOOR, Decimal
 
 from platform_common.errors import Invalid
-from platform_common.money import round_to_paise
+from platform_common.money import PAISE, round_to_paise
 
 from .model import ComputeInput, Computation, Issue, LineIn, LineOut, Tax
 from .words import inr
@@ -47,9 +52,9 @@ def compute(inp: ComputeInput) -> Computation:
 
     # Line base, gross and line discount: one rounding for the base (R1, RM44-1).
     bases = [_base(i, line, r) for i, line in enumerate(inp.lines)]
-    discount_shares = _apportion(inp.invoice_discount, [b for _, b in bases], r, "invoice_discount")
+    discount_shares = _apportion(inp.invoice_discount, [b for _, b in bases], "invoice_discount")
     after = [b - s for (_, b), s in zip(bases, discount_shares, strict=True)]
-    if any(a < ZERO for a in after):
+    if any(a < ZERO for a in after):  # unreachable by the largest-remainder method; kept as a guard
         raise Invalid(
             "discount_makes_line_negative",
             "The invoice discount would take a line below zero.",
@@ -58,7 +63,7 @@ def compute(inp: ComputeInput) -> Computation:
     charges_total = _charges_total(inp)
     if charges_total > ZERO and sum(after, ZERO) == ZERO:  # AC4-24: never divides by zero
         raise Invalid("charge_without_value", "A charge needs lines with value after the discount.", field="charges")
-    charge_shares = _apportion(charges_total, after, r, "charges")
+    charge_shares = _apportion(charges_total, after, "charges")
 
     lines = []
     for i, line in enumerate(inp.lines):
@@ -128,7 +133,7 @@ def _place_of_supply(inp: ComputeInput, checks: _Checks) -> tuple[str | None, st
     if b.gstin:
         if b.ship_to_third_party:  # case B: the buyer's principal place of business
             computed = b.gstin_state_code
-        elif b.customer_collects:  # case D, registered (LLD-4 §15, EM 2026-11-03)
+        elif b.customer_collects:  # case D, registered (LLD-4 §15, EM decision)
             computed = b.gstin_state_code
             checks.warn(
                 "pos_customer_collects",
@@ -178,9 +183,12 @@ def _base(i: int, line: LineIn, r) -> tuple[Decimal, Decimal]:
     return gross, gross - d
 
 
-def _apportion(total: Decimal, weights: list[Decimal], r, field: str) -> list[Decimal]:
-    """`total` shared in proportion to `weights`, each share rounded, the last line taking
-    the remainder (A2, A3; Example 7)."""
+def _apportion(total: Decimal, weights: list[Decimal], field: str) -> list[Decimal]:
+    """`total` shared in proportion to `weights` by the largest-remainder method (A2, A3;
+    LLD-4 §15, EM decision on #80): each exact share is floored to the paisa, and the paise
+    left over go one each to the largest remainders, a tie going to the later line. The
+    shares sum exactly to `total` and none is negative or above its exact share by more
+    than a paisa. Example 7: 0.33 / 0.33 / 0.34."""
     if total == ZERO or not weights:
         return [ZERO] * len(weights)
     whole = sum(weights, ZERO)
@@ -188,10 +196,17 @@ def _apportion(total: Decimal, weights: list[Decimal], r, field: str) -> list[De
         raise Invalid(f"{field}_negative", "The amount can't be below zero.", field=field)
     if whole <= ZERO:
         raise Invalid(f"{field}_without_value", "The lines have no value to share it over.", field=field)
+    if total != total.quantize(PAISE):
+        raise Invalid(f"{field}_not_paise", "Enter the amount in rupees and paise.", field=field)
     if field == "invoice_discount" and total > whole:
         raise Invalid("invoice_discount_above_value", "The discount is more than the lines' value.", field=field)
-    shares = [r(total * w / whole) for w in weights[:-1]]
-    return [*shares, total - sum(shares, ZERO)]
+    exact = [total * w / whole for w in weights]
+    shares = [e.quantize(PAISE, rounding=ROUND_FLOOR) for e in exact]
+    left = int((total - sum(shares, ZERO)) / PAISE)  # whole paise, fewer than the number of lines
+    by_remainder = sorted(range(len(exact)), key=lambda i: (exact[i] - shares[i], i), reverse=True)
+    for i in by_remainder[:left]:
+        shares[i] += PAISE
+    return shares
 
 
 def _charges_total(inp: ComputeInput) -> Decimal:
@@ -244,7 +259,7 @@ def _line_checks(i: int, line: LineIn, inp: ComputeInput, checks: _Checks) -> De
     if p.rate is None:
         checks.block("rate_missing", "The product has no GST rate on the invoice date.", f"{at}.product_id", n)
         return None
-    if p.rate == ZERO:  # tax-computation §5, G12; LLD-4 §15 (EM 2026-11-03)
+    if p.rate == ZERO:  # tax-computation §5, G12; LLD-4 §15 (EM decision)
         checks.block("rate_zero", _EXEMPT_FIX, f"{at}.product_id", n)
     if not p.rate_confirmed:
         checks.warn(
