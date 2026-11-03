@@ -32,7 +32,7 @@ export function SigninPage() {
 
   const done = (reply: SignedIn) => {
     startSession(reply.access_token, reply.expires_in);
-    navigate(safeNext(params.get("next")) ?? landingPath(reply.memberships), { replace: true });
+    navigate(safeNext(params.get("next")) ?? landingPath(reply.memberships, reply.user.is_support), { replace: true });
   };
 
   const signin = useMutation<SigninReply, ApiError>({

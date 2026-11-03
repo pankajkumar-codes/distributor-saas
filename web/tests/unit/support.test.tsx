@@ -58,7 +58,7 @@ describe("support access", () => {
     expect(await screen.findByRole("heading", { name: "No support access right now" })).toBeInTheDocument();
     const table = screen.getByRole("table");
     expect(within(table).getByText("02-Oct-2026, 11:05")).toBeInTheDocument();
-    expect(within(table).getByText("02-Oct-2026, 12:40 · ended early")).toBeInTheDocument();
+    expect(within(table).getByText("02-Oct-2026, 12:40 · ended early by Pankaj Kumar")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("What it's for (optional)"), { target: { value: "  Ticket 1042 " } });
     fireEvent.click(screen.getByRole("button", { name: "Give support read-only access" }));
     expect(await screen.findByText(/Support can view your business until 25-Oct-2026, 14:20\./)).toBeInTheDocument();
