@@ -363,6 +363,12 @@ def test_a_charge_with_no_value_left_is_refused():  # AC4-24
     assert run([line(1, 100, 18)], registered(MH), invoice_discount=D("100")).taxable_total == D("0.00")
 
 
+def test_a_draft_without_lines_keeps_its_charge_and_discount():  # Staff, #80
+    c = run([], registered(MH), invoice_discount=D("10"), charges=(("Freight", D("150")),))
+    assert [b.code for b in c.blocks] == ["no_lines"]
+    assert (c.invoice_discount, c.charges_total, c.taxable_total, c.doc_total) == (D("10"), D("150"), D("0"), D("0"))
+
+
 @pytest.mark.parametrize(
     "lines, kw, code",
     [

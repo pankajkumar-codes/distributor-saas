@@ -61,7 +61,9 @@ def compute(inp: ComputeInput) -> Computation:
             field="invoice_discount",
         )
     charges_total = _charges_total(inp)
-    if charges_total > ZERO and sum(after, ZERO) == ZERO:  # AC4-24: never divides by zero
+    # AC4-24: never divides by zero. With no lines yet, a typed charge or discount is kept
+    # and the no_lines block stops finalize, so the draft can still be saved (Staff, #80).
+    if charges_total > ZERO and inp.lines and sum(after, ZERO) == ZERO:
         raise Invalid("charge_without_value", "A charge needs lines with value after the discount.", field="charges")
     charge_shares = _apportion(charges_total, after, "charges")
 
