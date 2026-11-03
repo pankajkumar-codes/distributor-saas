@@ -44,6 +44,13 @@ def hsn_min_digits(tx: Session, on: date) -> int:
     )
 
 
+def hsn_band_missing(tx: Session, on: date) -> str | None:
+    """The FY whose band hsn_min_digits needs for `on` when the business hasn't set it
+    (then the stricter count applies), else None. Lets the invoice say which band to set."""
+    fy = previous_fy(fy_of(on))
+    return fy if turnover_band(tx, fy) is None else None
+
+
 def einvoice_status_for(
     history: str | None, bands_above: bool, band_threshold: Decimal, rule_threshold: Decimal
 ) -> EinvoiceStatus:

@@ -31,7 +31,7 @@ from ..profile import (
     setup_state,
 )
 from ..registration import Address, Registration, blank_to_none, check_state, registration
-from ..thresholds import EinvoiceStatus, einvoice_status, hsn_min_digits
+from ..thresholds import EinvoiceStatus, einvoice_status, hsn_band_missing, hsn_min_digits
 
 __all__ = [
     "Address",
@@ -55,6 +55,7 @@ __all__ = [
     "filing_frequency_on",
     "get_profile",
     "gstin_message",
+    "hsn_band_missing",
     "hsn_min_digits",
     "lock_gstin",
     "ready_for_documents",

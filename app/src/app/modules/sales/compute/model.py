@@ -67,6 +67,7 @@ class Seller:
     hsn_min_digits: int  # business.hsn_min_digits on doc_date
     einvoice_status: EinvoiceStatus  # business.einvoice_status on doc_date
     ready_missing: tuple[str, ...] = ()  # business.ready_for_documents().missing
+    hsn_band_missing_fy: str | None = None  # business.hsn_band_missing: the FY whose band is unset
 
 
 @dataclass(frozen=True)

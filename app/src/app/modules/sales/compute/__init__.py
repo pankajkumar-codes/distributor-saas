@@ -5,6 +5,7 @@ interface reads.
 """
 
 from .core import compute
+from .inputs import load_inputs
 from .model import (
     METHOD_VERSION,
     Buyer,
@@ -36,4 +37,5 @@ __all__ = [
     "Tax",
     "compute",
     "inr",
+    "load_inputs",
 ]
