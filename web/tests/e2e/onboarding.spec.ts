@@ -113,6 +113,24 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   await page.getByRole("link", { name: "Go to products" }).click();
   await expect(page.getByRole("row").filter({ hasText: "Rose soap" }).getByText("Not confirmed")).toBeVisible();
   await expect(page.getByRole("row").filter({ hasText: "Neem soap" }).getByText("₹1,300.00")).toBeVisible();
+
+  // Settings from Home: change the trade name, then see the frequency chosen at sign-up.
+  await page.goto(homeUrl);
+  const settings = page.getByRole("navigation", { name: "Settings" });
+  await settings.getByRole("link", { name: "Business details" }).click();
+  await expect(page.getByLabel("Legal name")).toHaveValue("E2E Traders Private Limited");
+  await page.getByLabel("Trade name (optional)").fill("E2E Traders");
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByText(/Saved\. Invoices already finalized keep/)).toBeVisible();
+  await noSeriousAxeFindings(page);
+  const overflow5 = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflow5).toBeLessThanOrEqual(0);
+  await page.getByRole("link", { name: "Filing frequency" }).click();
+  await expect(page.getByText(/^Every quarter \(QRMP\), from \d{2}-[A-Z][a-z]{2}-\d{4}\.$/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Save frequency" })).toBeVisible();
+  await noSeriousAxeFindings(page);
+  const overflow6 = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflow6).toBeLessThanOrEqual(0);
 });
 
 test("a wrong check character is caught before sending", async ({ page }, info) => {

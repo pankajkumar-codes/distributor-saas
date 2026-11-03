@@ -66,6 +66,33 @@
 - path: app/src/app/modules/catalog/product_import.py
   value: "1024"
   reason: "bytes per KB in the file-size message"
+- path: app/src/app/modules/sales/api.py
+  value: "20"
+  reason: "maximum length of a vehicle or e-way bill number field; input hygiene, not a tax rule"
+- path: app/src/app/modules/sales/drafts.py
+  value: "200"
+  reason: "MAX_LINES, the most lines on one draft; an abuse limit, not a tax rule (the invoice line limit, if any, is refdata)"
+- path: app/src/app/modules/sales/drafts.py
+  value: "0.001"
+  reason: "quantities are stored to 3 decimals (numeric(18,3)); a precision, not a rate"
+- path: app/src/app/modules/sales/drafts.py
+  value: "100"
+  reason: "a percent discount is at most 100 percent; arithmetic, not a GST rate"
+- path: app/src/app/modules/sales/api.py
+  value: "300"
+  reason: "maximum length of a free-text field; input hygiene, not a tax rule"
+- path: app/src/app/modules/sales/api.py
+  value: "24"
+  reason: "maximum length of a decimal string; input hygiene, not a tax rule"
+- path: app/src/app/modules/sales/api.py
+  value: "60"
+  reason: "maximum length of a charge label; input hygiene, not a tax rule"
+- path: app/src/app/modules/sales/api.py
+  value: "2"
+  reason: "a state code is 2 characters (state_code), checked against refdata in the service, not a tax rule"
+- path: app/src/app/modules/sales/drafts.py
+  value: "20"
+  reason: "MAX_CHARGES, the most extra charges (freight, packing) on one draft; an abuse limit, not a tax rule"
 - path: app/src/app/modules/sales/compute/core.py
   value: "1"
   reason: "Decimal(1) is the rupee quantum for the round-off line, as 0.01 is the paise quantum; the line itself is refdata invoice.round_off_line"

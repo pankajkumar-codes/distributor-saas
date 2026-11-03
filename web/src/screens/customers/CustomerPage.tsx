@@ -7,24 +7,18 @@ import { errorText, type ApiError } from "../../api/errors";
 import type { components } from "../../api/schema";
 import { useStateCodes } from "../../api/useStateCodes";
 import { useMyBusinesses } from "../../auth/useMyBusinesses";
+import { AddressFields, NO_ADDRESS, addressIn, addressLine, addressOf, sameAddress, type Address } from "../../kit/AddressFields";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { Field } from "../../kit/Field";
 import { NotFound } from "../../kit/NotFound";
-import { SelectField } from "../../kit/SelectField";
 import { TopBar } from "../../kit/TopBar";
 
 type Customer = components["schemas"]["CustomerOut"];
-type AddressIn = components["schemas"]["AddressIn"];
-const PARTS = ["line1", "line2", "city", "pin", "state_code"] as const;
-type Address = Record<(typeof PARTS)[number], string>;
 export type Values = { name: string; gstin: string; credit_days: string; same: boolean; billing: Address; delivery: Address };
 type Key = keyof Values;
 
-const NO_ADDRESS: Address = { line1: "", line2: "", city: "", pin: "", state_code: "" };
 const EMPTY: Values = { name: "", gstin: "", credit_days: "0", same: true, billing: NO_ADDRESS, delivery: NO_ADDRESS };
-const addressOf = (a: components["schemas"]["AddressOut"] | null): Address =>
-  a ? { line1: a.line1 ?? "", line2: a.line2 ?? "", city: a.city ?? "", pin: a.pin ?? "", state_code: a.state_code ?? "" } : NO_ADDRESS;
 const valuesOf = (c: Customer): Values => ({
   name: c.name,
   gstin: c.gstin ?? "",
@@ -34,9 +28,8 @@ const valuesOf = (c: Customer): Values => ({
   delivery: addressOf(c.delivery),
 });
 const blank = (v: string) => v.trim() || null;
-const addressIn = (a: Address): AddressIn => Object.fromEntries(PARTS.map((k) => [k, blank(a[k])]));
 const equal = (a: Values[Key], b: Values[Key]) =>
-  typeof a === "object" && typeof b === "object" ? PARTS.every((k) => a[k].trim() === b[k].trim()) : typeof a === "string" ? a.trim() === (b as string).trim() : a === b;
+  typeof a === "object" && typeof b === "object" ? sameAddress(a, b) : typeof a === "string" ? a.trim() === (b as string).trim() : a === b;
 
 /** The form's fields that differ from `from`. An address is one field: it is sent whole. */
 export function changedKeys(from: Values, to: Values): Key[] {
@@ -61,30 +54,6 @@ export function rebase(opened: Values, latest: Values, values: Values): Values {
   const out = { ...latest };
   for (const k of changedKeys(opened, values)) (out as Record<Key, unknown>)[k] = values[k];
   return out;
-}
-
-function AddressFields(props: {
-  legend: string;
-  value: Address;
-  onChange: (a: Address) => void;
-  states: { value: string; label: string }[];
-  errorFor: (part: string) => string | undefined;
-  hint?: string;
-  stateHint?: string;
-}) {
-  const { value, onChange, errorFor } = props;
-  const set = (k: keyof Address) => (e: { target: { value: string } }) => onChange({ ...value, [k]: e.target.value });
-  return (
-    <fieldset className="field radios">
-      <legend>{props.legend}</legend>
-      {props.hint && <p className="hint">{props.hint}</p>}
-      <Field label="Address line 1" value={value.line1} onChange={set("line1")} error={errorFor("line1")} />
-      <Field label="Address line 2" value={value.line2} onChange={set("line2")} error={errorFor("line2")} />
-      <Field label="City or town" value={value.city} onChange={set("city")} error={errorFor("city")} />
-      <Field label="PIN code" inputMode="numeric" value={value.pin} onChange={set("pin")} error={errorFor("pin")} />
-      <SelectField label="State" options={props.states} value={value.state_code} onChange={set("state_code")} hint={props.stateHint} error={errorFor("state_code")} />
-    </fieldset>
-  );
 }
 
 /**
@@ -219,7 +188,7 @@ export function CustomerPage() {
     if (!stale || !opened || !theirs.includes(k)) return undefined;
     const now = valuesOf(opened)[k];
     if (equal(now, values[k])) return "Someone else changed this.";
-    if (typeof now === "object") return `Now saved as: ${PARTS.map((p) => now[p].trim()).filter(Boolean).join(", ") || "(blank)"}`;
+    if (typeof now === "object") return `Now saved as: ${addressLine(now)}`;
     return `Now saved as: ${typeof now === "boolean" ? (now ? "yes" : "no") : now || "(blank)"}`;
   };
   const known = ["name", "gstin", "credit_days", "delivery", "delivery_same_as_billing"];

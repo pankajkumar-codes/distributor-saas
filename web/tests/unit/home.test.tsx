@@ -64,6 +64,9 @@ describe("Home", () => {
     expect(within(setup).getByRole("link", { name: "Add your first customer" })).toHaveAttribute("href", "/b/b-1/customers");
     expect(within(setup).getAllByText("Coming soon")).toHaveLength(2);
     expect(within(setup).getAllByRole("link")).toHaveLength(2); // no dead links
+    const settings = screen.getByRole("navigation", { name: "Settings" });
+    expect(within(settings).getByRole("link", { name: "Business details" })).toHaveAttribute("href", "/b/b-1/settings/company");
+    expect(within(settings).getByRole("link", { name: "Filing frequency" })).toHaveAttribute("href", "/b/b-1/settings/filing");
   });
 
   it("hides the checklist once every step is done, and leaves out keys it doesn't know", async () => {

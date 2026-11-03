@@ -71,3 +71,11 @@ table.products th, table.products td { text-align: left; padding: 10px 8px; bord
 }
 a.btn { display: inline-flex; align-items: center; text-decoration: none; }
 .actions h1 { margin: 0; }
+
+/* A fieldset used only to disable a form's fields together: no box of its own. */
+fieldset.plain {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
