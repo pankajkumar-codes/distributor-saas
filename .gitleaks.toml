@@ -1,0 +1,15 @@
+# Gitleaks config: the default rules plus one narrow allowlist (CI job `secrets`).
+#
+# generic-api-key reads a refdata row's `key:` line (e.g. `- key: gstr1.b2cl_threshold`)
+# as an API key. The allowlist matches only a whole line that is `key:` followed by a
+# lowercase dotted refdata name (word.word...), which can't hold a secret, so nothing else is skipped.
+# It is not tied to a path: whether gitleaks v8.21.2 ANDs `paths` with `regexes` was not
+# verified, and an OR would skip every file under refdata/values.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "refdata row names (refdata/values/*.yaml `key:` lines)"
+regexTarget = "line"
+regexes = ['''^\+?\s*-?\s*key: [a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+\s*$''']
