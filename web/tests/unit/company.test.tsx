@@ -1,9 +1,10 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../../src/App";
 import { resetSessionForTests } from "../../src/auth/session";
 import { changedKeys, patchBody, rebase, valuesOf } from "../../src/screens/settings/CompanyPage";
+import { fyIst, previousFy } from "../../src/format/dates";
 import { fakeApi } from "./fakeApi";
 
 const REFRESH = "/api/v1/auth/refresh";
@@ -89,6 +90,74 @@ describe("business details", () => {
     expect(first.headers.get("If-Match")).toBe("4");
     expect(second.headers.get("If-Match")).toBe("5");
     expect(second.body).toEqual({ trade_name: "Vashi" });
+  });
+
+  describe("turnover bands", () => {
+    const THIS = fyIst();
+    const LAST = previousFy(THIS);
+    const BAND = (fy: string) => `/api/v1/b/b-1/turnover-bands/${fy}`;
+    const band = (fy: string, b: string, version: number) => ({ fy, band: b, declared_turnover: "4000000.00", version });
+    const withBands = (over: Record<string, unknown> = {}) => profile({ turnover_band: band(THIS, "up_to_threshold", 2), previous_turnover_band: null, ...over });
+    const group = (name: RegExp) => within(screen.getByRole("group", { name }));
+    const puts = (fy: string) => server.sent.filter((s) => s.path === BAND(fy) && s.method === "PUT");
+
+    it("saves each changed band on its own route: a first band with no If-Match, a change with its version", async () => {
+      server.reply(PROFILE, { status: 200, body: withBands() });
+      server.reply(BAND(THIS), { status: 200, body: band(THIS, "above_threshold", 3) });
+      server.reply(BAND(LAST), { status: 200, body: { ...band(LAST, "up_to_threshold", 1), declared_turnover: null } });
+      open();
+      expect(await screen.findByText(`Not set yet. This decides whether 4-digit HSN codes are enough on your invoices.`)).toBeInTheDocument();
+      fireEvent.click(group(/^Turnover this financial year/).getByRole("radio", { name: "Above that limit" }));
+      fireEvent.click(group(/^Turnover last financial year/).getByRole("radio", { name: "Up to the limit for quarterly filing (QRMP)" }));
+      fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+      expect(await screen.findByText(/Saved\./)).toBeInTheDocument();
+      expect(patches()).toHaveLength(0); // nothing else changed
+      expect(puts(THIS)[0].headers.get("If-Match")).toBe("2");
+      expect(puts(THIS)[0].body).toEqual({ band: "above_threshold", declared_turnover: "4000000.00" }); // the declared amount is kept
+      expect(puts(LAST)[0].headers.get("If-Match")).toBeNull();
+      expect(puts(LAST)[0].body).toEqual({ band: "up_to_threshold", declared_turnover: null });
+      expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled(); // the form is now what's saved
+    });
+
+    it("treats a band someone else set meanwhile (if_match_required) like a stale save", async () => {
+      server.reply(PROFILE, { status: 200, body: withBands() }, { status: 200, body: withBands({ previous_turnover_band: band(LAST, "above_threshold", 1) }) });
+      server.reply(BAND(LAST), { status: 422, body: { error: { code: "if_match_required", message: "Send the version you edited as If-Match", field: "If-Match" } } });
+      open();
+      await screen.findByLabelText("Legal name");
+      fireEvent.click(group(/^Turnover last financial year/).getByRole("radio", { name: "Up to the limit for quarterly filing (QRMP)" }));
+      fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+      expect(await screen.findByText(/Someone changed these details since you opened them/)).toBeInTheDocument();
+      expect(screen.getByText("Now saved as: Above that limit")).toBeInTheDocument();
+      expect(group(/^Turnover last financial year/).getByRole("radio", { name: "Up to the limit for quarterly filing (QRMP)" })).toBeChecked();
+      expect(screen.queryByText("Send the version you edited as If-Match")).toBeNull();
+    });
+
+    it("after a save that half landed, keeps the unsaved edit without claiming someone else changed things", async () => {
+      server.reply(PROFILE, { status: 200, body: withBands() });
+      open();
+      await screen.findByLabelText("Legal name");
+      server.reply(PROFILE, { status: 200, body: { profile: withBands({ trade_name: "Vashi", version: 5 }), warnings: [] } }, { status: 200, body: withBands({ trade_name: "Vashi", version: 5 }) });
+      server.reply(BAND(THIS), { status: 500 }, { status: 500 }, { status: 500 });
+      type("Trade name (optional)", "Vashi");
+      fireEvent.click(group(/^Turnover this financial year/).getByRole("radio", { name: "Above that limit" }));
+      fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+      expect(await screen.findByText(/Something went wrong on our side/)).toBeInTheDocument();
+      await vi.waitFor(() => expect(server.sent.filter((s) => s.path === PROFILE && s.method === "GET")).toHaveLength(2));
+      await vi.waitFor(() => expect(screen.getByLabelText("Trade name (optional)")).toHaveValue("Vashi"));
+      expect(group(/^Turnover this financial year/).getByRole("radio", { name: "Above that limit" })).toBeChecked();
+      expect(screen.queryByText(/Someone changed these details/)).toBeNull();
+    });
+  });
+
+  it("clears the last save's message on the next edit", async () => {
+    server.reply(PROFILE, { status: 200, body: profile() }, { status: 200, body: { profile: profile({ trade_name: "Vashi", version: 5 }), warnings: [] } });
+    open();
+    await screen.findByLabelText("Legal name");
+    type("Trade name (optional)", "Vashi");
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(await screen.findByText(/Saved\./)).toBeInTheDocument();
+    type("Legal name", "Vashi Essentials Pvt Ltd");
+    expect(screen.queryByText(/Saved\./)).toBeNull();
   });
 
   it("puts the server's field error on its field", async () => {

@@ -41,3 +41,18 @@ export function formatDateTimeIst(instant: string): string {
   const ist = new Date(t + IST_OFFSET_MS).toISOString();
   return `${formatDate(ist.slice(0, 10))}, ${ist.slice(11, 16)}`;
 }
+
+/** The Indian financial year (April to March) that today in India falls in, as "2026-27". */
+export function fyIst(now: Date = new Date()): string {
+  const [year, month] = todayIst(now).split("-").map(Number);
+  const start = month >= 4 ? year : year - 1;
+  return `${start}-${String((start + 1) % 100).padStart(2, "0")}`;
+}
+
+/** The financial year before `fy` ("2026-27" → "2025-26"); a malformed value as is. */
+export function previousFy(fy: string): string {
+  const m = /^(\d{4})-\d{2}$/.exec(fy);
+  if (!m) return fy;
+  const start = Number(m[1]) - 1;
+  return `${start}-${String((start + 1) % 100).padStart(2, "0")}`;
+}

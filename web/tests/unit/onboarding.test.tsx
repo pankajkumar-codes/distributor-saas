@@ -1,8 +1,8 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../../src/App";
-import { quarterStartIst, todayIst } from "../../src/format/dates";
+import { fyIst, previousFy, quarterStartIst, todayIst } from "../../src/format/dates";
 import { checkCharacter } from "../../src/format/gstin";
 import { resetSessionForTests } from "../../src/auth/session";
 import { fieldError } from "../../src/screens/onboarding/BusinessPage";
@@ -52,11 +52,14 @@ async function open() {
 
 const type = (label: string, value: string) => fireEvent.change(screen.getByLabelText(label), { target: { value } });
 const pick = (name: string) => fireEvent.click(screen.getByRole("radio", { name }));
+const pickIn = (group: string | RegExp, name: string) =>
+  fireEvent.click(within(screen.getByRole("group", { name: group })).getByRole("radio", { name }));
+const THIS_YEAR = "Turnover this financial year (declared)";
 
 function fillGstinBusiness() {
   type("GSTIN", GSTIN);
   type("Legal name (as on GST certificate)", "Vashi Essentials Pvt Ltd");
-  pick("Up to the limit for quarterly filing (QRMP)");
+  pickIn(THIS_YEAR, "Up to the limit for quarterly filing (QRMP)");
   pick("No");
   type("Address line 1", "12 Market Road");
   type("City or town", "Pune");
@@ -130,6 +133,51 @@ describe("saving the business", () => {
     expect(screen.getByText(/can't show the dates for changing your filing frequency/)).toBeInTheDocument();
   });
 
+  it("saves last year's band, when given, for the year before this one, with no If-Match", async () => {
+    const BAND = `/api/v1/b/b-1/turnover-bands/${previousFy(fyIst())}`;
+    await open();
+    server.reply(CREATE, created());
+    server.reply(BAND, { status: 200, body: { fy: previousFy(fyIst()), band: "above_threshold", declared_turnover: null, version: 1 } });
+    server.reply(FREQUENCY, chosen([]));
+    server.reply(ME, me);
+    fillGstinBusiness();
+    pickIn(`What was your turnover last financial year (FY ${previousFy(fyIst())})? (optional)`, "Above that limit");
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByRole("heading", { name: HOME })).toBeInTheDocument();
+    const [band] = sentTo(BAND);
+    expect(band.method).toBe("PUT");
+    expect(band.body).toEqual({ band: "above_threshold", declared_turnover: null });
+    expect(band.headers.get("If-Match")).toBeNull();
+  });
+
+  it("sends no band for Not sure, and finishes sign-up with a note when last year's band fails", async () => {
+    const BAND = `/api/v1/b/b-1/turnover-bands/${previousFy(fyIst())}`;
+    await open();
+    server.reply(CREATE, created());
+    server.reply(BAND, { status: 500 });
+    server.reply(FREQUENCY, chosen([]));
+    server.reply(ME, me);
+    fillGstinBusiness();
+    const lastYear = `What was your turnover last financial year (FY ${previousFy(fyIst())})? (optional)`;
+    pickIn(lastYear, "Not sure");
+    pickIn(lastYear, "Up to the limit for quarterly filing (QRMP)");
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByRole("heading", { name: HOME })).toBeInTheDocument();
+    expect(screen.getByText(/We couldn't save last year's turnover\. Add it in Settings → Business details\./)).toBeInTheDocument();
+  });
+
+  it("sends nothing for last year when the answer is Not sure", async () => {
+    await open();
+    server.reply(CREATE, created());
+    server.reply(FREQUENCY, chosen([]));
+    server.reply(ME, me);
+    fillGstinBusiness();
+    pickIn(/^What was your turnover last financial year/, "Not sure");
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByRole("heading", { name: HOME })).toBeInTheDocument();
+    expect(server.paths().some((p) => p.includes("/turnover-bands/"))).toBe(false);
+  });
+
   it("reuses the same Idempotency-Key when the first try didn't get through", async () => {
     await open();
     server.reply(CREATE, { status: 503 }, created());
@@ -174,8 +222,8 @@ describe("saving the business", () => {
     fireEvent.click(screen.getByRole("button", { name: "Use enrolment number" }));
     type("Enrolment number", " EN123 ");
     type("State you're enrolled in", "19");
-    pick("Up to the limit for quarterly filing (QRMP)");
-    pick("Not sure");
+    pickIn(THIS_YEAR, "Up to the limit for quarterly filing (QRMP)");
+    pickIn(/e-invoicing limit/, "Not sure");
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     await screen.findByRole("heading", { name: HOME });
     expect(sentTo(CREATE)[0].body).toMatchObject({
