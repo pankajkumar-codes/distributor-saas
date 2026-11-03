@@ -396,6 +396,14 @@ jobs:
         run: |
           make renderer-zip PY=python ARCH=x86_64
           python scripts/check_renderer_zip.py --arch x86_64 --smoke build/renderer-x86_64.zip
+      - name: Renderer tests against the x86_64 zip (no URL fetched, no partial PDF)
+        # Unpacked exactly as Lambda would, so the tests use the bundled pango, fonts and
+        # WeasyPrint; pytest is installed only after both builds.
+        run: |
+          python -m pip install pytest==8.4.2
+          rm -rf build/renderer-task && mkdir -p build/renderer-task
+          python -c "import zipfile, sys; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" build/renderer-x86_64.zip build/renderer-task
+          RENDERER_TASK=build/renderer-task python -m pytest -q renderer/tests
 
   terraform:
     runs-on: ubuntu-latest

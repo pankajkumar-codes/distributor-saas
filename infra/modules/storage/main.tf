@@ -32,8 +32,8 @@ locals {
     documents = { expire_days = null, noncurrent_days = var.noncurrent_version_days }
     exports   = { expire_days = null, noncurrent_days = var.noncurrent_version_days }
     branding  = { expire_days = null, noncurrent_days = var.noncurrent_version_days }
-    # What the worker hands the PDF renderer (D-042). The renderer deletes it once the
-    # PDF is written; this is the backstop for one it never reached (a DLQ'd message).
+    # What the worker hands the PDF renderer (D-042). Nothing deletes an input: this rule
+    # expires it after a day and its old version a day later, about two days at most.
     "render-input" = { expire_days = 1, noncurrent_days = 1 }
   }
 }
@@ -90,8 +90,7 @@ resource "aws_s3_bucket_versioning" "objects" {
 
 # Raw uploads go 90 days after upload (TD-18), and their old version a day later, so
 # nothing of them outlives day 91. Render inputs go after a day, and their old version a
-# day after that (or a day after the renderer deletes one). The other areas keep files and
-# drop old versions.
+# day after that. The other areas keep files and drop old versions.
 resource "aws_s3_bucket_lifecycle_configuration" "objects" {
   bucket     = aws_s3_bucket.objects.id
   depends_on = [aws_s3_bucket_versioning.objects]

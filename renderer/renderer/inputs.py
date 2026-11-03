@@ -1,17 +1,15 @@
 """The render input: what the worker writes under render-input/b/ for one render, and
-whose S3 key the `render` queue message carries (D-042).
+whose S3 key the `render` queue message carries (D-042). platform_common.render writes
+it; the key rules here must match that module's (render-input/b/<business>/<render>/
+input.json in, documents/b/<business>/<render>/document.pdf out), which a platform_common
+test checks.
 
-The renderer calls `delete_after_render` once the PDF is safely written under
-documents/b/, and only then: until that point a retried message must still find its
-input. A delete is idempotent, so a retry after the delete (SQS is at-least-once) is
-harmless, and the bucket's lifecycle rule removes any input that is never rendered
-(a message that ends in the DLQ) after a day.
+Inputs are never deleted (EM, D-042): the bucket's lifecycle rule expires each one a
+day after it is written, and its old version a day after that, so an input lives about
+two days at most, under SSE-KMS and readable only by the renderer. A redelivered message
+renders again to the same document key.
 
-The bucket is versioned, so a delete leaves a noncurrent version, which the same rule
-expires a day later. The renderer's role needs `s3:DeleteObject` on render-input/b/* for
-this; S4 (BH-6) adds it with the first real render, alongside its documents/b/* write.
-
-This module imports neither boto3 nor WeasyPrint: the caller passes its S3 client.
+This module imports neither boto3 nor WeasyPrint.
 """
 
 import re
@@ -37,7 +35,16 @@ def business_of(key: str) -> str:
     return _KEY.match(check_input_key(key))["business"]
 
 
-def delete_after_render(s3, bucket: str, key: str) -> None:
-    """Deletes one render input. Refuses any key outside render-input/b/, so a bad
-    message can never make the renderer delete a document or an upload."""
-    s3.delete_object(Bucket=bucket, Key=check_input_key(key))
+INPUT_NAME = "input.json"
+DOCUMENT_NAME = "document.pdf"
+_INPUT = re.compile(r"^render-input/(b/[0-9a-f-]{36}/[0-9a-f-]{36})/input\.json$")
+
+
+def document_key(key: str) -> str:
+    """Where the PDF for this input goes: the same business and render ID under
+    documents/. Only an input named input.json is ever rendered."""
+    match = _INPUT.match(check_input_key(key))
+    if match is None:
+        raise ValueError(f"not a render input: {key!r}")
+    return f"documents/{match[1]}/{DOCUMENT_NAME}"
+

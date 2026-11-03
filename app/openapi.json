@@ -2686,6 +2686,65 @@
         "title": "Person",
         "type": "object"
       },
+      "PreviewOut": {
+        "properties": {
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "rendering",
+              "ready",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "PreviewOut",
+        "type": "object"
+      },
+      "PreviewRef": {
+        "properties": {
+          "draft_version": {
+            "title": "Draft Version",
+            "type": "integer"
+          },
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "draft_version"
+        ],
+        "title": "PreviewRef",
+        "type": "object"
+      },
       "ProductDetailOut": {
         "properties": {
           "barcode": {
@@ -5706,6 +5765,118 @@
           }
         },
         "summary": "Save Draft",
+        "tags": [
+          "sales"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/drafts/{draft_id}/preview": {
+      "post": {
+        "description": "Queues a PDF preview of the draft as saved now (\"Draft, not a tax invoice\"). The\nsame version always gives the same job; poll GET .../preview/{job_id}.",
+        "operationId": "preview_draft_api_v1_b__business_id__drafts__draft_id__preview_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewRef"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview Draft",
+        "tags": [
+          "sales"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/drafts/{draft_id}/preview/{job_id}": {
+      "get": {
+        "operationId": "preview_status_api_v1_b__business_id__drafts__draft_id__preview__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview Status",
         "tags": [
           "sales"
         ]

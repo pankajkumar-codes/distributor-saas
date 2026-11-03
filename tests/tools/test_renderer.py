@@ -72,16 +72,48 @@ def test_the_renderer_is_fed_by_the_render_queue_whose_dlq_has_an_alarm():
     assert re.search(r"render\s*=\s*module\.render\.dlq_name", STACK)
 
 
-def test_the_renderer_reads_only_render_input_and_decrypts_only_through_s3():
-    """D-042 (EM): GetObject on render-input/b/* and kms:Decrypt via S3, nothing else
-    until S4 adds the documents/b/* write."""
+def _statements(block: str) -> list[tuple[str, str]]:
+    """(actions, resources) of each statement, as written."""
+    return list(zip(re.findall(r"Action\s*=\s*\[([^\]]*)\]", block), re.findall(r"Resource\s*=\s*\[([^\]]*)\]", block),
+                    strict=True))
+
+
+def test_the_renderer_reads_and_deletes_inputs_writes_documents_and_uses_the_key_only_through_s3():
+    """D-042 (EM): nothing beyond these, no delete, no list, and no broader wildcard."""
     module = re.search(r'module "renderer" \{(.*?)\n\}', STACK, re.S).group(1)
     policy = re.search(r"policy_statements = \[(.*?)\n  \]", module, re.S).group(1)
-    assert re.findall(r'Action\s*=\s*\[([^\]]*)\]', policy) == ['"s3:GetObject"', '"kms:Decrypt"']
-    resources = re.findall(r'Resource\s*=\s*\[([^\]]*)\]', policy)
-    assert resources == ['"${module.storage.bucket_arn}/render-input/b/*"', "module.storage.kms_key_arn"]
+    bucket = "${module.storage.bucket_arn}"
+    assert _statements(policy) == [
+        ('"s3:GetObject"', f'"{bucket}/render-input/b/*"'),
+        ('"s3:PutObject"', f'"{bucket}/documents/b/*"'),
+        ('"kms:Decrypt", "kms:GenerateDataKey"', "module.storage.kms_key_arn"),
+    ]
+    assert "DeleteObject" not in policy and "ListBucket" not in policy  # EM, D-042: lifecycle expiry only
     assert '"kms:ViaService" = "s3.${data.aws_region.current.name}.amazonaws.com"' in policy
-    assert "*" not in policy.replace("render-input/b/*", "")
+    assert "*" not in policy.replace("render-input/b/*", "").replace("documents/b/*", "")
+    assert re.search(r"environment\s*=\s*\{\s*OBJECTS_BUCKET\s*=\s*module\.storage\.bucket\s*\}", module)
+
+
+def test_the_worker_may_only_put_render_inputs_and_send_to_the_render_queue():
+    block = re.search(r"worker_render_statements = \[(.*?)\n  \]", STACK, re.S).group(1)
+    assert _statements(block) == [
+        ('"s3:PutObject"', '"${module.storage.bucket_arn}/render-input/b/*"'),
+        ('"sqs:SendMessage"', "module.render.arn"),
+    ]
+    worker = re.search(r'module "worker" \{(.*?)\n\}', STACK, re.S).group(1)
+    assert "local.worker_render_statements" in worker
+    assert STACK.count("local.worker_render_statements") == 1  # the API gets none of it
+    assert "RENDER_QUEUE_URL = module.render.url" in STACK
+    api = re.search(r'module "api_function" \{(.*?)\n\}', STACK, re.S).group(1)
+    assert "worker_env" not in api
+
+
+def test_render_input_grants_are_only_the_workers_put_and_the_renderers_read():
+    assert re.search(r'app_areas\s*=\s*\[for a in module\.storage\.areas : a if a != "render-input"\]', STACK)
+    objects = re.search(r"object_statements = \[(.*?)\n  \]", STACK, re.S).group(1)
+    assert "module.storage.areas" not in objects and objects.count("local.app_areas") == 2
+    assert STACK.count('/render-input/b/*"') == 2  # the worker's PutObject, the renderer's GetObject
+    assert not re.search(r"\"s3:DeleteObject\"", STACK)
 
 
 def test_no_other_function_ships_the_renderer_zip():
@@ -102,41 +134,19 @@ def test_render_input_expires_after_a_day_with_its_old_versions():
     assert re.search(r'^\s*"render-input"\s*=\s*\{\s*expire_days\s*=\s*1,\s*noncurrent_days\s*=\s*1\s*\}', storage, re.M)
 
 
-def test_only_the_renderer_is_granted_render_input():
-    assert re.search(r'app_areas\s*=\s*\[for a in module\.storage\.areas : a if a != "render-input"\]', STACK)
-    objects = re.search(r"object_statements = \[(.*?)\n  \]", STACK, re.S).group(1)
-    assert "module.storage.areas" not in objects and objects.count("local.app_areas") == 2
-    assert STACK.count('/render-input/b/*"') == 1  # the renderer's GetObject
-
-
-class FakeS3:
-    def __init__(self):
-        self.deleted = []
-
-    def delete_object(self, **kwargs):
-        self.deleted.append(kwargs)
-        return {}
-
-
-def _key(area="render-input", name="input.json"):
-    return f"{area}/b/{uuid.uuid4()}/{uuid.uuid4()}/{name}"
-
-
-def test_delete_after_render_deletes_the_input_and_is_safe_to_repeat():
-    s3, key = FakeS3(), _key()
-    inputs.delete_after_render(s3, "bucket", key)
-    inputs.delete_after_render(s3, "bucket", key)  # a redelivered message
-    assert s3.deleted == [{"Bucket": "bucket", "Key": key}] * 2
-    assert inputs.business_of(key) == key.split("/")[2]
+def test_render_input_keys_map_to_their_document_and_nothing_else_does():
+    b, r = uuid.uuid4(), uuid.uuid4()
+    assert inputs.document_key(f"render-input/b/{b}/{r}/input.json") == f"documents/b/{b}/{r}/document.pdf"
+    assert inputs.business_of(f"render-input/b/{b}/{r}/input.json") == str(b)
 
 
 @pytest.mark.parametrize("key", [
-    _key("documents"), _key("uploads"), "render-input/b/x", "render-input/b/../documents/b/x",
-    f"render-input/b/{uuid.uuid4()}", f"/render-input/b/{uuid.uuid4()}/{uuid.uuid4()}", "", None, 42,
+    f"documents/b/{uuid.uuid4()}/{uuid.uuid4()}/input.json", f"uploads/b/{uuid.uuid4()}/{uuid.uuid4()}/input.json",
+    "render-input/b/x", "render-input/b/../documents/b/x", f"render-input/b/{uuid.uuid4()}",
+    f"render-input/b/{uuid.uuid4()}/{uuid.uuid4()}", f"render-input/b/{uuid.uuid4()}/{uuid.uuid4()}/other.json",
+    f"/render-input/b/{uuid.uuid4()}/{uuid.uuid4()}/input.json", "", None, 42,
     f"render-input/b/{uuid.uuid4()}/{uuid.uuid4()}/../../x",
 ])
-def test_delete_after_render_refuses_any_other_key(key):
-    s3 = FakeS3()
+def test_only_a_render_input_key_maps_to_a_document(key):
     with pytest.raises(ValueError):
-        inputs.delete_after_render(s3, "bucket", key)
-    assert s3.deleted == []
+        inputs.document_key(key)
