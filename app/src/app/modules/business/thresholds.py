@@ -6,7 +6,7 @@ only whether turnover was up to or above business.turnover_band_threshold (the Q
 limit the sign-up question names), so it answers a rule at another threshold only when
 the band settles it: "up to" a band limit at or below the rule's threshold is under it;
 "above" a band limit at or above the rule's threshold is over it. Anything else gets the
-stricter answer. Every number is refdata; refdata missing on `on` raises RefdataMissing.
+stricter answer: 6 HSN digits, or 'unsure' for e-invoicing. Every number is refdata; refdata missing on `on` raises RefdataMissing.
 """
 
 from datetime import date
@@ -51,6 +51,8 @@ def einvoice_status_for(
     einvoice.aato_first_fy up to the FY before `on`'s has the band above_threshold."""
     if history == "yes" or (bands_above and band_threshold >= rule_threshold):
         return "applies"
+    if bands_above:  # above a band limit below the rule's threshold: can't tell (Lead, #85)
+        return "unsure"
     if history in (None, "not_sure"):
         return "unsure"
     return "no"

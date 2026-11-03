@@ -40,7 +40,9 @@ def test_min_digits_table(band, band_threshold, rule_threshold, digits):
     [
         ("yes", False, FIVE_CRORE, FIVE_CRORE, "applies"),
         ("no", True, FIVE_CRORE, FIVE_CRORE, "applies"),  # an earlier FY's band above the threshold
-        ("no", True, FIVE_CRORE, D("1000000000.00"), "no"),  # above ₹5 crore isn't above ₹100 crore
+        ("no", True, FIVE_CRORE, D("1000000000.00"), "unsure"),  # above ₹5 crore may not be above ₹100 crore
+        ("no", True, TEN_CRORE, FIVE_CRORE, "applies"),  # above ₹10 crore is above ₹5 crore
+        ("no", False, TEN_CRORE, FIVE_CRORE, "no"),  # the answer stands when no band is above
         ("not_sure", True, FIVE_CRORE, D("1000000000.00"), "unsure"),
         ("no", False, FIVE_CRORE, FIVE_CRORE, "no"),
         ("not_sure", False, FIVE_CRORE, FIVE_CRORE, "unsure"),
