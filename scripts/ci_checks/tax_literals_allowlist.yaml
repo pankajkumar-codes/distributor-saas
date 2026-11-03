@@ -114,3 +114,6 @@
 - path: app/src/app/modules/sales/compute/words.py
   value: "10"
   reason: "tens for the amount in words; not a tax rule"
+- path: app/src/app/modules/sales/preview.py
+  value: "50"
+  reason: "most 'Before you can finalize' lines a preview prints (the renderer template's list cap); not a tax rule"

@@ -144,7 +144,7 @@ Every row in `refdata/` is `provisional`. Before go-live:
 ## PDF renderer follow-ups (D-042)
 - **arm64 re-measure** on the first staging deploy (above). CI only builds and checks the arm64 zip; it renders on x86_64.
 - **S4 render pipeline: done for the draft preview** (D-042). It has the worker's put and send, and the renderer's read, write and KMS grants (no delete: inputs expire), a deny-all `url_fetcher`, escaped fields, and the planted-URL and no-partial-PDF tests. Still open:
-  - **Tax on the preview.** Wire `compute(load_inputs(...))` into `sales.preview.build` once `load_inputs` merges (it needs #85). The template already prints line tax, totals and amount in words when they are in the input.
+  - ~~**Tax on the preview.**~~ Done: the preview prints the computation's figures and its blocks (D-042).
   - **Finalized invoices.** A template titled "Tax Invoice", with the number and the snapshot, comes with finalize, behind the **[CA] template approval** (T-305 gate, `team/gst/document-fields.md`).
   - **Bengali script: done.** Noto Sans Bengali Regular and Bold (static, OFL, hash-pinned at the same notofonts commit) are bundled. The arm64 zip went to 28.1 MB zipped and 89.7 MB unzipped, under the 32 MiB and 110 MiB gates. The self-test checks that Bengali text uses it.
   - **Line cap.** 1000 lines took 12 s locally. Drafts are capped at 200 lines (`drafts.MAX_LINES`), within the 60 s timeout.
