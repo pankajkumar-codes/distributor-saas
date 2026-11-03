@@ -18,6 +18,7 @@ ACTIONS: dict[str, tuple[str, str]] = {
     "auth.password_change": ("Changed their password", "team_settings"),
     "auth.totp_on": ("Turned on two-step sign-in", "team_settings"),
     "auth.totp_off": ("Turned off two-step sign-in", "team_settings"),
+    "auth.totp_removed_by_support": ("Support turned off two-step sign-in", "support"),
     "auth.signout_all": ("Signed out everywhere", "team_settings"),
     "business.create": ("Created the business", "team_settings"),
     "business.profile_update": ("Changed the business details", "team_settings"),

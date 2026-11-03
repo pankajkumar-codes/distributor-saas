@@ -69,6 +69,12 @@ POST /b already reads `identity.max_owned_businesses` (5, provisional; **Pankaj 
 - **`/me/password` is not on `me_uow` (S1-c4).** `rate.hit` must commit before the first transaction, so the route resolves the caller in its own short transaction, the same check `me_uow` runs (`service/account.py`).
 - **`PATCH /me {name}` has no product rule yet.** The code trims it, stores a blank as no name, and refuses more than 100 characters or any character that is not printable, such as a line break or a direction override (422). **PO** to confirm the limit and whether a name is required.
 
+## Support (S2) follow-ups (owner: Staff)
+
+- **TOTP recovery at the provider (S2-b, fake only).** Confirm runs `remove_totp(sub)` before the database step, so a retry after a database failure calls it a second time. The Cognito adapter (S1-c4c2) must make `AdminSetUserMFAPreference` off plus `AdminDeleteSoftwareToken` harmless when TOTP is already off. `AdminDeleteSoftwareToken` is still an unverified name (LLD-1 C4).
+- **Recovery limits (provisional refdata, RM42-4).** `support.totp_recovery_per_support_user_per_hour` = 10 and `support.totp_recovery_per_email_per_day` = 3. PO to confirm.
+- **Support users and memberships (AC2-14, done in S2-b).** Triggers refuse an active membership for a support user and refuse making a member into support, so a support user always reaches a business through a grant (TOTP required, read-only, every view audited), never as a member. Existing data: none in any environment yet.
+
 ## Business profile (S1-d) items waiting on the GST expert or PO
 | Item | What the code does until then | Source needed |
 |---|---|---|
