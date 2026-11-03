@@ -14,3 +14,38 @@
   last_checked: 2026-10-27
   status: provisional
   note: "4, 6 or 8 digits. Lower bound 4 is cited. The 8-digit cap and the even-length shape follow the HSN structure (heading 4, sub-heading 6, tariff item 8): UNVERIFIED, refdata-rates-uqc.md open item 6 and docs/OPEN_QUESTIONS.md (HSN 8-digit cap)."
+
+# Minimum HSN digits by turnover (business.hsn_min_digits; LLD-1 §8.3, LLD-4 §3.4 block),
+# from the GST expert's team/gst/refdata-rates-uqc.md §5(b): AATO in the preceding FY up
+# to ₹5 crore needs 4 digits, more than ₹5 crore needs 6, from 01-04-2021. No rows before
+# that date: R1 issues no invoices dated before 2021 (the old three-band rule isn't built).
+- key: hsn.min_digits_aato_threshold
+  value: "50000000.00"
+  type: decimal
+  kind: tax
+  valid_from: 2021-04-01
+  source_url: https://tutorial.gst.gov.in/userguide/returns/GSTR_1.htm
+  source_title: "GSTN FAQs on Form GSTR-1, Table-12 Q3 (minimum 4 or 6 digits by AATO, under Notification 78/2020-CT dated 15-10-2020); GSTN advisory HSN3"
+  last_checked: 2026-10-24
+  status: provisional
+  note: "AATO in the preceding FY; 'more than' ₹5 crore needs the higher count. Effective date 01-04-2021 from secondary sources (refdata-rates-uqc.md open item 6)."
+- key: hsn.min_digits_up_to_threshold
+  value: "4"
+  type: integer
+  kind: tax
+  valid_from: 2021-04-01
+  source_url: https://tutorial.gst.gov.in/userguide/returns/GSTR_1.htm
+  source_title: "GSTN FAQs on Form GSTR-1, Table-12 Q3 (Notification 78/2020-CT dated 15-10-2020)"
+  last_checked: 2026-10-24
+  status: provisional
+  note: "AATO in the preceding FY up to hsn.min_digits_aato_threshold."
+- key: hsn.min_digits_above_threshold
+  value: "6"
+  type: integer
+  kind: tax
+  valid_from: 2021-04-01
+  source_url: https://tutorial.gst.gov.in/userguide/returns/GSTR_1.htm
+  source_title: "GSTN FAQs on Form GSTR-1, Table-12 Q3 (Notification 78/2020-CT dated 15-10-2020)"
+  last_checked: 2026-10-24
+  status: provisional
+  note: "AATO in the preceding FY more than hsn.min_digits_aato_threshold; also the answer when the band is unknown (LLD-1 §8.3: the stricter row)."
