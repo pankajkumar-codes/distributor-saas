@@ -756,7 +756,11 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Patch Profile */
+        /**
+         * Patch Profile
+         * @description If-Match is required: the version (or ETag) from GET /profile. If the business
+         *     details changed since, 409 stale_record and nothing is saved (L3-9's rule).
+         */
         patch: operations["patch_profile_api_v1_b__business_id__profile_patch"];
         trace?: never;
     };
@@ -1901,6 +1905,8 @@ export interface components {
             /** Trade Name */
             trade_name: string | null;
             turnover_band: components["schemas"]["TurnoverBandOut"] | null;
+            /** Version */
+            version: number;
         };
         /**
          * ProfilePatch
@@ -4016,7 +4022,9 @@ export interface operations {
     patch_profile_api_v1_b__business_id__profile_patch: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "If-Match"?: string | null;
+            };
             path: {
                 business_id: string;
             };
@@ -4036,6 +4044,13 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ProfileUpdateOut"];
                 };
+            };
+            /** @description stale_record or gstin_locked */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

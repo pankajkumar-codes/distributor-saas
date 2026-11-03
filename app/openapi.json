@@ -2580,6 +2580,10 @@
                 "type": "null"
               }
             ]
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
@@ -2590,7 +2594,8 @@
           "address",
           "einvoice_history",
           "turnover_band",
-          "ready_for_documents"
+          "ready_for_documents",
+          "version"
         ],
         "title": "ProfileOut",
         "type": "object"
@@ -6641,6 +6646,7 @@
         ]
       },
       "patch": {
+        "description": "If-Match is required: the version (or ETag) from GET /profile. If the business\ndetails changed since, 409 stale_record and nothing is saved (L3-9's rule).",
         "operationId": "patch_profile_api_v1_b__business_id__profile_patch",
         "parameters": [
           {
@@ -6650,6 +6656,22 @@
             "schema": {
               "title": "Business Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
             }
           }
         ],
@@ -6673,6 +6695,9 @@
               }
             },
             "description": "Successful Response"
+          },
+          "409": {
+            "description": "stale_record or gstin_locked"
           },
           "422": {
             "content": {

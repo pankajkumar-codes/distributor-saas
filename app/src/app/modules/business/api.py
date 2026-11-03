@@ -15,7 +15,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Header, Path, Request
+from fastapi import APIRouter, Depends, Header, Path, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.modules.refdata import state_name
@@ -77,6 +77,7 @@ class ProfileOut(BaseModel):
     einvoice_history: Literal["no", "yes", "not_sure"] | None
     turnover_band: TurnoverBandOut | None  # the current FY's
     ready_for_documents: ReadinessOut
+    version: int  # send it back as If-Match on PATCH; also the ETag
 
 
 class ProfileUpdateOut(BaseModel):
@@ -161,6 +162,7 @@ def _profile_out(uow, today: date) -> ProfileOut:
         einvoice_history=p.einvoice_history,
         turnover_band=None if band is None else _band_out(band),
         ready_for_documents=ReadinessOut(ok=ready.ok, missing=ready.missing),
+        version=p.version,
     )
 
 
@@ -179,16 +181,43 @@ Today = Annotated[Clock, Depends(get_clock)]
 
 # --- Profile --------------------------------------------------------------------------
 
+def _etag(response: Response, version: int) -> None:
+    response.headers["ETag"] = f'"{version}"'
+
+
+def _if_match(raw: str | None) -> int | None:
+    """The version from If-Match, quoted (an ETag) or bare. Anything else is never a real
+    version, so it reads as stale rather than as missing."""
+    if raw is None:
+        return None
+    try:
+        return int(raw.strip().removeprefix("W/").strip('"'))
+    except ValueError:
+        return -1
+
+
 @router.get("/profile")
-def get_profile(uow: BusinessUoW, clock: Today) -> ProfileOut:
+def get_profile(uow: BusinessUoW, clock: Today, response: Response) -> ProfileOut:
     uow.become_read_only()
-    return _profile_out(uow, clock.today())
+    out = _profile_out(uow, clock.today())
+    _etag(response, out.version)
+    return out
 
 
-@router.patch("/profile", dependencies=EDIT)
-def patch_profile(body: prof.ProfilePatch, uow: BusinessUoW, clock: Today) -> ProfileUpdateOut:
-    warnings = prof.update_profile(uow, body, today=clock.today())
-    return ProfileUpdateOut(profile=_profile_out(uow, clock.today()), warnings=warnings)
+@router.patch("/profile", dependencies=EDIT, responses={409: {"description": "stale_record or gstin_locked"}})
+def patch_profile(
+    body: prof.ProfilePatch,
+    uow: BusinessUoW,
+    clock: Today,
+    response: Response,
+    if_match: Annotated[str | None, Header(alias="If-Match")] = None,
+) -> ProfileUpdateOut:
+    """If-Match is required: the version (or ETag) from GET /profile. If the business
+    details changed since, 409 stale_record and nothing is saved (L3-9's rule)."""
+    warnings = prof.update_profile(uow, body, today=clock.today(), if_match=_if_match(if_match))
+    out = _profile_out(uow, clock.today())
+    _etag(response, out.version)
+    return ProfileUpdateOut(profile=out, warnings=warnings)
 
 
 @router.put("/turnover-bands/{fy}", dependencies=EDIT)
