@@ -108,6 +108,19 @@ describe("business details", () => {
     expect(await screen.findByText("Needed before your first invoice: legal name, address.")).toBeInTheDocument();
   });
 
+  it("says a missing GSTIN can't be added in the app yet, rather than promising a field", async () => {
+    server.reply(PROFILE, {
+      status: 200,
+      body: profile({
+        registration: { kind: "enrolment", gstin: null, enrolment_number: "EN1234567890", state_code: "19", state_name: "West Bengal", locked: false },
+        ready_for_documents: { ok: false, missing: ["gstin"] },
+      }),
+    });
+    open();
+    expect(await screen.findByText(/Needed before your first invoice: GSTIN\. Adding a GSTIN isn't available in the app yet\./)).toBeInTheDocument();
+    expect(screen.getByText("Enrolment number EN1234567890, West Bengal")).toBeInTheDocument();
+  });
+
   it("shows a load failure with Try again, not an empty form", async () => {
     server.reply(PROFILE, { status: 500 }, { status: 500 }, { status: 500 }, { status: 200, body: profile() });
     open();

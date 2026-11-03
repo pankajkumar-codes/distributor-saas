@@ -111,10 +111,11 @@ describe("filing frequency", () => {
     expect(screen.getByRole("heading", { name: "Choose frequency" })).toBeInTheDocument();
   });
 
-  it("asks for the GSTIN first when the business has none", async () => {
+  it("says a frequency needs a GSTIN, without promising a GSTIN change the app doesn't offer", async () => {
     server.reply(PROFILE, profile({ gstin: null, current: null, history: [] }));
     open();
-    expect(await screen.findByRole("link", { name: "business details" })).toHaveAttribute("href", "/b/b-1/settings/company");
+    expect(await screen.findByText(/You can choose a filing frequency once your business has a GSTIN\. Adding a GSTIN to a business registered with an enrolment number isn't available in the app yet\./)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "business details" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Save frequency" })).toBeNull();
   });
 

@@ -185,7 +185,11 @@ export function CompanyPage() {
         </p>
         <h1>Business details</h1>
         {!opened.ready_for_documents.ok && opened.ready_for_documents.missing.length > 0 && (
-          <Banner>Needed before your first invoice: {opened.ready_for_documents.missing.map((m) => MISSING[m] ?? m).join(", ")}.</Banner>
+          <Banner>
+            Needed before your first invoice: {opened.ready_for_documents.missing.map((m) => MISSING[m] ?? m).join(", ")}.
+            {/* The registration is read-only here until the GSTIN change is built (follow-up). */}
+            {opened.ready_for_documents.missing.includes("gstin") && " Adding a GSTIN isn't available in the app yet."}
+          </Banner>
         )}
         {stale && (
           <Banner tone="error">

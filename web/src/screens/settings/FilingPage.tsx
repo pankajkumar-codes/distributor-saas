@@ -114,8 +114,8 @@ export function FilingPage() {
 
         {data && !data.gstin && (
           <Banner>
-            A filing frequency belongs to a GSTIN. Add your GSTIN in{" "}
-            <Link to={`/b/${businessId}/settings/company`}>business details</Link> first.
+            You can choose a filing frequency once your business has a GSTIN. Adding a GSTIN to a business registered with an
+            enrolment number isn't available in the app yet.
           </Banner>
         )}
 
