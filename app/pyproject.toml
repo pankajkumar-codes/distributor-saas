@@ -21,7 +21,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "httpx>=0.27", "uvicorn>=0.30", "pytest-cov", "python-multipart==0.0.26"]  # multipart: dev upload route
+dev = ["pytest>=8", "httpx>=0.27", "uvicorn>=0.30", "pytest-cov", "python-multipart==0.0.31"]  # multipart: dev upload route
 
 [tool.setuptools.packages.find]
 where = ["src"]
