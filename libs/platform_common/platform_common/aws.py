@@ -25,7 +25,7 @@ from .storage import (
 class SqsQueue:
     def __init__(self, queue_url: str, client=None):
         self.queue_url = queue_url
-        self.client = client or boto3.client("sqs")
+        self.client = client or boto3.client("sqs", config=client_config())
 
     def send(self, body: dict) -> None:
         self.client.send_message(QueueUrl=self.queue_url, MessageBody=json.dumps(body, sort_keys=True))
@@ -37,7 +37,7 @@ class S3ObjectStore:
 
     def __init__(self, bucket: str, client=None, clock: Clock | None = None):
         self.bucket = bucket
-        self.client = client or boto3.client("s3")
+        self.client = client or boto3.client("s3", config=client_config())
         self.clock = clock or Clock()
 
     def presign_post(self, business_id, key, *, max_bytes, content_type=None) -> PresignedPost:
@@ -91,7 +91,7 @@ class SesSender:
 
     def __init__(self, from_address: str, client=None):
         self.from_address = from_address
-        self.client = client or boto3.client("sesv2")
+        self.client = client or boto3.client("sesv2", config=client_config())
 
     def send(self, to: str, subject: str, body: str) -> str:
         r = self.client.send_email(
@@ -104,9 +104,13 @@ class SesSender:
 
 
 def client_config():
-    """Sign-in waits on Cognito, so a slow call fails fast instead of holding the request
-    until API Gateway's 29 s limit: 3 attempts in all, the first included (botocore's
-    max_attempts would count retries only). The SQS, S3 and SES clients move onto it later.
+    """The one botocore Config for every client this module builds (Cognito, SQS, S3,
+    SES and Parameter Store). API requests wait on these calls, so a slow one fails fast
+    instead of holding the request until API Gateway's 29 s limit: 2 s to connect, 5 s
+    per read (botocore's default is 60 s each), and standard retries with 3 attempts in
+    all, the first included (botocore's max_attempts would count retries only).
+    read_timeout bounds each socket read, not a whole transfer, so a large S3 object is
+    not cut off by it.
     botocore is imported here, not at the top, so this module loads without it (the
     platform_common tests replace boto3 with a stand-in)."""
     from botocore.config import Config
@@ -122,4 +126,5 @@ def cognito_client():
 
 def get_parameter(name: str) -> str:
     """A Parameter Store SecureString, decrypted (the aws/ssm key)."""
-    return boto3.client("ssm").get_parameter(Name=name, WithDecryption=True)["Parameter"]["Value"]
+    ssm = boto3.client("ssm", config=client_config())
+    return ssm.get_parameter(Name=name, WithDecryption=True)["Parameter"]["Value"]
