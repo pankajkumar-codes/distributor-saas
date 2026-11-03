@@ -35,13 +35,15 @@ from urllib.parse import quote
 from .clock import Clock
 from .errors import Deny
 
-AREAS = frozenset({"uploads", "documents", "exports", "branding"})
+# render-input holds what the worker hands the PDF renderer (D-042): kept a day at most,
+# deleted by the renderer once the PDF is written (renderer/renderer/inputs.py).
+AREAS = frozenset({"uploads", "documents", "exports", "branding", "render-input"})
 POST_EXPIRY_SECONDS = 300  # H-4
 GET_EXPIRY_SECONDS = 60  # share-link redirect (HLD §6.9)
 # The area comes first so that one S3 lifecycle rule per area can expire it, e.g. raw
 # uploads after 90 days (TD-18); the business check below is unchanged by the order.
 _KEY = re.compile(
-    r"^(?P<area>[a-z]+)/b/(?P<business>[0-9a-f-]{36})/[0-9a-f-]{36}(/[a-z0-9_-]+(\.[a-z0-9]+)*)?$"
+    r"^(?P<area>[a-z]+(-[a-z]+)*)/b/(?P<business>[0-9a-f-]{36})/[0-9a-f-]{36}(/[a-z0-9_-]+(\.[a-z0-9]+)*)?$"
 )
 
 
