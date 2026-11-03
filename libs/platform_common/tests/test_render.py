@@ -68,3 +68,12 @@ def test_no_queue_configured_is_an_error_not_a_silent_drop():
     render.set_render_queue(None)
     with pytest.raises(RuntimeError, match="no render queue"):
         render.get_render_queue()
+
+
+def test_the_worker_and_the_renderer_share_one_input_size_limit():
+    """The renderer can't import platform_common, so its copy is read as text."""
+    import re
+
+    handler = (Path(__file__).resolve().parents[3] / "renderer" / "renderer" / "handler.py").read_text()
+    limit = re.search(r"^MAX_INPUT_BYTES = (.+?)\s*(#.*)?$", handler, re.M).group(1)
+    assert eval(limit, {"__builtins__": {}}) == render.MAX_INPUT_BYTES  # noqa: S307 - a literal product

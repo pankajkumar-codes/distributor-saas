@@ -1,5 +1,6 @@
-"""The render pipeline's renderer half (D-042): input in, one PDF out, input deleted;
-nothing fetched; nothing written when a render fails."""
+"""The render pipeline's renderer half (D-042): input in, one PDF out; nothing fetched;
+nothing written when a render fails. Inputs are never deleted (the lifecycle rule
+expires them), and the renderer makes no delete call."""
 
 import http.server
 import json
@@ -18,7 +19,8 @@ class S3Error(Exception):
 
 
 class FakeS3:
-    """The four calls the renderer makes, over a dict. `fail_put` makes PutObject fail
+    """The calls the renderer may make, over a dict. It has no delete: a delete call
+    would fail the test. `fail_put` makes PutObject fail
     the way a network error would: before anything is stored."""
 
     def __init__(self):
@@ -45,9 +47,6 @@ class FakeS3:
         assert ContentType == "application/pdf"
         self.objects[Key] = Body
 
-    def delete_object(self, Bucket, Key):  # noqa: N803
-        self.calls.append(("delete", Key))
-        self.objects.pop(Key, None)
 
 
 def _doc(**fields):
@@ -75,7 +74,7 @@ def _event(key):
     return {"Records": [{"messageId": "m1", "body": json.dumps({"key": key})}]}
 
 
-def test_an_input_becomes_one_pdf_and_the_input_is_deleted():
+def test_an_input_becomes_one_pdf_and_the_input_is_left_for_the_lifecycle_rule():
     from renderer import handler
 
     s3, (key, out) = FakeS3(), _keys()
@@ -83,20 +82,28 @@ def test_an_input_becomes_one_pdf_and_the_input_is_deleted():
     assert handler.sqs_handler(_event(key), s3, BUCKET) == {"batchItemFailures": []}
     pdf = s3.objects[out]
     assert pdf.startswith(b"%PDF-") and pdf.rstrip().endswith(b"%%EOF")
-    assert key not in s3.objects
-    assert [c[0] for c in s3.calls] == ["get", "put", "delete"]  # the delete only after the PDF
+    assert key in s3.objects  # expired by the bucket's lifecycle rule, not deleted (D-042)
+    assert [c[0] for c in s3.calls] == ["get", "put"]
 
 
-def test_a_redelivered_message_after_the_delete_is_acknowledged():
+def test_a_redelivered_message_renders_again_to_the_same_key():
     from renderer import handler
 
     s3, (key, out) = FakeS3(), _keys()
     s3.objects[key] = json.dumps(_doc()).encode()
     handler.sqs_handler(_event(key), s3, BUCKET)
-    pdf = s3.objects[out]
     s3.calls.clear()
     assert handler.sqs_handler(_event(key), s3, BUCKET) == {"batchItemFailures": []}
-    assert s3.calls == [("get", key)] and s3.objects[out] is pdf  # nothing rendered or written again
+    assert s3.calls == [("get", key), ("put", out)] and s3.objects[out].startswith(b"%PDF-")
+
+
+def test_an_expired_input_fails_and_goes_to_the_dlq():
+    """Without ListBucket S3 answers 403 for a missing key; either way it is a failure."""
+    from renderer import handler
+
+    s3, (key, out) = FakeS3(), _keys()
+    assert handler.sqs_handler(_event(key), s3, BUCKET) == {"batchItemFailures": [{"itemIdentifier": "m1"}]}
+    assert out not in s3.objects
 
 
 @pytest.mark.parametrize("key", [
@@ -208,7 +215,7 @@ def test_a_failed_write_keeps_the_input_for_the_retry():
     assert out not in s3.objects and key in s3.objects
     s3.fail_put = False
     assert handler.sqs_handler(_event(key), s3, BUCKET) == {"batchItemFailures": []}
-    assert out in s3.objects and key not in s3.objects
+    assert out in s3.objects
 
 
 @pytest.mark.parametrize("bad", [

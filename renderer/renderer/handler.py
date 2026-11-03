@@ -3,12 +3,13 @@
 Two kinds of event:
 - an SQS batch from the `render` queue (batch size 1). Each message is `{"key": <S3 key
   of a render input>}`; the input is JSON under render-input/b/ (platform_common.render).
-  The renderer reads it, renders the PDF in memory, writes it in one PutObject to
-  documents/b/<business>/<render>/document.pdf, and only then deletes the input. A
-  failure anywhere before the PutObject writes nothing, so there is never a partial PDF;
-  the message comes back and, after five tries, lands in the DLQ with the input still
-  there for a day. A message whose input is already gone was rendered by an earlier
-  delivery (SQS is at-least-once), or expired: it is acknowledged.
+  The renderer reads it, renders the PDF in memory and writes it in one PutObject to
+  documents/b/<business>/<render>/document.pdf. A failure anywhere before the PutObject
+  writes nothing, so there is never a partial PDF; the message comes back and, after
+  five tries, lands in the DLQ. The input is never deleted: the lifecycle rule expires
+  it after a day (D-042). A redelivered message renders again to the same key; one
+  whose input has expired fails (the renderer can't list the bucket, so S3 answers 403)
+  and goes to the DLQ.
 - `{"task": "selftest"}`, invoked by hand: renders a fixed one-page sample (fictional
   names and amounts; English, Hindi and the rupee sign) and reports size and time. It
   reads and writes nothing, so it is how the arm64 numbers get measured.
@@ -82,20 +83,10 @@ def selftest() -> dict:
     }
 
 
-def _missing(error: Exception) -> bool:
-    code = getattr(error, "response", {}).get("Error", {}).get("Code")
-    return code in ("NoSuchKey", "404")
-
-
 def render_one(s3, bucket: str, key: str) -> str:
-    """Renders one input. Returns "rendered" or "gone"; raises on anything to retry."""
+    """Renders one input. Returns "rendered"; raises on anything to retry."""
     out = inputs.document_key(key)  # refuses anything but render-input/b/<b>/<r>/input.json
-    try:
-        obj = s3.get_object(Bucket=bucket, Key=key)
-    except Exception as e:
-        if _missing(e):
-            return "gone"
-        raise
+    obj = s3.get_object(Bucket=bucket, Key=key)
     if int(obj.get("ContentLength", 0)) > MAX_INPUT_BYTES:
         raise ValueError("render input too large")
     body = obj["Body"].read(MAX_INPUT_BYTES + 1)
@@ -105,7 +96,6 @@ def render_one(s3, bucket: str, key: str) -> str:
     # One PutObject: S3 shows the whole object or none of it. The bucket's default
     # encryption (SSE-KMS, our key) applies.
     s3.put_object(Bucket=bucket, Key=out, Body=pdf, ContentType="application/pdf")
-    inputs.delete_after_render(s3, bucket, key)
     return "rendered"
 
 

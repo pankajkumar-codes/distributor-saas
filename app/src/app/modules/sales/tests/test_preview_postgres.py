@@ -105,7 +105,12 @@ def test_another_business_can_neither_ask_for_nor_poll_a_preview(shop):
     job_id = _ask(pg, biz, d).json()["job_id"]
     assert _ask(pg, other, d, sub="bob").status_code == 404
     assert _status(pg, other, d, job_id, sub="bob").status_code == 404
-    assert pg.client.post(f"/api/v1/b/{biz}/drafts/{d['id']}/preview", headers=h("bob")).status_code in (403, 404)
+    assert pg.client.post(f"/api/v1/b/{biz}/drafts/{d['id']}/preview", headers=h("bob")).status_code == 404
+    assert _status(pg, biz, d, job_id, sub="bob").status_code == 404
+    # The preview job through the generic job routes: the same 404 from either business.
+    assert pg.client.get(f"/api/v1/b/{biz}/jobs/{job_id}", headers=h("bob")).status_code == 404
+    assert pg.client.get(f"/api/v1/b/{other}/jobs/{job_id}", headers=h("bob")).status_code == 404
+    assert pg.client.get(f"/api/v1/b/{biz}/jobs/{job_id}", headers=h()).status_code == 200
 
 
 def test_a_job_that_is_not_this_drafts_preview_is_a_404(shop):

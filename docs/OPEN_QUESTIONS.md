@@ -142,7 +142,7 @@ Every row in `refdata/` is `provisional`. Before go-live:
 
 ## PDF renderer follow-ups (D-042)
 - **arm64 re-measure** on the first staging deploy (above). CI only builds and checks the arm64 zip; it renders on x86_64.
-- **S4 render pipeline: done for the draft preview** (D-042). It has the worker's put and send, the renderer's read, write, delete and KMS grants, a deny-all `url_fetcher`, escaped fields, and the planted-URL and no-partial-PDF tests. Still open:
+- **S4 render pipeline: done for the draft preview** (D-042). It has the worker's put and send, and the renderer's read, write and KMS grants (no delete: inputs expire), a deny-all `url_fetcher`, escaped fields, and the planted-URL and no-partial-PDF tests. Still open:
   - **Tax on the preview.** Wire `compute(load_inputs(...))` into `sales.preview.build` once `load_inputs` merges (it needs #85). The template already prints line tax, totals and amount in words when they are in the input.
   - **Finalized invoices.** A template titled "Tax Invoice", with the number and the snapshot, comes with finalize, behind the **[CA] template approval** (T-305 gate, `team/gst/document-fields.md`).
   - **Bengali script.** Only Noto Sans and Noto Sans Devanagari are bundled, so a Bengali buyer or product name prints as empty boxes. Add Noto Sans Bengali (static, OFL) to `fonts.lock` before West Bengal tenants use PDFs. Its size is to be measured against the zip budget.

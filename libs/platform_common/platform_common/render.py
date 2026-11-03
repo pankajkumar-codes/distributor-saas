@@ -2,8 +2,9 @@
 
 The worker writes what is to be rendered as JSON under render-input/b/<business>/<render>/
 and sends only that S3 key to the `render` queue; the renderer Lambda reads it, writes
-the PDF to documents/b/<business>/<render>/document.pdf and deletes the input
-(renderer/renderer/inputs.py holds the same key rules). The message never carries the
+the PDF to documents/b/<business>/<render>/document.pdf (renderer/renderer/inputs.py
+holds the same key rules). Nothing deletes the input: the bucket's lifecycle rule expires
+it, about two days at most (D-042). The message never carries the
 document itself.
 
     document_key = render.request(business_id, render_id, {"template": "invoice-draft", ...})

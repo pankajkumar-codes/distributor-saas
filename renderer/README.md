@@ -4,7 +4,8 @@ WeasyPrint on the python3.12 arm64 Lambda runtime, from its own zip (TD-9; TD-1(
 amendment, D-042). The worker writes a render input under `render-input/b/<business>/<render>/input.json`
 (`platform_common.render`) and sends only that key to the `render` SQS queue, which
 triggers the renderer. The renderer renders the PDF in memory, writes it in one PutObject
-to `documents/b/<business>/<render>/document.pdf`, and then deletes the input. The first
+to `documents/b/<business>/<render>/document.pdf`. Inputs are never deleted: the
+bucket's lifecycle rule expires them, about two days at most (D-042). The first
 caller is the draft preview (`app.modules.sales.preview`). `{"task": "selftest"}`,
 invoked by hand, renders a fixed sample page and reports pages, bytes, render time and
 the embedded fonts.
@@ -15,12 +16,12 @@ the embedded fonts.
 - `renderer/tests` proves a planted URL is never fetched (a local server sees no request) and that a failed render or write leaves no PDF and keeps the input.
 
 **IAM:**
-- `s3:GetObject` and `s3:DeleteObject` on `render-input/b/*`.
+- `s3:GetObject` on `render-input/b/*`.
 - `s3:PutObject` on `documents/b/*`.
-- `s3:ListBucket` on the `render-input/b/` prefix only.
+- No delete and no list.
 - `kms:Decrypt` and `kms:GenerateDataKey` only through S3.
 
-**Retries.** A message whose input is already gone (a redelivery after the delete) is acknowledged. An input that is never rendered (its message ends in the DLQ) expires after a day, so redriving a DLQ message more than a day old finds nothing, and the user asks for the preview again. At most `render_max_concurrency` (5) renders run at once.
+**Retries.** A redelivered message renders again to the same document key. An input expires a day after it is written, so a message whose input has expired fails (S3 answers 403 without list rights) and goes to the DLQ. Redriving a DLQ message more than a day old therefore finds nothing, and the user asks for the preview again. At most `render_max_concurrency` (5) renders run at once.
 
 **Tests.** `renderer/tests` need WeasyPrint's native libraries, so they run against an unpacked zip: `RENDERER_TASK=<dir> python -m pytest renderer/tests`. CI does this for the x86_64 build.
 

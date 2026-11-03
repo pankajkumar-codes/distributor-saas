@@ -345,7 +345,8 @@ module "retention" {
 # already sends to SQS through the VPC's SQS endpoint, so this needs no Lambda endpoint
 # (about USD 7-8 a month per AZ) and gets SQS's retries and a DLQ. A message carries an
 # S3 key under render-input/b/*, never the document body (EM, D-042). The worker may put
-# inputs there and send to this queue; the renderer may read and delete them, write PDFs
+# inputs there and send to this queue; the renderer may read them (the lifecycle rule
+# expires them; nothing deletes them), write PDFs
 # under documents/b/*, and use our key only through S3. Unreserved, so TD-6's caps and the
 # quota of 156 are unchanged; the trigger caps it at render_max_concurrency.
 module "render" {
@@ -365,13 +366,12 @@ module "renderer" {
   # than taking concurrency from the API (2 is the lowest SQS allows).
   sqs_trigger = { arn = module.render.arn, batch_size = 1, maximum_concurrency = var.render_max_concurrency }
   environment = { OBJECTS_BUCKET = module.storage.bucket }
-  # D-042: read and then delete render inputs, write PDFs under documents/, and use our
-  # key only through S3. Nothing else in the bucket, no other service.
+  # D-042: read render inputs (never delete them: the lifecycle rule does), write PDFs
+  # under documents/, and use our key only through S3. Nothing else in the bucket, no
+  # list, no other service.
   policy_statements = [
-    { Effect = "Allow", Action = ["s3:GetObject", "s3:DeleteObject"], Resource = ["${module.storage.bucket_arn}/render-input/b/*"] },
+    { Effect = "Allow", Action = ["s3:GetObject"], Resource = ["${module.storage.bucket_arn}/render-input/b/*"] },
     { Effect = "Allow", Action = ["s3:PutObject"], Resource = ["${module.storage.bucket_arn}/documents/b/*"] },
-    # So a message whose input is already gone reads as NoSuchKey (acknowledged), not 403.
-    { Effect = "Allow", Action = ["s3:ListBucket"], Resource = [module.storage.bucket_arn], Condition = { StringLike = { "s3:prefix" = ["render-input/b/*"] } } },
     {
       Effect    = "Allow"
       Action    = ["kms:Decrypt", "kms:GenerateDataKey"]

@@ -4,17 +4,12 @@ it; the key rules here must match that module's (render-input/b/<business>/<rend
 input.json in, documents/b/<business>/<render>/document.pdf out), which a platform_common
 test checks.
 
-The renderer calls `delete_after_render` once the PDF is safely written under
-documents/b/, and only then: until that point a retried message must still find its
-input. A delete is idempotent, so a retry after the delete (SQS is at-least-once) is
-harmless, and the bucket's lifecycle rule removes any input that is never rendered
-(a message that ends in the DLQ) after a day.
+Inputs are never deleted (EM, D-042): the bucket's lifecycle rule expires each one a
+day after it is written, and its old version a day after that, so an input lives about
+two days at most, under SSE-KMS and readable only by the renderer. A redelivered message
+renders again to the same document key.
 
-The bucket is versioned, so a delete leaves a noncurrent version, which the same rule
-expires a day later. The renderer's role has `s3:DeleteObject` on render-input/b/* for
-this, and nothing else may delete there.
-
-This module imports neither boto3 nor WeasyPrint: the caller passes its S3 client.
+This module imports neither boto3 nor WeasyPrint.
 """
 
 import re
@@ -53,8 +48,3 @@ def document_key(key: str) -> str:
         raise ValueError(f"not a render input: {key!r}")
     return f"documents/{match[1]}/{DOCUMENT_NAME}"
 
-
-def delete_after_render(s3, bucket: str, key: str) -> None:
-    """Deletes one render input. Refuses any key outside render-input/b/, so a bad
-    message can never make the renderer delete a document or an upload."""
-    s3.delete_object(Bucket=bucket, Key=check_input_key(key))
