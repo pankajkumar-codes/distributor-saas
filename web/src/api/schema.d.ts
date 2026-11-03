@@ -801,6 +801,52 @@ export interface paths {
         patch: operations["patch_profile_api_v1_b__business_id__profile_patch"];
         trace?: never;
     };
+    "/api/v1/b/{business_id}/support-grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Grants
+         * @description Newest first: the active grant (if any) and past ones, with pages viewed.
+         */
+        get: operations["list_grants_api_v1_b__business_id__support_grants_get"];
+        put?: never;
+        /**
+         * Give Grant
+         * @description Gives support read-only access for support.grant_hours from now, ending the active
+         *     grant if there is one.
+         */
+        post: operations["give_grant_api_v1_b__business_id__support_grants_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/support-grants/{grant_id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke Grant
+         * @description Ends a grant now. Support's next request is refused: the resolver checks the
+         *     grant on every request. A grant that already ended is 409 grant_ended.
+         */
+        post: operations["revoke_grant_api_v1_b__business_id__support_grants__grant_id__revoke_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/turnover-bands/{fy}": {
         parameters: {
             query?: never;
@@ -1576,6 +1622,44 @@ export interface components {
             /** Warnings */
             warnings: string[];
         };
+        /** GrantIn */
+        GrantIn: {
+            /** Reason */
+            reason?: string | null;
+        };
+        /** GrantOut */
+        GrantOut: {
+            /** Ended At */
+            ended_at: string | null;
+            ended_by: components["schemas"]["Person"] | null;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /**
+             * Given At
+             * Format: date-time
+             */
+            given_at: string;
+            given_by: components["schemas"]["Person"];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Pages Viewed */
+            pages_viewed: number;
+            /** Reason */
+            reason: string | null;
+            /** Status */
+            status: string;
+        };
+        /** GrantsOut */
+        GrantsOut: {
+            /** Grants */
+            grants: components["schemas"]["GrantOut"][];
+        };
         /** GstRatesOut */
         GstRatesOut: {
             /**
@@ -1951,6 +2035,16 @@ export interface components {
              * @constant
              */
             status: "password_set";
+        };
+        /** Person */
+        Person: {
+            /** Name */
+            name: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
         };
         /** ProductDetailOut */
         ProductDetailOut: {
@@ -4403,6 +4497,104 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_grants_api_v1_b__business_id__support_grants_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrantsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    give_grant_api_v1_b__business_id__support_grants_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrantIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrantOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_grant_api_v1_b__business_id__support_grants__grant_id__revoke_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                grant_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrantOut"];
+                };
             };
             /** @description Validation Error */
             422: {

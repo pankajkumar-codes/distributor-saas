@@ -1359,6 +1359,116 @@
         "title": "FrequencyRowOut",
         "type": "object"
       },
+      "GrantIn": {
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "title": "GrantIn",
+        "type": "object"
+      },
+      "GrantOut": {
+        "properties": {
+          "ended_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "ended_by": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Person"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "given_at": {
+            "format": "date-time",
+            "title": "Given At",
+            "type": "string"
+          },
+          "given_by": {
+            "$ref": "#/components/schemas/Person"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "pages_viewed": {
+            "title": "Pages Viewed",
+            "type": "integer"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "given_at",
+          "expires_at",
+          "given_by",
+          "reason",
+          "status",
+          "ended_at",
+          "ended_by",
+          "pages_viewed"
+        ],
+        "title": "GrantOut",
+        "type": "object"
+      },
+      "GrantsOut": {
+        "properties": {
+          "grants": {
+            "items": {
+              "$ref": "#/components/schemas/GrantOut"
+            },
+            "title": "Grants",
+            "type": "array"
+          }
+        },
+        "required": [
+          "grants"
+        ],
+        "title": "GrantsOut",
+        "type": "object"
+      },
       "GstRatesOut": {
         "properties": {
           "on": {
@@ -2555,6 +2665,25 @@
           }
         },
         "title": "PasswordSetOut",
+        "type": "object"
+      },
+      "Person": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "name"
+        ],
+        "title": "Person",
         "type": "object"
       },
       "ProductDetailOut": {
@@ -7531,6 +7660,152 @@
         "summary": "Patch Profile",
         "tags": [
           "business"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/support-grants": {
+      "get": {
+        "description": "Newest first: the active grant (if any) and past ones, with pages viewed.",
+        "operationId": "list_grants_api_v1_b__business_id__support_grants_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrantsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Grants",
+        "tags": [
+          "support"
+        ]
+      },
+      "post": {
+        "description": "Gives support read-only access for support.grant_hours from now, ending the active\ngrant if there is one.",
+        "operationId": "give_grant_api_v1_b__business_id__support_grants_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrantOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Give Grant",
+        "tags": [
+          "support"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/support-grants/{grant_id}/revoke": {
+      "post": {
+        "description": "Ends a grant now. Support's next request is refused: the resolver checks the\ngrant on every request. A grant that already ended is 409 grant_ended.",
+        "operationId": "revoke_grant_api_v1_b__business_id__support_grants__grant_id__revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "grant_id",
+            "required": true,
+            "schema": {
+              "title": "Grant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrantOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Grant",
+        "tags": [
+          "support"
         ]
       }
     },
