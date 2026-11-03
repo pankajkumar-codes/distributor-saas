@@ -45,12 +45,24 @@ manual workflow `.github/workflows/deploy-staging.yml` are written but **not app
 no AWS resource exists until Pankaj decides on staging, and the first staging deploy needs
 the CEO's approval (TD-20, TD-21). How to deploy and test: `docs/TESTING.md` §3.
 
-The stack has five functions: `api`, `worker`, `mailer`, `migrator`, and `retention`
-(D-041, L6-5), the only one that logs in as `app_retention`. The `retention` function's
+The stack has six functions: `api`, `worker`, `mailer`, `migrator`, `retention`
+(D-041, L6-5), the only one that logs in as `app_retention`, and `renderer` (D-042), the
+PDF renderer from its own `renderer.zip`. The `retention` function's
 `purge` and `retention` schedules are written **disabled**. Its errors alarm is a standard
 CloudWatch alarm, about USD 0.10 a month once applied; the function itself costs nothing
 while its schedules are off. Hourly runs of a few seconds would be well under USD 0.01
 a month at Lambda list prices (not verified against an AWS bill).
+
+**Renderer costs (D-042), once applied:**
+- The function costs nothing while nothing invokes it; S4 adds the caller.
+- A one-page invoice took about 0.3 s warm at 1024 MB locally, so about 0.3 GB-s. At the
+  arm64 list price of about USD 0.0000134 per GB-s (us-east-1; Mumbai not checked), that
+  is about USD 0.000004 per invoice plus USD 0.20 per million requests.
+- Ten thousand invoices a month would be about USD 0.05, inside Lambda's monthly free
+  allowance (400,000 GB-s) if the account still has it.
+- Its errors alarm is another standard alarm, about USD 0.10 a month.
+- The zip has no ECR cost (it is not an image) and no NAT: the renderer runs outside the
+  VPC.
 
 ## Launch prerequisites (AWS account actions, Pankaj)
 - **Lambda concurrency quota of at least 156 in ap-south-1 before the first prod apply.**
@@ -64,7 +76,7 @@ a month at Lambda list prices (not verified against an AWS bill).
 ## How a staging deploy runs (`.github/workflows/deploy-staging.yml`)
 Started by hand from `main` only. Two jobs, both in the `staging` environment, so each
 waits for its required reviewer:
-1. **plan** builds `app.zip`, `migrator.zip` and the web files, runs `terraform plan
+1. **plan** builds `app.zip`, `migrator.zip`, `renderer.zip` and the web files, runs `terraform plan
    -out=tfplan`, and shows the plan in the run summary (sensitive values hidden). The
    plan, its provider lock file and the built files go to the state bucket under
    `plans/staging/<run id>/`. A plan file contains state, secrets included, so it never

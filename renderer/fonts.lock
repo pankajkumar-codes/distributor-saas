@@ -1,0 +1,8 @@
+# Official static builds from notofonts/notofonts.github.io at commit 5c82cef0a8f08806f932062e18c02be62be278f0 (TD-9, D-042).
+# Unhinted TTFs: hinting does nothing in a PDF. Licence: SIL Open Font License 1.1.
+# sha256 url name-in-zip
+f3961a9cde016d41a4879aecda1474d3a36d6bf54fa0e4643de029cc2248b0e8 https://raw.githubusercontent.com/notofonts/notofonts.github.io/5c82cef0a8f08806f932062e18c02be62be278f0/fonts/NotoSans/unhinted/ttf/NotoSans-Regular.ttf NotoSans-Regular.ttf
+87cb2d84472a7d66da659ee47b6cdb9552326e8c128245231f191b6ac72529d9 https://raw.githubusercontent.com/notofonts/notofonts.github.io/5c82cef0a8f08806f932062e18c02be62be278f0/fonts/NotoSans/unhinted/ttf/NotoSans-Bold.ttf NotoSans-Bold.ttf
+9c7d935139ea6a1e6ad9dbac4f6d27ece1e04bca8123c8888d00a0f9df4724cd https://raw.githubusercontent.com/notofonts/notofonts.github.io/5c82cef0a8f08806f932062e18c02be62be278f0/fonts/NotoSansDevanagari/unhinted/ttf/NotoSansDevanagari-Regular.ttf NotoSansDevanagari-Regular.ttf
+ff2f76a23aad41e0608c2d7dbc4bacd247ff3bec78f0ec2a8fb106b561636e58 https://raw.githubusercontent.com/notofonts/notofonts.github.io/5c82cef0a8f08806f932062e18c02be62be278f0/fonts/NotoSansDevanagari/unhinted/ttf/NotoSansDevanagari-Bold.ttf NotoSansDevanagari-Bold.ttf
+f2095b08bed08b23a6fe26112fcd679a2bee3f002eef077eb05d215ed1051bd8 https://raw.githubusercontent.com/notofonts/notofonts.github.io/5c82cef0a8f08806f932062e18c02be62be278f0/fonts/LICENSE OFL.txt

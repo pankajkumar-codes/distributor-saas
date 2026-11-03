@@ -1,6 +1,7 @@
 # The whole environment. envs/staging and envs/prod call this with different sizes.
 # Deployables (TD-1, HLD §4): the API and worker Lambdas share app.zip, the mailer runs
-# outside the VPC with SES only, and the migrator applies migrations as the master.
+# outside the VPC with SES only, the migrator applies migrations as the master, and the
+# PDF renderer runs from its own renderer.zip (TD-1(b) amendment, D-042).
 
 terraform {
   required_providers {
@@ -27,7 +28,7 @@ variable "cdn_certificate_arn" {
   default = ""
 }
 variable "packages_dir" {
-  description = "Directory holding app.zip and migrator.zip from scripts/build_lambda.sh"
+  description = "Directory holding app.zip and migrator.zip (scripts/build_lambda.sh) and renderer.zip (scripts/build_renderer.py)"
   type        = string
 }
 variable "git_sha" {
@@ -319,6 +320,23 @@ module "retention" {
   environment     = merge(local.db_env, local.after_migrations)
 }
 
+# The PDF renderer (TD-9; TD-1(b) amendment, D-042): WeasyPrint with its own native
+# libraries and fonts, from its own zip (scripts/build_renderer.py), so none of that is in
+# the API's or the worker's package or cold start. 1024 MB: about 0.3 s warm and 1.3 s
+# cold for a one-page invoice in the local measurements, to be re-measured on arm64 on the
+# first staging deploy (the self-test task). Outside the VPC, with no database login and,
+# today, no rights beyond its own logs: S4 (BH-6) adds the worker's async invoke and the
+# write to documents/ with the first real render, and decides the async retry and failure
+# destination then. Unreserved, so TD-6's caps and the quota of 156 are unchanged.
+module "renderer" {
+  source          = "../function"
+  name            = "${local.name}-renderer"
+  package_path    = "${var.packages_dir}/renderer.zip"
+  handler         = "renderer.handler.handler"
+  memory_mb       = 1024
+  timeout_seconds = 60 # a 1000-line invoice took 12 s locally at this size
+}
+
 # Schedules (TD-25, HLD §4, LLD-6 §6.1). The purge and retention rules stay DISABLED until
 # Pankaj's staging decision and a dry run there; every rule also ships disabled in
 # refdata (retention.<rule>.enabled), so enabling a schedule alone deletes nothing.
@@ -384,6 +402,22 @@ resource "aws_cloudwatch_metric_alarm" "dlq" {
   alarm_actions       = [aws_sns_topic.alarms.arn]
 }
 
+# A failed render. Like retention_errors, about USD 0.10 a month beyond CloudWatch's
+# free alarms.
+resource "aws_cloudwatch_metric_alarm" "renderer_errors" {
+  alarm_name          = "${local.name}-renderer-errors"
+  namespace           = "AWS/Lambda"
+  metric_name         = "Errors"
+  dimensions          = { FunctionName = module.renderer.function_name }
+  statistic           = "Sum"
+  period              = 3600
+  evaluation_periods  = 1
+  threshold           = 0
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [aws_sns_topic.alarms.arn]
+}
+
 # A failed retention run: the log line names the rule and the exception class only.
 resource "aws_cloudwatch_metric_alarm" "retention_errors" {
   alarm_name          = "${local.name}-retention-errors"
@@ -428,6 +462,7 @@ output "api_endpoint" { value = module.api.endpoint }
 output "user_pool_id" { value = module.auth.user_pool_id }
 output "user_pool_client_id" { value = module.auth.client_id }
 output "migrator_function" { value = module.migrator.function_name }
+output "renderer_function" { value = module.renderer.function_name }
 output "objects_bucket" { value = module.storage.bucket }
 output "web_bucket" { value = module.cdn.web_bucket }
 output "cdn_distribution_id" { value = module.cdn.distribution_id }

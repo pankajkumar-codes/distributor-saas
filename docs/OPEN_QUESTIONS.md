@@ -44,7 +44,7 @@ Listed in `team/docs/build-readiness.md` §2 and §3 in the project files, with 
 - Cognito access tokens carry `origin_jti`, and it stays the same after a refresh. Fallback: `event_id`, then a custom claim.
 - The RDS master can be granted `app_owner`, and `btree_gist` and `pg_trgm` are allowed. All three were proved on local PostgreSQL 16 (build-readiness 2.1–2.3); the RDS re-check is in S0b. Fallbacks are in LLD-0 §4.1 and §6.2.
 - The presigned POST policy and bucket-default KMS (D-036) behave as designed on staging.
-- WeasyPrint runs on Lambda within the cold-start and render-time targets (TD-9). Fallback: ReportLab.
+- WeasyPrint runs on Lambda within the cold-start and render-time targets (TD-9). Measured locally on x86_64 under the Lambda image (spike, `team/staff2/td9-weasyprint-spike.md`): about 1.3 s cold and 0.3 s warm at 1024 MB. **Still open: the arm64 re-measure on the first staging deploy** (invoke the renderer with `{"task": "selftest"}`; read Init Duration, Duration and Max Memory Used). Fallback: ReportLab.
 
 ## Values hard-coded until code reads refdata
 The rows now exist in `refdata/` (S0b, LLD-0 §6); each place below still holds the
@@ -128,6 +128,12 @@ Every row in `refdata/` is `provisional`. Before go-live:
   - **Sessions past the 24 h idle limit** but before absolute expiry are kept until absolute expiry + 30 days. That is conservative; LLD-1 §12 names only revocation and absolute expiry.
 - A job whose last SQS message is lost while `failed_retryable` stays there; the outbox sweep only resends unsent rows. The DLQ alarm covers exhausted messages, not this. A "stuck jobs" sweep can come with the alarms (TD-24).
 - The real-S3 policy checks (limit + 1 byte, other key, after 5 minutes, other KMS key) are QA's staging checks (HLD §6.5); the local store only mirrors them.
+
+## PDF renderer follow-ups (D-042)
+- **arm64 re-measure** on the first staging deploy (above). CI only builds and checks the arm64 zip; it renders on x86_64.
+- **S4 (BH-6)** adds the invoice task, the worker's `lambda:InvokeFunction` on the renderer, the renderer's write to `documents/`, and what happens to a failed async render (retries, failure destination, or a job status the worker polls). Also a line cap per invoice: 1000 lines took 12 s locally.
+- **Devanagari proof:** the self-test shows the glyphs are shaped and that only Noto fonts are embedded; an Indian-language reader should check a real invoice before launch.
+- **Other scripts** (for example Bengali for West Bengal sellers) each add one Noto family, about 0.2–0.5 MB per weight. That is a product decision.
 
 ## Staging infrastructure follow-ups (S0b, D-040)
 - The `purge` (hourly) and `retention` (daily, 02:30 IST) schedules target the `retention` Lambda (L6-5) and stay **disabled** until the staging decision; each rule is also off in refdata. Raw uploads now expire 90 days after upload through the `uploads/` lifecycle rule (TD-18; `upload_retention_days`).

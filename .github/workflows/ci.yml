@@ -73,7 +73,7 @@ jobs:
           python-version: "3.12"
       - run: pip install ruff==0.17.0 pytest pyyaml
       - name: Ruff (includes the clock rule, TID251 in ruff.toml)
-        run: ruff check app migrator libs tests scripts
+        run: ruff check app migrator libs tests scripts renderer
       - name: No floats in app or library code
         run: python scripts/float_guard.py
       - name: CI check self-tests (float guard; AC-13 planted fixtures in tests/ci_fixtures)
@@ -362,6 +362,28 @@ jobs:
       - name: API log
         if: failure()
         run: cat api.log
+
+  renderer:
+    # The PDF renderer Lambda's zip (TD-9, D-042), built from renderer/'s locks only: the
+    # arm64 zip that deploys must stay under its size budget, hold only aarch64 code, find
+    # every native library it needs, and carry its licences. CI cannot run arm64, so the
+    # same locks are built for x86_64 and that build renders the self-test page.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/cache@v4
+        with:
+          path: build/.cache/renderer
+          key: renderer-${{ hashFiles('renderer/natives.lock', 'renderer/fonts.lock') }}
+      - name: Build and check the arm64 zip
+        run: make renderer-zip PY=python
+      - name: Build, check and smoke-render the x86_64 zip
+        run: |
+          make renderer-zip PY=python ARCH=x86_64
+          python scripts/check_renderer_zip.py --arch x86_64 --smoke build/renderer-x86_64.zip
 
   terraform:
     runs-on: ubuntu-latest

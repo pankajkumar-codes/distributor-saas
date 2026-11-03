@@ -6,7 +6,7 @@ name: deploy-staging
 # deploy.
 #
 # Two jobs, each in the `staging` environment, so each waits for its required reviewer:
-#   plan   builds the zips and web files, writes a saved plan, and shows it in the run
+#   plan   builds the zips (renderer.zip too) and web files, writes a saved plan, and shows it in the run
 #          summary. The plan and the exact files it was made from go to the state
 #          bucket under plans/staging/<run>/: a plan file holds the prior state, secrets
 #          included, so it never becomes a GitHub artifact.
@@ -75,7 +75,9 @@ jobs:
       - run: scripts/deploy/install_terraform.sh
 
       - name: Build Lambda zips
-        run: make build
+        run: |
+          make build
+          make renderer-zip PY=python
       - name: Build web files
         working-directory: web
         run: npm ci && npm run build
@@ -95,6 +97,7 @@ jobs:
           aws s3 cp infra/envs/staging/.terraform.lock.hcl "$PLAN_PREFIX/terraform.lock.hcl"
           aws s3 cp build/app.zip "$PLAN_PREFIX/app.zip"
           aws s3 cp build/migrator.zip "$PLAN_PREFIX/migrator.zip"
+          aws s3 cp build/renderer.zip "$PLAN_PREFIX/renderer.zip"
           aws s3 sync web/dist "$PLAN_PREFIX/web/"
 
   apply:
@@ -119,6 +122,7 @@ jobs:
           aws s3 cp "$PLAN_PREFIX/terraform.lock.hcl" infra/envs/staging/.terraform.lock.hcl
           aws s3 cp "$PLAN_PREFIX/app.zip" build/app.zip
           aws s3 cp "$PLAN_PREFIX/migrator.zip" build/migrator.zip
+          aws s3 cp "$PLAN_PREFIX/renderer.zip" build/renderer.zip
           aws s3 sync "$PLAN_PREFIX/web/" web/dist
 
       # The plan's provider lock file comes with it, so init installs the same versions.
