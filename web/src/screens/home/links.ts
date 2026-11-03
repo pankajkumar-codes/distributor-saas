@@ -2,7 +2,7 @@
 // business that the web actually has a screen for; anything else gets no link at all.
 
 /** Screens under /b/:businessId/ that exist in the web today. Each new screen adds its path. */
-export const SCREENS = new Set<string>(["home", "products", "customers"]);
+export const SCREENS = new Set<string>(["home", "products", "customers", "settings/filing"]);
 
 /** The in-app path for `href`, or null when it isn't one of this business's screens. */
 export function screenPath(href: unknown, businessId: string, screens: ReadonlySet<string> = SCREENS): string | null {

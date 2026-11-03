@@ -14,6 +14,8 @@ const WORDS: Record<string, string> = {
     "Your filing frequency choice may fall outside the period when it can be changed on the GST portal. Please check with your CA.",
   last_return_unfiled:
     "A return that was due may not be filed yet, which can stop a change of filing frequency. Please check with your CA.",
+  frequency_carried: "Your filing frequency was kept for the new GSTIN. Check it in Filing frequency.",
+  carried_from_gstin_change: "Kept from your previous GSTIN.",
   aato_above_threshold:
     "Your declared turnover is above the limit for quarterly filing (QRMP). Please check with your CA before filing quarterly.",
 };
