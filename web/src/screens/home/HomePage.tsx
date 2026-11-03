@@ -148,6 +148,19 @@ export function HomePage() {
             </ul>
           </section>
         )}
+
+        {/* Until the app has its own navigation (Designer, OPEN_QUESTIONS), Home is the way in. */}
+        <nav className="card" aria-labelledby="settings">
+          <h2 id="settings">Settings</h2>
+          <ul className="list">
+            <li>
+              <Link to={`/b/${businessId}/settings/company`}>Business details</Link>
+            </li>
+            <li>
+              <Link to={`/b/${businessId}/settings/filing`}>Filing frequency</Link>
+            </li>
+          </ul>
+        </nav>
       </main>
     </>
   );
