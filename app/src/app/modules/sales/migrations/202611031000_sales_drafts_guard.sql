@@ -8,6 +8,10 @@
 -- changed or deleted, and neither can its lines, whatever the service does (the draft is
 -- the input to a posted document once finalized).
 
+-- #78's guard gets the same hardening as the other guards.
+alter function sales.guard_series_forward() set search_path = pg_catalog, sales, pg_temp;
+revoke all on function sales.guard_series_forward() from public;
+
 alter table sales.drafts add column customer_collects boolean not null default false;
 
 revoke update on sales.drafts from app_rw;
@@ -17,7 +21,7 @@ grant update (customer_id, cash_buyer, bill_to, ship_to, ship_to_third_party, cu
 revoke update on sales.draft_lines from app_rw;  -- lines are replaced whole (delete and insert)
 
 create function sales.guard_draft_open() returns trigger
-language plpgsql as $$
+language plpgsql security invoker set search_path = pg_catalog, sales, pg_temp as $$
 begin
     if old.status <> 'open' then
         raise exception 'draft % is % and cannot be changed or deleted', old.id, old.status
@@ -26,11 +30,12 @@ begin
     return case tg_op when 'DELETE' then old else new end;
 end
 $$;
+revoke all on function sales.guard_draft_open() from public;
 create trigger drafts_only_while_open before update or delete on sales.drafts
     for each row execute function sales.guard_draft_open();
 
 create function sales.guard_draft_lines_open() returns trigger
-language plpgsql as $$
+language plpgsql security invoker set search_path = pg_catalog, sales, pg_temp as $$
 declare
     parent_status text;
 begin
@@ -42,5 +47,6 @@ begin
     return case tg_op when 'DELETE' then old else new end;
 end
 $$;
+revoke all on function sales.guard_draft_lines_open() from public;
 create trigger draft_lines_only_while_open before insert or update or delete on sales.draft_lines
     for each row execute function sales.guard_draft_lines_open();
