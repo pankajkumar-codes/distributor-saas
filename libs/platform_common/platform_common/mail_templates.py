@@ -40,6 +40,21 @@ _TEMPLATES: dict[str, tuple[str, str, dict[str, str]]] = {
     ),
     "totp_on": ("Two-step sign-in is on", f"Two-step sign-in with an authenticator app is now on.\n\n{_SECURE}", {}),
     "totp_off": ("Two-step sign-in is off", f"Two-step sign-in with an authenticator app is now off.\n\n{_SECURE}", {}),
+    # TOTP recovery by support (LLD-2 §6.3). The code goes only to the account's address; the
+    # user reads it to support, never the other way round.
+    "totp_recovery_code": (
+        "Your code for support",
+        "Support is helping you turn off two-step sign-in. Your code is $code.\n\nRead it to the support"
+        " person only if you contacted support yourself. If you didn't, ignore this email: nothing changes"
+        " without the code.",
+        {},
+    ),
+    "totp_off_by_support": (
+        "Support turned off two-step sign-in",
+        "Support removed two-step sign-in from your account, and you've been signed out everywhere."
+        f" Sign in with your password and turn it on again from your profile.\n\n{_SECURE}",
+        {},
+    ),
     "invitation": (
         "$inviter_name invited you to join $business_name",
         "$inviter_name invited you to join $business_name as $role_label.\n\nAccept the invitation: $link\n\n"

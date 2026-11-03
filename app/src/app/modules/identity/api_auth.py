@@ -137,6 +137,7 @@ class ErrorOut(BaseModel):
 _ERROR_DESCRIPTIONS = {
     400: "Bad Request",
     401: "Unauthorized",
+    404: "Not Found",
     409: "Conflict",
     422: "Unprocessable Content",
     429: "Too Many Requests",

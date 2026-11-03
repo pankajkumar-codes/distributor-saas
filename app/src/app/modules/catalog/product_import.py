@@ -411,6 +411,13 @@ def parse(uow: UnitOfWork, run_id: uuid.UUID, content: bytes, today: date) -> Ru
     run = get_run(uow, run_id, lock=True)
     if run.status not in ("awaiting_upload", "parsing"):
         raise Conflict("import_not_parseable", "This upload has already been read")
+    declared = uow.tx.execute(text("select size_bytes from catalog.import_runs where id = :r and business_id = :b"),
+                              {"r": run_id, "b": _business(uow)}).scalar_one()
+    if content and len(content) != declared:
+        # The POST stays valid for its 5 minutes after complete; a second, different upload
+        # in that window is refused here rather than read as the file the user chose.
+        fail(uow, run_id, "upload_size_mismatch", "The uploaded file changed after it was checked. Upload it again")
+        return get_run(uow, run_id)
     most = int(value_on(uow.tx, "catalog.import.max_bytes", today))
     if not content or len(content) > most:
         fail(uow, run_id, "file_too_large" if content else "file_empty",
@@ -511,7 +518,8 @@ def _insert_rows(uow: UnitOfWork, run_id: uuid.UUID, rows: list[_Row]) -> None:
         "insert into catalog.import_rows (id, business_id, run_id, row_number, code_key, parsed, status,"
         " product_id, compared_version, diff, errors)"
         " values (:id, :b, :run, :n, :key, :parsed, :status, :pid, :ver, :diff, :errors)"
-    ).bindparams(bindparam("parsed", type_=JSON), bindparam("diff", type_=JSON), bindparam("errors", type_=JSON))
+    ).bindparams(bindparam("parsed", type_=JSON), bindparam("diff", type_=JSON(none_as_null=True)),
+                bindparam("errors", type_=JSON(none_as_null=True)))  # a row without errors holds SQL NULL
     for start_at in range(0, len(rows), _BATCH):
         uow.tx.execute(stmt, [
             {"id": uuid7(), "b": _business(uow), "run": run_id, "n": r.number, "key": r.code_key,

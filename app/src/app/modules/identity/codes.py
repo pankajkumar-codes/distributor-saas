@@ -1,4 +1,5 @@
-"""One-time email codes for sign-up and password reset (LLD-1 L1-4, §5).
+"""One-time email codes for sign-up, password reset and TOTP recovery by support (LLD-1
+L1-4, §5; LLD-2 §6.3).
 
 A code is 6 digits from `secrets.randbelow`, zero-padded. Only its HMAC-SHA256 is
 stored; the key is per environment (Secrets Manager `auth/code-hmac` in AWS, S0b) and
@@ -18,7 +19,7 @@ import secrets
 from platform_common.auth import debug_env
 from platform_common.secrets import secret
 
-PURPOSES = frozenset({"signup", "reset"})
+PURPOSES = frozenset({"signup", "reset", "totp_recovery"})
 CODE_DIGITS = 6
 _DEV_KEY = b"local-only-code-key"
 

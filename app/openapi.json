@@ -2838,6 +2838,40 @@
         "title": "ReadinessOut",
         "type": "object"
       },
+      "RecoveryBody": {
+        "properties": {
+          "email": {
+            "maxLength": 254,
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "RecoveryBody",
+        "type": "object"
+      },
+      "RecoveryConfirmBody": {
+        "properties": {
+          "code": {
+            "maxLength": 16,
+            "title": "Code",
+            "type": "string"
+          },
+          "email": {
+            "maxLength": 254,
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "code"
+        ],
+        "title": "RecoveryConfirmBody",
+        "type": "object"
+      },
       "Registration": {
         "properties": {
           "enrolment_number": {
@@ -7323,6 +7357,133 @@
         "summary": "Get State Codes",
         "tags": [
           "refdata"
+        ]
+      }
+    },
+    "/api/v1/support/totp-recovery": {
+      "post": {
+        "description": "Mails a code to the account if it has TOTP on. The reply is the same for any email,\nso support can't use it to learn who has an account or TOTP.",
+        "operationId": "start_totp_recovery_api_v1_support_totp_recovery_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecoveryBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodeSent"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "summary": "Start Totp Recovery",
+        "tags": [
+          "support"
+        ]
+      }
+    },
+    "/api/v1/support/totp-recovery/confirm": {
+      "post": {
+        "description": "The code the user read out. Right: the account's TOTP is off and every session of\nit ends. Wrong: 400 code_not_accepted, and the fifth wrong try voids the code.",
+        "operationId": "confirm_totp_recovery_api_v1_support_totp_recovery_confirm_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecoveryConfirmBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "summary": "Confirm Totp Recovery",
+        "tags": [
+          "support"
         ]
       }
     }

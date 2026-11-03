@@ -27,6 +27,8 @@ ignore_imports =
     app.modules.catalog.** -> app.modules.business.interface
 ; catalog reads product files through imports' read_table (LLD-3 §7.1).
     app.modules.catalog.** -> app.modules.imports.interface
+; catalog's import jobs re-check the queuing user's role when they run (#69 review).
+    app.modules.catalog.** -> app.modules.identity.interface
 ; Module tests drive the mounted app and may call other modules' interfaces, the
 ; same surface any module may use.
     app.modules.*.tests.** -> app.api

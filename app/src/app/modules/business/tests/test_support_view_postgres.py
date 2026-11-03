@@ -176,3 +176,42 @@ def test_each_request_is_one_view_and_the_rows_carry_no_personal_data(biz):
     rows = views(pg, bid)
     assert len(rows) == 3
     assert "@" not in json.dumps([r.data for r in rows])
+
+
+def test_an_object_id_equal_to_the_business_is_no_object(biz):
+    """target_id and data.object_id agree: both empty when the only other ID in the path
+    is the business's own (Staff 2 (3), #59)."""
+    pg, bid = biz
+    support_user(pg)
+    grant(pg, bid)
+    assert get(pg, bid, f"/jobs/{bid}").status_code == 404
+    [row] = views(pg, bid)
+    assert (row.target_id, row.data["object_id"]) == (None, None)
+
+
+def test_with_grants_on_two_businesses_step_two_sees_only_the_one_named(biz, monkeypatch):
+    """One support user, live grants on A and B: a request for A reads A's rows and none of
+    B's (Staff 2 (3), #59)."""
+    from app.modules.business import profile
+
+    pg, a = biz
+    r = create(pg.client, sub="bob")
+    assert r.status_code == 201, r.text
+    b = r.json()["business_id"]
+    support_user(pg)
+    grant(pg, a)
+    grant(pg, b)
+    seen = {}
+    original = profile.channels
+
+    def watched(tx, *args, **kwargs):
+        seen["businesses"] = sorted(str(x) for x in tx.execute(text("select id from identity.businesses")).scalars())
+        seen["b_profile"] = tx.execute(
+            text("select count(*) from identity.businesses where id = :b"), {"b": b}
+        ).scalar()
+        return original(tx, *args, **kwargs)
+
+    monkeypatch.setattr(profile, "channels", watched)
+    assert get(pg, a, "/channels").status_code == 200
+    assert seen == {"businesses": [a], "b_profile": 0}
+    assert len(views(pg, a)) == 1 and views(pg, b) == []

@@ -23,6 +23,9 @@ ALLOWED_DATA: dict[str, frozenset[str]] = {
     "auth.password_change": frozenset(),
     "auth.totp_on": frozenset(),
     "auth.totp_off": frozenset(),
+    # Written by identity.auth_totp_recovery_complete, not by record(): the row is the
+    # account's own, and names the support user who removed its TOTP (LLD-2 §6.3).
+    "auth.totp_removed_by_support": frozenset({"support_user_id"}),
     "auth.signout": frozenset(),
     "auth.signout_all": frozenset({"sessions"}),
     "business.create": frozenset({"registration_kind"}),
