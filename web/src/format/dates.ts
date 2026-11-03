@@ -33,3 +33,11 @@ export function dayBefore(day: string): string {
   const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]) - 1));
   return d.toISOString().slice(0, 10);
 }
+
+/** An instant as DD-MMM-YYYY, HH:MM in India ("25-Oct-2026, 14:20"), whatever the browser's time zone. */
+export function formatDateTimeIst(instant: string): string {
+  const t = Date.parse(instant);
+  if (Number.isNaN(t)) return instant;
+  const ist = new Date(t + IST_OFFSET_MS).toISOString();
+  return `${formatDate(ist.slice(0, 10))}, ${ist.slice(11, 16)}`;
+}
