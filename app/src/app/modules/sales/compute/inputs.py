@@ -20,7 +20,7 @@ from app.modules.business.interface import (
     ready_for_documents,
 )
 from app.modules.catalog.interface import customer_snapshot, products_for_lines
-from app.modules.refdata import RefdataMissing, value_on
+from app.modules.refdata import RefdataMissing, first_valid_from, value_on
 from platform_common.errors import Invalid
 
 from .model import Buyer, ComputeInput, DraftIn, DraftLineIn, LineIn, Rules, Seller
@@ -45,9 +45,12 @@ def load_inputs(tx: Session, draft: DraftIn, lines: list[DraftLineIn], *, today:
             hsn_band_missing_fy=band_missing and band_missing.fy,
             hsn_min_digits_if_band_set=band_missing and band_missing.digits_if_up_to,
         )
-        # Inside the handler: it reads catalog refdata on doc_date too (Lead, #89).
+        # Keep inside the try: it reads catalog refdata on doc_date too, so a date before
+        # that rule's history is a 422 here rather than a 500 (Lead and Staff, #89).
         products = products_for_lines(tx, [ln.product_id for ln in lines if ln.product_id], on)
-    except RefdataMissing:
+    except RefdataMissing as e:
+        if not _before_history(tx, e):
+            raise  # a gap, an overlap or a missing key is a refdata defect: 500 and an alarm
         raise Invalid(
             "doc_date_not_supported", "The app has no GST rules for this invoice date.", field="doc_date"
         ) from None
@@ -74,6 +77,13 @@ def load_inputs(tx: Session, draft: DraftIn, lines: list[DraftLineIn], *, today:
         pos_override_reason=draft.pos_override_reason,
         has_eway_details=draft.has_eway_details,
     )
+
+
+def _before_history(tx: Session, e: RefdataMissing) -> bool:
+    """The only RefdataMissing that is the user's date, not our data: no row because the
+    date is earlier than the key's first row (Staff, #89)."""
+    first = first_valid_from(tx, e.key)
+    return e.found == 0 and first is not None and e.on < first
 
 
 def _rules(tx: Session, on: date) -> Rules:

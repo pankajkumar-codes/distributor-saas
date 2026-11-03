@@ -12,7 +12,8 @@ from decimal import Decimal
 import pytest
 from sqlalchemy import text
 
-from app.modules.business.thresholds import einvoice_status_for, min_digits_for
+from app.modules.business import thresholds
+from app.modules.business.thresholds import HsnBandMissing, einvoice_status_for, min_digits_for
 
 from .conftest import PG_ADMIN_URL, ctx, user_id
 
@@ -33,6 +34,25 @@ FIVE_CRORE, TEN_CRORE = D("50000000.00"), D("100000000.00")
 )
 def test_min_digits_table(band, band_threshold, rule_threshold, digits):
     assert min_digits_for(band, band_threshold, rule_threshold, 4, 6) == digits
+
+
+@pytest.mark.parametrize(
+    "band_threshold, expected",
+    [
+        (FIVE_CRORE, HsnBandMissing("2025-26", 4)),  # today: both Rs 5 crore
+        (D("80000000.00"), None),  # a band limit above the rule's: setting it can't help
+    ],
+)
+def test_band_missing_only_when_setting_the_band_could_lower_the_count(monkeypatch, band_threshold, expected):
+    rows = {
+        "business.turnover_band_threshold": band_threshold,
+        "hsn.min_digits_aato_threshold": FIVE_CRORE,
+        "hsn.min_digits_up_to_threshold": 4,
+        "hsn.min_digits_above_threshold": 6,
+    }
+    monkeypatch.setattr(thresholds, "value_on", lambda tx, key, on: rows[key])
+    monkeypatch.setattr(thresholds, "turnover_band", lambda tx, fy: None)
+    assert thresholds.hsn_band_missing(None, date(2026, 11, 3)) == expected
 
 
 @pytest.mark.parametrize(

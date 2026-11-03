@@ -130,3 +130,24 @@ def test_unknown_products_old_dates_and_other_businesses(shop):
     )
     with pytest.raises(Deny):
         run(pg, biz, alice, DraftIn(doc_date=TODAY, customer_id=theirs), [])
+
+
+def test_only_a_date_before_the_rules_is_a_422(shop, monkeypatch):  # Staff, #89
+    from app.modules.refdata import RefdataMissing
+    from app.modules.sales.compute import inputs
+
+    pg, biz, alice = shop
+    draft = DraftIn(doc_date=TODAY, customer_id=None, cash_buyer={"state_code": "19"})
+
+    def missing(key):
+        def raise_(tx, on):
+            raise RefdataMissing(key, on)
+
+        return raise_
+
+    monkeypatch.setattr(inputs, "einvoice_status", missing("no.such.key"))
+    with pytest.raises(RefdataMissing):  # a missing key propagates: 500, not 422
+        run(pg, biz, alice, draft, [])
+    monkeypatch.setattr(inputs, "einvoice_status", missing("invoice.rounding_mode"))
+    with pytest.raises(RefdataMissing):  # a gap on a date the key covers propagates too
+        run(pg, biz, alice, draft, [])
