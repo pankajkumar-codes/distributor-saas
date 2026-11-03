@@ -328,12 +328,12 @@ module "retention" {
 #
 # The worker reaches it through the `render` queue (EM decision on #79): the worker
 # already sends to SQS through the VPC's SQS endpoint, so this needs no Lambda endpoint
-# (about USD 7-8 a month per AZ) and gets SQS's retries and a DLQ. A message carries an
-# S3 key under render-input/b/*, never the document body (EM, D-042). The renderer may
-# read that prefix and nothing else in the bucket, and decrypt with our key only through
-# S3. S4 (BH-6) adds the worker's SendMessage on this queue and the renderer's KMS
-# GenerateDataKey and PutObject on documents/b/* with the first real render. Unreserved,
-# so TD-6's caps and the quota of 156 are unchanged.
+# (about USD 7-8 a month per AZ) and gets SQS's retries and a DLQ. A message carries a
+# document ID or an S3 key, never the invoice itself. S4 (BH-6) adds the worker's
+# SendMessage on this queue and the renderer's KMS GenerateDataKey and PutObject on
+# documents/b/* with the first real render; today the renderer can read its queue and
+# write its logs, nothing else. Unreserved, so TD-6's caps and the quota of 156 are
+# unchanged.
 module "render" {
   source                     = "../queue"
   name                       = "${local.name}-render"
@@ -348,15 +348,6 @@ module "renderer" {
   memory_mb       = 1024
   timeout_seconds = 60 # a 1000-line invoice took 12 s locally at this size
   sqs_trigger     = { arn = module.render.arn, batch_size = 1 }
-  policy_statements = [
-    { Effect = "Allow", Action = ["s3:GetObject"], Resource = ["${module.storage.bucket_arn}/render-input/b/*"] },
-    {
-      Effect    = "Allow"
-      Action    = ["kms:Decrypt"]
-      Resource  = [module.storage.kms_key_arn]
-      Condition = { StringEquals = { "kms:ViaService" = "s3.${data.aws_region.current.name}.amazonaws.com" } }
-    },
-  ]
 }
 
 # Schedules (TD-25, HLD §4, LLD-6 §6.1). The purge and retention rules stay DISABLED until

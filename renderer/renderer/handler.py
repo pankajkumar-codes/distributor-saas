@@ -1,13 +1,12 @@
 """The renderer Lambda's entry point, renderer.handler.handler (TD-9, D-042).
 
-S4 (BH-6) adds the invoice task: after finalize the worker writes the render input under
-render-input/b/ and sends its S3 key to the `render` SQS queue, which triggers this
-function (D-042). The message never carries the document itself. Until then a queue
-message is refused (and lands in the DLQ after five tries), and the only task is the
-self-test, invoked by hand, which renders a fixed one-page sample (fictional names and
-amounts; English, Hindi and the rupee sign) and reports its size and render time. It
-reads and writes nothing, so it is how the arm64 numbers get measured on the first
-staging deploy.
+S4 (BH-6) adds the invoice task: after finalize the worker sends a message to the
+`render` SQS queue, which triggers this function (D-042). The message carries a document
+ID or an S3 key, never the invoice itself. Until then a queue message is refused (and
+lands in the DLQ after five tries), and the only task is the self-test, invoked by hand, which renders a fixed one-page
+sample (fictional names and amounts; English, Hindi and the rupee sign) and reports its
+size and render time. It reads and writes nothing, so it is safe to invoke by hand, and
+it is how the arm64 numbers get measured on the first staging deploy.
 """
 
 import re
