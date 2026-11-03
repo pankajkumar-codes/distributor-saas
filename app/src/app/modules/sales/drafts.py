@@ -26,7 +26,7 @@ from platform_common.ids import uuid7
 from platform_common.uow import UnitOfWork
 
 MAX_LINES = 200
-MAX_CHARGES = 10
+MAX_CHARGES = 20
 _MONEY = re.compile(r"^[0-9]{1,16}(\.[0-9]{1,2})?$")
 _QTY = re.compile(r"^[0-9]{1,15}(\.[0-9]{1,3})?$")
 _TWO, _THREE = Decimal("0.01"), Decimal("0.001")
@@ -193,6 +193,8 @@ def create(uow: UnitOfWork, body: dict, today: date) -> uuid.UUID:
 
 
 def replace(uow: UnitOfWork, draft_id: uuid.UUID, body: dict, if_match: int | None, today: date) -> None:
+    if body.get("kind", "invoice") != "invoice":
+        raise Invalid("kind_unsupported", "Only invoices can be drafted for now", field="kind")
     d = get(uow, draft_id, lock=True)
     _check_version(d, if_match)
     cols, lines = _checked(uow, body, today)

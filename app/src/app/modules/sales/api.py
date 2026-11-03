@@ -71,10 +71,10 @@ class DraftIn(BaseModel):
     cash_buyer: CashBuyerIn | None = None
     doc_date: date | None = None
     invoice_discount: Amount = "0"
-    charges: list[ChargeIn] = []
+    charges: Annotated[list[ChargeIn], Field(max_length=drafts.MAX_CHARGES)] = []
     eway: EwayIn | None = None
     customer_collects: StrictBool = False  # ex-works, the customer collects the goods (case D)
-    lines: list[LineIn] = []
+    lines: Annotated[list[LineIn], Field(max_length=drafts.MAX_LINES)] = []
 
 
 class LineOut(BaseModel):
@@ -126,11 +126,17 @@ def _out(d: dict) -> dict:
     }
 
 
+def _etag(response: Response, d: dict) -> dict:
+    """The version is the entity tag: send it back as If-Match on PUT and DELETE."""
+    response.headers["ETag"] = f'"{d["version"]}"'
+    return d
+
+
 def _version(if_match: str | None) -> int | None:
     if if_match is None:
         return None
     try:
-        return int(if_match.strip().strip('"'))
+        return int(if_match.strip().removeprefix("W/").strip('"'))  # a weak tag is as good
     except ValueError:
         return -1  # never a real version, so it reads as stale
 
@@ -150,6 +156,7 @@ def list_drafts(
 def create_draft(
     body: DraftIn,
     request: Request,
+    response: Response,
     uow: BusinessUoW,
     clock: Annotated[Clock, Depends(get_clock)],
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
@@ -157,26 +164,28 @@ def create_draft(
     def create():
         return _out(drafts.get(uow, drafts.create(uow, body.model_dump(mode="json"), clock.today())))
 
-    return run_once(uow.tx, uow.principal.business_id, idempotency_key, method=request.method,
-                    route=request.scope["route"].path, payload=body.model_dump(mode="json"), operation=create)
+    return _etag(response, run_once(uow.tx, uow.principal.business_id, idempotency_key, method=request.method,
+                                    route=request.scope["route"].path, payload=body.model_dump(mode="json"),
+                                    operation=create))
 
 
 @router.get("/b/{business_id}/drafts/{draft_id}", response_model=DraftOut, dependencies=VIEW)
-def get_draft(draft_id: str, uow: BusinessUoW):
-    return _out(drafts.get(uow, parse_id(draft_id)))
+def get_draft(draft_id: str, uow: BusinessUoW, response: Response):
+    return _etag(response, _out(drafts.get(uow, parse_id(draft_id))))
 
 
 @router.put("/b/{business_id}/drafts/{draft_id}", response_model=DraftOut, dependencies=EDIT)
 def save_draft(
     draft_id: str,
     body: DraftIn,
+    response: Response,
     uow: BusinessUoW,
     clock: Annotated[Clock, Depends(get_clock)],
     if_match: Annotated[str | None, Header(alias="If-Match")] = None,
 ):
     did = parse_id(draft_id)
     drafts.replace(uow, did, body.model_dump(mode="json"), _version(if_match), clock.today())
-    return _out(drafts.get(uow, did))
+    return _etag(response, _out(drafts.get(uow, did)))
 
 
 @router.delete("/b/{business_id}/drafts/{draft_id}", status_code=http.HTTP_204_NO_CONTENT, dependencies=EDIT)

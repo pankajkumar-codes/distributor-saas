@@ -70,12 +70,28 @@ def test_create_then_read_with_money_as_strings(shop):
     assert got.status_code == 200 and got.json() == d
 
 
+def test_etag_carries_the_version_and_a_weak_tag_is_accepted(shop):
+    pg, biz, _ = shop
+    p = make_product(pg, biz)
+    made = create(pg, biz, draft_body(p))
+    assert made.headers["etag"] == '"1"'
+    d = made.json()
+    got = pg.client.get(f"/api/v1/b/{biz}/drafts/{d['id']}", headers=h())
+    assert got.headers["etag"] == '"1"'
+    r = pg.client.put(f"/api/v1/b/{biz}/drafts/{d['id']}", json=draft_body(p), headers=h(**{"If-Match": 'W/"1"'}))
+    assert r.status_code == 200 and r.headers["etag"] == '"2"'
+    assert pg.client.put(f"/api/v1/b/{biz}/drafts/{d['id']}", json=draft_body(p, kind="credit_note"),
+                         headers=h(**{"If-Match": '"2"'})).status_code == 422
+
+
 def test_too_many_lines_or_charges_are_refused(shop):
     pg, biz, _ = shop
     p = make_product(pg, biz)
-    charges = [{"label": f"C{i}", "amount": "1"} for i in range(11)]
+    charges = [{"label": f"C{i}", "amount": "1"} for i in range(21)]
     r = create(pg, biz, draft_body(p, charges=charges))
-    assert r.status_code == 422 and r.json()["error"]["code"] == "too_many_charges"
+    assert r.status_code == 422
+    lines = [{"product_id": p, "quantity": "1"}] * 201
+    assert create(pg, biz, {"lines": lines}).status_code == 422
 
 
 def test_the_ex_works_flag_is_saved_and_defaults_off(shop):

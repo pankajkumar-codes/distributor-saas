@@ -861,6 +861,7 @@
             "items": {
               "$ref": "#/components/schemas/ChargeIn"
             },
+            "maxItems": 20,
             "title": "Charges",
             "type": "array"
           },
@@ -922,6 +923,7 @@
             "items": {
               "$ref": "#/components/schemas/LineIn"
             },
+            "maxItems": 200,
             "title": "Lines",
             "type": "array"
           }

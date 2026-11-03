@@ -91,5 +91,5 @@
   value: "2"
   reason: "a state code is 2 characters (state_code), checked against refdata in the service, not a tax rule"
 - path: app/src/app/modules/sales/drafts.py
-  value: "10"
+  value: "20"
   reason: "MAX_CHARGES, the most extra charges (freight, packing) on one draft; an abuse limit, not a tax rule"
