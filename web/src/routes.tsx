@@ -13,6 +13,7 @@ import { ProductPage } from "./screens/products/ProductPage";
 import { ProductsPage } from "./screens/products/ProductsPage";
 import { CompanyPage } from "./screens/settings/CompanyPage";
 import { FilingPage } from "./screens/settings/FilingPage";
+import { SupportPage } from "./screens/settings/SupportPage";
 import { SigninPage } from "./screens/signin/SigninPage";
 import { SignupPage } from "./screens/signup/SignupPage";
 
@@ -33,5 +34,6 @@ export const routes: RouteObject[] = [
   { path: "/b/:businessId/products/:productId", element: <RequireAuth><ProductPage /></RequireAuth> },
   { path: "/b/:businessId/settings/company", element: <RequireAuth><CompanyPage /></RequireAuth> },
   { path: "/b/:businessId/settings/filing", element: <RequireAuth><FilingPage /></RequireAuth> },
+  { path: "/b/:businessId/settings/support", element: <RequireAuth><SupportPage /></RequireAuth> },
   { path: "*", element: <NotFound /> },
 ];
