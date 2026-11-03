@@ -1,0 +1,80 @@
+# E-invoicing turnover thresholds (LLD-1 erratum S-3, business.einvoice_status). Copied
+# from the GST expert's team/gst/refdata-lld4.md v1.0 §2. Each valid_to there is the last
+# day a row covers; the loader reads valid_to as the first day it no longer covers, so
+# each row here ends where the next starts (the dates covered are the same). Tax rows,
+# provisional until the CA confirms. The rule (refdata-lld4.md §2): e-invoicing applies on
+# a date if aggregate turnover in any FY from einvoice.aato_first_fy up to the FY before
+# that date's FY is more than einvoice.aato_threshold on that date.
+
+- key: einvoice.aato_threshold
+  value: "5000000000.00"
+  type: decimal
+  kind: tax
+  valid_from: 2020-10-01
+  valid_to: 2021-01-01
+  source_url: https://gstcouncil.gov.in/sites/default/files/2024-05/notfctn-61-central-tax-english-2020.pdf
+  source_title: "Notf 61/2020-CT (30-07-2020): ₹500 crore; start 01-10-2020 per einvoice1.gst.gov.in notifications list"
+  last_checked: 2026-10-24
+  status: provisional
+  note: "Effective date from the e-invoice portal list, not the notification text."
+- key: einvoice.aato_threshold
+  value: "1000000000.00"
+  type: decimal
+  kind: tax
+  valid_from: 2021-01-01
+  valid_to: 2021-04-01
+  source_url: https://gstcouncil.gov.in/sites/default/files/2024-05/notfctn-88-central-tax-english-2020.pdf
+  source_title: "Notf 88/2020-CT (10-11-2020): ₹100 crore w.e.f. 01-01-2021"
+  last_checked: 2026-10-24
+  status: provisional
+- key: einvoice.aato_threshold
+  value: "500000000.00"
+  type: decimal
+  kind: tax
+  valid_from: 2021-04-01
+  valid_to: 2022-04-01
+  source_url: https://gstcouncil.gov.in/sites/default/files/2024-05/notfctn-05-central-tax-english-2021.pdf
+  source_title: "Notf 05/2021-CT (08-03-2021): ₹50 crore w.e.f. 01-04-2021"
+  last_checked: 2026-10-24
+  status: provisional
+- key: einvoice.aato_threshold
+  value: "200000000.00"
+  type: decimal
+  kind: tax
+  valid_from: 2022-04-01
+  valid_to: 2022-10-01
+  source_url: https://cbic-gst.gov.in/pdf/central-tax/notfctn-01-2022-English.pdf
+  source_title: "Notf 01/2022-CT (24-02-2022): ₹20 crore w.e.f. 01-04-2022"
+  last_checked: 2026-10-24
+  status: provisional
+- key: einvoice.aato_threshold
+  value: "100000000.00"
+  type: decimal
+  kind: tax
+  valid_from: 2022-10-01
+  valid_to: 2023-08-01
+  source_url: https://gstcouncil.gov.in/sites/default/files/2024-05/17-2022-ct-eng_1_1.pdf
+  source_title: "Notf 17/2022-CT (01-08-2022): ₹10 crore w.e.f. 01-10-2022"
+  last_checked: 2026-10-24
+  status: provisional
+- key: einvoice.aato_threshold
+  value: "50000000.00"
+  type: decimal
+  kind: tax
+  valid_from: 2023-08-01
+  valid_to: null
+  source_url: https://gstcouncil.gov.in/sites/default/files/2024-05/10ct_eng.pdf
+  source_title: "Notf 10/2023-CT (10-05-2023): ₹5 crore w.e.f. 01-08-2023"
+  last_checked: 2026-10-24
+  status: provisional
+  note: "No later change found; the einvoice1 list was checked only up to 17/2022 (UNVERIFIED for 2024-26)."
+- key: einvoice.aato_first_fy
+  value: "2017-18"
+  type: text
+  kind: tax
+  valid_from: 2020-10-01
+  valid_to: null
+  source_url: https://gstcouncil.gov.in/sites/default/files/2024-05/notfctn-70-central-tax-english-2020.pdf
+  source_title: "Notf 70/2020-CT (30-09-2020): 'any preceding financial year from 2017-18 onwards'"
+  last_checked: 2026-10-24
+  status: provisional

@@ -15,6 +15,7 @@ from app.modules.sales.api import router as drafts_router
 from app.modules.identity.api import router as identity_router
 from app.modules.identity.api_auth import router as auth_router
 from app.modules.identity.api_me import router as me_router
+from app.modules.identity.api_grants import router as grants_router
 from app.modules.identity.api_support import router as support_router
 from app.modules.identity.api_team import router as team_router
 from app.modules.identity.interface import resolve_principal
@@ -44,6 +45,7 @@ app.include_router(identity_router, prefix=API_PREFIX)
 app.include_router(auth_router, prefix=API_PREFIX)
 app.include_router(me_router, prefix=API_PREFIX)
 app.include_router(support_router, prefix=API_PREFIX)
+app.include_router(grants_router, prefix=API_PREFIX)
 app.include_router(team_router, prefix=API_PREFIX)
 app.include_router(business_router, prefix=API_PREFIX)
 app.include_router(home_router, prefix=API_PREFIX)

@@ -38,6 +38,8 @@ ACTIONS: dict[str, tuple[str, str]] = {
     "filing.accept_warning": ("Accepted a filing warning", "gst_filing"),
     "imports.changed_line_choice": ("Chose how to treat a changed line", "gst_filing"),
     "support.view": ("Support viewed the business", "support"),
+    "support.grant": ("Gave support access", "support"),
+    "support.revoke": ("Ended support access", "support"),
     # Catalog (LLD-3 §9). Products sit with invoices: the filter groups are the four
     # LLD-2 §7 names, and products are what invoices are made of.
     "product.created": ("Added a product", "invoices"),

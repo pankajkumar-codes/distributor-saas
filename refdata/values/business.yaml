@@ -10,3 +10,19 @@
   last_checked: 2026-10-27
   status: provisional
   note: "A frequency row may start at most this many quarters after the current one (422 effective_from_too_far). Not a GST rule; PO to confirm."
+
+# What the turnover band (business.turnover_bands.band) is measured against. Sign-up and
+# the profile ask "up to the limit for quarterly filing (QRMP)" or "above that limit"
+# (web BusinessPage), so a band answers rules at other thresholds only when the figures
+# are equal; business.hsn_min_digits and business.einvoice_status compare them and fall
+# back to the stricter answer when they differ.
+- key: business.turnover_band_threshold
+  value: "50000000.00"
+  type: decimal
+  kind: tax
+  valid_from: 2021-01-01
+  source_url: https://taxinformation.cbic.gov.in/content/html/tax_repository/gst/rules/cgst_rules/active/chapter8/rule61a_v1.00.html
+  source_title: "CGST Rules 2017, rule 61A(1): QRMP for a registered person with aggregate turnover up to five crore rupees in the preceding financial year (inserted by Notification 82/2020-CT dated 10-11-2020)"
+  last_checked: 2026-11-03
+  status: provisional
+  note: "The ₹5 crore figure was not re-read on the CBIC page in this session (UNVERIFIED); GST expert to confirm. valid_from = QRMP start 01-01-2021, as qrmp.option_window.*."

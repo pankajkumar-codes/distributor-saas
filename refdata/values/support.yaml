@@ -22,3 +22,14 @@
   last_checked: 2026-11-02
   status: provisional
   note: "Recovery codes one account may be sent in a day, by any support user. Not in the BRD; PO to confirm."
+
+- key: support.grant_hours
+  value: "24"
+  type: integer
+  kind: product
+  valid_from: 2026-10-24
+  source_url: team/docs/lld-2.md
+  source_title: "LLD-2 §6.1 support grants: length fixed at 24 h in R1, as mocks v9 [RM42-12]"
+  last_checked: 2026-11-03
+  status: provisional
+  note: "How long a support grant lasts. Mocks v9 have no length picker; PO to confirm."
