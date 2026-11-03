@@ -32,8 +32,8 @@ from sqlalchemy import text
 
 from platform_common import rate
 from platform_common.auth import Caller
-from platform_common.authprovider import AuthProvider
-from platform_common.errors import Deny
+from platform_common.authprovider import AuthProvider, AuthRefused
+from platform_common.errors import Deny, RateLimited
 from platform_common.ids import uuid7
 from platform_common.mailer import Mailer, send_after_commit
 from platform_common.uow import Principal, unit_of_work
@@ -112,16 +112,23 @@ def confirm(
         ).scalar()
         # Who the code is for, checked before the provider is touched: not support, not
         # the caller (tx 2 checks again, as the last guard).
-        target = None if code_id is None else uow.tx.execute(
-            text("select identity.auth_totp_recovery_target(:c)"), {"c": code_id}
-        ).scalar()
+        target = (
+            None
+            if code_id is None
+            else uow.tx.execute(text("select identity.auth_totp_recovery_target(:c)"), {"c": code_id}).scalar()
+        )
     if target is None:  # wrong, expired, voided, claimed, no account, or one support can't touch
         raise CodeNotAccepted()
 
-    sub = idp.get_sub(email)
-    if sub is None or sub != target:  # the provider's user isn't the account the code was sent for
-        raise CodeNotAccepted()
-    idp.remove_totp(sub)
+    try:
+        sub = idp.get_sub(email)
+        if sub is None or sub != target:  # the provider's user isn't the account the code was sent for
+            raise CodeNotAccepted()
+        idp.remove_totp(sub)
+    except AuthRefused as e:  # the code stays claimed, so support may enter it again after 60 s
+        if e.code == "rate_limited":
+            raise RateLimited(retry_after=60) from None
+        raise RuntimeError(f"support_totp: unexpected provider refusal {e.code}") from None  # a 500, never a guess
 
     with unit_of_work(Principal(user_sub=None, request_id=request_id)) as uow:  # tx 2
         uow.become_user(me.user_id, me.user_sub)

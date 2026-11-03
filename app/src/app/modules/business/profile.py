@@ -44,6 +44,7 @@ class Profile:
     address_state_code: str | None
     einvoice_history: str | None
     marketplaces_answered_at: datetime | None
+    version: int  # bumped by every change the company form can see (If-Match)
 
 
 @dataclass(frozen=True)
@@ -77,7 +78,7 @@ class BusinessSetup:
 _PROFILE = text(
     "select business_id, legal_name, trade_name, registration_kind, gstin, enrolment_number, state_code,"
     " gstin_locked_at is not null as gstin_locked, address_line1, address_line2, city, pin, address_state_code,"
-    " einvoice_history, marketplaces_answered_at from business.profiles"
+    " einvoice_history, marketplaces_answered_at, version from business.profiles"
     " where business_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
 )
 
@@ -121,22 +122,29 @@ _UPDATE = text(
     " registration_kind = :registration_kind, gstin = :gstin, enrolment_number = :enrolment_number,"
     " state_code = :state_code, address_line1 = :address_line1, address_line2 = :address_line2, city = :city,"
     " pin = :pin, address_state_code = :address_state_code, einvoice_history = :einvoice_history,"
-    " updated_at = now(), updated_by = :by where business_id = :b"
+    " version = version + 1, updated_at = now(), updated_by = :by where business_id = :b"
 )
 _ADDRESS = {"line1": "address_line1", "line2": "address_line2", "city": "city", "pin": "pin",
             "state_code": "address_state_code"}
 
 
-def update_profile(uow: UnitOfWork, patch: ProfilePatch, *, today: date) -> list[str]:
-    """Apply PATCH /profile and return its warnings (LLD-1 §8.2). A registration change
-    after the lock is 409 gstin_locked; before it, a new GSTIN keeps the old one's
-    filing frequency (RM41-7)."""
+def update_profile(uow: UnitOfWork, patch: ProfilePatch, *, today: date, if_match: int | None) -> list[str]:
+    """Apply PATCH /profile and return its warnings (LLD-1 §8.2). `if_match` is the
+    version the user edited: required, and 409 stale_record if the profile has moved on
+    since (L3-9's rule). A registration change after the lock is 409 gstin_locked; before
+    it, a new GSTIN keeps the old one's filing frequency (RM41-7)."""
     tx = uow.tx
+    if if_match is None:
+        raise Invalid("if_match_required", "Send the version you edited as If-Match", field="If-Match")
     p = get_profile(tx, for_update=True)
     if p is None:
         raise Conflict("profile_missing", "This business has no profile yet")
+    if p.version != if_match:
+        raise Conflict("stale_record", "Someone changed the business details since you opened them",
+                       fix="Reload to see their changes, then make yours again")
     sent = patch.model_fields_set
-    new = {k: v for k, v in p.__dict__.items() if k not in ("business_id", "gstin_locked", "marketplaces_answered_at")}
+    new = {k: v for k, v in p.__dict__.items()
+           if k not in ("business_id", "gstin_locked", "marketplaces_answered_at", "version")}
     warnings: list[str] = []
 
     if "registration" in sent:
@@ -182,7 +190,8 @@ def lock_gstin(uow: UnitOfWork) -> None:
     """L1-14: sales calls this in every live finalize (LLD-4 [S-4]). The first call locks
     the registration and writes the audit row; later calls do nothing."""
     locked = uow.tx.execute(
-        text("update business.profiles set gstin_locked_at = now()"
+        # The lock changes what the company form may edit, so it bumps the version too.
+        text("update business.profiles set gstin_locked_at = now(), version = version + 1"
              " where business_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
              " and gstin_locked_at is null returning business_id")
     ).scalar()

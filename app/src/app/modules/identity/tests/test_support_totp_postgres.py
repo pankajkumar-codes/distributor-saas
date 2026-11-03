@@ -10,6 +10,7 @@ import pytest
 from sqlalchemy import exc, text
 
 from platform_common.auth import set_local_verifier
+from platform_common.authprovider import AuthRefused
 from platform_common.fake_auth import CLIENT_ID, ISSUER
 
 from .auth_env import ORIGIN, PASSWORD, auth_env, one, sign_up, verify
@@ -267,6 +268,34 @@ def test_the_account_is_checked_before_the_provider_is_touched(env, change, monk
     assert calls == [] and idp.user(USER).totp_enabled and removed_rows(admin) == []
 
 
+def test_the_providers_rate_limit_is_a_429_and_the_code_survives(env, monkeypatch):
+    """Staff, #77 follow-up: Cognito's own limit is a 429, not a 500; nothing is changed
+    on our side, and the same code works once the provider accepts the call."""
+    client, idp, mail, admin, _, sam = env
+    start(client, sam)
+    [params] = sent_to(mail, "totp_recovery_code", USER)
+    real = idp.remove_totp
+
+    def limited(sub):
+        raise AuthRefused("rate_limited")
+
+    monkeypatch.setattr(idp, "remove_totp", limited)
+    r = confirm(client, sam, params["code"])
+    assert (r.status_code, r.json()["error"]["code"]) == (429, "rate_limited")
+    assert r.headers["Retry-After"] == "60"
+    assert idp.user(USER).totp_enabled and removed_rows(admin) == []
+    monkeypatch.setattr(idp, "remove_totp", real)
+    with admin.begin() as c:  # past the 60-second claim
+        c.execute(
+            text(
+                "update identity.verification_codes set claimed_at = now() - interval '61 seconds'"
+                " where purpose = 'totp_recovery'"
+            )
+        )
+    assert confirm(client, sam, params["code"]).status_code == 204
+    assert not idp.user(USER).totp_enabled and len(removed_rows(admin)) == 1
+
+
 @pytest.mark.parametrize("first", ["membership", "support_flag"])
 def test_a_membership_and_the_support_flag_racing_cant_both_land(env, first):
     """Staff 2 (4), #76: the two AC2-14 guards read each other's table, so without a lock
@@ -280,11 +309,15 @@ def test_a_membership_and_the_support_flag_racing_cant_both_land(env, first):
     business = r.json()["business_id"]
     ravi = "ravi@example.com"
     with admin.begin() as c:  # a plain user, not yet a member of anything
-        c.execute(text("insert into identity.users (id, cognito_sub, email) values (gen_random_uuid(), 'ravi', :e)"),
-                  {"e": ravi})
+        c.execute(
+            text("insert into identity.users (id, cognito_sub, email) values (gen_random_uuid(), 'ravi', :e)"),
+            {"e": ravi},
+        )
     ravi_id = one(admin, "select id from identity.users where email = :e", e=ravi)
-    add = text("insert into identity.memberships (id, business_id, user_id, role, status)"
-               " values (gen_random_uuid(), :b, :u, 'admin', 'active')")
+    add = text(
+        "insert into identity.memberships (id, business_id, user_id, role, status)"
+        " values (gen_random_uuid(), :b, :u, 'admin', 'active')"
+    )
     flag = text("update identity.users set is_support = true where id = :u")
     statements = [(add, {"b": business, "u": ravi_id}), (flag, {"u": ravi_id})]
     if first == "support_flag":
@@ -311,6 +344,10 @@ def test_a_membership_and_the_support_flag_racing_cant_both_land(env, first):
     held.close()
     t.join(15)
     assert len(errors) == 1 and "IDS01" in str(getattr(errors[0].orig, "sqlstate", "")) + str(errors[0])
-    both = one(admin, "select count(*) from identity.memberships m join identity.users u on u.id = m.user_id"
-                      " where u.id = :u and u.is_support and m.status = 'active'", u=ravi_id)
+    both = one(
+        admin,
+        "select count(*) from identity.memberships m join identity.users u on u.id = m.user_id"
+        " where u.id = :u and u.is_support and m.status = 'active'",
+        u=ravi_id,
+    )
     assert both == 0
