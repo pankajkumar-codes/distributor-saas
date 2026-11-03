@@ -10,3 +10,29 @@
   last_checked: 2026-10-24
   status: provisional
   note: "Help row 3 says approximately 19,000 line items per upload; the stricter 10,000 split (team/gst/gstr1-examples.md Part D) is used until the GST expert confirms (team/gst/gstr1-offline-template.md)."
+
+# B2CL threshold (LLD-4 §3.3, tax-computation §7). Copied from the GST expert's
+# team/gst/refdata-lld4.md v1.0 §1; the first row's valid_to is the first day it no
+# longer covers (2024-08-01), as the loader reads it.
+- key: gstr1.b2cl_threshold
+  value: "250000.00"
+  type: decimal
+  kind: tax
+  valid_from: 2017-07-01
+  valid_to: 2024-08-01
+  source_url: https://taxinformation.cbic.gov.in/content/html/tax_repository/gst/rules/cgst_rules/active/chapter8/rule59_v1.00.html
+  source_title: "CGST Rule 59(4)(a)(ii) before substitution: inter-State supplies to unregistered persons with invoice value more than two and a half lakh rupees"
+  last_checked: 2026-10-24
+  status: provisional
+  note: "Comparison > on invoice value incl. tax. Template help: 'more than 2.5 lakh upto July 2024 return period'."
+- key: gstr1.b2cl_threshold
+  value: "100000.00"
+  type: decimal
+  kind: tax
+  valid_from: 2024-08-01
+  valid_to: null
+  source_url: https://taxinformation.cbic.gov.in/content/html/tax_repository/gst/rules/cgst_rules/active/chapter8/rule59_v1.00.html
+  source_title: "CGST Rule 59(4)(a)(ii) 'invoice value more than one lakh rupees', substituted w.e.f. 01-08-2024 by Notf 12/2024-CT dated 10-07-2024"
+  last_checked: 2026-10-24
+  status: provisional
+  note: "Comparison >. Offline tool V3.2.4 enforces > 100000 (template b2cl validation)."

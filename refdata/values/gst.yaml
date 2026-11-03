@@ -81,3 +81,31 @@
   kind: tax
   status: provisional
   note: "Primary text of 19/2025-CT(Rate) not read (UNVERIFIED). 01/2026-CT(Rate) dated 30-04-2026 moved beverages between 5 and 40 and added no new rate. 6 continuation UNVERIFIED."
+
+# UTGST labels for intra-state supplies (LLD-4 §3.1). Copied from the GST expert's
+# team/gst/refdata-lld4.md v1.0 §1 with one change: valid_to there is the last day a row
+# covers, and the loader reads valid_to as the first day it no longer covers, so the
+# first row ends on 2020-06-30 here (the same dates covered). Type text, not enum, for
+# the same reason as gst.rate_values: the value is the list itself; sales parses it.
+- key: gst.utgst_state_codes
+  value: "04,25,26,31,35"
+  type: text
+  valid_from: 2017-07-01
+  valid_to: 2020-06-30
+  source_url: https://cbic-gst.gov.in/pdf/CGST-Act-Updated-01082021.pdf
+  source_title: "CGST Act s.2(114) as originally enacted: A&N Islands, Lakshadweep, Dadra and Nagar Haveli, Daman and Diu, Chandigarh, other territory"
+  last_checked: 2026-10-24
+  kind: tax
+  status: provisional
+  note: "Codes: 04 Chandigarh, 25 Daman & Diu, 26 Dadra & Nagar Haveli, 31 Lakshadweep, 35 A&N. 97 Other Territory is also a UT in s.2(114) but has no intra-state sales for our users; add it if a business registers there."
+- key: gst.utgst_state_codes
+  value: "04,25,26,31,35,38"
+  type: text
+  valid_from: 2020-06-30
+  valid_to: null
+  source_url: https://cbic-gst.gov.in/pdf/CGST-Act-Updated-01082021.pdf
+  source_title: "CGST Act s.2(114) as amended by Finance Act 2020 w.e.f. 30-06-2020: (c) Dadra and Nagar Haveli and Daman and Diu, (d) Ladakh"
+  last_checked: 2026-10-24
+  kind: tax
+  status: provisional
+  note: "26 = merged DNH&DD; 25 kept because the GSTR-1 template POS list still has '25-Daman & Diu' (gstr1-offline-template.md). 38 Ladakh. Delhi 07, Puducherry 34 and J&K 01 are UTs with legislature = 'State' under s.2(103), so SGST."

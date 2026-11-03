@@ -66,3 +66,24 @@
 - path: app/src/app/modules/catalog/product_import.py
   value: "1024"
   reason: "bytes per KB in the file-size message"
+- path: app/src/app/modules/sales/compute/core.py
+  value: "1"
+  reason: "Decimal(1) is the rupee quantum for the round-off line, as 0.01 is the paise quantum; the line itself is refdata invoice.round_off_line"
+- path: app/src/app/modules/sales/compute/core.py
+  value: "2"
+  reason: "CGST and SGST/UTGST each take half the rate (LLD-4 §3.2 step 5); the rate itself comes from product data"
+- path: app/src/app/modules/sales/compute/words.py
+  value: "1000"
+  reason: "Indian place value (thousand) for the amount in words; not a tax rule"
+- path: app/src/app/modules/sales/compute/words.py
+  value: "100000"
+  reason: "Indian place value (lakh) for the amount in words; not a tax rule"
+- path: app/src/app/modules/sales/compute/words.py
+  value: "10000000"
+  reason: "Indian place value (crore) for the amount in words; not a tax rule"
+- path: app/src/app/modules/sales/compute/words.py
+  value: "20"
+  reason: "numbers below twenty have their own words; not a tax rule"
+- path: app/src/app/modules/sales/compute/words.py
+  value: "10"
+  reason: "tens for the amount in words; not a tax rule"
