@@ -46,7 +46,7 @@ def test_fonts_are_pinned_to_a_commit_and_carry_the_ofl():
     rows = _rows("fonts.lock")
     names = {name for _, _, name in rows}
     assert {"NotoSans-Regular.ttf", "NotoSans-Bold.ttf", "NotoSansDevanagari-Regular.ttf",
-            "NotoSansDevanagari-Bold.ttf", "OFL.txt"} == names
+            "NotoSansDevanagari-Bold.ttf", "NotoSansBengali-Regular.ttf", "NotoSansBengali-Bold.ttf", "OFL.txt"} == names
     for sha256, url, _ in rows:
         assert SHA256.fullmatch(sha256)
         assert re.match(r"https://raw\.githubusercontent\.com/notofonts/notofonts\.github\.io/[0-9a-f]{40}/", url), url
@@ -91,7 +91,16 @@ def test_the_renderer_reads_and_deletes_inputs_writes_documents_and_uses_the_key
     assert "DeleteObject" not in policy and "ListBucket" not in policy  # EM, D-042: lifecycle expiry only
     assert '"kms:ViaService" = "s3.${data.aws_region.current.name}.amazonaws.com"' in policy
     assert "*" not in policy.replace("render-input/b/*", "").replace("documents/b/*", "")
-    assert re.search(r"environment\s*=\s*\{\s*OBJECTS_BUCKET\s*=\s*module\.storage\.bucket\s*\}", module)
+    assert re.search(r"environment\s*=\s*\{\s*OBJECTS_BUCKET\s*=\s*module\.storage\.bucket,"
+                     r"\s*RENDER_MAX_RECEIVES\s*=\s*tostring\(local\.render_max_receives\)\s*\}", module)
+
+
+def test_the_renderer_knows_which_try_is_the_queues_last():
+    """failed.json is written on the try that sends the message to the DLQ, so both read
+    the same local."""
+    queue = re.search(r'module "render" \{(.*?)\n\}', STACK, re.S).group(1)
+    assert re.search(r"max_receive_count\s*=\s*local\.render_max_receives", queue)
+    assert re.search(r"render_max_receives\s*=\s*5\b", STACK)
 
 
 def test_the_worker_may_only_put_render_inputs_and_send_to_the_render_queue():
