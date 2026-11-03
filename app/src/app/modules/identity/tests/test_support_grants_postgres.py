@@ -1,5 +1,5 @@
-"""Support grants, the owner's side (LLD-2 §6.1, NF-1), on PostgreSQL as app_rw with
-FORCE row-level security. Callers are X-Debug-User users.
+"""Support grants: the owner's side (LLD-2 §6.1, NF-1) and support's own list (§6.2), on
+PostgreSQL as app_rw with FORCE row-level security. Callers are X-Debug-User users.
 
 Skipped unless PG_ADMIN_URL points at a disposable server.
 """
@@ -76,6 +76,12 @@ def test_a_new_grant_ends_the_active_one(team):
         "select data from platform.audit_log where action = 'support.grant' order by at desc, id desc limit 1"
     )[0].data
     assert data["replaced"] == first["id"]
+    # The replaced grant's end is its own revoke row, as an owner's revoke would be.
+    [revoked] = owner_sql(
+        "select target_id, reason from platform.audit_log where action = 'support.revoke' and business_id = :b", b=tid
+    )
+    assert (str(revoked.target_id), revoked.reason) == (first["id"], "replaced")
+    assert actions(tid)[-2:] == ["support.revoke", "support.grant"]
 
 
 def test_two_grants_at_once_leave_one_active(team):
@@ -157,3 +163,72 @@ def test_a_reason_over_500_characters_is_refused(team):
     client, _, _, tid = team
     assert give(client, tid, reason="x" * 501).status_code == 422
     assert grants(client, tid) == []
+
+
+SUPPORT = "sam-support"
+
+
+def support_user(sub=SUPPORT, *, totp=True):
+    [row] = owner_sql("select identity.dev_ensure_user(:s) as id", s=sub)
+    owner_sql(
+        "update identity.users set is_support = true, totp_enabled_at = case when :t then now() end where id = :u",
+        u=row.id,
+        t=totp,
+    )
+    return row.id
+
+
+def support_grants(client, sub=SUPPORT):
+    return client.get("/api/v1/support/grants", headers=H(sub))
+
+
+def test_support_under_a_grant_cant_give_revoke_or_list_grants(team):
+    client, _, _, tid = team
+    support_user()
+    g = give(client, tid).json()
+    assert give(client, tid, by=SUPPORT).status_code == 404
+    assert client.post(url(tid, f"/{g['id']}/revoke"), headers=H(SUPPORT)).status_code == 404
+    assert client.get(url(tid), headers=H(SUPPORT)).status_code == 404
+    assert [x["status"] for x in grants(client, tid)] == ["active"]
+    assert "support.revoke" not in actions(tid)
+    # Each request resolved as support under the grant (its view row was recorded first),
+    # so the 404s are the permission refusing support, not an unresolved caller.
+    views = owner_sql(
+        "select support_grant_id, data->>'route_template' as route from platform.audit_log"
+        " where business_id = :b and action = 'support.view' order by at, id",
+        b=tid,
+    )
+    assert [(str(v.support_grant_id), v.route) for v in views] == [
+        (g["id"], "/b/{business_id}/support-grants"),
+        (g["id"], "/b/{business_id}/support-grants/{grant_id}/revoke"),
+        (g["id"], "/b/{business_id}/support-grants"),
+    ]
+
+
+def test_support_lists_the_businesses_it_may_open_now(team):
+    client, _, _, tid = team
+    support_user()
+    other = client.post("/api/v1/identity/tenants", json={"name": "Bob Co"}, headers=H("bob")).json()["id"]
+    closed = client.post("/api/v1/identity/tenants", json={"name": "Carol Co"}, headers=H("carol")).json()["id"]
+    assert support_grants(client).json() == {"grants": []}
+    mine = give(client, tid).json()
+    ended = give(client, other, by="bob").json()
+    client.post(url(other, f"/{ended['id']}/revoke"), headers=H("bob"))
+    give(client, closed, by="carol")
+    owner_sql("update identity.businesses set status = 'closed' where id = :b", b=closed)
+    r = support_grants(client)
+    assert r.status_code == 200, r.text
+    assert r.json()["grants"] == [
+        {"grant_id": mine["id"], "business_id": tid, "business_name": "Alice Co", "expires_at": mine["expires_at"]}
+    ]
+    owner_sql("update identity.support_grants set expires_at = now() - interval '1 second' where id = :g", g=mine["id"])
+    assert support_grants(client).json() == {"grants": []}
+
+
+@pytest.mark.parametrize("who", ["alice", "support-without-totp"])
+def test_support_grants_is_not_found_for_anyone_else(team, who):
+    client, _, _, tid = team
+    if who != "alice":
+        support_user(who, totp=False)
+    give(client, tid)
+    assert support_grants(client, who).status_code == 404

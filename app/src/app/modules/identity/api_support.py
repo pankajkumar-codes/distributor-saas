@@ -1,26 +1,59 @@
-"""/api/v1/support/* (LLD-2 §6.3): TOTP recovery, for signed-in support users with TOTP
-on. Anyone else gets 404, as if the routes didn't exist.
+"""/api/v1/support/* (LLD-2 §6.2, §6.3): the businesses support may open now, and TOTP
+recovery, for signed-in support users with TOTP on. Anyone else gets 404, as if the
+routes didn't exist.
 
-The routes open their own short transactions (service/support_totp.py) instead of
+The TOTP routes open their own short transactions (service/support_totp.py) instead of
 taking me_uow, because rate.hit must commit before the first one opens.
 """
+
+import uuid
+from datetime import datetime
 
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel, Field
+from sqlalchemy import text
 
 from platform_common.auth import current_caller
 from platform_common.authprovider import AuthProvider
 from platform_common.clock import Clock, get_clock
-from platform_common.errors import request_id
+from platform_common.errors import Deny, request_id
 from platform_common.mailer import Mailer
+from platform_common.uow import MeUoW
 
 from .api_auth import CodeSent, _client_ip, _email, error_responses
 from .providers import auth_provider, mailer
 from .service import support_totp
 
 router = APIRouter(prefix="/support", tags=["support"])
+
+
+class SupportGrant(BaseModel):
+    grant_id: uuid.UUID
+    business_id: uuid.UUID
+    business_name: str
+    expires_at: datetime
+
+
+class SupportGrants(BaseModel):
+    grants: list[SupportGrant]
+
+
+@router.get("/grants", response_model=SupportGrants, responses=error_responses(404))
+def my_support_grants(uow: MeUoW):
+    """The businesses whose owner has given support access now, soonest to end first.
+    Support opens one at /b/{business_id}/..., read-only, until expires_at."""
+    ok = uow.tx.execute(
+        text("select is_support and totp_enabled_at is not null from identity.users where id = :me"),
+        {"me": uow.principal.user_id},
+    ).scalar()
+    if not ok:
+        raise Deny("not_found")
+    rows = uow.tx.execute(
+        text("select grant_id, business_id, business_name, expires_at from identity.auth_support_grants()")
+    ).all()
+    return SupportGrants(grants=[SupportGrant(**r._mapping) for r in rows])
 
 
 class RecoveryBody(BaseModel):

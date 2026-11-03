@@ -13,15 +13,12 @@ another business, or an unknown one, is the same 404 as an unknown business.
 
 import uuid
 from datetime import datetime
-from typing import Annotated
-
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 from app.modules.refdata import value_on
 from platform_common import audit
-from platform_common.clock import Clock, get_clock
 from platform_common.errors import Conflict, Deny
 from platform_common.ids import uuid7
 from platform_common.permissions import Permission, require
@@ -119,16 +116,21 @@ def _end_active(uow: UnitOfWork) -> uuid.UUID | None:
 
 
 @router.post("/b/{business_id}/support-grants", status_code=201, response_model=GrantOut, dependencies=GRANT)
-def give_grant(body: GrantIn, uow: BusinessUoW, clock: Annotated[Clock, Depends(get_clock)]):
+def give_grant(body: GrantIn, uow: BusinessUoW):
     """Gives support read-only access for support.grant_hours from now, ending the active
     grant if there is one."""
     bid = _business(uow)
     reason = (body.reason or "").strip() or None
-    hours = value_on(uow.tx, "support.grant_hours", clock.today())
+    # The length in force on the database's date in India: the grant's start and expiry
+    # are the database's now(), so the refdata date comes from the same clock.
+    today = uow.tx.execute(text("select (now() at time zone 'Asia/Kolkata')::date")).scalar_one()
+    hours = value_on(uow.tx, "support.grant_hours", today)
     # One active grant at a time even when two owners click at once: the second waits
     # here, then ends the grant the first just made.
     uow.tx.execute(text("select pg_advisory_xact_lock(hashtextextended('support_grant:' || :b, 0))"), {"b": str(bid)})
     replaced = _end_active(uow)
+    if replaced is not None:  # the old grant's own end, as an owner's revoke would record it
+        audit.record(uow, "support.revoke", "support_grant", replaced, reason="replaced")
     grant_id = uuid7()
     expires_at = uow.tx.execute(
         text(
