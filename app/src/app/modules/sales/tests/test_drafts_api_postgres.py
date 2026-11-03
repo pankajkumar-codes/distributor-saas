@@ -70,6 +70,14 @@ def test_create_then_read_with_money_as_strings(shop):
     assert got.status_code == 200 and got.json() == d
 
 
+def test_too_many_lines_or_charges_are_refused(shop):
+    pg, biz, _ = shop
+    p = make_product(pg, biz)
+    charges = [{"label": f"C{i}", "amount": "1"} for i in range(11)]
+    r = create(pg, biz, draft_body(p, charges=charges))
+    assert r.status_code == 422 and r.json()["error"]["code"] == "too_many_charges"
+
+
 def test_the_ex_works_flag_is_saved_and_defaults_off(shop):
     pg, biz, _ = shop
     p = make_product(pg, biz)

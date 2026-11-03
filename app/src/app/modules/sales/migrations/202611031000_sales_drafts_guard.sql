@@ -40,7 +40,8 @@ declare
     parent_status text;
 begin
     select status into parent_status from sales.drafts
-        where id = coalesce(new.draft_id, old.draft_id) and business_id = coalesce(new.business_id, old.business_id);
+        where id = coalesce(new.draft_id, old.draft_id) and business_id = coalesce(new.business_id, old.business_id)
+        for share;  -- so the draft can't be finalized while a line is being written
     if parent_status is not null and parent_status <> 'open' then
         raise exception 'the draft is % and its lines cannot be changed', parent_status using errcode = 'SDR01';
     end if;

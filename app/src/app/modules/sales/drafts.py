@@ -4,7 +4,9 @@ A draft is mutable while open and is not a GST record: it is saved whole (PUT) u
 If-Match, and an open draft can be hard-deleted (audited). Nothing here computes tax or
 allocates a number; that is later slices. Money and quantities are decimal strings and
 only strings (AC4-15). Customers and products are read through catalog.interface, and the
-bill-to / ship-to copy is taken at every save (§8.1). Only invoice drafts for now; credit
+bill-to / ship-to copy is taken at every save (§8.1). Columns the table has but no route writes yet (bill_to / ship_to overrides,
+ship_to_third_party, pos_override and its reason, the credit-note fields) wait for the
+computation and credit-note slices. Only invoice drafts for now; credit
 note drafts come with the credit-note slice.
 """
 
@@ -24,6 +26,7 @@ from platform_common.ids import uuid7
 from platform_common.uow import UnitOfWork
 
 MAX_LINES = 200
+MAX_CHARGES = 10
 _MONEY = re.compile(r"^[0-9]{1,16}(\.[0-9]{1,2})?$")
 _QTY = re.compile(r"^[0-9]{1,15}(\.[0-9]{1,3})?$")
 _TWO, _THREE = Decimal("0.01"), Decimal("0.001")
@@ -80,6 +83,8 @@ def _checked(uow: UnitOfWork, body: dict, today: date) -> tuple[dict, list[dict]
         cols["bill_to"] = {"name": cols["cash_buyer"]["name"], "state_code": buyer["state_code"]}
     cols["doc_date"] = body.get("doc_date")
     cols["invoice_discount"] = money(body.get("invoice_discount", "0"), "invoice_discount")
+    if len(body.get("charges") or []) > MAX_CHARGES:
+        raise Invalid("too_many_charges", f"An invoice can have at most {MAX_CHARGES} charges", field="charges")
     cols["charges"] = [
         {"label": (ch.get("label") or "").strip(), "amount": str(money(ch.get("amount"), f"charges.{i}.amount"))}
         for i, ch in enumerate(body.get("charges") or [])
