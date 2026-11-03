@@ -51,9 +51,18 @@ def test_the_renderer_function_runs_its_own_zip_with_no_database_or_vpc():
     assert re.search(r'package_path\s*=\s*"\$\{var\.packages_dir\}/renderer\.zip"', module)
     assert re.search(r'handler\s*=\s*"renderer\.handler\.handler"', module)
     assert re.search(r"memory_mb\s*=\s*1024\b", module)
-    for absent in ("vpc", "db_user", "policy_statements", "reserved_concurrency"):
+    for absent in ("vpc", "db_user", "policy_statements", "reserved_concurrency"):  # S4 adds the policy
         assert not re.search(rf"^\s*{absent}\s*=", module, re.M), f"renderer should have no {absent} yet"
     assert (RENDERER / "renderer" / "handler.py").read_text().count("def handler(") == 1
+
+
+def test_the_renderer_is_fed_by_the_render_queue_whose_dlq_has_an_alarm():
+    module = re.search(r'module "renderer" \{(.*?)\n\}', STACK, re.S).group(1)
+    assert re.search(r"sqs_trigger\s*=\s*\{\s*arn\s*=\s*module\.render\.arn,\s*batch_size\s*=\s*1\s*\}", module)
+    queue = re.search(r'module "render" \{(.*?)\n\}', STACK, re.S).group(1)
+    assert re.search(r'source\s*=\s*"\.\./queue"', queue)
+    assert re.search(r"visibility_timeout_seconds\s*=\s*360\b", queue)  # 6 x the renderer's 60 s
+    assert re.search(r"render\s*=\s*module\.render\.dlq_name", STACK)
 
 
 def test_no_other_function_ships_the_renderer_zip():

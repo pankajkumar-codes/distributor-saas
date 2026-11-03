@@ -54,15 +54,21 @@ while its schedules are off. Hourly runs of a few seconds would be well under US
 a month at Lambda list prices (not verified against an AWS bill).
 
 **Renderer costs (D-042), once applied:**
-- The function costs nothing while nothing invokes it; S4 adds the caller.
+- The function costs nothing while nothing sends to its `render` queue; S4 adds the
+  sender. Lambda still polls the empty queue, which makes SQS requests every month. With
+  the jobs and mail queues that may pass SQS's 1 million free requests a month (about
+  USD 0.40 per further million). Not verified against a bill.
 - A one-page invoice took about 0.3 s warm at 1024 MB locally, so about 0.3 GB-s. At the
   arm64 list price of about USD 0.0000134 per GB-s (us-east-1; Mumbai not checked), that
   is about USD 0.000004 per invoice plus USD 0.20 per million requests.
 - Ten thousand invoices a month would be about USD 0.05, inside Lambda's monthly free
   allowance (400,000 GB-s) if the account still has it.
-- Its errors alarm is another standard alarm, about USD 0.10 a month.
+- Its DLQ alarm is another standard alarm, about USD 0.10 a month.
 - The zip has no ECR cost (it is not an image) and no NAT: the renderer runs outside the
-  VPC.
+  VPC. The worker reaches it through SQS over the existing SQS endpoint, so there is no
+  Lambda VPC endpoint (about USD 7-8 a month per AZ).
+- The deployed zip is built with Python 3.12.15 and pip 26.2.2, pinned in
+  `deploy-staging.yml` as in CI (`renderer/README.md`).
 
 ## Launch prerequisites (AWS account actions, Pankaj)
 - **Lambda concurrency quota of at least 156 in ap-south-1 before the first prod apply.**

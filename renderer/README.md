@@ -1,9 +1,16 @@
 # renderer: the PDF renderer Lambda
 
 WeasyPrint on the python3.12 arm64 Lambda runtime, from its own zip (TD-9; TD-1(b)
-amendment, D-042). The worker will invoke it asynchronously after finalize (S4, BH-6).
-Until then its only task is `{"task": "selftest"}`, which renders a fixed sample page and
-reports pages, bytes, render time and the embedded fonts.
+amendment, D-042). After finalize the worker will send a message to the `render` SQS
+queue, which triggers it (S4, BH-6); a message carries a document ID or an S3 key, never
+the invoice. Until then its only task is `{"task": "selftest"}`, invoked by hand, which
+renders a fixed sample page and reports pages, bytes, render time and the embedded fonts.
+
+**Rules for S4 (D-042):** render with a deny-all `url_fetcher`, so WeasyPrint fetches
+nothing from any URL a field could carry, and escape every field put into the HTML, with
+a test that a planted URL is never fetched. The renderer's IAM is `kms:GenerateDataKey`
+on our key and `s3:PutObject` on `documents/b/*`. How the renderer gets its input and the
+logo under that limit is open (docs/OPEN_QUESTIONS.md).
 
 ```
 make renderer-zip                    # build/renderer.zip (arm64) and its checks
@@ -11,7 +18,11 @@ make renderer-zip ARCH=x86_64        # build/renderer-x86_64.zip, for a local sm
 python scripts/check_renderer_zip.py --arch x86_64 --smoke build/renderer-x86_64.zip
 ```
 
-The build needs Python 3.12, `readelf`, and `zstandard` or the `zstd` command. It needs
+The build needs Python 3.12, `readelf`, and `zstandard` or the `zstd` command. The
+deployed zip is built with **Python 3.12.15 and pip 26.2.2**, pinned in both workflows
+(`PYTHON_PIN` and `PIP_PIN` in the build script). Another 3.12 builds a working zip, but
+its bytes may differ, and the build says so. CI builds the zip twice and fails if the two
+sha256 values differ. It needs
 network access to PyPI, conda.anaconda.org and raw.githubusercontent.com. It reads only
 the locks below, so the same commit gives the same zip, byte for byte.
 

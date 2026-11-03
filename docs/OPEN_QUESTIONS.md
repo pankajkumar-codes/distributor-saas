@@ -131,7 +131,9 @@ Every row in `refdata/` is `provisional`. Before go-live:
 
 ## PDF renderer follow-ups (D-042)
 - **arm64 re-measure** on the first staging deploy (above). CI only builds and checks the arm64 zip; it renders on x86_64.
-- **S4 (BH-6)** adds the invoice task, the worker's `lambda:InvokeFunction` on the renderer, the renderer's write to `documents/`, and what happens to a failed async render (retries, failure destination, or a job status the worker polls). Also a line cap per invoice: 1000 lines took 12 s locally.
+- **S4 (BH-6)** adds the invoice task, the worker's `sqs:SendMessage` on the `render` queue, and the renderer's `kms:GenerateDataKey` and `s3:PutObject` on `documents/b/*` (D-042). It must render with a deny-all `url_fetcher` and escaped fields, with a test that a planted URL is never fetched. Also a line cap per invoice: 1000 lines took 12 s locally.
+- **Renderer input under that IAM (EM to decide with S4).** The renderer has no database, so a document ID alone gives it nothing to render, and an S3 key needs `s3:GetObject` (and `kms:Decrypt`) on wherever the input sits. The logo's clean copy is under `branding/` (HLD §6.10), so it needs a read too unless the worker inlines it. Options: widen the IAM to read one input prefix and `branding/b/*`; or carry a self-contained payload in the message, within SQS's message size limit (256 KiB historically; check the current limit), which a 1000-line invoice may not fit.
+- **Idle SQS polling.** Lambda polls a trigger queue even when it is empty, so the render queue adds SQS requests every month. With the jobs and mail queues it may pass SQS's 1 million free requests (about USD 0.40 per further million). Check on the first staging bill.
 - **Devanagari proof:** the self-test shows the glyphs are shaped and that only Noto fonts are embedded; an Indian-language reader should check a real invoice before launch.
 - **Other scripts** (for example Bengali for West Bengal sellers) each add one Noto family, about 0.2–0.5 MB per weight. That is a product decision.
 

@@ -21,16 +21,16 @@ def preload(lib_dir: str = LIB) -> list[str]:
     pending = sorted(os.listdir(lib_dir))
     loaded: list[str] = []
     while pending:
-        left = []
+        errors: dict[str, OSError] = {}  # each library's error from this pass
         for name in pending:
             try:
                 ctypes.CDLL(os.path.join(lib_dir, name), mode=ctypes.RTLD_GLOBAL)
                 loaded.append(name)
-            except OSError:
-                left.append(name)
-        if len(left) == len(pending):
-            raise OSError(f"cannot preload {left}")
-        pending = left
+            except OSError as e:
+                errors[name] = e
+        if len(errors) == len(pending):  # no progress: report why each one failed
+            raise OSError("cannot preload: " + "; ".join(f"{n}: {e}" for n, e in errors.items()))
+        pending = list(errors)
     return loaded
 
 

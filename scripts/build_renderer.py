@@ -50,6 +50,9 @@ ARCHES = {
                "base": GLIBC_LIBS | {"ld-linux-x86-64.so.2"}, "zip": "renderer-x86_64.zip"},
 }
 FIXED_TIME = (1980, 1, 1, 0, 0, 0)
+# The toolchain the deployed zip is built with (CI and deploy-staging pin both). Another
+# 3.12 builds a working zip, but its bytes may differ.
+PYTHON_PIN, PIP_PIN = "3.12.15", "26.2.2"
 
 
 def needed(path: Path) -> list[str]:
@@ -174,6 +177,12 @@ def write_zip(task: Path, dest: Path) -> None:
 def build(arch_name: str) -> Path:
     if sys.version_info[:2] != (3, 12):
         sys.exit("run this with Python 3.12, the Lambda runtime's version, e.g. PY=python3.12 make renderer-zip")
+    pip_version = subprocess.run([sys.executable, "-m", "pip", "--version"], capture_output=True, text=True,
+                                 check=True).stdout.split()[1]
+    python_version = ".".join(map(str, sys.version_info[:3]))
+    if (python_version, pip_version) != (PYTHON_PIN, PIP_PIN):
+        print(f"note: Python {python_version} and pip {pip_version}, not the pinned {PYTHON_PIN} and {PIP_PIN};"
+              " the zip works but may not match the deployed one byte for byte", file=sys.stderr)
     arch = ARCHES[arch_name]
     work = ROOT / "build" / f"renderer-{arch_name}"
     task = work / "task"

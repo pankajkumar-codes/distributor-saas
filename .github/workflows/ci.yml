@@ -366,20 +366,32 @@ jobs:
   renderer:
     # The PDF renderer Lambda's zip (TD-9, D-042), built from renderer/'s locks only: the
     # arm64 zip that deploys must stay under its size budget, hold only aarch64 code, find
-    # every native library it needs, and carry its licences. CI cannot run arm64, so the
-    # same locks are built for x86_64 and that build renders the self-test page.
+    # every native library it needs, and carry its licences, and a second build must give
+    # the same bytes. CI cannot run arm64, so the same locks are built for x86_64 and that
+    # build renders the self-test page. Python and pip are pinned (renderer/README.md):
+    # the bytecode and pip's install records depend on them.
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.12.15"
+      - run: python -m pip install pip==26.2.2
       - uses: actions/cache@v4
         with:
           path: build/.cache/renderer
           key: renderer-${{ hashFiles('renderer/natives.lock', 'renderer/fonts.lock') }}
       - name: Build and check the arm64 zip
         run: make renderer-zip PY=python
+      - name: Build it again and compare (reproducible)
+        run: |
+          first=$(sha256sum build/renderer.zip | cut -d' ' -f1)
+          python scripts/build_renderer.py
+          second=$(sha256sum build/renderer.zip | cut -d' ' -f1)
+          if [ "$first" != "$second" ]; then
+            echo "renderer.zip is not reproducible: $first then $second" >&2
+            exit 1
+          fi
       - name: Build, check and smoke-render the x86_64 zip
         run: |
           make renderer-zip PY=python ARCH=x86_64
