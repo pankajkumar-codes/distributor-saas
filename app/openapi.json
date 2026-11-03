@@ -3748,6 +3748,53 @@
         "title": "StateCodesOut",
         "type": "object"
       },
+      "SupportGrant": {
+        "properties": {
+          "business_id": {
+            "format": "uuid",
+            "title": "Business Id",
+            "type": "string"
+          },
+          "business_name": {
+            "title": "Business Name",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "grant_id": {
+            "format": "uuid",
+            "title": "Grant Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "grant_id",
+          "business_id",
+          "business_name",
+          "expires_at"
+        ],
+        "title": "SupportGrant",
+        "type": "object"
+      },
+      "SupportGrants": {
+        "properties": {
+          "grants": {
+            "items": {
+              "$ref": "#/components/schemas/SupportGrant"
+            },
+            "title": "Grants",
+            "type": "array"
+          }
+        },
+        "required": [
+          "grants"
+        ],
+        "title": "SupportGrants",
+        "type": "object"
+      },
       "Target": {
         "properties": {
           "href": {
@@ -8475,6 +8522,38 @@
         "summary": "Get State Codes",
         "tags": [
           "refdata"
+        ]
+      }
+    },
+    "/api/v1/support/grants": {
+      "get": {
+        "description": "The businesses whose owner has given support access now, soonest to end first.\nSupport opens one at /b/{business_id}/..., read-only, until expires_at.",
+        "operationId": "my_support_grants_api_v1_support_grants_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportGrants"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "summary": "My Support Grants",
+        "tags": [
+          "support"
         ]
       }
     },

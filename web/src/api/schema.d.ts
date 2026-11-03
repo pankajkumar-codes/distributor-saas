@@ -1147,6 +1147,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/support/grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Support Grants
+         * @description The businesses whose owner has given support access now, soonest to end first.
+         *     Support opens one at /b/{business_id}/..., read-only, until expires_at.
+         */
+        get: operations["my_support_grants_api_v1_support_grants_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/support/totp-recovery": {
         parameters: {
             query?: never;
@@ -2358,6 +2379,31 @@ export interface components {
             on: string;
             /** States */
             states: components["schemas"]["StateCode"][];
+        };
+        /** SupportGrant */
+        SupportGrant: {
+            /**
+             * Business Id
+             * Format: uuid
+             */
+            business_id: string;
+            /** Business Name */
+            business_name: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /**
+             * Grant Id
+             * Format: uuid
+             */
+            grant_id: string;
+        };
+        /** SupportGrants */
+        SupportGrants: {
+            /** Grants */
+            grants: components["schemas"]["SupportGrant"][];
         };
         /** Target */
         Target: {
@@ -5134,6 +5180,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_support_grants_api_v1_support_grants_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportGrants"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
                 };
             };
         };
