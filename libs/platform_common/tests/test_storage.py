@@ -121,3 +121,29 @@ def test_download_names_keep_unicode_and_cannot_break_the_header():
     header = content_disposition('বাংলা "Store"\r\n.pdf')
     assert header == ("attachment; filename=\" Store.pdf\"; "
                       "filename*=UTF-8''%E0%A6%AC%E0%A6%BE%E0%A6%82%E0%A6%B2%E0%A6%BE%20Store.pdf")
+
+
+def test_render_input_is_an_area_and_its_keys_are_the_renderer_s():
+    """D-042: the worker makes render-input keys with key_for, and the renderer
+    (renderer/renderer/inputs.py, which can't import platform_common) must accept exactly
+    those and refuse every other area."""
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[3] / "renderer" / "renderer" / "inputs.py"
+    spec = importlib.util.spec_from_file_location("renderer_inputs", path)
+    inputs = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(inputs)
+
+    biz, obj = uuid.uuid4(), uuid.uuid4()
+    for name in (None, "input.json"):
+        key = key_for(biz, "render-input", obj, name)
+        assert key.startswith(f"render-input/b/{biz}/{obj}")
+        assert check_key(biz, key) == key
+        assert inputs.check_input_key(key) == key and inputs.business_of(key) == str(biz)
+    for area in ("uploads", "documents", "exports", "branding"):
+        with pytest.raises(ValueError):
+            inputs.check_input_key(key_for(biz, area, obj))
+    for bad in ("render", "input", "render-", "-input", "render--input"):
+        with pytest.raises(Deny):
+            check_key(biz, f"{bad}/b/{biz}/{obj}")

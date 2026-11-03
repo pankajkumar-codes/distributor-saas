@@ -2,10 +2,16 @@
 built and checked by the CI job `renderer` (scripts/check_renderer_zip.py)."""
 
 import re
+import sys
+import uuid
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 RENDERER = ROOT / "renderer"
+sys.path.insert(0, str(RENDERER))
+from renderer import inputs  # noqa: E402  imports neither boto3 nor weasyprint
 STACK = (ROOT / "infra" / "modules" / "stack" / "main.tf").read_text()
 SHA256 = re.compile(r"[0-9a-f]{64}")
 
@@ -58,7 +64,8 @@ def test_the_renderer_function_runs_its_own_zip_with_no_database_or_vpc():
 
 def test_the_renderer_is_fed_by_the_render_queue_whose_dlq_has_an_alarm():
     module = re.search(r'module "renderer" \{(.*?)\n\}', STACK, re.S).group(1)
-    assert re.search(r"sqs_trigger\s*=\s*\{\s*arn\s*=\s*module\.render\.arn,\s*batch_size\s*=\s*1\s*\}", module)
+    assert re.search(r"sqs_trigger\s*=\s*\{\s*arn\s*=\s*module\.render\.arn,\s*batch_size\s*=\s*1,"
+                     r"\s*maximum_concurrency\s*=\s*var\.render_max_concurrency\s*\}", module)
     queue = re.search(r'module "render" \{(.*?)\n\}', STACK, re.S).group(1)
     assert re.search(r'source\s*=\s*"\.\./queue"', queue)
     assert re.search(r"visibility_timeout_seconds\s*=\s*360\b", queue)  # 6 x the renderer's 60 s
@@ -79,3 +86,57 @@ def test_the_renderer_reads_only_render_input_and_decrypts_only_through_s3():
 
 def test_no_other_function_ships_the_renderer_zip():
     assert STACK.count('/renderer.zip"') == 1
+
+
+def test_render_concurrency_is_capped_at_about_five_through_a_stack_variable():
+    var = re.search(r'variable "render_max_concurrency" \{(.*?)\n\}', STACK, re.S).group(1)
+    assert re.search(r"default\s*=\s*5\b", var)
+    function = (ROOT / "infra" / "modules" / "function" / "main.tf").read_text()
+    assert "maximum_concurrency = optional(number)" in function
+    assert re.search(r'dynamic "scaling_config" \{.*?maximum_concurrency\s*=\s*scaling_config\.value', function, re.S)
+    assert ">= 2 && var.sqs_trigger.maximum_concurrency <= 1000" in function
+
+
+def test_render_input_expires_after_a_day_with_its_old_versions():
+    storage = (ROOT / "infra" / "modules" / "storage" / "main.tf").read_text()
+    assert re.search(r'^\s*"render-input"\s*=\s*\{\s*expire_days\s*=\s*1,\s*noncurrent_days\s*=\s*1\s*\}', storage, re.M)
+
+
+def test_only_the_renderer_is_granted_render_input():
+    assert re.search(r'app_areas\s*=\s*\[for a in module\.storage\.areas : a if a != "render-input"\]', STACK)
+    objects = re.search(r"object_statements = \[(.*?)\n  \]", STACK, re.S).group(1)
+    assert "module.storage.areas" not in objects and objects.count("local.app_areas") == 2
+    assert STACK.count('/render-input/b/*"') == 1  # the renderer's GetObject
+
+
+class FakeS3:
+    def __init__(self):
+        self.deleted = []
+
+    def delete_object(self, **kwargs):
+        self.deleted.append(kwargs)
+        return {}
+
+
+def _key(area="render-input", name="input.json"):
+    return f"{area}/b/{uuid.uuid4()}/{uuid.uuid4()}/{name}"
+
+
+def test_delete_after_render_deletes_the_input_and_is_safe_to_repeat():
+    s3, key = FakeS3(), _key()
+    inputs.delete_after_render(s3, "bucket", key)
+    inputs.delete_after_render(s3, "bucket", key)  # a redelivered message
+    assert s3.deleted == [{"Bucket": "bucket", "Key": key}] * 2
+    assert inputs.business_of(key) == key.split("/")[2]
+
+
+@pytest.mark.parametrize("key", [
+    _key("documents"), _key("uploads"), "render-input/b/x", "render-input/b/../documents/b/x",
+    f"render-input/b/{uuid.uuid4()}", f"/render-input/b/{uuid.uuid4()}/{uuid.uuid4()}", "", None, 42,
+    f"render-input/b/{uuid.uuid4()}/{uuid.uuid4()}/../../x",
+])
+def test_delete_after_render_refuses_any_other_key(key):
+    s3 = FakeS3()
+    with pytest.raises(ValueError):
+        inputs.delete_after_render(s3, "bucket", key)
+    assert s3.deleted == []

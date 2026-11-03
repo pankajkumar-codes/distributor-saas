@@ -50,12 +50,17 @@ variable "policy_statements" {
   default     = []
 }
 variable "sqs_trigger" {
-  description = "Queue to consume, with ReportBatchItemFailures, or null."
+  description = "Queue to consume, with ReportBatchItemFailures, or null. maximum_concurrency caps the concurrent invocations this queue starts (2 to 1000); null leaves it uncapped."
   type = object({
-    arn        = string
-    batch_size = number
+    arn                 = string
+    batch_size          = number
+    maximum_concurrency = optional(number)
   })
   default = null
+  validation {
+    condition     = try(var.sqs_trigger.maximum_concurrency, null) == null || try(var.sqs_trigger.maximum_concurrency >= 2 && var.sqs_trigger.maximum_concurrency <= 1000, false)
+    error_message = "sqs_trigger.maximum_concurrency must be between 2 and 1000 (an SQS event source limit)."
+  }
 }
 variable "log_retention_days" {
   type    = number
@@ -142,6 +147,13 @@ resource "aws_lambda_event_source_mapping" "sqs" {
   function_name           = aws_lambda_function.this.arn
   batch_size              = var.sqs_trigger.batch_size
   function_response_types = ["ReportBatchItemFailures"]
+
+  dynamic "scaling_config" {
+    for_each = var.sqs_trigger.maximum_concurrency == null ? [] : [var.sqs_trigger.maximum_concurrency]
+    content {
+      maximum_concurrency = scaling_config.value
+    }
+  }
 }
 
 output "function_name" { value = aws_lambda_function.this.function_name }

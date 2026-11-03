@@ -12,6 +12,13 @@ a test that a planted URL is never fetched. The renderer's IAM is `kms:GenerateD
 on our key and `s3:PutObject` on `documents/b/*`, plus the read it has today:
 `s3:GetObject` on `render-input/b/*` and `kms:Decrypt` only through S3.
 
+Once the PDF is written, the renderer deletes its input with
+`renderer.inputs.delete_after_render` (S4 adds `s3:DeleteObject` on `render-input/b/*`
+for it), and refuses any key outside `render-input/b/`. An input that is never rendered
+(its message ends in the DLQ) expires after a day under the bucket's lifecycle rule, so
+redriving a DLQ message more than a day old finds nothing: the worker renders again from
+the invoice instead. At most `render_max_concurrency` (5) renders run at once.
+
 ```
 make renderer-zip                    # build/renderer.zip (arm64) and its checks
 make renderer-zip ARCH=x86_64        # build/renderer-x86_64.zip, for a local smoke render

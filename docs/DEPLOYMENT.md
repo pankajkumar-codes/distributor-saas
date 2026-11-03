@@ -58,6 +58,12 @@ a month at Lambda list prices (not verified against an AWS bill).
   sender. Lambda still polls the empty queue, which makes SQS requests every month. With
   the jobs and mail queues that may pass SQS's 1 million free requests a month (about
   USD 0.40 per further million). Not verified against a bill.
+- Render inputs are kept for a day or two at most, so their storage is negligible. Each
+  one costs a PUT from the worker and a GET from the renderer (about USD 0.005 per
+  thousand PUTs and 0.0004 per thousand GETs; to be confirmed on AWS's S3 pricing page for
+  Mumbai).
+  DELETE requests and lifecycle expirations are free. The `maximum_concurrency` cap of 5
+  costs nothing. Not verified against a bill.
 - A one-page invoice took about 0.3 s warm at 1024 MB locally, so about 0.3 GB-s. At the
   arm64 list price of about USD 0.0000134 per GB-s (us-east-1; Mumbai not checked), that
   is about USD 0.000004 per invoice plus USD 0.20 per million requests.

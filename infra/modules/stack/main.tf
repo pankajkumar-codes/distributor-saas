@@ -63,6 +63,11 @@ variable "reserved_concurrency" {
   })
   default = null
 }
+variable "render_max_concurrency" {
+  description = "Most PDF renders at once, set on the render queue's trigger (D-042). It caps without reserving, so TD-6's quota of 156 is unchanged."
+  type        = number
+  default     = 5
+}
 variable "mail_domain" {
   description = "Domain SES sends from, once chosen. Empty: no SES identity, and the mailer may send nothing."
   type        = string
@@ -175,11 +180,14 @@ locals {
   })
   # Jobs sign nothing today, so the worker gets no keys and no Parameter Store access.
   worker_env = merge(local.db_env, local.queue_env, local.after_migrations)
+  # Every area but render-input, which only the renderer reads (D-042); S4 gives the
+  # worker its PutObject there with the first real render.
+  app_areas = [for a in module.storage.areas : a if a != "render-input"]
   object_statements = [
     # No DeleteObject: nothing in the app deletes a file yet; lifecycle rules expire uploads.
-    { Effect = "Allow", Action = ["s3:GetObject", "s3:PutObject"], Resource = [for a in module.storage.areas : "${module.storage.bucket_arn}/${a}/b/*"] },
+    { Effect = "Allow", Action = ["s3:GetObject", "s3:PutObject"], Resource = [for a in local.app_areas : "${module.storage.bucket_arn}/${a}/b/*"] },
     # Without ListBucket a missing key reads as 403, not 404 (S3ObjectStore.head).
-    { Effect = "Allow", Action = ["s3:ListBucket"], Resource = [module.storage.bucket_arn], Condition = { StringLike = { "s3:prefix" = [for a in module.storage.areas : "${a}/b/*"] } } },
+    { Effect = "Allow", Action = ["s3:ListBucket"], Resource = [module.storage.bucket_arn], Condition = { StringLike = { "s3:prefix" = [for a in local.app_areas : "${a}/b/*"] } } },
     { Effect = "Allow", Action = ["kms:GenerateDataKey", "kms:Decrypt"], Resource = [module.storage.kms_key_arn] },
   ]
   send_statements = [
@@ -347,7 +355,9 @@ module "renderer" {
   handler         = "renderer.handler.handler"
   memory_mb       = 1024
   timeout_seconds = 60 # a 1000-line invoice took 12 s locally at this size
-  sqs_trigger     = { arn = module.render.arn, batch_size = 1 }
+  # At most 5 renders at once, so a burst of finalized invoices waits in the queue rather
+  # than taking concurrency from the API (2 is the lowest SQS allows).
+  sqs_trigger = { arn = module.render.arn, batch_size = 1, maximum_concurrency = var.render_max_concurrency }
   policy_statements = [
     { Effect = "Allow", Action = ["s3:GetObject"], Resource = ["${module.storage.bucket_arn}/render-input/b/*"] },
     {
