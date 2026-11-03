@@ -272,6 +272,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Drafts */
+        get: operations["list_drafts_api_v1_b__business_id__drafts_get"];
+        put?: never;
+        /** Create Draft */
+        post: operations["create_draft_api_v1_b__business_id__drafts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/drafts/{draft_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Draft */
+        get: operations["get_draft_api_v1_b__business_id__drafts__draft_id__get"];
+        /** Save Draft */
+        put: operations["save_draft_api_v1_b__business_id__drafts__draft_id__put"];
+        post?: never;
+        /** Delete Draft */
+        delete: operations["delete_draft_api_v1_b__business_id__drafts__draft_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/filing-profile": {
         parameters: {
             query?: never;
@@ -1199,6 +1236,15 @@ export interface components {
             reason: string | null;
             target: components["schemas"]["Target"];
         };
+        /** CashBuyerIn */
+        CashBuyerIn: {
+            /** Address */
+            address?: string | null;
+            /** Name */
+            name?: string | null;
+            /** State Code */
+            state_code: string;
+        };
         /** ChannelsIn */
         ChannelsIn: {
             /** Amazon */
@@ -1218,6 +1264,13 @@ export interface components {
             flipkart: boolean;
             /** Meesho */
             meesho: boolean;
+        };
+        /** ChargeIn */
+        ChargeIn: {
+            /** Amount */
+            amount: string;
+            /** Label */
+            label: string;
         };
         /** Checklist */
         Checklist: {
@@ -1347,6 +1400,84 @@ export interface components {
             /** Name */
             name?: string | null;
         };
+        /** DraftIn */
+        DraftIn: {
+            cash_buyer?: components["schemas"]["CashBuyerIn"] | null;
+            /**
+             * Charges
+             * @default []
+             */
+            charges: components["schemas"]["ChargeIn"][];
+            /** Customer Id */
+            customer_id?: string | null;
+            /** Doc Date */
+            doc_date?: string | null;
+            eway?: components["schemas"]["EwayIn"] | null;
+            /**
+             * Invoice Discount
+             * @default 0
+             */
+            invoice_discount: string;
+            /**
+             * Kind
+             * @default invoice
+             * @enum {string}
+             */
+            kind: "invoice" | "credit_note";
+            /**
+             * Lines
+             * @default []
+             */
+            lines: components["schemas"]["LineIn"][];
+        };
+        /** DraftOut */
+        DraftOut: {
+            /** Bill To */
+            bill_to: {
+                [key: string]: unknown;
+            } | null;
+            /** Cash Buyer */
+            cash_buyer: {
+                [key: string]: unknown;
+            } | null;
+            /** Charges */
+            charges: {
+                [key: string]: unknown;
+            }[];
+            /** Created At */
+            created_at: string;
+            /** Customer Id */
+            customer_id: string | null;
+            /** Doc Date */
+            doc_date: string | null;
+            /** Eway */
+            eway: {
+                [key: string]: unknown;
+            } | null;
+            /** Id */
+            id: string;
+            /** Invoice Discount */
+            invoice_discount: string;
+            /** Kind */
+            kind: string;
+            /** Lines */
+            lines: components["schemas"]["LineOut"][];
+            /** Ship To */
+            ship_to: {
+                [key: string]: unknown;
+            } | null;
+            /** Updated At */
+            updated_at: string;
+            /** Version */
+            version: number;
+        };
+        /** DraftPageOut */
+        DraftPageOut: {
+            /** Has More */
+            has_more: boolean;
+            /** Items */
+            items: components["schemas"]["DraftOut"][];
+        };
         /** EmailBody */
         EmailBody: {
             /** Email */
@@ -1368,6 +1499,15 @@ export interface components {
             /** Challenge */
             challenge?: string | null;
             error: components["schemas"]["ErrorDetail"];
+        };
+        /** EwayIn */
+        EwayIn: {
+            /** Eway Bill No */
+            eway_bill_no?: string | null;
+            /** Transporter */
+            transporter?: string | null;
+            /** Vehicle No */
+            vehicle_no?: string | null;
         };
         /** FilingProfileOut */
         FilingProfileOut: {
@@ -1621,6 +1761,36 @@ export interface components {
         JobsOut: {
             /** Items */
             items: components["schemas"]["JobOut"][];
+        };
+        /** LineIn */
+        LineIn: {
+            /** Discount Kind */
+            discount_kind?: ("amount" | "percent") | null;
+            /** Discount Value */
+            discount_value?: string | null;
+            /** Product Id */
+            product_id: string;
+            /** Quantity */
+            quantity: string;
+            /** Unit Price */
+            unit_price?: string | null;
+        };
+        /** LineOut */
+        LineOut: {
+            /** Discount Kind */
+            discount_kind: string | null;
+            /** Discount Value */
+            discount_value: string | null;
+            /** Id */
+            id: string;
+            /** Line No */
+            line_no: number;
+            /** Product Id */
+            product_id: string;
+            /** Quantity */
+            quantity: string;
+            /** Unit Price */
+            unit_price: string;
         };
         /** MeMembership */
         MeMembership: {
@@ -2967,6 +3137,181 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["CustomerOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_drafts_api_v1_b__business_id__drafts_get: {
+        parameters: {
+            query?: {
+                kind?: ("invoice" | "credit_note") | null;
+                q?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftPageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_draft_api_v1_b__business_id__drafts_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_draft_api_v1_b__business_id__drafts__draft_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_draft_api_v1_b__business_id__drafts__draft_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+            };
+            path: {
+                draft_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_draft_api_v1_b__business_id__drafts__draft_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+            };
+            path: {
+                draft_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

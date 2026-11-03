@@ -54,6 +54,9 @@ ACTIONS: dict[str, tuple[str, str]] = {
     "customer.archived": ("Archived a customer", "invoices"),
     "customer.unarchived": ("Restored a customer", "invoices"),
     "customer.deleted": ("Deleted a customer", "invoices"),
+    "draft.created": ("Started an invoice draft", "invoices"),
+    "draft.updated": ("Edited an invoice draft", "invoices"),
+    "draft.deleted": ("Deleted an invoice draft", "invoices"),
     "catalog.import_applied": ("Imported products from a file", "invoices"),
     "catalog.import_superseded": ("Replaced a product file preview with a new upload", "invoices"),
     # Rows copied from identity.audit_events (LLD-1 §3.6) keep their stock-era names.
@@ -80,6 +83,7 @@ def label(action: str) -> str:
 # target kind -> (SPA route under /b/{b}, permission needed to open it)
 TARGETS: dict[str, tuple[str, Permission]] = {
     "document": ("/invoices/{id}", Permission.CATALOG_VIEW),
+    "draft": ("/invoices/drafts/{id}", Permission.DOCUMENTS_VIEW),
     "product": ("/products/{id}", Permission.CATALOG_VIEW),
     "customer": ("/customers/{id}", Permission.CATALOG_VIEW),
     "product_import": ("/products/imports/{id}", Permission.CATALOG_VIEW),
