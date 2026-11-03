@@ -1408,6 +1408,11 @@ export interface components {
              * @default []
              */
             charges: components["schemas"]["ChargeIn"][];
+            /**
+             * Customer Collects
+             * @default false
+             */
+            customer_collects: boolean;
             /** Customer Id */
             customer_id?: string | null;
             /** Doc Date */
@@ -1446,6 +1451,8 @@ export interface components {
             }[];
             /** Created At */
             created_at: string;
+            /** Customer Collects */
+            customer_collects: boolean;
             /** Customer Id */
             customer_id: string | null;
             /** Doc Date */

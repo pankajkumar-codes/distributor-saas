@@ -70,6 +70,15 @@ def test_create_then_read_with_money_as_strings(shop):
     assert got.status_code == 200 and got.json() == d
 
 
+def test_the_ex_works_flag_is_saved_and_defaults_off(shop):
+    pg, biz, _ = shop
+    p = make_product(pg, biz)
+    d = create(pg, biz, draft_body(p)).json()
+    assert d["customer_collects"] is False
+    assert put(pg, biz, d, draft_body(p, customer_collects=True)).json()["customer_collects"] is True
+    assert create(pg, biz, draft_body(p, customer_collects="yes")).status_code == 422
+
+
 def test_a_json_number_or_bad_decimal_is_refused(shop):
     pg, biz, _ = shop
     p = make_product(pg, biz)

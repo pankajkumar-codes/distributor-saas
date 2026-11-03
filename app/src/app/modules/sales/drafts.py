@@ -29,7 +29,7 @@ _QTY = re.compile(r"^[0-9]{1,15}(\.[0-9]{1,3})?$")
 _TWO, _THREE = Decimal("0.01"), Decimal("0.001")
 _HUNDRED = Decimal(100)
 _COLUMNS = ("id, kind, status, version, customer_id, cash_buyer, bill_to, ship_to, doc_date, invoice_discount,"
-            " charges, eway, created_at, updated_at")
+            " charges, eway, customer_collects, created_at, updated_at")
 
 
 def _business(uow: UnitOfWork) -> uuid.UUID:
@@ -88,6 +88,7 @@ def _checked(uow: UnitOfWork, body: dict, today: date) -> tuple[dict, list[dict]
         if not ch["label"]:
             raise Invalid("charge_label_required", "Name the charge", field=f"charges.{i}.label")
     cols["eway"] = body.get("eway")
+    cols["customer_collects"] = bool(body.get("customer_collects", False))
     lines = body.get("lines") or []
     if len(lines) > MAX_LINES:
         raise Invalid("too_many_lines", f"An invoice can have at most {MAX_LINES} lines", field="lines")
@@ -178,8 +179,8 @@ def create(uow: UnitOfWork, body: dict, today: date) -> uuid.UUID:
     draft_id, me = uuid7(), uow.principal.user_id
     uow.tx.execute(
         _bind("insert into sales.drafts (id, business_id, kind, customer_id, cash_buyer, bill_to, ship_to, doc_date,"
-              " invoice_discount, charges, eway, created_by, updated_by) values (:id, :b, 'invoice', :customer_id,"
-              " :cash_buyer, :bill_to, :ship_to, :doc_date, :invoice_discount, :charges, :eway, :me, :me)"),
+              " invoice_discount, charges, eway, customer_collects, created_by, updated_by) values (:id, :b, 'invoice', :customer_id,"
+              " :cash_buyer, :bill_to, :ship_to, :doc_date, :invoice_discount, :charges, :eway, :customer_collects, :me, :me)"),
         {"id": draft_id, "b": _business(uow), "me": me, **cols})
     _write_lines(uow, draft_id, lines)
     audit.record(uow, "draft.created", "draft", draft_id, data={})
@@ -193,7 +194,7 @@ def replace(uow: UnitOfWork, draft_id: uuid.UUID, body: dict, if_match: int | No
     uow.tx.execute(
         _bind("update sales.drafts set customer_id = :customer_id, cash_buyer = :cash_buyer, bill_to = :bill_to,"
               " ship_to = :ship_to, doc_date = :doc_date, invoice_discount = :invoice_discount, charges = :charges,"
-              " eway = :eway, version = version + 1, updated_at = now(), updated_by = :me"
+              " eway = :eway, customer_collects = :customer_collects, version = version + 1, updated_at = now(), updated_by = :me"
               " where id = :id and business_id = :b"),
         {"id": draft_id, "b": _business(uow), "me": uow.principal.user_id, **cols})
     _write_lines(uow, draft_id, lines)

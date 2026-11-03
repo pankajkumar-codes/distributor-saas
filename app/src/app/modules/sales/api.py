@@ -11,7 +11,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi import status as http
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
 from platform_common.clock import Clock, get_clock
 from platform_common.idempotency import run_once
@@ -73,6 +73,7 @@ class DraftIn(BaseModel):
     invoice_discount: Amount = "0"
     charges: list[ChargeIn] = []
     eway: EwayIn | None = None
+    customer_collects: StrictBool = False  # ex-works, the customer collects the goods (case D)
     lines: list[LineIn] = []
 
 
@@ -98,6 +99,7 @@ class DraftOut(BaseModel):
     invoice_discount: str
     charges: list[dict]
     eway: dict | None
+    customer_collects: bool
     lines: list[LineOut]
     created_at: str
     updated_at: str
@@ -117,6 +119,7 @@ def _out(d: dict) -> dict:
         "id": str(d["id"]), "kind": d["kind"], "version": d["version"], "customer_id": _s(d["customer_id"]),
         "cash_buyer": d["cash_buyer"], "bill_to": d["bill_to"], "ship_to": d["ship_to"], "doc_date": d["doc_date"],
         "invoice_discount": str(d["invoice_discount"]), "charges": d["charges"], "eway": d["eway"],
+        "customer_collects": d["customer_collects"],
         "lines": [{**ln, "id": str(ln["id"]), "product_id": str(ln["product_id"]), "quantity": str(ln["quantity"]),
                    "unit_price": str(ln["unit_price"]), "discount_value": _s(ln["discount_value"])} for ln in d["lines"]],
         "created_at": d["created_at"].isoformat(), "updated_at": d["updated_at"].isoformat(),

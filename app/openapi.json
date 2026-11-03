@@ -864,6 +864,11 @@
             "title": "Charges",
             "type": "array"
           },
+          "customer_collects": {
+            "default": false,
+            "title": "Customer Collects",
+            "type": "boolean"
+          },
           "customer_id": {
             "anyOf": [
               {
@@ -962,6 +967,10 @@
             "title": "Created At",
             "type": "string"
           },
+          "customer_collects": {
+            "title": "Customer Collects",
+            "type": "boolean"
+          },
           "customer_id": {
             "anyOf": [
               {
@@ -1049,6 +1058,7 @@
           "invoice_discount",
           "charges",
           "eway",
+          "customer_collects",
           "lines",
           "created_at",
           "updated_at"
