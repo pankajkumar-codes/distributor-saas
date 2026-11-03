@@ -89,7 +89,9 @@ def test_get_profile_shows_the_profile_band_and_readiness(biz):
     assert body["registration"]["state_name"]  # from refdata.state_codes
     assert body["address"] == {"line1": "12 Park St", "line2": None, "city": "Kolkata", "pin": "700016",
                                "state_code": "19"}
-    assert body["turnover_band"] == {"fy": "2026-27", "band": "up_to_threshold", "declared_turnover": None}
+    assert body["turnover_band"] == {"fy": "2026-27", "band": "up_to_threshold", "declared_turnover": None,
+                                     "version": 1}
+    assert body["previous_turnover_band"] is None  # sign-up asks for this FY only
     assert body["ready_for_documents"] == {"ok": True, "missing": []}
 
 
@@ -345,16 +347,44 @@ def test_a_gstin_change_before_the_lock_keeps_the_frequency(biz):
 
 def test_turnover_bands_take_the_current_or_previous_fy_and_a_decimal_string(biz):
     pg, bid = biz
-    r = pg.client.put(url(bid, "/turnover-bands/2026-27"), headers=as_user("alice"),
+    r = pg.client.put(url(bid, "/turnover-bands/2026-27"), headers={**as_user("alice"), "If-Match": "1"},
                       json={"band": "above_threshold", "declared_turnover": "52000000.50"})
-    assert r.json() == {"fy": "2026-27", "band": "above_threshold", "declared_turnover": "52000000.50"}
+    assert r.json() == {"fy": "2026-27", "band": "above_threshold", "declared_turnover": "52000000.50",
+                        "version": 2}
     assert scalar(pg.owner, "select declared_turnover::text from business.turnover_bands where fy = '2026-27'"
                   ) == "52000000.50"
     old = pg.client.put(url(bid, "/turnover-bands/2024-25"), headers=as_user("alice"), json={"band": "up_to_threshold"})
     assert (old.status_code, old.json()["error"]["code"]) == (422, "fy_not_allowed")
     for bad in (5000, "1e5", "-1", "1.234"):
-        assert pg.client.put(url(bid, "/turnover-bands/2026-27"), headers=as_user("alice"),
+        assert pg.client.put(url(bid, "/turnover-bands/2026-27"), headers={**as_user("alice"), "If-Match": "2"},
                              json={"band": "up_to_threshold", "declared_turnover": bad}).status_code == 422
+
+
+def test_last_year_s_band_is_set_once_then_changed_with_if_match(biz):  # mock-note-last-fy-band.md
+    pg, bid = biz
+    put = lambda body, **h: pg.client.put(url(bid, "/turnover-bands/2025-26"),  # noqa: E731
+                                          headers={**as_user("alice"), **h}, json=body)
+    r = put({"band": "up_to_threshold"})  # the first band for an FY needs no If-Match
+    assert (r.status_code, r.json()["version"], r.headers["ETag"]) == (200, 1, '"1"'), r.text
+    profile = pg.client.get(url(bid, "/profile"), headers=as_user("alice")).json()
+    assert profile["previous_turnover_band"] == {"fy": "2025-26", "band": "up_to_threshold",
+                                                 "declared_turnover": None, "version": 1}
+    r = put({"band": "above_threshold"})
+    assert (r.status_code, r.json()["error"]["code"]) == (422, "if_match_required")
+    r = put({"band": "above_threshold"}, **{"If-Match": "7"})
+    assert (r.status_code, r.json()["error"]["code"]) == (409, "stale_record")
+    for strict in ('W/"1"', "*"):  # platform_common.etag: a weak tag or * never matches
+        r = put({"band": "above_threshold"}, **{"If-Match": strict})
+        assert (r.status_code, r.json()["error"]["code"]) == (409, "stale_record"), strict
+    r = put({"band": "above_threshold"}, **{"If-Match": '"1"'})
+    assert (r.status_code, r.json()["version"], r.headers["ETag"]) == (200, 2, '"2"')
+    assert put({"band": "up_to_threshold"}, **{"If-Match": "1"}).status_code == 409  # the old version again
+    assert scalar(pg.owner, "select band from business.turnover_bands where fy = '2025-26'") == "above_threshold"
+    assert scalar(pg.owner, "select count(*) from platform.audit_log where action = 'business.turnover_band_set'"
+                  " and data->>'fy' = '2025-26'") == 2
+    other = pg.client.put(url(bid, "/turnover-bands/2025-26"), headers={**as_user("bob"), "If-Match": "2"},
+                          json={"band": "up_to_threshold"})
+    assert other.status_code in (403, 404)  # not a member
 
 
 def test_channels_start_unanswered_and_an_answer_is_recorded(biz):
@@ -414,7 +444,7 @@ def test_home_counts_a_pending_invite(biz):
 READS = [("get", "/profile"), ("get", "/filing-profile"), ("get", "/channels"), ("get", "/home")]
 WRITES = [
     ("patch", "/profile", {"trade_name": "X"}),
-    ("put", "/turnover-bands/2026-27", {"band": "up_to_threshold"}),
+    ("put", "/turnover-bands/2025-26", {"band": "up_to_threshold"}),  # a first band: no If-Match
     ("post", "/filing-profile/frequency", {"frequency": "quarterly", "effective_from": "2026-10-01"}),
     ("put", "/channels", {"amazon": True, "flipkart": True, "meesho": True}),
 ]

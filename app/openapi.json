@@ -3207,6 +3207,16 @@
             ],
             "title": "Legal Name"
           },
+          "previous_turnover_band": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TurnoverBandOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "ready_for_documents": {
             "$ref": "#/components/schemas/ReadinessOut"
           },
@@ -3247,6 +3257,7 @@
           "address",
           "einvoice_history",
           "turnover_band",
+          "previous_turnover_band",
           "ready_for_documents",
           "version"
         ],
@@ -4055,12 +4066,17 @@
           "fy": {
             "title": "Fy",
             "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
           "fy",
           "band",
-          "declared_turnover"
+          "declared_turnover",
+          "version"
         ],
         "title": "TurnoverBandOut",
         "type": "object"
@@ -8029,6 +8045,7 @@
     },
     "/api/v1/b/{business_id}/turnover-bands/{fy}": {
       "put": {
+        "description": "The first band for an FY needs no If-Match; changing one needs the version shown\n(strict: a weak tag or `*` is 409, see platform_common.etag). The reply's ETag is\nthe version to send next.",
         "operationId": "put_turnover_band_api_v1_b__business_id__turnover_bands__fy__put",
         "parameters": [
           {
@@ -8048,6 +8065,22 @@
             "schema": {
               "title": "Business Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
             }
           }
         ],
