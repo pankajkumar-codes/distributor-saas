@@ -58,6 +58,7 @@ class TurnoverBand:
     fy: str
     band: str
     declared_turnover: Decimal | None
+    version: int = 1
 
 
 @dataclass(frozen=True)
@@ -201,31 +202,53 @@ def lock_gstin(uow: UnitOfWork) -> None:
 
 # --- Turnover bands -------------------------------------------------------------------
 
-_BAND = text(f"select fy, band, declared_turnover from business.turnover_bands where {BOUND} and fy = :fy")
+_BAND = text(f"select fy, band, declared_turnover, version from business.turnover_bands where {BOUND} and fy = :fy")
 
 
-def turnover_band(tx: Session, fy: str) -> TurnoverBand | None:
-    row = tx.execute(_BAND, {"fy": fy}).one_or_none()
-    return None if row is None else TurnoverBand(row.fy, row.band, row.declared_turnover)
+def turnover_band(tx: Session, fy: str, *, for_update: bool = False) -> TurnoverBand | None:
+    row = tx.execute(text(_BAND.text + (" for update" if for_update else "")), {"fy": fy}).one_or_none()
+    return None if row is None else TurnoverBand(row.fy, row.band, row.declared_turnover, row.version)
 
 
 def set_turnover_band(uow: UnitOfWork, fy: str, band: str, declared_turnover: Decimal | None, *,
-                      today: date) -> TurnoverBand:
-    """PUT /turnover-bands/{fy}: the current FY or the one before (LLD-1 §8.2)."""
+                      today: date, if_match: int | None = None) -> TurnoverBand:
+    """PUT /turnover-bands/{fy}: the current FY or the one before (LLD-1 §8.2). The first
+    band for an FY needs no If-Match; changing one needs the version the user saw (409
+    stale_record otherwise), like the rest of the settings form."""
     current = fy_of(today)
     if fy not in (current, previous_fy(current)):
         raise Invalid("fy_not_allowed", f"set the band for {current} or {previous_fy(current)}", field="fy")
-    uow.tx.execute(
-        text("insert into business.turnover_bands (business_id, fy, band, declared_turnover, set_by)"
-             " values (:b, :fy, :band, :turnover, :by)"
-             " on conflict (business_id, fy) do update set band = excluded.band,"
-             " declared_turnover = excluded.declared_turnover, set_at = now(), set_by = excluded.set_by"),
-        {"b": uow.principal.business_id, "fy": fy, "band": band, "turnover": declared_turnover,
-         "by": uow.principal.user_id},
-    )
+    params = {"b": uow.principal.business_id, "fy": fy, "band": band, "turnover": declared_turnover,
+              "by": uow.principal.user_id}
+    existing = turnover_band(uow.tx, fy, for_update=True)
+    if existing is None:
+        if if_match is not None:  # the user edited a band that isn't there
+            raise Conflict("stale_record", "This band changed since you opened it. Reload and try again.",
+                           field="If-Match")
+        inserted = uow.tx.execute(
+            text("insert into business.turnover_bands (business_id, fy, band, declared_turnover, set_by)"
+                 " values (:b, :fy, :band, :turnover, :by) on conflict (business_id, fy) do nothing"),
+            params,
+        ).rowcount
+        if not inserted:  # someone else set it first
+            raise Conflict("stale_record", "This band changed since you opened it. Reload and try again.",
+                           field="If-Match")
+        version = 1
+    else:
+        if if_match is None:
+            raise Invalid("if_match_required", "Send the version you edited as If-Match", field="If-Match")
+        if if_match != existing.version:
+            raise Conflict("stale_record", "This band changed since you opened it. Reload and try again.",
+                           field="If-Match")
+        uow.tx.execute(
+            text("update business.turnover_bands set band = :band, declared_turnover = :turnover,"
+                 f" version = version + 1, set_at = now(), set_by = :by where {BOUND} and fy = :fy"),
+            params,
+        )
+        version = existing.version + 1
     audit.record(uow, "business.turnover_band_set", "business", uow.principal.business_id,
                  data={"fy": fy, "band": band})
-    return TurnoverBand(fy, band, declared_turnover)
+    return TurnoverBand(fy, band, declared_turnover, version)
 
 
 # --- Marketplace channels (ON-2) ----------------------------------------------------
