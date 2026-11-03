@@ -13,6 +13,10 @@ If-Match on PUT, PATCH and DELETE is read by `if_match_version`:
   - `*`: we need the version the user edited, not "any version", so a blind write can't
     overwrite someone else's change;
   - a list (`"6", "7"`), a non-number, or a negative or zero version.
+
+Clients send the `version` from the response body, not the ETag header: a proxy that
+compresses a response (CloudFront can, if compression is on for /api/*) may turn the strong tag into a
+weak `W/"7"`, which this rule refuses.
 """
 
 import re
