@@ -29,7 +29,7 @@ def h(sub="alice", **extra):
 
 
 def make_product(pg, biz, code="SOAP-1", sub="alice", **extra):
-    body = {"code": code, "name": "Neem soap", "hsn": "3401", "uqc": "PCS", "sale_rate": "45.50",
+    body = {"code": code, "name": "Neem soap", "hsn": "340120", "uqc": "PCS", "sale_rate": "45.50",
             "tax_category": "taxable", "rate": {"rate": "18", "valid_from": "2026-04-01"}, **extra}
     r = pg.client.post(f"/api/v1/b/{biz}/products", json=body, headers=h(sub, **{"Idempotency-Key": uuid.uuid4().hex}))
     assert r.status_code == 201, r.text
@@ -41,6 +41,10 @@ def make_customer(pg, biz, name="Sharma Stores", sub="alice"):
     r = pg.client.post(f"/api/v1/b/{biz}/customers", json=body, headers=h(sub, **{"Idempotency-Key": uuid.uuid4().hex}))
     assert r.status_code == 201, r.text
     return r.json()["id"]
+
+
+def bare(d):
+    return {k: v for k, v in d.items() if k != "computation"}
 
 
 def draft_body(product, **extra):
@@ -67,7 +71,7 @@ def test_create_then_read_with_money_as_strings(shop):
                                             "unit_price": "45.50", "discount_kind": None, "discount_value": None}
     assert d["bill_to"]["name"] == "Sharma Stores" and d["bill_to"]["state_code"] == "27"
     got = pg.client.get(f"/api/v1/b/{biz}/drafts/{d['id']}", headers=h("cathy"))
-    assert got.status_code == 200 and got.json() == d
+    assert got.status_code == 200 and bare(got.json()) == bare(d)
 
 
 def test_etag_carries_the_version_and_a_weak_tag_is_stale(shop):  # platform_common.etag
@@ -184,7 +188,7 @@ def test_a_failed_put_leaves_the_draft_as_it_was(shop):
     p = make_product(pg, biz)
     d = create(pg, biz, draft_body(p)).json()
     assert put(pg, biz, d, {"lines": [{"product_id": p, "quantity": "nope"}]}).status_code == 422
-    assert pg.client.get(f"/api/v1/b/{biz}/drafts/{d['id']}", headers=h()).json() == d
+    assert bare(pg.client.get(f"/api/v1/b/{biz}/drafts/{d['id']}", headers=h()).json()) == bare(d)
 
 
 def test_list_filters_by_buyer_name_and_pages(shop):
@@ -233,3 +237,54 @@ def test_roles_and_tenants(shop):
     assert pg.client.get(f"/api/v1/b/{other}/drafts/{d['id']}", headers=h("bob")).status_code == 404
     assert pg.client.get(f"/api/v1/b/{other}/drafts", headers=h("bob")).json()["items"] == []
     assert put(pg, other, d, {}, sub="bob").status_code == 404
+
+
+def test_a_save_returns_the_computation(shop):
+    from decimal import Decimal as D
+
+    pg, biz, _ = shop
+    p = make_product(pg, biz)
+    other_state = create(pg, biz, draft_body(p, cash_buyer={"name": "Walk-in", "state_code": "27"})).json()
+    c = other_state["computation"]
+    assert c["is_inter_state"] is True and c["supply_class"] == "B2CS" and c["method_version"]
+    assert D(c["taxable_total"]) == D("113.75") and c["cgst_total"] == "0.00"
+    assert D(c["igst_total"]) in (D("20.47"), D("20.48"))
+    assert D(c["doc_total"]) == D(c["taxable_total"]) + D(c["igst_total"]) + D(c["round_off"])
+    assert c["lines"][0]["taxes"][0]["component"] == "IGST" and c["blocks"] == []
+    same_state = create(pg, biz, draft_body(p, cash_buyer={"state_code": "19"})).json()["computation"]
+    assert same_state["is_inter_state"] is False and same_state["igst_total"] == "0.00"
+    assert D(same_state["cgst_total"]) == D(same_state["sgst_total"]) > 0
+    # reads and lists do not compute
+    assert pg.client.get(f"/api/v1/b/{biz}/drafts/{other_state['id']}", headers=h()).json()["computation"] is None
+
+
+def test_an_incomplete_draft_saves_with_blocks_not_an_error(shop):
+    pg, biz, _ = shop
+    d = create(pg, biz, draft_body(make_product(pg, biz))).json()  # no buyer yet
+    assert d["computation"]["supply_class"] is None
+    assert "buyer_state_missing" in [b["code"] for b in d["computation"]["blocks"]]
+    saved = put(pg, biz, d, {"cash_buyer": {"state_code": "27"}, "lines": draft_body(make_product(pg, biz, "S2"))["lines"]})
+    assert saved.status_code == 200 and saved.json()["computation"]["blocks"] == []
+
+
+def test_amounts_that_cannot_be_computed_are_a_422_and_change_nothing(shop):
+    pg, biz, _ = shop
+    p = make_product(pg, biz)
+    d = create(pg, biz, draft_body(p, cash_buyer={"state_code": "27"})).json()
+    too_much = draft_body(p, cash_buyer={"state_code": "27"}, invoice_discount="1000")
+    r = put(pg, biz, d, too_much)
+    assert r.status_code == 422, r.text
+    assert pg.client.get(f"/api/v1/b/{biz}/drafts/{d['id']}", headers=h()).json()["version"] == 1
+    assert create(pg, biz, too_much).status_code == 422
+    assert scalar(pg.owner, "select count(*) from sales.drafts") == 1
+
+
+def test_a_customer_deleted_after_the_draft_was_saved_is_customer_not_found_on_save(shop):
+    pg, biz, _ = shop
+    p, c = make_product(pg, biz), make_customer(pg, biz)
+    d = create(pg, biz, draft_body(p, customer_id=c)).json()
+    cu = pg.client.get(f"/api/v1/b/{biz}/customers/{c}", headers=h()).json()
+    gone = pg.client.delete(f"/api/v1/b/{biz}/customers/{c}", headers=h(**{"If-Match": str(cu["version"])}))
+    assert gone.status_code == 204
+    r = put(pg, biz, d, draft_body(p, customer_id=c))
+    assert r.status_code == 422 and r.json()["error"]["code"] == "customer_not_found"
