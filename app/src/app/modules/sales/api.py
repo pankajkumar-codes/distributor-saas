@@ -7,7 +7,7 @@ the create-documents one.
 """
 
 from datetime import date
-from decimal import Decimal, Context, Inexact
+from decimal import Context, Decimal, InvalidOperation, Inexact
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
@@ -192,7 +192,7 @@ def _s(v) -> str | None:
 
 
 _PAISE = Decimal("0.01")
-_EXACT = Context(traps=[Inexact])  # the default 28 digits cover any amount here
+_EXACT = Context(traps=[Inexact, InvalidOperation])  # 28 digits cover any amount here
 
 
 def _m(x: Decimal) -> str:

@@ -286,7 +286,8 @@ def computation(uow: UnitOfWork, d: dict, *, today: date) -> Computation:
     discount above the base, and so on), and Invalid("customer_not_found") for a customer
     deleted since the draft was saved. A draft that is merely incomplete comes back with
     `blocks`, never an error. Callers save first and compute second inside the same unit of
-    work, so an Invalid from here does block the save: the whole request rolls back. `today` is the IST date; a draft without a date uses it."""
+    work, so an Invalid from here does block the save: the whole request
+    rolls back. `today` is the IST date; a draft without a date uses it."""
     draft = DraftIn(
         doc_date=d["doc_date"] or today,
         customer_id=d["customer_id"],
