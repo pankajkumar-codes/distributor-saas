@@ -105,8 +105,9 @@ export function CompanyPage() {
   const [stale, setStale] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
   const latest = profile.data ?? null;
-  const wrote = useRef(false); // a save that failed after some of its writes landed
-  const quiet = useRef(false); // the next newer version is our own partial save, not someone else's
+  // What the server has confirmed during the current save, write by write. If a later write
+  // fails, the form moves to it, so a re-read can only show what other people changed.
+  const confirmed = useRef<Profile | null>(null);
 
   useEffect(() => {
     if (!latest || (opened && stamp(latest) === stamp(opened))) return;
@@ -114,12 +115,9 @@ export function CompanyPage() {
       setValues(valuesOf(latest));
     } else {
       setValues(rebase(valuesOf(opened), valuesOf(latest), values));
-      if (!quiet.current) {
-        setTheirs(changedKeys(valuesOf(opened), valuesOf(latest)));
-        setStale(true);
-      }
+      setTheirs(changedKeys(valuesOf(opened), valuesOf(latest)));
+      setStale(true);
     }
-    quiet.current = false;
     setOpened(latest);
   }, [latest]); // opened and values are read to rebase onto a newer version, not to trigger it
 
@@ -148,22 +146,22 @@ export function CompanyPage() {
           }),
         );
         ({ profile: now, warnings: out } = patched);
-        wrote.current = true;
+        confirmed.current = now;
       }
       // Each reply is the saved row, so the form ends on what the server holds without a re-read.
       if (keys.includes("this_band") && values!.this_band) {
         now = { ...now, turnover_band: await putBand(thisFy, opened!.turnover_band, values!.this_band) };
-        wrote.current = true;
+        confirmed.current = now;
       }
       if (keys.includes("last_band") && values!.last_band) {
         now = { ...now, previous_turnover_band: await putBand(lastFy, opened!.previous_turnover_band, values!.last_band) };
-        wrote.current = true;
+        confirmed.current = now;
       }
       return { profile: now, warnings: out };
     },
     onMutate: () => {
       setWarnings([]);
-      wrote.current = false;
+      confirmed.current = null;
     },
     onSuccess: (out) => {
       queryClient.setQueryData(["b", businessId, "profile"], out.profile);
@@ -176,13 +174,16 @@ export function CompanyPage() {
       setWarnings(out.warnings);
     },
     onError: (e) => {
+      // Part of the save landed: what we wrote is now what the edits are against, so it is
+      // neither "someone else's change" nor sent again. The unsaved edits stay in the form.
+      const ours = confirmed.current;
+      if (ours) {
+        queryClient.setQueryData(["b", businessId, "profile"], ours);
+        setOpened(ours);
+      }
       // Someone else saved first: the newer version brings the banner. A band that someone
       // set meanwhile answers if_match_required, which is the same thing.
       if (e.code === "stale_record" || e.code === "if_match_required") profile.refetch();
-      else if (wrote.current) {
-        quiet.current = true; // our own writes moved the versions; keep the rest of the edits
-        profile.refetch();
-      }
     },
   });
 

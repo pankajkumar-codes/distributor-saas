@@ -166,6 +166,20 @@ describe("saving the business", () => {
     expect(screen.getByText(/We couldn't save last year's turnover\. Add it in Settings → Business details\./)).toBeInTheDocument();
   });
 
+  it("treats last year's band as saved when a replayed create finds it already there", async () => {
+    const BAND = `/api/v1/b/b-1/turnover-bands/${previousFy(fyIst())}`;
+    await open();
+    server.reply(CREATE, created());
+    server.reply(BAND, { status: 409, body: { error: { code: "stale_record", message: "This band changed since you opened it." } } });
+    server.reply(FREQUENCY, chosen([]));
+    server.reply(ME, me);
+    fillGstinBusiness();
+    pickIn(/^What was your turnover last financial year/, "Above that limit");
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByRole("heading", { name: HOME })).toBeInTheDocument();
+    expect(screen.queryByText(/We couldn't save last year's turnover/)).toBeNull();
+  });
+
   it("sends nothing for last year when the answer is Not sure", async () => {
     await open();
     server.reply(CREATE, created());

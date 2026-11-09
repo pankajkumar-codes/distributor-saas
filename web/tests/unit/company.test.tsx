@@ -136,16 +136,39 @@ describe("business details", () => {
       server.reply(PROFILE, { status: 200, body: withBands() });
       open();
       await screen.findByLabelText("Legal name");
-      server.reply(PROFILE, { status: 200, body: { profile: withBands({ trade_name: "Vashi", version: 5 }), warnings: [] } }, { status: 200, body: withBands({ trade_name: "Vashi", version: 5 }) });
-      server.reply(BAND(THIS), { status: 500 }, { status: 500 }, { status: 500 });
+      server.reply(PROFILE, { status: 200, body: { profile: withBands({ trade_name: "Vashi", version: 5 }), warnings: [] } });
+      server.reply(BAND(THIS), { status: 500 }, { status: 200, body: band(THIS, "above_threshold", 3) });
       type("Trade name (optional)", "Vashi");
       fireEvent.click(group(/^Turnover this financial year/).getByRole("radio", { name: "Above that limit" }));
       fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
       expect(await screen.findByText(/Something went wrong on our side/)).toBeInTheDocument();
-      await vi.waitFor(() => expect(server.sent.filter((s) => s.path === PROFILE && s.method === "GET")).toHaveLength(2));
-      await vi.waitFor(() => expect(screen.getByLabelText("Trade name (optional)")).toHaveValue("Vashi"));
+      expect(screen.getByLabelText("Trade name (optional)")).toHaveValue("Vashi");
       expect(group(/^Turnover this financial year/).getByRole("radio", { name: "Above that limit" })).toBeChecked();
       expect(screen.queryByText(/Someone changed these details/)).toBeNull();
+      // The retry sends only what didn't land, against the version our PATCH left.
+      fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+      expect(await screen.findByText(/Saved\./)).toBeInTheDocument();
+      expect(patches()).toHaveLength(1);
+      expect(puts(THIS)).toHaveLength(2);
+    });
+
+    it("after our PATCH lands and a band was set by someone else, blames only the band on them", async () => {
+      server.reply(PROFILE, { status: 200, body: withBands() });
+      open();
+      await screen.findByLabelText("Legal name");
+      server.reply(
+        PROFILE,
+        { status: 200, body: { profile: withBands({ trade_name: "Vashi", version: 5 }), warnings: [] } },
+        { status: 200, body: withBands({ trade_name: "Vashi", version: 5, previous_turnover_band: band(LAST, "above_threshold", 1) }) },
+      );
+      server.reply(BAND(LAST), { status: 409, body: { error: { code: "stale_record", message: "This band changed since you opened it.", field: "If-Match" } } });
+      type("Trade name (optional)", "Vashi");
+      fireEvent.click(group(/^Turnover last financial year/).getByRole("radio", { name: "Up to the limit for quarterly filing (QRMP)" }));
+      fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+      expect(await screen.findByText(/Someone changed these details since you opened them/)).toBeInTheDocument();
+      expect(screen.getByText("Now saved as: Above that limit")).toBeInTheDocument();
+      expect(screen.getAllByText(/Someone else changed this|Now saved as/)).toHaveLength(1); // the band only, not the trade name
+      expect(screen.getByLabelText("Trade name (optional)")).toHaveValue("Vashi");
     });
   });
 
