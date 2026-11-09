@@ -15,6 +15,8 @@ LLD-2 part A (slice S2). The code is in `app/src/app/modules/identity/api_team.p
 | `PATCH /b/{id}/members/{user_id}` | `members.manage` | Role change (L2-7). |
 | `POST /b/{id}/members/{user_id}/deactivate` and `/reactivate` | `members.manage` | A reason is required. Reactivating gives back the member's previous role. |
 | `GET /b/{id}/audit-log` | `audit.view` | Newest first, 50 per page, keyset cursor. Filters: `kind`, `actor`, `from`, `to` (Indian dates). |
+| `POST /b/{id}/audit-log/exports` | `audit.view` | Needs an `Idempotency-Key`. Body `{kind?, actor?, from?, to?}`, the list's filters and period rules. Writes an `audit.export` row (filters in `data`) and queues an `audit.export_csv` job; 202 `{job_id}`. |
+| `GET /b/{id}/audit-log/exports/{job_id}` | `audit.view` | `preparing`, `ready` (a 60-second link and the row count) or `failed` (`narrow_filter` above refdata `audit.export_max_rows`, `not_allowed` if the asker lost `audit.view` before the job ran). |
 
 ## Rules
 

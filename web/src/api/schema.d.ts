@@ -183,6 +183,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/audit-log/exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export Audit Log
+         * @description Queues the CSV of what the list shows for these filters. The export is logged as
+         *     `audit.export` in the same unit of work; poll GET .../exports/{job_id}.
+         */
+        post: operations["export_audit_log_api_v1_b__business_id__audit_log_exports_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/audit-log/exports/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Audit Log Export */
+        get: operations["audit_log_export_api_v1_b__business_id__audit_log_exports__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/channels": {
         parameters: {
             query?: never;
@@ -1327,6 +1365,40 @@ export interface components {
             pin: string | null;
             /** State Code */
             state_code: string | null;
+        };
+        /**
+         * AuditExportIn
+         * @description The screen's filters; the period follows the list's rules (both ends included,
+         *     `to` defaults to today, at most MAX_RANGE_DAYS).
+         */
+        AuditExportIn: {
+            /** Actor */
+            actor?: string | null;
+            /** From */
+            from?: string | null;
+            /** Kind */
+            kind?: ("invoices" | "gst_filing" | "team_settings" | "support") | null;
+            /** To */
+            to?: string | null;
+        };
+        /** AuditExportOut */
+        AuditExportOut: {
+            /** Error Code */
+            error_code?: string | null;
+            /** Rows */
+            rows?: number | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "preparing" | "ready" | "failed";
+            /** Url */
+            url?: string | null;
+        };
+        /** AuditExportRef */
+        AuditExportRef: {
+            /** Job Id */
+            job_id: string;
         };
         /** AuditPageOut */
         AuditPageOut: {
@@ -3204,6 +3276,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuditPageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_audit_log_api_v1_b__business_id__audit_log_exports_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "idempotency-key"?: string | null;
+            };
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuditExportIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditExportRef"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    audit_log_export_api_v1_b__business_id__audit_log_exports__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditExportOut"];
                 };
             };
             /** @description Validation Error */

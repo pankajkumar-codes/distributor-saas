@@ -40,6 +40,7 @@ ACTIONS: dict[str, tuple[str, str]] = {
     "support.view": ("Support viewed the business", "support"),
     "support.grant": ("Gave support access", "support"),
     "support.revoke": ("Ended support access", "support"),
+    "audit.export": ("Exported the audit log", "team_settings"),
     # Catalog (LLD-3 §9). Products sit with invoices: the filter groups are the four
     # LLD-2 §7 names, and products are what invoices are made of.
     "product.created": ("Added a product", "invoices"),
