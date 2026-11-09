@@ -44,7 +44,7 @@ class FakeS3:
         self.calls.append(("put", Key))
         if self.fail_put:
             raise S3Error("RequestTimeout")
-        assert ContentType == "application/pdf"
+        assert ContentType == ("application/pdf" if Key.endswith(".pdf") else "application/json")
         self.objects[Key] = Body
 
 
@@ -244,3 +244,43 @@ def test_computed_fields_print_when_present():
                note=None)
     html = template.render_html(doc)
     assert "Taxable value" in html and "CGST 6%: 12.00" in html and "224.00" in html and "Two hundred" in html
+
+
+def _event_try(key, receive_count):
+    return {"Records": [{"messageId": "m1", "body": json.dumps({"key": key}),
+                         "attributes": {"ApproximateReceiveCount": str(receive_count)}}]}
+
+
+def test_only_the_last_failed_try_records_the_failure_and_it_holds_no_input_data():
+    from renderer import handler
+
+    s3, (key, out) = FakeS3(), _keys()
+    failed = out.removesuffix("document.pdf") + "failed.json"
+    s3.objects[key] = json.dumps(_doc(lines="not a list", note="secret buyer note")).encode()
+    for attempt in range(1, 5):
+        assert handler.sqs_handler(_event_try(key, attempt), s3, BUCKET, max_receives=5)["batchItemFailures"]
+        assert failed not in s3.objects
+    assert handler.sqs_handler(_event_try(key, 5), s3, BUCKET, max_receives=5)["batchItemFailures"]
+    assert json.loads(s3.objects[failed]) == {"error_code": "render_failed"}
+    assert out not in s3.objects and key in s3.objects  # still no PDF; the input stays for the DLQ's day
+
+
+def test_a_last_try_with_a_bad_key_records_nothing():
+    from renderer import handler
+
+    s3 = FakeS3()
+    event = {"Records": [{"messageId": "m1", "body": json.dumps({"key": "documents/b/x/y/document.pdf"}),
+                          "attributes": {"ApproximateReceiveCount": "5"}}]}
+    assert handler.sqs_handler(event, s3, BUCKET, max_receives=5)["batchItemFailures"]
+    assert s3.calls == []
+
+
+def test_bengali_text_uses_the_bundled_bengali_font():
+    import re
+
+    from renderer import handler, template
+
+    html = template.render_html(_doc(buyer={"name": "নমুনা ভাণ্ডার", "address": ["কলকাতা"]}))
+    pdf = handler.weasyprint.HTML(string=html, url_fetcher=handler.DenyAllFetcher()).write_pdf(uncompressed_pdf=True)
+    fonts = {m.decode() for m in re.findall(rb"/BaseFont\s*/[A-Z]{6}\+([\w-]+)", pdf)}
+    assert {"Noto-Sans-Bengali", "Noto-Sans-Bengali-Bold"} <= fonts

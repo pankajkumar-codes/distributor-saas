@@ -4,8 +4,9 @@ The worker writes what is to be rendered as JSON under render-input/b/<business>
 and sends only that S3 key to the `render` queue; the renderer Lambda reads it, writes
 the PDF to documents/b/<business>/<render>/document.pdf (renderer/renderer/inputs.py
 holds the same key rules). Nothing deletes the input: the bucket's lifecycle rule expires
-it, about two days at most (D-042). The message never carries the
-document itself.
+it, about two days at most (D-042). The message never carries the document itself. If
+the renderer's last try fails, it writes failed.json next to where the PDF would be, so
+`has_failed` can say so instead of the caller waiting forever.
 
     document_key = render.request(business_id, render_id, {"template": "invoice-draft", ...})
 
@@ -28,6 +29,7 @@ TEMPLATES = frozenset({"invoice-draft"})
 INPUT_VERSION = 1
 INPUT_NAME = "input.json"
 DOCUMENT_NAME = "document.pdf"
+FAILED_NAME = "failed.json"  # the renderer's mark that its last try failed (no data in it)
 MAX_INPUT_BYTES = 1024 * 1024  # a 200-line draft is about 60 KB; the renderer refuses more
 
 _queue: Queue | None = None
@@ -70,3 +72,13 @@ def request(business_id: uuid.UUID, render_id: uuid.UUID, document: dict) -> str
 
 def is_rendered(business_id: uuid.UUID, render_id: uuid.UUID) -> bool:
     return get_store().head(business_id, document_key(business_id, render_id)) is not None
+
+
+def failure_key(business_id: uuid.UUID, render_id: uuid.UUID) -> str:
+    return key_for(business_id, "documents", render_id, FAILED_NAME)
+
+
+def has_failed(business_id: uuid.UUID, render_id: uuid.UUID) -> bool:
+    """The renderer gave up: its last try failed and the message went to the DLQ. A PDF
+    from a later redrive still wins (check is_rendered first)."""
+    return get_store().head(business_id, failure_key(business_id, render_id)) is not None

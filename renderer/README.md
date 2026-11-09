@@ -21,7 +21,7 @@ the embedded fonts.
 - No delete and no list.
 - `kms:Decrypt` and `kms:GenerateDataKey` only through S3.
 
-**Retries.** A redelivered message renders again to the same document key. An input expires a day after it is written, so a message whose input has expired fails (S3 answers 403 without list rights) and goes to the DLQ. Redriving a DLQ message more than a day old therefore finds nothing, and the user asks for the preview again. At most `render_max_concurrency` (5) renders run at once.
+**Retries.** A redelivered message renders again to the same document key. An input expires a day after it is written, so a message whose input has expired fails (S3 answers 403 without list rights) and goes to the DLQ. On the last try (`RENDER_MAX_RECEIVES`, set from the queue's `maxReceiveCount`), a failure also writes `failed.json` next to where the PDF would be, holding only `{"error_code": "render_failed"}`, so the app reports the failure instead of waiting. Redriving a DLQ message more than a day old finds nothing, and the user asks for the preview again. At most `render_max_concurrency` (5) renders run at once.
 
 **Tests.** `renderer/tests` need WeasyPrint's native libraries, so they run against an unpacked zip: `RENDERER_TASK=<dir> python -m pytest renderer/tests`. CI does this for the x86_64 build.
 
@@ -46,7 +46,7 @@ the locks below, so the same commit gives the same zip, byte for byte.
 | WeasyPrint and its Python dependencies | `requirements.txt`, every wheel hash-checked | |
 | `lib/` | `natives.lock`: conda-forge packages, sha256-checked | WeasyPrint opens pango, harfbuzz, fontconfig and gobject at run time, and the managed runtime has none of them. conda-forge builds target glibc 2.17, so they run on AL2023 (2.34). Only the seven libraries WeasyPrint opens, plus what they need (19 files), are copied. |
 | `renderer/boot.py` | here | Loads every file in `lib/` by absolute path before WeasyPrint is imported. Lambda's `LD_LIBRARY_PATH` finds AL2023's older glib in `/lib64` first, and the bundled pango fails against it. |
-| `fonts/` | `fonts.lock`: Google's static Noto Sans and Noto Sans Devanagari, Regular and Bold, pinned to a commit | Variable fonts cost about 250 ms per render (WeasyPrint instances them every time). Noto Sans has the rupee sign. |
+| `fonts/` | `fonts.lock`: Google's static Noto Sans, Noto Sans Devanagari and Noto Sans Bengali, Regular and Bold, pinned to a commit | Variable fonts cost about 250 ms per render (WeasyPrint instances them every time). Noto Sans has the rupee sign. Bengali is there for West Bengal businesses (about 200 KB for both weights). |
 | `fonts/fonts.conf` | here | Fontconfig sees only these fonts and caches in `/tmp`. |
 | `__pycache__/` everywhere | `compileall --invalidation-mode unchecked-hash` | The package is read-only on Lambda, so without bytecode every cold start compiles WeasyPrint again (import 1.3 s instead of 0.45 s locally). |
 | `licenses/` | the conda packages, and `licenses/` here for FreeType, whose package ships none | See below. |
@@ -66,7 +66,7 @@ package, version, licence, upstream source and the conda-forge recipe commit, an
 | FreeType | FTL or GPL-2.0, our choice | we use the FreeType License; its credit line is in `NATIVE.txt` |
 | pcre2 | BSD-3-Clause | notice shipped |
 | libpng, zlib | libpng / zlib licences | notice shipped |
-| Noto Sans, Noto Sans Devanagari | SIL OFL 1.1 | unmodified, `fonts/OFL.txt` shipped |
+| Noto Sans, Noto Sans Devanagari, Noto Sans Bengali | SIL OFL 1.1 | unmodified, `fonts/OFL.txt` shipped |
 | WeasyPrint, pydyf, tinycss2, cssselect2, webencodings, pycparser | BSD | as wheels; licences in their `*.dist-info` |
 | fontTools, brotli, tinyhtml5 (MIT), cffi (MIT-0), Pillow (MIT-CMU), zopfli (Apache-2.0) | as listed | same |
 | Pyphen | GPL-2.0+ / LGPL-2.1+ / MPL-1.1, our choice: LGPL-2.1+ | unmodified wheel, imported as a library; licence in its `dist-info` |

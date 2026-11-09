@@ -77,3 +77,12 @@ def test_the_worker_and_the_renderer_share_one_input_size_limit():
     handler = (Path(__file__).resolve().parents[3] / "renderer" / "renderer" / "handler.py").read_text()
     limit = re.search(r"^MAX_INPUT_BYTES = (.+?)\s*(#.*)?$", handler, re.M).group(1)
     assert eval(limit, {"__builtins__": {}}) == render.MAX_INPUT_BYTES  # noqa: S307 - a literal product
+
+
+def test_the_renderer_records_failure_where_has_failed_looks(wired):
+    _, store = wired
+    b, r = uuid.uuid4(), uuid.uuid4()
+    assert renderer_inputs.failure_key(render.input_key(b, r)) == render.failure_key(b, r)
+    assert render.has_failed(b, r) is False
+    store.put(b, render.failure_key(b, r), b'{"error_code": "render_failed"}', "application/json")
+    assert render.has_failed(b, r) is True

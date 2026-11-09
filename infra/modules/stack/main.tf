@@ -349,10 +349,16 @@ module "retention" {
 # expires them; nothing deletes them), write PDFs
 # under documents/b/*, and use our key only through S3. Unreserved, so TD-6's caps and the
 # quota of 156 are unchanged; the trigger caps it at render_max_concurrency.
+locals {
+  # The renderer writes failed.json on this try, the one that sends the message to the DLQ.
+  render_max_receives = 5
+}
+
 module "render" {
   source                     = "../queue"
   name                       = "${local.name}-render"
   visibility_timeout_seconds = 360 # AWS's guidance for a Lambda trigger: 6 x the function's timeout
+  max_receive_count          = local.render_max_receives
 }
 
 module "renderer" {
@@ -365,10 +371,10 @@ module "renderer" {
   # At most 5 renders at once, so a burst of finalized invoices waits in the queue rather
   # than taking concurrency from the API (2 is the lowest SQS allows).
   sqs_trigger = { arn = module.render.arn, batch_size = 1, maximum_concurrency = var.render_max_concurrency }
-  environment = { OBJECTS_BUCKET = module.storage.bucket }
+  environment = { OBJECTS_BUCKET = module.storage.bucket, RENDER_MAX_RECEIVES = tostring(local.render_max_receives) }
   # D-042: read render inputs (never delete them: the lifecycle rule does), write PDFs
-  # under documents/, and use our key only through S3. Nothing else in the bucket, no
-  # list, no other service.
+  # (and failed.json on the last try) under documents/, and use our key only through
+  # S3. Nothing else in the bucket, no list, no other service.
   policy_statements = [
     { Effect = "Allow", Action = ["s3:GetObject"], Resource = ["${module.storage.bucket_arn}/render-input/b/*"] },
     { Effect = "Allow", Action = ["s3:PutObject"], Resource = ["${module.storage.bucket_arn}/documents/b/*"] },
