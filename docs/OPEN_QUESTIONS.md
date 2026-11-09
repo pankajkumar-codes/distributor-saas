@@ -79,9 +79,9 @@ POST /b already reads `identity.max_owned_businesses` (5, provisional; **Pankaj 
 - **Support users and memberships (AC2-14, done in S2-b).** Triggers refuse an active membership for a support user and refuse making a member into support, so a support user always reaches a business through a grant (TOTP required, read-only, every view audited), never as a member. Existing data: none in any environment yet.
 
 - **Audit log CSV export (S2-h).**
-  - **Where the file goes.** `POST /b/{id}/audit-log/exports` logs `audit.export` and queues `audit.export_csv`. The job writes `exports/b/<b>/<job>/audit-log.csv`, and the status route hands out a 60-second link.
+  - **Where the file goes.** `POST /b/{id}/audit-log/exports` logs `audit.export` and queues `audit.export_csv`. The job writes `audit-exports/b/<b>/<job>/audit-log.csv`, and the status route hands out a 60-second link.
   - **Deviation from LLD-2 §7.** LLD-2 §7 names `documents.rendered_files` (kind `audit_csv`), but that table doesn't exist yet. Until it does, the job ID is the file's handle, as for draft previews (D-042).
-  - **How long files are kept.** The `exports` area has no lifecycle expiry in `infra/modules/storage` (`expire_days = null`), so an export, which holds member names and reasons, is kept until a rule removes it. Its job row goes after 14 days (`retention.jobs_keep_days`), and after that the file can no longer be reached through the API. **Staff 2 to propose** an `exports` expiry, and the PO to confirm how long a download stays available.
+  - **How long files are kept (closed, EM 2026-11-09, #108).** The files expire after 1 day, and their old versions 1 day later, under their own lifecycle rule. They are in a separate `audit-exports` area so the rule doesn't touch `exports/`, where LLD-6 data exports (30 days) and LLD-5 return files (re-downloadable) will live. A user who needs the file again exports again. The Terraform is written, not applied.
   - **Row cap.** The cap is refdata `audit.export_max_rows` = 50,000 (provisional, LLD-2 §7). Above it, the job fails with `narrow_filter` and writes nothing. PO to confirm the number.
   - **File format.** UTF-8 with a BOM, so Excel shows Indian names correctly. Times are in IST (`When (IST)`). "Reason or detail" is the reason followed by the allowlisted details as `key: value`.
 

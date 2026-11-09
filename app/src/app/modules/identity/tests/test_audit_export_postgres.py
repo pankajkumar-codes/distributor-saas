@@ -57,7 +57,7 @@ def seed_row(tid, sub, action="returns.unlock", reason="filed twice", data="{}")
 
 
 def csv_rows(store, tid, job_id) -> list[list[str]]:
-    body = store.get_bytes(uuid.UUID(tid), f"exports/b/{tid}/{job_id}/audit-log.csv").decode("utf-8-sig")
+    body = store.get_bytes(uuid.UUID(tid), f"audit-exports/b/{tid}/{job_id}/audit-log.csv").decode("utf-8-sig")
     return list(csv.reader(io.StringIO(body)))
 
 
@@ -132,7 +132,7 @@ def test_a_job_whose_asker_lost_audit_view_writes_nothing(team):
               b=tid, u=uid("erin"))
     assert queue.drain(jobs.handle_message) == [jobs.FAILED]
     assert status(client, tid, job_id).json()["error_code"] == "not_allowed"
-    assert store.head(uuid.UUID(tid), f"exports/b/{tid}/{job_id}/audit-log.csv") is None
+    assert store.head(uuid.UUID(tid), f"audit-exports/b/{tid}/{job_id}/audit-log.csv") is None
 
 
 def test_more_rows_than_the_cap_fails_with_narrow_filter(team, monkeypatch):
@@ -146,4 +146,4 @@ def test_more_rows_than_the_cap_fails_with_narrow_filter(team, monkeypatch):
     assert queue.drain(jobs.handle_message) == [jobs.FAILED]
     assert status(client, tid, job_id).json() == {"status": "failed", "url": None, "rows": None,
                                                   "error_code": "narrow_filter"}
-    assert store.head(uuid.UUID(tid), f"exports/b/{tid}/{job_id}/audit-log.csv") is None
+    assert store.head(uuid.UUID(tid), f"audit-exports/b/{tid}/{job_id}/audit-log.csv") is None

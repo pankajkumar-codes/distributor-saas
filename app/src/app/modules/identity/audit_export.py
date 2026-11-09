@@ -6,7 +6,7 @@ job runs as the user who asked, re-checks that they still hold `audit.view`, rea
 same rows the screen shows (`service.audit_log`), and writes When, Who, What happened,
 Reason or detail, with only the allowlisted details and every cell made safe for
 spreadsheets (`platform_common.csv_export`). The file goes to
-`exports/b/<business>/<job>/audit-log.csv`; `status` hands out a 60-second link to it.
+`audit-exports/b/<business>/<job>/audit-log.csv`, which S3 expires after a day; `status` hands out a 60-second link to it.
 
 More rows than refdata `audit.export_max_rows` fails the job with `narrow_filter`
 rather than writing part of the log.
@@ -33,6 +33,7 @@ from .service.audit_log import Filters, actor_of, details_of, rows
 
 JOB = "audit.export_csv"
 FILE_NAME = "audit-log.csv"
+AREA = "audit-exports"  # expired after a day by its own S3 lifecycle rule (infra/modules/storage)
 HEADER = ("When (IST)", "Who", "What happened", "Reason or detail")
 
 
@@ -56,7 +57,7 @@ def status(uow: UnitOfWork, job_id: uuid.UUID) -> dict:
     if job.status != "done":
         return {"status": "preparing"}
     business = uow.principal.business_id
-    url = get_store().presign_get(business, key_for(business, "exports", job_id, FILE_NAME), download_name=FILE_NAME)
+    url = get_store().presign_get(business, key_for(business, AREA, job_id, FILE_NAME), download_name=FILE_NAME)
     return {"status": "ready", "url": url, "rows": (job.result or {}).get("rows")}
 
 
@@ -91,6 +92,6 @@ def run(ctx: jobs.JobContext) -> dict:
         (f"{r.at.astimezone(IST):%Y-%m-%d %H:%M:%S}", actor_of(r)[1], audit_labels.label(r.action), _detail(r))
         for r in found
     ))
-    key = key_for(p.business_id, "exports", ctx.job_id, FILE_NAME)
+    key = key_for(p.business_id, AREA, ctx.job_id, FILE_NAME)
     get_store().put(p.business_id, key, body.encode("utf-8-sig"), "text/csv; charset=utf-8")
     return {"rows": len(found)}

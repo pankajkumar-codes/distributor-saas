@@ -37,7 +37,9 @@ from .errors import Deny
 
 # render-input holds what the worker hands the PDF renderer (D-042): kept a day at most,
 # deleted by the renderer once the PDF is written (renderer/renderer/inputs.py).
-AREAS = frozenset({"uploads", "documents", "exports", "branding", "render-input"})
+# audit-exports holds the audit log's CSV files (LLD-2 §7): kept a day, as the link to one
+# lives 60 seconds and a user who needs it again exports again (EM, #108).
+AREAS = frozenset({"uploads", "documents", "exports", "branding", "render-input", "audit-exports"})
 POST_EXPIRY_SECONDS = 300  # H-4
 GET_EXPIRY_SECONDS = 60  # share-link redirect (HLD §6.9)
 # The area comes first so that one S3 lifecycle rule per area can expire it, e.g. raw
