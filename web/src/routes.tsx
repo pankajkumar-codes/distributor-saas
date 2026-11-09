@@ -8,6 +8,7 @@ import { HomePage } from "./screens/home/HomePage";
 import { BusinessPage } from "./screens/onboarding/BusinessPage";
 import { CustomerPage } from "./screens/customers/CustomerPage";
 import { CustomersPage } from "./screens/customers/CustomersPage";
+import { InvoicePage } from "./screens/invoices/InvoicePage";
 import { ImportPage } from "./screens/products/ImportPage";
 import { ProductPage } from "./screens/products/ProductPage";
 import { ProductsPage } from "./screens/products/ProductsPage";
@@ -36,6 +37,8 @@ export const routes: RouteObject[] = [
   { path: "/b/:businessId/products/import", element: <RequireAuth><ImportPage /></RequireAuth> },
   { path: "/b/:businessId/products/new", element: <RequireAuth><ProductPage /></RequireAuth> },
   { path: "/b/:businessId/products/:productId", element: <RequireAuth><ProductPage /></RequireAuth> },
+  { path: "/b/:businessId/invoices/new", element: <RequireAuth><InvoicePage /></RequireAuth> },
+  { path: "/b/:businessId/invoices/:draftId", element: <RequireAuth><InvoicePage /></RequireAuth> },
   { path: "/b/:businessId/settings/company", element: <RequireAuth><CompanyPage /></RequireAuth> },
   { path: "/b/:businessId/settings/filing", element: <RequireAuth><FilingPage /></RequireAuth> },
   { path: "/b/:businessId/settings/support", element: <RequireAuth><SupportPage /></RequireAuth> },

@@ -4,6 +4,7 @@ import { Link, useLocation, useParams } from "react-router-dom";
 import { api, call } from "../../api/client";
 import { errorText, type ApiError } from "../../api/errors";
 import type { components } from "../../api/schema";
+import { canCreateDocuments } from "../../auth/roles";
 import { useMyBusinesses } from "../../auth/useMyBusinesses";
 import { formatDate, hourIst } from "../../format/dates";
 import { Banner } from "../../kit/Banner";
@@ -151,6 +152,16 @@ export function HomePage() {
         )}
 
         {/* Until the app has its own navigation (Designer, OPEN_QUESTIONS), Home is the way in. */}
+        {canCreateDocuments(business.role) && (
+          <nav className="card" aria-labelledby="sell">
+            <h2 id="sell">Sell</h2>
+            <ul className="list">
+              <li>
+                <Link to={`/b/${businessId}/invoices/new`}>New invoice</Link>
+              </li>
+            </ul>
+          </nav>
+        )}
         <nav className="card" aria-labelledby="settings">
           <h2 id="settings">Settings</h2>
           <ul className="list">

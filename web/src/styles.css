@@ -81,3 +81,12 @@ fieldset.plain {
 }
 /* LLD-2 §6.2: support staff always see that they are in a business under a grant. */
 .support-view { position: sticky; top: 0; z-index: 10; margin: 0; border-radius: 0; text-align: center; font-weight: 600; }
+
+/* Draft invoice (S4 editor) */
+.picker { list-style: none; margin: 0.25rem 0 0; padding: 0; }
+.picker li { padding: 0.125rem 0; }
+fieldset.line { margin: 0.75rem 0; }
+.totals { max-width: 24rem; }
+.totals .row { display: flex; justify-content: space-between; }
+.totals .total { font-weight: 600; border-top: 1px solid currentColor; }
+.totals dt, .totals dd { margin: 0; }
