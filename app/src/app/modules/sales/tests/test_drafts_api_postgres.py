@@ -70,7 +70,7 @@ def test_create_then_read_with_money_as_strings(shop):
     assert d["lines"][0] | {"id": None} == {"id": None, "line_no": 1, "product_id": p, "quantity": "2.500",
                                             "unit_price": "45.50", "discount_kind": None, "discount_value": None}
     assert d["bill_to"]["name"] == "Sharma Stores" and d["bill_to"]["state_code"] == "27"
-    got = pg.client.get(f"/api/v1/b/{biz}/drafts/{d['id']}", headers=h("cathy"))
+    got = pg.client.get(f"/api/v1/b/{biz}/drafts/{d['id']}", headers=h("bill"))
     assert got.status_code == 200 and bare(got.json()) == bare(d)
 
 
@@ -227,8 +227,11 @@ def test_roles_and_tenants(shop):
     url = f"/api/v1/b/{biz}/drafts/{d['id']}"
     assert create(pg, biz, {}, sub="bill").status_code == 201
     assert create(pg, biz, {}, sub="adam").status_code == 201
-    # the CA may view, never change: a role denial is the unknown-ID 404
-    assert pg.client.get(url, headers=h("cathy")).status_code == 200
+    # drafts are unfinished work: the CA sees invoices only once finalized (LLD-4 §9,
+    # documents.create on every draft route); a role denial is the unknown-ID 404 (LLD-0)
+    assert pg.client.get(url, headers=h("cathy")).status_code == 404
+    listed = pg.client.get(f"/api/v1/b/{biz}/drafts", headers=h("cathy"))
+    assert (listed.status_code, listed.json()["error"]["code"]) == (404, "not_found")
     assert create(pg, biz, {}, sub="cathy").status_code == 404
     assert put(pg, biz, d, {}, sub="cathy").status_code == 404
     assert pg.client.delete(url, headers=h("cathy", **{"If-Match": "1"})).status_code == 404
@@ -371,3 +374,64 @@ def test_money_output_never_rounds_silently():
         _m(D("20.475"))
     with pytest.raises(InvalidOperation):  # too many digits for the paise quantize
         _m(D("1e40"))
+
+
+# -- The draft list (S5-a): stored totals, the ready filter, cursor paging ---------------------
+
+def listing(pg, biz, query=""):
+    r = pg.client.get(f"/api/v1/b/{biz}/drafts{query}", headers=h())
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def test_the_list_shows_each_drafts_total_and_readiness_from_its_last_save(shop):
+    pg, biz, _ = shop
+    p = make_product(pg, biz, hsn="340120")
+    ready = create(pg, biz, draft_body(p, cash_buyer={"state_code": "27"})).json()
+    blocked = create(pg, biz, draft_body(p)).json()  # no buyer yet: buyer_state_missing
+    assert (ready["total"], ready["ready"]) == (ready["computation"]["doc_total"], True)
+    assert blocked["ready"] is False and blocked["computed_at"]
+    items = {d["id"]: d for d in listing(pg, biz)["items"]}
+    assert (items[ready["id"]]["total"], items[ready["id"]]["ready"]) == (ready["total"], True)
+    assert items[blocked["id"]]["ready"] is False
+    assert [d["id"] for d in listing(pg, biz, "?ready=true")["items"]] == [ready["id"]]
+    assert [d["id"] for d in listing(pg, biz, "?ready=false")["items"]] == [blocked["id"]]
+    # a save keeps the new figures; version and updated_at are the save's own, not bumped again
+    fixed = put(pg, biz, blocked, draft_body(p, cash_buyer={"state_code": "19"})).json()
+    assert (fixed["version"], fixed["ready"]) == (2, True)
+    assert [d["id"] for d in listing(pg, biz, "?ready=false")["items"]] == []
+
+
+def test_a_draft_saved_before_totals_were_kept_lists_with_nulls_and_as_not_ready(shop):
+    pg, biz, _ = shop
+    d = create(pg, biz, draft_body(make_product(pg, biz, hsn="340120"), cash_buyer={"state_code": "27"})).json()
+    pg.owner.connect().execute(text("update sales.drafts set total = null, block_count = null, computed_at = null,"
+                                    " computed_method = null")).connection.commit()
+    [row] = listing(pg, biz)["items"]
+    assert (row["id"], row["total"], row["ready"], row["computed_at"]) == (d["id"], None, None, None)
+    assert listing(pg, biz, "?ready=true")["items"] == []
+    assert [x["id"] for x in listing(pg, biz, "?ready=false")["items"]] == [d["id"]]
+
+
+def test_cursor_paging_neither_repeats_nor_skips_when_a_draft_is_saved_meanwhile(shop):
+    pg, biz, _ = shop
+    p = make_product(pg, biz, hsn="340120")
+    made = [create(pg, biz, draft_body(p, cash_buyer={"state_code": "27"})).json() for _ in range(5)]
+    first = listing(pg, biz, "?limit=2")
+    assert [d["id"] for d in first["items"]] == [made[4]["id"], made[3]["id"]]
+    assert first["has_more"] is True and first["next_cursor"]
+    # made[0] is saved again: it moves to the top, behind the cursor, and is not shown twice
+    put(pg, biz, made[0], draft_body(p, cash_buyer={"state_code": "19"}))
+    seen, page = [d["id"] for d in first["items"]], first
+    while page["next_cursor"]:
+        page = listing(pg, biz, f"?limit=2&cursor={page['next_cursor']}")
+        seen += [d["id"] for d in page["items"]]
+    assert seen == [made[i]["id"] for i in (4, 3, 2, 1)]
+    assert page["has_more"] is False and page["next_cursor"] is None
+
+
+@pytest.mark.parametrize("bad", ["nope", "bm90LWEtY3Vyc29y", "MjAyNi0xMS0wOVQwODowMDowMHwx"])
+def test_a_bad_cursor_is_a_422(shop, bad):
+    pg, biz, _ = shop
+    r = pg.client.get(f"/api/v1/b/{biz}/drafts?cursor={bad}", headers=h())
+    assert (r.status_code, r.json()["error"]["code"], r.json()["error"]["field"]) == (422, "cursor_invalid", "cursor")

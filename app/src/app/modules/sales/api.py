@@ -2,11 +2,14 @@
 
 POST takes an Idempotency-Key (run_once); PUT saves the whole draft and DELETE removes an
 open one, both under If-Match with the version the user saw. Money and quantities are
-strings: a JSON number is a 422 (AC4-15). Viewing needs the view-documents permission, changing needs
-the create-documents one.
+strings: a JSON number is a 422 (AC4-15). Drafts are unfinished work: listing, reading,
+previewing and changing them all need the create-documents permission (LLD-4 §9), so a CA
+sees invoices only once they are finalized.
 """
 
-from datetime import date
+import base64
+import uuid
+from datetime import date, datetime
 from decimal import Context, Decimal, InvalidOperation, Inexact
 from typing import Annotated, Literal
 
@@ -17,7 +20,8 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool
 from platform_common.clock import Clock, get_clock
 from platform_common.etag import if_match_version, set_etag
 from platform_common.idempotency import run_once
-from platform_common.paging import PageParams, page_params
+from platform_common.errors import Invalid
+from platform_common.paging import DEFAULT_LIMIT, MAX_LIMIT
 from platform_common.permissions import Permission, require
 from platform_common.uow import BusinessUoW, parse_id
 
@@ -25,7 +29,6 @@ from . import drafts, preview
 from .compute import Computation
 
 router = APIRouter(tags=["sales"])
-VIEW = [Depends(require(Permission.DOCUMENTS_VIEW))]
 EDIT = [Depends(require(Permission.DOCUMENTS_CREATE))]
 
 Text = Annotated[str, Field(max_length=300)]
@@ -178,6 +181,11 @@ class DraftOut(BaseModel):
     pos_override_reason: str | None
     lines: list[LineOut]
     computation: ComputationOut | None = None  # on create and save; not on read or list
+    # As of the last save, for the list (never authoritative: finalize recomputes). Null for a
+    # draft saved before these were kept.
+    total: str | None
+    ready: bool | None  # no blocks at the last save
+    computed_at: str | None
     created_at: str
     updated_at: str
 
@@ -185,6 +193,7 @@ class DraftOut(BaseModel):
 class DraftPageOut(BaseModel):
     items: list[DraftOut]  # without lines
     has_more: bool
+    next_cursor: str | None  # pass as `cursor` for the next page; null on the last
 
 
 def _s(v) -> str | None:
@@ -234,8 +243,34 @@ def _out(d: dict, computation: Computation | None = None) -> dict:
         "pos_override": d["pos_override"], "pos_override_reason": d["pos_override_reason"],
         "lines": [{**ln, "id": str(ln["id"]), "product_id": str(ln["product_id"]), "quantity": str(ln["quantity"]),
                    "unit_price": str(ln["unit_price"]), "discount_value": _s(ln["discount_value"])} for ln in d["lines"]],
+        "total": None if d["total"] is None else _m(d["total"]),
+        "ready": None if d["block_count"] is None else d["block_count"] == 0,
+        "computed_at": None if d["computed_at"] is None else d["computed_at"].isoformat(),
         "created_at": d["created_at"].isoformat(), "updated_at": d["updated_at"].isoformat(),
     }
+
+
+def _encode_cursor(at: datetime, row_id: uuid.UUID) -> str:
+    return base64.urlsafe_b64encode(f"{at.isoformat()}|{row_id}".encode()).decode()
+
+
+def _decode_cursor(cursor: str) -> tuple[datetime, uuid.UUID]:
+    try:
+        at, row_id = base64.urlsafe_b64decode(cursor.encode()).decode().split("|")
+        parsed = datetime.fromisoformat(at)
+        if parsed.tzinfo is None:
+            raise ValueError
+        return parsed, uuid.UUID(row_id)
+    except (ValueError, UnicodeDecodeError):
+        raise Invalid("cursor_invalid", "This page link is not valid; start from the first page",
+                      field="cursor") from None
+
+
+def _computed_and_stored(uow, d: dict, today: date) -> tuple[dict, Computation]:
+    """The draft's computation, also kept on the draft for the list; `d` re-read with it."""
+    c = drafts.computation(uow, d, today=today)
+    drafts.store_computation(uow, d["id"], c)
+    return drafts.get(uow, d["id"]), c
 
 
 def _etag(response: Response, d: dict) -> dict:
@@ -245,15 +280,23 @@ def _etag(response: Response, d: dict) -> dict:
     return d
 
 
-@router.get("/b/{business_id}/drafts", response_model=DraftPageOut, dependencies=VIEW)
+@router.get("/b/{business_id}/drafts", response_model=DraftPageOut, dependencies=EDIT)
 def list_drafts(
     uow: BusinessUoW,
-    page: Annotated[PageParams, Depends(page_params)],
     kind: Literal["invoice", "credit_note"] | None = None,
     q: Annotated[str | None, Query(max_length=100)] = None,
+    ready: bool | None = None,
+    limit: Annotated[int, Query(ge=1, le=MAX_LIMIT)] = DEFAULT_LIMIT,
+    cursor: Annotated[str | None, Query(max_length=200)] = None,
 ):
-    items, more = drafts.search(uow, kind=kind, q=q, limit=page.limit, offset=page.offset)
-    return {"items": [_out(d) for d in items], "has_more": more}
+    """Open drafts, most recently saved first, with each one's total and readiness as of
+    its last save. A cursor, not an offset: saving a draft moves it to the top, and an offset
+    would then show a row twice or skip one."""
+    after = None if cursor is None else _decode_cursor(cursor)
+    items, more = drafts.search(uow, kind=kind, q=q, ready=ready, limit=limit, after=after)
+    last = items[-1] if items else None
+    return {"items": [_out(d) for d in items], "has_more": more,
+            "next_cursor": _encode_cursor(last["updated_at"], last["id"]) if more and last else None}
 
 
 @router.post("/b/{business_id}/drafts", status_code=http.HTTP_201_CREATED, response_model=DraftOut, dependencies=EDIT)
@@ -267,14 +310,14 @@ def create_draft(
 ):
     def create():
         d = drafts.get(uow, drafts.create(uow, body.model_dump(mode="json"), clock.today()))
-        return _out(d, drafts.computation(uow, d, today=clock.today()))
+        return _out(*_computed_and_stored(uow, d, clock.today()))
 
     return _etag(response, run_once(uow.tx, uow.principal.business_id, idempotency_key, method=request.method,
                                     route=request.scope["route"].path, payload=body.model_dump(mode="json"),
                                     operation=create))
 
 
-@router.get("/b/{business_id}/drafts/{draft_id}", response_model=DraftOut, dependencies=VIEW)
+@router.get("/b/{business_id}/drafts/{draft_id}", response_model=DraftOut, dependencies=EDIT)
 def get_draft(draft_id: str, uow: BusinessUoW, response: Response):
     return _etag(response, _out(drafts.get(uow, parse_id(draft_id))))
 
@@ -290,8 +333,7 @@ def save_draft(
 ):
     did = parse_id(draft_id)
     drafts.replace(uow, did, body.model_dump(mode="json"), if_match_version(if_match), clock.today())
-    d = drafts.get(uow, did)
-    return _etag(response, _out(d, drafts.computation(uow, d, today=clock.today())))
+    return _etag(response, _out(*_computed_and_stored(uow, drafts.get(uow, did), clock.today())))
 
 
 @router.delete("/b/{business_id}/drafts/{draft_id}", status_code=http.HTTP_204_NO_CONTENT, dependencies=EDIT)
@@ -312,7 +354,7 @@ class PreviewOut(BaseModel):
 
 
 @router.post("/b/{business_id}/drafts/{draft_id}/preview", status_code=http.HTTP_202_ACCEPTED,
-             response_model=PreviewRef, dependencies=VIEW)
+             response_model=PreviewRef, dependencies=EDIT)
 def preview_draft(draft_id: str, uow: BusinessUoW):
     """Queues a PDF preview of the draft as saved now ("Draft, not a tax invoice"). The
     same version always gives the same job; poll GET .../preview/{job_id}."""
@@ -320,6 +362,6 @@ def preview_draft(draft_id: str, uow: BusinessUoW):
     return {"job_id": str(job_id), "draft_version": version}
 
 
-@router.get("/b/{business_id}/drafts/{draft_id}/preview/{job_id}", response_model=PreviewOut, dependencies=VIEW)
+@router.get("/b/{business_id}/drafts/{draft_id}/preview/{job_id}", response_model=PreviewOut, dependencies=EDIT)
 def preview_status(draft_id: str, job_id: str, uow: BusinessUoW):
     return preview.status(uow, parse_id(draft_id), parse_id(job_id))

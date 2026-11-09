@@ -279,7 +279,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Drafts */
+        /**
+         * List Drafts
+         * @description Open drafts, most recently saved first, with each one's total and readiness as of
+         *     its last save. A cursor, not an offset: saving a draft moves it to the top, and an offset
+         *     would then show a row twice or skip one.
+         */
         get: operations["list_drafts_api_v1_b__business_id__drafts_get"];
         put?: never;
         /** Create Draft */
@@ -1646,6 +1651,8 @@ export interface components {
                 [key: string]: unknown;
             }[];
             computation?: components["schemas"]["ComputationOut"] | null;
+            /** Computed At */
+            computed_at: string | null;
             /** Created At */
             created_at: string;
             /** Customer Collects */
@@ -1670,12 +1677,16 @@ export interface components {
             pos_override: string | null;
             /** Pos Override Reason */
             pos_override_reason: string | null;
+            /** Ready */
+            ready: boolean | null;
             /** Ship To */
             ship_to: {
                 [key: string]: unknown;
             } | null;
             /** Ship To Third Party */
             ship_to_third_party: boolean;
+            /** Total */
+            total: string | null;
             /** Updated At */
             updated_at: string;
             /** Version */
@@ -1687,6 +1698,8 @@ export interface components {
             has_more: boolean;
             /** Items */
             items: components["schemas"]["DraftOut"][];
+            /** Next Cursor */
+            next_cursor: string | null;
         };
         /** EmailBody */
         EmailBody: {
@@ -3514,8 +3527,9 @@ export interface operations {
             query?: {
                 kind?: ("invoice" | "credit_note") | null;
                 q?: string | null;
+                ready?: boolean | null;
                 limit?: number;
-                offset?: number;
+                cursor?: string | null;
             };
             header?: never;
             path: {

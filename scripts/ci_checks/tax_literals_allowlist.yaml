@@ -117,3 +117,6 @@
 - path: app/src/app/modules/sales/api.py
   value: "500"
   reason: "maximum length of the place-of-supply override reason; input hygiene, not a tax rule"
+- path: app/src/app/modules/sales/api.py
+  value: "200"
+  reason: "maximum length of the draft list's opaque page cursor; input hygiene, not a tax rule"
