@@ -21,9 +21,12 @@ from sqlalchemy.types import JSON
 from app.modules.business.interface import check_state
 from app.modules.catalog.interface import customer_snapshot, products_for_lines
 from platform_common import audit
+from platform_common.money import to_decimal
 from platform_common.errors import Conflict, Deny, Invalid
 from platform_common.ids import uuid7
 from platform_common.uow import UnitOfWork
+
+from .compute import Computation, DraftIn, DraftLineIn, compute, load_inputs
 
 MAX_LINES = 200
 MAX_CHARGES = 20
@@ -31,8 +34,8 @@ _MONEY = re.compile(r"^[0-9]{1,16}(\.[0-9]{1,2})?$")
 _QTY = re.compile(r"^[0-9]{1,15}(\.[0-9]{1,3})?$")
 _TWO, _THREE = Decimal("0.01"), Decimal("0.001")
 _HUNDRED = Decimal(100)
-_COLUMNS = ("id, kind, status, version, customer_id, cash_buyer, bill_to, ship_to, doc_date, invoice_discount,"
-            " charges, eway, customer_collects, created_at, updated_at")
+_COLUMNS = ("id, kind, status, version, customer_id, cash_buyer, bill_to, ship_to, ship_to_third_party, doc_date,"
+            " invoice_discount, charges, eway, customer_collects, pos_override, pos_override_reason, created_at, updated_at")
 
 
 def _business(uow: UnitOfWork) -> uuid.UUID:
@@ -222,3 +225,38 @@ def delete(uow: UnitOfWork, draft_id: uuid.UUID, if_match: int | None) -> None:
     uow.tx.execute(text("delete from sales.drafts where id = :d and business_id = :b and status = 'open'"),
                    {"d": draft_id, "b": _business(uow)})
     audit.record(uow, "draft.deleted", "draft", draft_id, data={})
+
+
+def computation(uow: UnitOfWork, d: dict, *, today: date) -> Computation:
+    """The draft's tax computation (LLD-4 §3): `compute(load_inputs(...))` over the stored
+    draft `d` (as `get` returns it). Raises Invalid when the amounts can't be computed (a
+    discount above the base, and so on), and Invalid("customer_not_found") for a customer
+    deleted since the draft was saved. A draft that is merely incomplete comes back with
+    `blocks`, never an error. Callers save first and compute second inside the same unit of
+    work, so an Invalid from here does block the save: the whole request rolls back. `today` is the IST date; a draft without a date uses it."""
+    draft = DraftIn(
+        doc_date=d["doc_date"] or today,
+        customer_id=d["customer_id"],
+        cash_buyer=d["cash_buyer"],
+        bill_to=d["bill_to"],
+        ship_to=d["ship_to"],
+        ship_to_third_party=d["ship_to_third_party"],
+        customer_collects=d["customer_collects"],
+        invoice_discount=d["invoice_discount"],
+        charges=tuple((c["label"], to_decimal(c["amount"])) for c in d["charges"]),
+        pos_override=d["pos_override"],
+        pos_override_reason=d["pos_override_reason"],
+        has_eway_details=any((d["eway"] or {}).values()),
+    )
+    lines = [
+        DraftLineIn(ln["line_no"], ln["product_id"], ln["quantity"], ln["unit_price"], ln["discount_kind"],
+                    ln["discount_value"])
+        for ln in d["lines"]
+    ]
+    try:
+        return compute(load_inputs(uow.tx, draft, lines, today=today))
+    except Deny as denied:
+        if denied.reason != "not_found" or draft.customer_id is None:
+            raise  # only the buyer lookup's miss means a deleted customer
+        raise Invalid("customer_not_found", "This draft's customer was deleted; choose a customer",
+                      field="customer_id") from None
