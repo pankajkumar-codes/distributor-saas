@@ -1620,6 +1620,16 @@ export interface components {
              * @default []
              */
             lines: components["schemas"]["LineIn"][];
+            /** Pos Override */
+            pos_override?: string | null;
+            /** Pos Override Reason */
+            pos_override_reason?: string | null;
+            ship_to?: components["schemas"]["ShipToIn"] | null;
+            /**
+             * Ship To Third Party
+             * @default false
+             */
+            ship_to_third_party: boolean;
         };
         /** DraftOut */
         DraftOut: {
@@ -1656,10 +1666,16 @@ export interface components {
             kind: string;
             /** Lines */
             lines: components["schemas"]["LineOut"][];
+            /** Pos Override */
+            pos_override: string | null;
+            /** Pos Override Reason */
+            pos_override_reason: string | null;
             /** Ship To */
             ship_to: {
                 [key: string]: unknown;
             } | null;
+            /** Ship To Third Party */
+            ship_to_third_party: boolean;
             /** Updated At */
             updated_at: string;
             /** Version */
@@ -2484,6 +2500,24 @@ export interface components {
         /** RoleIn */
         RoleIn: {
             role: components["schemas"]["Role"];
+        };
+        /**
+         * ShipToIn
+         * @description Where the goods go, when it isn't the customer's own delivery address (LLD-4 §3.1).
+         */
+        ShipToIn: {
+            /** City */
+            city?: string | null;
+            /** Line1 */
+            line1?: string | null;
+            /** Line2 */
+            line2?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Pin */
+            pin?: string | null;
+            /** State Code */
+            state_code: string;
         };
         /** SignedInOut */
         SignedInOut: {

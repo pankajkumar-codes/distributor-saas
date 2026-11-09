@@ -66,6 +66,19 @@ class EwayIn(BaseModel):
     eway_bill_no: Annotated[str, Field(max_length=20)] | None = None
 
 
+class ShipToIn(BaseModel):
+    """Where the goods go, when it isn't the customer's own delivery address (LLD-4 §3.1)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: Text | None = None  # the consignee, when goods go to someone else (case B)
+    line1: Text | None = None
+    line2: Text | None = None
+    city: Text | None = None
+    pin: Text | None = None  # checked against refdata address.pin_pattern
+    state_code: Annotated[str, Field(max_length=2)]
+
+
 class DraftIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -77,6 +90,10 @@ class DraftIn(BaseModel):
     charges: Annotated[list[ChargeIn], Field(max_length=drafts.MAX_CHARGES)] = []
     eway: EwayIn | None = None
     customer_collects: StrictBool = False  # ex-works, the customer collects the goods (case D)
+    ship_to: ShipToIn | None = None  # null: the customer's delivery address (or none for a cash sale)
+    ship_to_third_party: StrictBool = False  # case B: goods go to another person on the customer's direction
+    pos_override: Annotated[str, Field(max_length=2)] | None = None  # G16: a state code replacing the computed PoS
+    pos_override_reason: Annotated[str, Field(max_length=500)] | None = None
     lines: Annotated[list[LineIn], Field(max_length=drafts.MAX_LINES)] = []
 
 
@@ -156,6 +173,9 @@ class DraftOut(BaseModel):
     charges: list[dict]
     eway: dict | None
     customer_collects: bool
+    ship_to_third_party: bool
+    pos_override: str | None
+    pos_override_reason: str | None
     lines: list[LineOut]
     computation: ComputationOut | None = None  # on create and save; not on read or list
     created_at: str
@@ -210,7 +230,8 @@ def _out(d: dict, computation: Computation | None = None) -> dict:
         "id": str(d["id"]), "kind": d["kind"], "version": d["version"], "customer_id": _s(d["customer_id"]),
         "cash_buyer": d["cash_buyer"], "bill_to": d["bill_to"], "ship_to": d["ship_to"], "doc_date": d["doc_date"],
         "invoice_discount": str(d["invoice_discount"]), "charges": d["charges"], "eway": d["eway"],
-        "customer_collects": d["customer_collects"],
+        "customer_collects": d["customer_collects"], "ship_to_third_party": d["ship_to_third_party"],
+        "pos_override": d["pos_override"], "pos_override_reason": d["pos_override_reason"],
         "lines": [{**ln, "id": str(ln["id"]), "product_id": str(ln["product_id"]), "quantity": str(ln["quantity"]),
                    "unit_price": str(ln["unit_price"]), "discount_value": _s(ln["discount_value"])} for ln in d["lines"]],
         "created_at": d["created_at"].isoformat(), "updated_at": d["updated_at"].isoformat(),

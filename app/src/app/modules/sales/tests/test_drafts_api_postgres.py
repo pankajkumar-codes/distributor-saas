@@ -290,6 +290,76 @@ def test_a_customer_deleted_after_the_draft_was_saved_is_customer_not_found_on_s
     assert r.status_code == 422 and r.json()["error"]["code"] == "customer_not_found"
 
 
+# -- Delivery and place of supply on the draft (LLD-4 §3.1: case B and G16) -------------------
+
+KOLKATA = {"name": "Das Warehousing", "line1": "4 Strand Road", "line2": None, "city": "Kolkata", "pin": "700001",
+           "state_code": "19"}
+
+
+def test_case_b_goods_sent_to_a_third_party_take_the_customers_gstin_state(shop):
+    pg, biz, _ = shop  # the business is in 19, the customer's GSTIN in 27
+    p, c = make_product(pg, biz, hsn="340120"), make_customer(pg, biz)
+    own = create(pg, biz, draft_body(p, customer_id=c, ship_to=KOLKATA)).json()
+    assert own["ship_to"] == KOLKATA and own["ship_to_third_party"] is False
+    assert (own["computation"]["pos_state_code"], own["computation"]["is_inter_state"]) == ("19", False)  # case A
+    sent = create(pg, biz, draft_body(p, customer_id=c, ship_to=KOLKATA, ship_to_third_party=True)).json()
+    c_b = sent["computation"]
+    assert (c_b["computed_pos"], c_b["pos_state_code"], c_b["is_inter_state"]) == ("27", "27", True)
+    assert c_b["igst_total"] != "0.00" and c_b["blocks"] == []
+    got = pg.client.get(f"/api/v1/b/{biz}/drafts/{sent['id']}", headers=h()).json()
+    assert (got["ship_to"], got["ship_to_third_party"]) == (KOLKATA, True)
+    # Without its own ship-to the draft takes the customer's delivery address again.
+    back = put(pg, biz, sent, draft_body(p, customer_id=c)).json()
+    assert back["ship_to"]["state_code"] == "27" and back["ship_to_third_party"] is False
+
+
+@pytest.mark.parametrize(("extra", "code", "field"), [
+    ({"cash_buyer": {"state_code": "27"}, "ship_to": KOLKATA}, "third_party_needs_customer", "ship_to_third_party"),
+    ({"customer": True}, "ship_to_required", "ship_to"),
+    ({"customer": True, "ship_to": KOLKATA, "customer_collects": True}, "ship_to_conflict", "ship_to_third_party"),
+    ({"customer": True, "ship_to": {**KOLKATA, "pin": "012345"}}, "pin_invalid", "ship_to.pin"),
+    ({"customer": True, "ship_to": {**KOLKATA, "state_code": " "}}, "state_code_required", "ship_to.state_code"),
+    ({"customer": True, "ship_to": {**KOLKATA, "state_code": "99"}}, "state_code_unknown", "ship_to.state_code"),
+])
+def test_a_third_party_ship_to_is_checked(shop, extra, code, field):
+    pg, biz, _ = shop
+    p = make_product(pg, biz, hsn="340120")
+    if extra.pop("customer", False):
+        extra["customer_id"] = make_customer(pg, biz)
+    r = create(pg, biz, draft_body(p, ship_to_third_party=True, **extra))
+    assert (r.status_code, r.json()["error"]["code"], r.json()["error"]["field"]) == (422, code, field), r.text
+    assert scalar(pg.owner, "select count(*) from sales.drafts") == 0
+
+
+def test_a_pos_override_replaces_the_computed_pos_and_needs_a_reason(shop):
+    pg, biz, _ = shop
+    p, c = make_product(pg, biz, hsn="340120"), make_customer(pg, biz)
+    d = create(pg, biz, draft_body(p, customer_id=c, pos_override="19", pos_override_reason="  Goods handed over in Kolkata ")).json()
+    assert (d["pos_override"], d["pos_override_reason"]) == ("19", "Goods handed over in Kolkata")
+    comp = d["computation"]
+    assert (comp["computed_pos"], comp["pos_state_code"], comp["is_inter_state"]) == ("27", "19", False)
+    assert comp["igst_total"] == "0.00" and comp["blocks"] == []
+    # No reason: refused, as the table's check would (the reason goes on the invoice's audit trail).
+    for blank in (None, "   "):
+        no_reason = put(pg, biz, d, draft_body(p, customer_id=c, pos_override="19", pos_override_reason=blank))
+        err = no_reason.json()["error"]
+        assert (no_reason.status_code, err["code"], err["field"]) == (422, "pos_override_reason_missing", "pos_override_reason")
+    # A reason without an override has nothing to explain and isn't kept.
+    cleared = put(pg, biz, d, draft_body(p, customer_id=c, pos_override_reason="left over")).json()
+    assert (cleared["pos_override"], cleared["pos_override_reason"]) == (None, None)
+    assert cleared["computation"]["pos_state_code"] == "27"
+
+
+@pytest.mark.parametrize(("pos", "code"), [("96", "pos_other_country_unsupported"), ("99", "state_code_unknown")])
+def test_a_pos_override_must_be_an_indian_state_code(shop, pos, code):
+    pg, biz, _ = shop
+    p = make_product(pg, biz, hsn="340120")
+    d = create(pg, biz, draft_body(p, cash_buyer={"state_code": "27"})).json()
+    r = put(pg, biz, d, draft_body(p, cash_buyer={"state_code": "27"}, pos_override=pos, pos_override_reason="x"))
+    assert (r.status_code, r.json()["error"]["code"], r.json()["error"]["field"]) == (422, code, "pos_override")
+    assert pg.client.get(f"/api/v1/b/{biz}/drafts/{d['id']}", headers=h()).json()["version"] == 1
+
+
 def test_money_output_never_rounds_silently():
     from decimal import Decimal as D
     from decimal import Inexact
