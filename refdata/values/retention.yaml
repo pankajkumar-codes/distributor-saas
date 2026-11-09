@@ -84,3 +84,14 @@
   source_title: "LLD-2 §11: accepted, cancelled and expired invitations are purged 30 days after they close"
   last_checked: 2026-11-02
   status: provisional
+
+- key: retention.purge_drafts.enabled
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-09
+  source_url: team/docs/lld-6.md
+  source_title: "LLD-6 §6.1: a rule runs only while retention.<rule>.enabled is true"
+  last_checked: 2026-11-09
+  status: provisional
+  note: "Ships off (default keep), like purge_operational. The period itself is sales.draft_keep_days."

@@ -139,6 +139,11 @@ Every row in `refdata/` is `provisional`. Before go-live:
 - **PO:** the `auth.*` and `identity.max_owned_businesses` rows (`kind: product`). The
   BRD gives the ON-1 numbers; the sign-in, refresh, step-up and business-limit numbers
   are LLD-1's.
+- **CEO or Pankaj (PO call):** `sales.draft_keep_days` = **180** (LLD-4's proposal).
+  Drafts left unsaved this many days are deleted once `retention.purge_drafts` is switched
+  on (it ships off). Confirm the number, or give another. Note that a deleted draft leaves
+  no per-business trace (the run row has counts only, no business or draft ID, and no audit
+  row), and nothing warns the user before a draft goes.
 - **GST expert or CA:** `invoice.number.max_length` (CGST Rule 46(b) via GSTZen; the
   rule's own start date); `invoice.number.charset`, which allows lower-case letters
   because the rule says "alphabets" while team/gst/document-fields.md row 3 writes A-Z
@@ -157,6 +162,10 @@ Every row in `refdata/` is `provisional`. Before go-live:
   - **Rate windows:** LLD-0 says "old windows" with no period, so there is no `retention.rate_window_keep_hours` row and the table is kept. The longest window in use is one hour; the PO picks a period.
   - **Switching it on:** a refdata change after a dry run on staging, which waits for the staging decision. The retention Lambda and its two schedules exist in Terraform, both schedules disabled.
   - **Sessions past the 24 h idle limit** but before absolute expiry are kept until absolute expiry + 30 days. That is conservative; LLD-1 §12 names only revocation and absolute expiry.
+- `retention.purge_drafts()` is built (LLD-6 §6.2) and also ships **disabled** (`retention.purge_drafts.enabled`); the daily `retention` run calls it after `purge_operational`. Still open:
+  - **Period (PO):** `sales.draft_keep_days` = 180 is LLD-4's proposal, provisional.
+  - **Which clock (PO):** "open longer than N days" is built as N days since the draft's **last save** (`updated_at`), so a draft still being worked on is never deleted; counting from creation would delete drafts edited last week. Opening or previewing a draft is not a save and does not reset the clock. Drafts are not GST records, so there is no statutory floor.
+  - **Telling the user:** nothing warns before a draft goes. A "drafts older than N days are deleted" note on the drafts list is the designer's call.
 - A job whose last SQS message is lost while `failed_retryable` stays there; the outbox sweep only resends unsent rows. The DLQ alarm covers exhausted messages, not this. A "stuck jobs" sweep can come with the alarms (TD-24).
 - The real-S3 policy checks (limit + 1 byte, other key, after 5 minutes, other KMS key) are QA's staging checks (HLD §6.5); the local store only mirrors them.
 

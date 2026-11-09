@@ -1,0 +1,12 @@
+# Sales product rules (LLD-4). Product rows, provisional until the PO confirms them.
+
+- key: sales.draft_keep_days
+  value: "180"
+  type: integer
+  kind: product
+  valid_from: 2026-11-09
+  source_url: team/docs/lld-4.md
+  source_title: "LLD-4 §2.1: drafts open longer than sales.draft_keep_days (proposal 180) are deleted by retention"
+  last_checked: 2026-11-09
+  status: provisional
+  note: "Counted from the draft's last save. Read only by retention.purge_drafts, which ships disabled."
