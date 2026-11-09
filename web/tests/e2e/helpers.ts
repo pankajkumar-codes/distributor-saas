@@ -6,12 +6,12 @@ import { resolve } from "node:path";
 // LocalFileMailer's file, relative to where the API was started (the repo root).
 const OUTBOX = resolve(process.env.MAIL_OUTBOX ?? "../build/mail/outbox.jsonl");
 
-export async function codeFor(email: string): Promise<string> {
+export async function codeFor(email: string, template = "signup_code"): Promise<string> {
   let code: string | undefined;
   await expect
     .poll(() => {
       const lines = existsSync(OUTBOX) ? readFileSync(OUTBOX, "utf8").trim().split("\n") : [];
-      const mine = lines.map((l) => JSON.parse(l)).filter((m) => m.to === email && m.template === "signup_code");
+      const mine = lines.map((l) => JSON.parse(l)).filter((m) => m.to === email && m.template === template);
       code = mine.at(-1)?.params.code;
       return code;
     })
