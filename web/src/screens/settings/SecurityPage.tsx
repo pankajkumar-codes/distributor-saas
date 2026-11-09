@@ -54,7 +54,7 @@ export function SecurityPage() {
   // 409 totp_already_on / totp_already_off: another tab changed it; show what is true now.
   const stale = (e: ApiError) => {
     if (e.code === "totp_already_on" || e.code === "totp_already_off") {
-      setSecret(null);
+      forget();
       setAsking(false);
       refreshMe();
     }
@@ -62,6 +62,7 @@ export function SecurityPage() {
 
   const setup = useMutation<{ secret: string }, ApiError>({
     mutationFn: () => call(() => api.POST("/api/v1/me/totp/setup")),
+    gcTime: 0, // the reply holds the secret: never keep it in the cache once the page is gone
     onSuccess: (r) => {
       setSecret(r.secret);
       setCode("");
@@ -69,10 +70,15 @@ export function SecurityPage() {
     },
     onError: stale,
   });
+  // The secret lives only in this page's state and the setup reply: drop both together.
+  function forget() {
+    setSecret(null);
+    setup.reset();
+  }
   const confirm = useMutation<unknown, ApiError>({
     mutationFn: () => call(() => api.POST("/api/v1/me/totp/confirm", { body: { code } })),
     onSuccess: () => {
-      setSecret(null);
+      forget();
       setDone("on");
       refreshMe();
     },
@@ -218,7 +224,7 @@ export function SecurityPage() {
                 </p>
               )}
               <div className="actions">
-                <Button type="button" variant="link" onClick={() => setSecret(null)}>
+                <Button type="button" variant="link" onClick={() => forget()}>
                   Cancel
                 </Button>
                 <Button type="submit" busy={confirm.isPending}>

@@ -1,3 +1,4 @@
+import { MutationCache } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -40,7 +41,10 @@ beforeEach(() => {
   server = fakeApi();
   server.reply(REFRESH, { status: 200, body: { access_token: "t", expires_in: 3600 } });
 });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 
 function open(path: string) {
   window.history.replaceState(null, "", path);
@@ -60,6 +64,13 @@ describe("the key for the authenticator app", () => {
 
 describe("Settings › Two-step sign-in", () => {
   it("turns it on: a QR code and the key, then one code from the app", async () => {
+    const caches = new Set<MutationCache>();
+    const build = MutationCache.prototype.build;
+    vi.spyOn(MutationCache.prototype, "build").mockImplementation(function (this: MutationCache, ...args) {
+      caches.add(this);
+      return build.apply(this, args);
+    });
+    const held = () => [...caches].flatMap((c) => c.getAll()).filter((m) => JSON.stringify(m.state.data ?? null).includes(SECRET));
     server.reply(BUSINESSES, mine());
     server.reply(ME, me(false), me(true));
     server.reply(SETUP, { status: 200, body: { secret: SECRET } });
@@ -85,6 +96,7 @@ describe("Settings › Two-step sign-in", () => {
     expect(posts(CONFIRM).map((s) => s.body)).toEqual([{ code: "111111" }, { code: "222222" }]);
     expect(await screen.findByRole("button", { name: "Turn off two-step sign-in" })).toBeInTheDocument();
     expect(screen.queryByText(grouped(SECRET))).toBeNull(); // the secret isn't kept once it's on
+    await waitFor(() => expect(held()).toHaveLength(0)); // not in the mutation cache either [Staff 2, #112]
   });
 
   it("asks before turning it off, then turns it off", async () => {
@@ -146,7 +158,18 @@ describe("the prompt on Home", () => {
 });
 
 describe("support removes someone's two-step sign-in", () => {
+  it.each([
+    ["a member", me(false)],
+    ["support without two-step sign-in", me(false, true)],
+  ])("is not found for %s, before anything is sent", async (_, who) => {
+    server.reply(ME, who);
+    open("/support/totp-recovery");
+    expect(await screen.findByRole("heading", { name: "We couldn't find that page" })).toBeInTheDocument();
+    expect(server.paths()).not.toContain(RECOVER);
+  });
+
   it("emails the account a code, then takes the code the person reads out", async () => {
+    server.reply(ME, me(true, true));
     server.reply(RECOVER, { status: 202, body: { code_ttl_minutes: 10, code_max_tries: 5 } });
     server.reply(RECOVER_CONFIRM, refused(400, "code_not_accepted"), { status: 204 });
     open("/support/totp-recovery");
@@ -169,7 +192,8 @@ describe("support removes someone's two-step sign-in", () => {
     ]);
   });
 
-  it("is not found for anyone the server refuses", async () => {
+  it("is not found when the server refuses it after all", async () => {
+    server.reply(ME, me(true, true));
     server.reply(RECOVER, refused(404, "not_found"));
     open("/support/totp-recovery");
     fireEvent.change(await screen.findByLabelText("Their account email"), { target: { value: "x@y.in" } });

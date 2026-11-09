@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { api, call } from "../../api/client";
 import { errorText, type ApiError } from "../../api/errors";
 import type { components } from "../../api/schema";
+import { useMe } from "../../auth/useMe";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { Field } from "../../kit/Field";
@@ -19,9 +20,11 @@ type CodeSent = components["schemas"]["CodeSent"];
  * email; the server mails a code to that address only (and answers the same for any email,
  * so this page never says whether the account exists). The person reads the code out, and
  * support enters it: two-step sign-in is then off for that account and all of its sessions
- * end. The server allows only support staff with two-step sign-in on; anyone else gets 404.
+ * end. The server allows only support staff with two-step sign-in on; anyone else gets 404,
+ * and the page shows not found to them from the start [Staff 2, #112].
  */
 export function TotpRecoveryPage() {
+  const me = useMe();
   const [email, setEmail] = useState("");
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [code, setCode] = useState("");
@@ -46,7 +49,15 @@ export function TotpRecoveryPage() {
     onError: () => setCode(""),
   });
 
-  if (start.error?.status === 404 || confirm.error?.status === 404) return <NotFound />;
+  if (me.isPending) {
+    return (
+      <main className="page" aria-busy="true">
+        <p>Loading…</p>
+      </main>
+    );
+  }
+  const allowed = Boolean(me.data?.user.is_support && me.data.user.totp_enabled);
+  if (!allowed || start.error?.status === 404 || confirm.error?.status === 404) return <NotFound />;
 
   const send = (e: FormEvent) => {
     e.preventDefault();
