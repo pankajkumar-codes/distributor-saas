@@ -25,8 +25,14 @@ ALLOWED = {
     "platform.rate_counters": {"SELECT", "DELETE"},
     "platform.retention_runs": {"INSERT"},
     "refdata.values": {"SELECT"},
-    "sales.draft_lines": {"SELECT"},  # counted; the cascade deletes them
-    "sales.drafts": {"SELECT", "DELETE"},  # open drafts only (purge_drafts)
+    "sales.draft_lines": {"COLUMN SELECT"},  # counted; the cascade deletes them
+    "sales.drafts": {"COLUMN SELECT", "DELETE"},  # open drafts only (purge_drafts)
+}
+# The only columns retention_owner may read where it has no table-wide SELECT: enough to
+# pick a row, never a buyer's name, address or an amount (Staff on #107).
+ALLOWED_COLUMNS = {
+    "sales.draft_lines": {"business_id", "draft_id"},
+    "sales.drafts": {"business_id", "id", "status", "updated_at"},
 }
 DRAFTS = ("sales.drafts", "sales.draft_lines")
 PRIVILEGES = ("SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER")
@@ -62,6 +68,17 @@ def _privileges(conn, role):
 
 def test_definer_reaches_only_operational_tables(migrated_db):
     assert _privileges(migrated_db, "retention_owner") == ALLOWED
+
+
+def test_definer_reads_only_the_columns_that_pick_a_draft(migrated_db):
+    rows = migrated_db.execute(
+        "select table_schema || '.' || table_name, column_name from information_schema.column_privileges"
+        " where grantee = 'retention_owner' and privilege_type = 'SELECT' and table_schema = 'sales'"
+    ).fetchall()
+    got: dict[str, set[str]] = {}
+    for table, column in rows:
+        got.setdefault(table, set()).add(column)
+    assert got == ALLOWED_COLUMNS
 
 
 def test_audit_and_business_tables_are_out_of_reach(migrated_db):

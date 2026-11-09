@@ -130,7 +130,9 @@ Every row in `refdata/` is `provisional`. Before go-live:
   are LLD-1's.
 - **CEO or Pankaj (PO call):** `sales.draft_keep_days` = **180** (LLD-4's proposal).
   Drafts left unsaved this many days are deleted once `retention.purge_drafts` is switched
-  on (it ships off). Confirm the number, or give another.
+  on (it ships off). Confirm the number, or give another. Note that a deleted draft leaves
+  no per-business trace (the run row has counts only, no business or draft ID, and no audit
+  row), and nothing warns the user before a draft goes.
 - **GST expert or CA:** `invoice.number.max_length` (CGST Rule 46(b) via GSTZen; the
   rule's own start date); `invoice.number.charset`, which allows lower-case letters
   because the rule says "alphabets" while team/gst/document-fields.md row 3 writes A-Z

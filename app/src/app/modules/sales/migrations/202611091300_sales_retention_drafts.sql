@@ -13,14 +13,16 @@
 -- working on is never deleted under them; the delete re-checks both conditions on the row
 -- it removes, so a save that lands between the pick and the delete keeps the draft.
 --
--- retention_owner gets SELECT and DELETE on sales.drafts and SELECT on sales.draft_lines
--- (to count them). Lines go by the existing ON DELETE CASCADE, which runs as the table
--- owner; retention_owner needs no DELETE on lines, and nothing at all on number_series or
--- any document, stock or GST table.
+-- retention_owner can read only the columns that pick a row: (id, business_id, status,
+-- updated_at) on sales.drafts and (draft_id, business_id) on sales.draft_lines, to count
+-- the lines. Never a buyer's name, address or an amount (Staff on #107). It may DELETE
+-- drafts; lines go by the existing ON DELETE CASCADE, which runs as the table owner, so it
+-- needs no DELETE on lines, and nothing at all on number_series or any document, stock or
+-- GST table.
 
 grant usage on schema sales to retention_owner;
-grant select, delete on sales.drafts to retention_owner;
-grant select on sales.draft_lines to retention_owner;
+grant select (id, business_id, status, updated_at), delete on sales.drafts to retention_owner;
+grant select (draft_id, business_id) on sales.draft_lines to retention_owner;
 create policy retention_purge_select on sales.drafts for select to retention_owner
     using (current_setting('retention.active', true) = 'on');
 create policy retention_purge_delete on sales.drafts for delete to retention_owner
