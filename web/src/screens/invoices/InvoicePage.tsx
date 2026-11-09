@@ -198,9 +198,11 @@ export function InvoicePage() {
               <Field label="Ship-to city" value={form.ship.city} onChange={(e) => set({ ship: { ...form.ship, city: e.target.value } })} />
               <Field label="Ship-to PIN" inputMode="numeric" value={form.ship.pin} onChange={(e) => set({ ship: { ...form.ship, pin: e.target.value } })} />
               <SelectField label="Ship-to state" options={stateOptions} value={form.ship.state_code} onChange={(e) => set({ ship: { ...form.ship, state_code: e.target.value } })} />
-              <label className="radio">
-                <input type="checkbox" checked={form.third_party} onChange={(e) => set({ third_party: e.target.checked })} /> Goods go to a third party, not the buyer
-              </label>
+              {form.buyer === "customer" && (
+                <label className="radio">
+                  <input type="checkbox" checked={form.third_party} onChange={(e) => set({ third_party: e.target.checked })} /> Goods go to a third party, not the buyer
+                </label>
+              )}
             </>
           )}
           <SelectField

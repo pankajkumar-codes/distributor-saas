@@ -12,6 +12,7 @@ import { Button } from "../../kit/Button";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
 import { warningText } from "../onboarding/warnings";
+import { AUDIT_VIEWERS } from "../settings/AuditPage";
 import { SUPPORT_VIEWERS } from "../settings/SupportPage";
 import { screenPath } from "./links";
 
@@ -174,6 +175,11 @@ export function HomePage() {
             {SUPPORT_VIEWERS.has(business.role) && (
               <li>
                 <Link to={`/b/${businessId}/settings/support`}>Support access</Link>
+              </li>
+            )}
+            {AUDIT_VIEWERS.has(business.role) && (
+              <li>
+                <Link to={`/b/${businessId}/settings/audit`}>Audit log</Link>
               </li>
             )}
           </ul>

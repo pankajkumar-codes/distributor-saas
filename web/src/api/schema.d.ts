@@ -1391,7 +1391,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "preparing" | "ready" | "failed";
+            status: "preparing" | "ready" | "expired" | "failed";
             /** Url */
             url?: string | null;
         };

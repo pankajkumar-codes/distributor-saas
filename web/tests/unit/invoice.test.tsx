@@ -106,6 +106,39 @@ describe("the draft invoice form", () => {
     expect(screen.getByText("Draft, not a tax invoice.")).toBeInTheDocument();
   });
 
+  it("after a save, a customer draft whose server-filled ship-to is the customer's own address is not dirty", async () => {
+    const filled = { line1: "12 MG Road", line2: null, city: "Kolkata", pin: "700001", state_code: "19" }; // no "name": the server's copy
+    server.reply(ONE, { status: 200, body: draft({ ship_to: filled, computation: computation() }) });
+    server.reply("/api/v1/b/b-1/products/p-1", { status: 200, body: product });
+    server.reply(`${ONE}/preview`, { status: 202, body: { job_id: "j-1", draft_version: 1 } });
+    server.reply(`${ONE}/preview/j-1`, { status: 200, body: { status: "queued" } });
+    open("/b/b-1/invoices/d-1");
+    await screen.findByText("Sharma Traders");
+    expect(screen.getByLabelText("Ship to a different address")).not.toBeChecked();
+    expect(screen.getByRole("button", { name: "Save draft" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Preview PDF" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Preview PDF" }));
+    expect(await screen.findByText("Preparing the preview…")).toBeInTheDocument();
+  });
+
+  it("opens an address the user entered as a different ship-to, with its third-party flag", async () => {
+    const own = { name: "Depot", line1: "9 Dock Rd", line2: null, city: "Pune", pin: "411001", state_code: "27" };
+    server.reply(ONE, { status: 200, body: draft({ ship_to: own, ship_to_third_party: true }) });
+    server.reply("/api/v1/b/b-1/products/p-1", { status: 200, body: product });
+    open("/b/b-1/invoices/d-1");
+    await screen.findByText("Sharma Traders");
+    expect(screen.getByLabelText("Ship to a different address")).toBeChecked();
+    expect(screen.getByLabelText("Ship-to name")).toHaveValue("Depot");
+    expect(screen.getByLabelText(/Goods go to a third party/)).toBeChecked();
+  });
+
+  it("offers no third-party box on a cash sale", async () => {
+    open("/b/b-1/invoices/new");
+    fireEvent.click(await screen.findByLabelText("Cash sale (no GSTIN)"));
+    fireEvent.click(screen.getByLabelText("Ship to a different address"));
+    expect(screen.queryByLabelText(/Goods go to a third party/)).toBeNull();
+  });
+
   it("is not there for a role that can't create documents", async () => {
     server = fakeApi();
     server.reply(REFRESH, { status: 200, body: { access_token: "t", expires_in: 3600 } });

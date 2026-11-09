@@ -647,7 +647,7 @@ class AuditExportRef(BaseModel):
 
 
 class AuditExportOut(BaseModel):
-    status: Literal["preparing", "ready", "failed"]
+    status: Literal["preparing", "ready", "expired", "failed"]
     url: str | None = None  # when ready: a link good for 60 seconds
     rows: int | None = None  # when ready
     error_code: str | None = None  # when failed: narrow_filter, not_allowed, ...

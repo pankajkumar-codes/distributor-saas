@@ -90,3 +90,4 @@ fieldset.line { margin: 0.75rem 0; }
 .totals .row { display: flex; justify-content: space-between; }
 .totals .total { font-weight: 600; border-top: 1px solid currentColor; }
 .totals dt, .totals dd { margin: 0; }
+.filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0 16px; margin: 0 0 8px; }

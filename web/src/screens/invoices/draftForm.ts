@@ -62,8 +62,11 @@ export function formOf(d: Draft, names: Record<string, string> = {}): Form {
       discount_kind: (l.discount_kind ?? "") as Line["discount_kind"], discount_value: l.discount_value ?? "",
     })),
     customer_collects: d.customer_collects,
-    ship_different: Boolean(ship),
-    ship: ship ? { name: text(ship.name), line1: text(ship.line1), line2: text(ship.line2), city: text(ship.city), pin: text(ship.pin), state_code: text(ship.state_code) } : BLANK_ADDRESS,
+    // The server fills ship_to with the customer's delivery address on every save that sends none,
+    // and that copy has no "name" key; an address the user entered always has one (even if null).
+    // Only the user's own counts, or a saved draft would read as "different" and stay dirty.
+    ship_different: Boolean(ship) && "name" in ship!,
+    ship: ship && "name" in ship ? { name: text(ship.name), line1: text(ship.line1), line2: text(ship.line2), city: text(ship.city), pin: text(ship.pin), state_code: text(ship.state_code) } : BLANK_ADDRESS,
     third_party: d.ship_to_third_party,
     pos_override: d.pos_override ?? "",
     pos_reason: d.pos_override_reason ?? "",
