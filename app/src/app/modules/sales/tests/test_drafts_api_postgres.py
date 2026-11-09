@@ -248,7 +248,7 @@ def test_a_save_returns_the_computation(shop):
     c = other_state["computation"]
     assert c["is_inter_state"] is True and c["supply_class"] == "B2CS" and c["method_version"]
     assert D(c["taxable_total"]) == D("113.75") and c["cgst_total"] == "0.00"
-    assert D(c["igst_total"]) in (D("20.47"), D("20.48"))
+    assert c["igst_total"] == "20.48"
     assert D(c["doc_total"]) == D(c["taxable_total"]) + D(c["igst_total"]) + D(c["round_off"])
     assert c["lines"][0]["taxes"][0]["component"] == "IGST" and c["blocks"] == []
     same_state = create(pg, biz, draft_body(p, cash_buyer={"state_code": "19"})).json()["computation"]
@@ -292,10 +292,12 @@ def test_a_customer_deleted_after_the_draft_was_saved_is_customer_not_found_on_s
 
 def test_money_output_never_rounds_silently():
     from decimal import Decimal as D
-    from decimal import Inexact
+    from decimal import Inexact, InvalidOperation
 
     from app.modules.sales.api import _m
 
     assert _m(D("5")) == "5.00" and _m(D("113.750")) == "113.75"
     with pytest.raises(Inexact):
         _m(D("20.475"))
+    with pytest.raises(InvalidOperation):  # too many digits for the paise quantize
+        _m(D("1e40"))
