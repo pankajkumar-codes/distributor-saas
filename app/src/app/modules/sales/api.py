@@ -75,7 +75,7 @@ class ShipToIn(BaseModel):
     line1: Text | None = None
     line2: Text | None = None
     city: Text | None = None
-    pin: Annotated[str, Field(max_length=10)] | None = None
+    pin: Text | None = None  # checked against refdata address.pin_pattern
     state_code: Annotated[str, Field(max_length=2)]
 
 
