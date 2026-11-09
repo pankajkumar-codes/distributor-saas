@@ -532,6 +532,225 @@
         "title": "CodeSent",
         "type": "object"
       },
+      "ComputationOut": {
+        "description": "What the draft would be as an invoice today (LLD-4 \u00a73). `blocks` stop a finalize,\n`warnings` never do; neither stops a draft from being saved.",
+        "properties": {
+          "amount_in_words": {
+            "title": "Amount In Words",
+            "type": "string"
+          },
+          "blocks": {
+            "items": {
+              "$ref": "#/components/schemas/IssueOut"
+            },
+            "title": "Blocks",
+            "type": "array"
+          },
+          "cgst_total": {
+            "title": "Cgst Total",
+            "type": "string"
+          },
+          "charges_total": {
+            "title": "Charges Total",
+            "type": "string"
+          },
+          "computed_pos": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Computed Pos"
+          },
+          "doc_total": {
+            "title": "Doc Total",
+            "type": "string"
+          },
+          "gross_total": {
+            "title": "Gross Total",
+            "type": "string"
+          },
+          "igst_total": {
+            "title": "Igst Total",
+            "type": "string"
+          },
+          "invoice_discount": {
+            "title": "Invoice Discount",
+            "type": "string"
+          },
+          "is_inter_state": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Inter State"
+          },
+          "line_discount_total": {
+            "title": "Line Discount Total",
+            "type": "string"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/ComputedLineOut"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "method_version": {
+            "title": "Method Version",
+            "type": "string"
+          },
+          "pos_state_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pos State Code"
+          },
+          "round_off": {
+            "title": "Round Off",
+            "type": "string"
+          },
+          "rounding_mode": {
+            "title": "Rounding Mode",
+            "type": "string"
+          },
+          "sgst_total": {
+            "title": "Sgst Total",
+            "type": "string"
+          },
+          "supply_class": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supply Class"
+          },
+          "taxable_total": {
+            "title": "Taxable Total",
+            "type": "string"
+          },
+          "utgst": {
+            "title": "Utgst",
+            "type": "boolean"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/IssueOut"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "computed_pos",
+          "pos_state_code",
+          "is_inter_state",
+          "supply_class",
+          "lines",
+          "gross_total",
+          "line_discount_total",
+          "invoice_discount",
+          "charges_total",
+          "taxable_total",
+          "cgst_total",
+          "sgst_total",
+          "utgst",
+          "igst_total",
+          "round_off",
+          "doc_total",
+          "amount_in_words",
+          "rounding_mode",
+          "method_version",
+          "blocks",
+          "warnings"
+        ],
+        "title": "ComputationOut",
+        "type": "object"
+      },
+      "ComputedLineOut": {
+        "properties": {
+          "base": {
+            "title": "Base",
+            "type": "string"
+          },
+          "charge_share": {
+            "title": "Charge Share",
+            "type": "string"
+          },
+          "discount_share": {
+            "title": "Discount Share",
+            "type": "string"
+          },
+          "gross": {
+            "title": "Gross",
+            "type": "string"
+          },
+          "line_discount": {
+            "title": "Line Discount",
+            "type": "string"
+          },
+          "line_no": {
+            "title": "Line No",
+            "type": "integer"
+          },
+          "rate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate"
+          },
+          "taxable": {
+            "title": "Taxable",
+            "type": "string"
+          },
+          "taxes": {
+            "items": {
+              "$ref": "#/components/schemas/TaxOut"
+            },
+            "title": "Taxes",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "string"
+          }
+        },
+        "required": [
+          "line_no",
+          "gross",
+          "line_discount",
+          "base",
+          "discount_share",
+          "charge_share",
+          "taxable",
+          "rate",
+          "taxes",
+          "total"
+        ],
+        "title": "ComputedLineOut",
+        "type": "object"
+      },
       "ConfirmIn": {
         "additionalProperties": false,
         "properties": {
@@ -964,6 +1183,16 @@
             },
             "title": "Charges",
             "type": "array"
+          },
+          "computation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ComputationOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "created_at": {
             "title": "Created At",
@@ -1968,6 +2197,48 @@
           "expires_at"
         ],
         "title": "InvitePreviewOut",
+        "type": "object"
+      },
+      "IssueOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field"
+          },
+          "fix": {
+            "title": "Fix",
+            "type": "string"
+          },
+          "line_no": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line No"
+          }
+        },
+        "required": [
+          "code",
+          "fix",
+          "field",
+          "line_no"
+        ],
+        "title": "IssueOut",
         "type": "object"
       },
       "JobOut": {
@@ -3910,6 +4181,29 @@
           "id"
         ],
         "title": "Target",
+        "type": "object"
+      },
+      "TaxOut": {
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "string"
+          },
+          "component": {
+            "title": "Component",
+            "type": "string"
+          },
+          "rate": {
+            "title": "Rate",
+            "type": "string"
+          }
+        },
+        "required": [
+          "component",
+          "rate",
+          "amount"
+        ],
+        "title": "TaxOut",
         "type": "object"
       },
       "TenantIn": {
