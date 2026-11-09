@@ -7,7 +7,7 @@ the create-documents one.
 """
 
 from datetime import date
-from decimal import Decimal
+from decimal import Decimal, Context, Inexact
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
@@ -192,11 +192,13 @@ def _s(v) -> str | None:
 
 
 _PAISE = Decimal("0.01")
+_EXACT = Context(traps=[Inexact])  # the default 28 digits cover any amount here
 
 
 def _m(x: Decimal) -> str:
-    """An amount as a 2-place decimal string (compute's totals are already whole paise)."""
-    return str(x.quantize(_PAISE))
+    """An amount as a 2-place decimal string. compute's amounts are already whole paise, so
+    this only fixes the scale; one that is not raises Inexact rather than rounding silently."""
+    return str(x.quantize(_PAISE, context=_EXACT))
 
 
 def _issues(items) -> list[dict]:
@@ -306,7 +308,7 @@ class PreviewRef(BaseModel):
 class PreviewOut(BaseModel):
     status: Literal["queued", "rendering", "ready", "failed"]
     url: str | None = None  # when ready: a link good for 60 seconds
-    error_code: str | None = None  # when failed: draft_changed, draft_not_found, not_allowed, ...
+    error_code: str | None = None  # when failed: render_failed, draft_changed, draft_not_found, not_allowed, ...
 
 
 @router.post("/b/{business_id}/drafts/{draft_id}/preview", status_code=http.HTTP_202_ACCEPTED,

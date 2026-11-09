@@ -6,12 +6,15 @@ Two kinds of event:
   The renderer reads it, renders the PDF in memory and writes it in one PutObject to
   documents/b/<business>/<render>/document.pdf. A failure anywhere before the PutObject
   writes nothing, so there is never a partial PDF; the message comes back and, after
-  five tries, lands in the DLQ. The input is never deleted: the lifecycle rule expires
-  it after a day (D-042). A redelivered message renders again to the same key; one
-  whose input has expired fails (the renderer can't list the bucket, so S3 answers 403)
-  and goes to the DLQ.
+  five tries, lands in the DLQ. On the last try (RENDER_MAX_RECEIVES, the queue's
+  maxReceiveCount) the renderer also writes documents/b/<business>/<render>/failed.json,
+  holding only an error code, so the app can tell the user the render failed instead of
+  waiting. The input is never deleted: the lifecycle rule expires it after a day
+  (D-042). A redelivered message renders again to the same key; one whose input has
+  expired fails (the renderer can't list the bucket, so S3 answers 403) and goes to the
+  DLQ.
 - `{"task": "selftest"}`, invoked by hand: renders a fixed one-page sample (fictional
-  names and amounts; English, Hindi and the rupee sign) and reports size and time. It
+  names and amounts; English, Hindi, Bengali and the rupee sign) and reports size and time. It
   reads and writes nothing, so it is how the arm64 numbers get measured.
 
 Rendering fetches nothing (D-042): `DenyAllFetcher` refuses every URL, whatever its
@@ -40,13 +43,13 @@ MAX_INPUT_BYTES = 1024 * 1024  # platform_common.render.MAX_INPUT_BYTES
 
 SAMPLE = """<!doctype html><html lang="en"><meta charset="utf-8"><style>
 @page { size: A4; margin: 15mm }
-body { font-family: "Noto Sans", "Noto Sans Devanagari"; font-size: 10pt }
+body { font-family: "Noto Sans", "Noto Sans Devanagari", "Noto Sans Bengali"; font-size: 10pt }
 td.amt { text-align: right }
 </style><body>
-<h1>Sample Traders <span lang="hi">श्री गणेश ट्रेडर्स</span></h1>
+<h1>Sample Traders <span lang="hi">श्री गणेश ट्रेडर्स</span> <span lang="bn">নমুনা ভাণ্ডার</span></h1>
 <p>Self-test page; not a tax invoice.</p>
 <table><tr><th>Item</th><th>Amount</th></tr>
-<tr><td>Notebook <span lang="hi">कॉपी</span></td><td class="amt">₹ 1,250.00</td></tr>
+<tr><td>Notebook <span lang="hi">कॉपी</span> <span lang="bn">খাতা</span></td><td class="amt">₹ 1,250.00</td></tr>
 <tr><td><b>Total <span lang="hi">कुल</span></b></td><td class="amt"><b>₹ 1,250.00</b></td></tr>
 </table></body></html>"""
 
@@ -107,12 +110,24 @@ def _s3():
                                             retries={"mode": "standard", "total_max_attempts": 3}))
 
 
-def sqs_handler(event, s3=None, bucket: str | None = None) -> dict:
+def _record_failure(s3, bucket: str, key, message_id) -> None:
+    """The last try failed: leave failed.json where the PDF would be. Best effort; the
+    message still goes to the DLQ, whose alarm is the backstop."""
+    try:
+        s3.put_object(Bucket=bucket, Key=inputs.failure_key(key), Body=b'{"error_code": "render_failed"}',
+                      ContentType="application/json")
+    except Exception as e:  # a bad key, or S3 itself failing
+        log.error("render %s: could not record the failure: %s", message_id, type(e).__name__)
+
+
+def sqs_handler(event, s3=None, bucket: str | None = None, max_receives: int | None = None) -> dict:
     s3 = s3 or _s3()
     bucket = bucket or os.environ["OBJECTS_BUCKET"]
+    max_receives = max_receives or int(os.environ.get("RENDER_MAX_RECEIVES", "5"))
     failures = []
     for record in event.get("Records", []):
         message_id = record.get("messageId")
+        key = None
         try:
             key = json.loads(record["body"])["key"]
             start = time.perf_counter()
@@ -122,6 +137,8 @@ def sqs_handler(event, s3=None, bucket: str | None = None) -> dict:
             # The type only: a message could quote the input.
             log.error("render %s failed: %s", message_id, type(e).__name__)
             failures.append({"itemIdentifier": message_id})
+            if int(record.get("attributes", {}).get("ApproximateReceiveCount", "1")) >= max_receives:
+                _record_failure(s3, bucket, key, message_id)
     return {"batchItemFailures": failures}
 
 

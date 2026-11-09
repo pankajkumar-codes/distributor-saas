@@ -893,7 +893,12 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Put Turnover Band */
+        /**
+         * Put Turnover Band
+         * @description The first band for an FY needs no If-Match; changing one needs the version shown
+         *     (strict: a weak tag or `*` is 409, see platform_common.etag). The reply's ETag is
+         *     the version to send next.
+         */
         put: operations["put_turnover_band_api_v1_b__business_id__turnover_bands__fy__put"];
         post?: never;
         delete?: never;
@@ -2349,6 +2354,7 @@ export interface components {
             einvoice_history: ("no" | "yes" | "not_sure") | null;
             /** Legal Name */
             legal_name: string | null;
+            previous_turnover_band: components["schemas"]["TurnoverBandOut"] | null;
             ready_for_documents: components["schemas"]["ReadinessOut"];
             registration: components["schemas"]["RegistrationOut"];
             /** Trade Name */
@@ -2665,6 +2671,8 @@ export interface components {
             declared_turnover: string | null;
             /** Fy */
             fy: string;
+            /** Version */
+            version: number;
         };
         /** UnitOut */
         UnitOut: {
@@ -4905,7 +4913,9 @@ export interface operations {
     put_turnover_band_api_v1_b__business_id__turnover_bands__fy__put: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "If-Match"?: string | null;
+            };
             path: {
                 fy: string;
                 business_id: string;

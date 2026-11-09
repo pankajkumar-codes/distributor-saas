@@ -11,6 +11,7 @@ import { Button } from "../../kit/Button";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
 import { warningText } from "../onboarding/warnings";
+import { SUPPORT_VIEWERS } from "../settings/SupportPage";
 import { screenPath } from "./links";
 
 type Home = components["schemas"]["HomeOut"];
@@ -159,6 +160,11 @@ export function HomePage() {
             <li>
               <Link to={`/b/${businessId}/settings/filing`}>Filing frequency</Link>
             </li>
+            {SUPPORT_VIEWERS.has(business.role) && (
+              <li>
+                <Link to={`/b/${businessId}/settings/support`}>Support access</Link>
+              </li>
+            )}
           </ul>
         </nav>
       </main>

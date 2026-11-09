@@ -13,7 +13,7 @@
   next to the fonts;
 - bytecode: every .py has a hash-based .pyc that is never checked against the source;
 - --smoke (x86_64 only, since CI has no arm64): unpacks it and renders the self-test page,
-  which must embed only the bundled Noto fonts.
+  which must embed only the bundled Noto fonts, Bengali and Devanagari included.
 """
 
 import argparse
@@ -35,7 +35,8 @@ MB = 1024 * 1024
 MAX_ZIPPED = 32 * MB
 MAX_UNZIPPED = 110 * MB
 FONTS = {"NotoSans-Regular.ttf", "NotoSans-Bold.ttf", "NotoSansDevanagari-Regular.ttf",
-         "NotoSansDevanagari-Bold.ttf", "OFL.txt", "fonts.conf"}
+         "NotoSansDevanagari-Bold.ttf", "NotoSansBengali-Regular.ttf", "NotoSansBengali-Bold.ttf", "OFL.txt",
+         "fonts.conf"}
 
 
 def check(zip_path: Path, arch_name: str, task: Path) -> list[str]:
@@ -116,6 +117,8 @@ def smoke(task: Path) -> list[str]:
         errors.append(f"the PDF should embed only the bundled Noto fonts, not {result['fonts']}")
     if "Noto-Sans-Devanagari" not in result["fonts"]:
         errors.append("the Hindi text did not use Noto Sans Devanagari")
+    if "Noto-Sans-Bengali" not in result["fonts"]:
+        errors.append("the Bengali text did not use Noto Sans Bengali")
     return errors
 
 

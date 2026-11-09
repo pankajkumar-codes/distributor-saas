@@ -28,7 +28,7 @@ from platform_common.uow import BusinessUoW
 
 from . import frequency as freq
 from . import profile as prof
-from .fiscal import fy_of
+from .fiscal import fy_of, previous_fy
 from .registration import STATE
 
 router = APIRouter(prefix="/b/{business_id}", tags=["business"])
@@ -62,6 +62,7 @@ class TurnoverBandOut(BaseModel):
     fy: str
     band: Band
     declared_turnover: str | None  # decimal string
+    version: int  # send as If-Match to change this band
 
 
 class ReadinessOut(BaseModel):
@@ -77,6 +78,7 @@ class ProfileOut(BaseModel):
     address: AddressOut
     einvoice_history: Literal["no", "yes", "not_sure"] | None
     turnover_band: TurnoverBandOut | None  # the current FY's
+    previous_turnover_band: TurnoverBandOut | None  # last FY's; HSN digits and e-invoicing read it ([S4P-1])
     ready_for_documents: ReadinessOut
     version: int  # send it back as If-Match on PATCH; also the ETag
 
@@ -149,6 +151,7 @@ def _profile_out(uow, today: date) -> ProfileOut:
     if p is None:
         raise Deny("not_found")
     band = prof.turnover_band(uow.tx, fy_of(today))
+    previous = prof.turnover_band(uow.tx, previous_fy(fy_of(today)))
     ready = prof.ready_for_documents(uow.tx)
     return ProfileOut(
         business_id=str(p.business_id),
@@ -162,6 +165,7 @@ def _profile_out(uow, today: date) -> ProfileOut:
                            state_code=p.address_state_code),
         einvoice_history=p.einvoice_history,
         turnover_band=None if band is None else _band_out(band),
+        previous_turnover_band=None if previous is None else _band_out(previous),
         ready_for_documents=ReadinessOut(ok=ready.ok, missing=ready.missing),
         version=p.version,
     )
@@ -169,7 +173,7 @@ def _profile_out(uow, today: date) -> ProfileOut:
 
 def _band_out(band: prof.TurnoverBand) -> TurnoverBandOut:
     turnover = None if band.declared_turnover is None else str(band.declared_turnover)
-    return TurnoverBandOut(fy=band.fy, band=band.band, declared_turnover=turnover)
+    return TurnoverBandOut(fy=band.fy, band=band.band, declared_turnover=turnover, version=band.version)
 
 
 def _row_out(r: freq.FrequencyRow) -> FrequencyRowOut:
@@ -208,10 +212,22 @@ def patch_profile(
 
 @router.put("/turnover-bands/{fy}", dependencies=EDIT)
 def put_turnover_band(
-    body: TurnoverBandIn, uow: BusinessUoW, clock: Today, fy: Annotated[str, Path(pattern=FY)]
+    body: TurnoverBandIn,
+    uow: BusinessUoW,
+    clock: Today,
+    fy: Annotated[str, Path(pattern=FY)],
+    response: Response,
+    if_match: Annotated[str | None, Header(alias="If-Match")] = None,
 ) -> TurnoverBandOut:
+    """The first band for an FY needs no If-Match; changing one needs the version shown
+    (strict: a weak tag or `*` is 409, see platform_common.etag). The reply's ETag is
+    the version to send next."""
     turnover = None if body.declared_turnover is None else Decimal(body.declared_turnover)
-    return _band_out(prof.set_turnover_band(uow, fy, body.band, turnover, today=clock.today()))
+    band = prof.set_turnover_band(
+        uow, fy, body.band, turnover, today=clock.today(), if_match=if_match_version(if_match)
+    )
+    set_etag(response, band.version)
+    return _band_out(band)
 
 
 # --- Filing profile -------------------------------------------------------------------

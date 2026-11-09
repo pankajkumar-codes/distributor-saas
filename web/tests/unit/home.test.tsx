@@ -67,6 +67,7 @@ describe("Home", () => {
     const settings = screen.getByRole("navigation", { name: "Settings" });
     expect(within(settings).getByRole("link", { name: "Business details" })).toHaveAttribute("href", "/b/b-1/settings/company");
     expect(within(settings).getByRole("link", { name: "Filing frequency" })).toHaveAttribute("href", "/b/b-1/settings/filing");
+    expect(within(settings).getByRole("link", { name: "Support access" })).toHaveAttribute("href", "/b/b-1/settings/support");
   });
 
   it("hides the checklist once every step is done, and leaves out keys it doesn't know", async () => {

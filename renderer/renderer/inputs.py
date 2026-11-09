@@ -37,6 +37,7 @@ def business_of(key: str) -> str:
 
 INPUT_NAME = "input.json"
 DOCUMENT_NAME = "document.pdf"
+FAILED_NAME = "failed.json"  # written instead of the PDF when the last try fails
 _INPUT = re.compile(r"^render-input/(b/[0-9a-f-]{36}/[0-9a-f-]{36})/input\.json$")
 
 
@@ -48,3 +49,9 @@ def document_key(key: str) -> str:
         raise ValueError(f"not a render input: {key!r}")
     return f"documents/{match[1]}/{DOCUMENT_NAME}"
 
+
+
+def failure_key(key: str) -> str:
+    """Where the renderer records that this input's last try failed, next to the PDF it
+    could not write. platform_common.render.has_failed reads it."""
+    return document_key(key).removesuffix(DOCUMENT_NAME) + FAILED_NAME

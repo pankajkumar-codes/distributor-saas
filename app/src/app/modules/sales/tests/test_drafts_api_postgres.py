@@ -358,3 +358,14 @@ def test_a_pos_override_must_be_an_indian_state_code(shop, pos, code):
     r = put(pg, biz, d, draft_body(p, cash_buyer={"state_code": "27"}, pos_override=pos, pos_override_reason="x"))
     assert (r.status_code, r.json()["error"]["code"], r.json()["error"]["field"]) == (422, code, "pos_override")
     assert pg.client.get(f"/api/v1/b/{biz}/drafts/{d['id']}", headers=h()).json()["version"] == 1
+
+
+def test_money_output_never_rounds_silently():
+    from decimal import Decimal as D
+    from decimal import Inexact
+
+    from app.modules.sales.api import _m
+
+    assert _m(D("5")) == "5.00" and _m(D("113.750")) == "113.75"
+    with pytest.raises(Inexact):
+        _m(D("20.475"))

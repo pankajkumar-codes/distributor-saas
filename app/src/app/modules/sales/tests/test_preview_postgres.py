@@ -141,3 +141,15 @@ def test_a_cash_sale_previews_without_a_customer(shop):
     doc = json.loads(store.get_bytes(biz, f"render-input/b/{biz}/{job_id}/input.json"))
     assert doc["buyer"]["name"] == "Walk-in" and doc["buyer"]["gstin"] is None and doc["buyer"]["address"] == ["Shop 4"]
     assert doc["ship_to"] is None
+
+
+def test_a_render_the_renderer_gave_up_on_reports_failed_and_a_later_pdf_still_wins(shop):
+    pg, biz, _, jobs_q, _, store = shop
+    d, _ = _draft(pg, biz)
+    job_id = _ask(pg, biz, d).json()["job_id"]
+    jobs_q.drain(jobs.handle_message)
+    assert _status(pg, biz, d, job_id).json()["status"] == "rendering"
+    store.put(biz, f"documents/b/{biz}/{job_id}/failed.json", b'{"error_code": "render_failed"}', "application/json")
+    assert _status(pg, biz, d, job_id).json() == {"status": "failed", "url": None, "error_code": "render_failed"}
+    store.put(biz, f"documents/b/{biz}/{job_id}/document.pdf", b"%PDF-1.7 test", "application/pdf")  # a DLQ redrive
+    assert _status(pg, biz, d, job_id).json()["status"] == "ready"
