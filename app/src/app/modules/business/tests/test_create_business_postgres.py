@@ -64,7 +64,7 @@ def test_creating_a_business_makes_the_caller_its_owner_with_a_profile(pg):
     r = pg.client.get("/api/v1/me/businesses", headers=as_user("alice"))
     assert r.json() == {"businesses": [
         {"business_id": bid, "display_name": "Vashi Essentials", "gstin": GSTIN, "role": "owner"}
-    ]}
+    ], "is_support": False}
 
 
 def test_a_retry_with_the_same_key_returns_the_first_answer_and_creates_nothing(pg):
