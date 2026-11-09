@@ -279,7 +279,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Drafts */
+        /**
+         * List Drafts
+         * @description Open drafts, most recently saved first, with each one's total and readiness as of
+         *     its last save. A cursor, not an offset: saving a draft moves it to the top, and an offset
+         *     would then show a row twice or skip one.
+         */
         get: operations["list_drafts_api_v1_b__business_id__drafts_get"];
         put?: never;
         /** Create Draft */
@@ -1620,6 +1625,16 @@ export interface components {
              * @default []
              */
             lines: components["schemas"]["LineIn"][];
+            /** Pos Override */
+            pos_override?: string | null;
+            /** Pos Override Reason */
+            pos_override_reason?: string | null;
+            ship_to?: components["schemas"]["ShipToIn"] | null;
+            /**
+             * Ship To Third Party
+             * @default false
+             */
+            ship_to_third_party: boolean;
         };
         /** DraftOut */
         DraftOut: {
@@ -1636,6 +1651,8 @@ export interface components {
                 [key: string]: unknown;
             }[];
             computation?: components["schemas"]["ComputationOut"] | null;
+            /** Computed At */
+            computed_at: string | null;
             /** Created At */
             created_at: string;
             /** Customer Collects */
@@ -1656,10 +1673,20 @@ export interface components {
             kind: string;
             /** Lines */
             lines: components["schemas"]["LineOut"][];
+            /** Pos Override */
+            pos_override: string | null;
+            /** Pos Override Reason */
+            pos_override_reason: string | null;
+            /** Ready */
+            ready: boolean | null;
             /** Ship To */
             ship_to: {
                 [key: string]: unknown;
             } | null;
+            /** Ship To Third Party */
+            ship_to_third_party: boolean;
+            /** Total */
+            total: string | null;
             /** Updated At */
             updated_at: string;
             /** Version */
@@ -1671,6 +1698,8 @@ export interface components {
             has_more: boolean;
             /** Items */
             items: components["schemas"]["DraftOut"][];
+            /** Next Cursor */
+            next_cursor: string | null;
         };
         /** EmailBody */
         EmailBody: {
@@ -2063,6 +2092,11 @@ export interface components {
             email: string;
             /** Id */
             id: string;
+            /**
+             * Is Support
+             * @default false
+             */
+            is_support: boolean;
             /** Name */
             name: string | null;
             /** Totp Enabled */
@@ -2128,6 +2162,11 @@ export interface components {
         MyBusinessesOut: {
             /** Businesses */
             businesses: components["schemas"]["MyBusiness"][];
+            /**
+             * Is Support
+             * @default false
+             */
+            is_support: boolean;
         };
         /** NameBody */
         NameBody: {
@@ -2485,6 +2524,24 @@ export interface components {
         RoleIn: {
             role: components["schemas"]["Role"];
         };
+        /**
+         * ShipToIn
+         * @description Where the goods go, when it isn't the customer's own delivery address (LLD-4 §3.1).
+         */
+        ShipToIn: {
+            /** City */
+            city?: string | null;
+            /** Line1 */
+            line1?: string | null;
+            /** Line2 */
+            line2?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Pin */
+            pin?: string | null;
+            /** State Code */
+            state_code: string;
+        };
         /** SignedInOut */
         SignedInOut: {
             /** Access Token */
@@ -2667,6 +2724,11 @@ export interface components {
             email: string;
             /** Id */
             id: string;
+            /**
+             * Is Support
+             * @default false
+             */
+            is_support: boolean;
         };
         /** ValidationError */
         ValidationError: {
@@ -3465,8 +3527,9 @@ export interface operations {
             query?: {
                 kind?: ("invoice" | "credit_note") | null;
                 q?: string | null;
+                ready?: boolean | null;
                 limit?: number;
-                offset?: number;
+                cursor?: string | null;
             };
             header?: never;
             path: {

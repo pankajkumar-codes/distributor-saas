@@ -318,3 +318,8 @@ def test_sums_are_exact_decimals_never_rounded():
     s = build_sections(lines)
     assert s.b2cs[0].amounts.taxable_value == D("0.03")
     assert s.hsn_b2c[0].quantity == D("0.999")  # 3 decimals kept (CA-3)
+
+
+def test_an_iff_takes_no_hsn_lines():  # an IFF has no Table 12 (IFFQ FAQ 10)
+    with pytest.raises(BadSupplyLine, match="hsn_lines"):
+        build_sections([Q1], kind="IFF", hsn_lines=[Q1])

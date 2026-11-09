@@ -8,6 +8,7 @@ import type { components } from "../../api/schema";
 import { uploadTo } from "../../api/upload";
 import { finished, useJob } from "../../api/useJob";
 import { useMyBusinesses } from "../../auth/useMyBusinesses";
+import { canEditCatalog } from "../../auth/roles";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { NotFound } from "../../kit/NotFound";
@@ -142,7 +143,7 @@ export function ImportPage() {
       </main>
     );
   }
-  if (!business || run.error?.status === 404) return <NotFound />;
+  if (!business || !canEditCatalog(business.role) || run.error?.status === 404) return <NotFound />;
 
   const current = run.data?.pages[0];
   const rows = run.data?.pages.flatMap((p) => p.rows) ?? [];

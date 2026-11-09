@@ -6,7 +6,7 @@ import { api, call } from "../../api/client";
 import { useStateCodes } from "../../api/useStateCodes";
 import { errorText, type ApiError } from "../../api/errors";
 import type { components } from "../../api/schema";
-import { quarterStartIst } from "../../format/dates";
+import { fyIst, previousFy, quarterStartIst } from "../../format/dates";
 import { checkGstin, gstinMessage } from "../../format/gstin";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
@@ -22,6 +22,11 @@ type Band = NewBusiness["turnover_band"];
 type Einvoice = NewBusiness["einvoice_history"];
 type Frequency = components["schemas"]["FrequencyIn"]["frequency"];
 type Errors = Record<string, string | undefined>;
+
+export const BAND_OPTIONS: { value: Band; label: string }[] = [
+  { value: "up_to_threshold", label: "Up to the limit for quarterly filing (QRMP)" },
+  { value: "above_threshold", label: "Above that limit" },
+];
 
 // The server's words are terse ("enter the enrolment number"); these are the screen's.
 const BY_CODE: Record<string, string> = {
@@ -68,6 +73,7 @@ export function BusinessPage() {
   const [legalName, setLegalName] = useState("");
   const [tradeName, setTradeName] = useState("");
   const [band, setBand] = useState<Band | "">("");
+  const [lastBand, setLastBand] = useState<Band | "not_sure" | "">("");
   const [einvoice, setEinvoice] = useState<Einvoice | "">("");
   const [frequency, setFrequency] = useState<Frequency | "">("");
   const [line1, setLine1] = useState("");
@@ -84,6 +90,7 @@ export function BusinessPage() {
   const regState = kind === "gstin" ? (check.ok && !gstinStateUnknown ? check.stateCode : null) : enrolState || null;
   const addressStateShown = addressState || regState || "";
   const startsOn = quarterStartIst();
+  const lastFy = previousFy(fyIst());
 
   const finish = (id: string, warnings: string[]) => navigate(`/b/${id}/home`, { replace: true, state: { warnings } });
 
@@ -103,8 +110,28 @@ export function BusinessPage() {
       call(() => api.POST("/api/v1/b", { body, params: { header: { "Idempotency-Key": keys.current.business } } })),
     onSuccess: async (out, { frequency }) => {
       await queryClient.invalidateQueries({ queryKey: ["me", "businesses"] });
-      if (frequency) choose.mutate({ id: out.business_id, frequency, warnings: out.warnings });
-      else finish(out.business_id, out.warnings);
+      let warnings = out.warnings;
+      // Last year's band is optional and has its own route; the business exists already, so a
+      // failure here only asks the user to add it in Settings rather than stopping sign-up.
+      if (lastBand && lastBand !== "not_sure") {
+        try {
+          await call(() =>
+            api.PUT("/api/v1/b/{business_id}/turnover-bands/{fy}", {
+              params: { path: { business_id: out.business_id, fy: lastFy } },
+              body: { band: lastBand, declared_turnover: null },
+            }),
+          );
+        } catch (e) {
+          // A replayed create (same Idempotency-Key, after the frequency step failed) finds the
+          // band already there. The server answers a PUT with no If-Match on an existing band
+          // with 422 if_match_required (409 stale_record if it was set meanwhile): either way
+          // it was saved, not lost.
+          const code = (e as ApiError).code;
+          if (code !== "if_match_required" && code !== "stale_record") warnings = [...warnings, "previous_band_not_saved"];
+        }
+      }
+      if (frequency) choose.mutate({ id: out.business_id, frequency, warnings });
+      else finish(out.business_id, warnings);
     },
   });
 
@@ -293,14 +320,19 @@ export function BusinessPage() {
           <RadioGroup<Band>
             legend="Turnover this financial year (declared)"
             name="turnover_band"
-            options={[
-              { value: "up_to_threshold", label: "Up to the limit for quarterly filing (QRMP)" },
-              { value: "above_threshold", label: "Above that limit" },
-            ]}
+            options={BAND_OPTIONS}
             value={band}
             onChange={setBand}
             hint="Ask your CA if you're not sure which applies."
             error={err("turnover_band")}
+          />
+          <RadioGroup<Band | "not_sure">
+            legend={`What was your turnover last financial year (FY ${lastFy})? (optional)`}
+            name="previous_turnover_band"
+            options={[...BAND_OPTIONS, { value: "not_sure", label: "Not sure" }]}
+            value={lastBand}
+            onChange={setLastBand}
+            hint="This decides whether 4-digit HSN codes are enough on your invoices. You can change it later in Settings → Business details."
           />
           <RadioGroup<Einvoice>
             legend="Has your business's total turnover (all GSTINs on your PAN) been above the e-invoicing limit in any financial year since 2017-18?"

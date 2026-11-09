@@ -64,6 +64,8 @@ def build_sections(
     """`lines`: the liability member set (Tables 4A, 5, 7, 9B). `hsn_lines`: Table 12's
     member set when it differs (a QRMP quarter: the quarter plus every IFF month);
     `None` uses `lines`. An IFF gets no B2C and no Table 12."""
+    if kind == "IFF" and hsn_lines is not None:
+        raise BadSupplyLine("an IFF has no Table 12, so it takes no hsn_lines")
     lines = tuple(lines)
     routed: dict[str, list[SupplyLine]] = {s: [] for s in ("b2b", "b2cl", "b2cs", "cdnr", "cdnur")}
     for ln in lines:

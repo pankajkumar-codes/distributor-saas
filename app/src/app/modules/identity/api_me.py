@@ -7,6 +7,7 @@ GET and PATCH /me and POST /me/password, S1-c4b TOTP enrolment.
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Header, Request, Response
+from sqlalchemy import text
 from pydantic import BaseModel, Field, field_validator
 
 from app.modules.business.interface import NewBusinessProfile
@@ -35,6 +36,8 @@ class MyBusiness(BaseModel):
 
 class MyBusinessesOut(BaseModel):
     businesses: list[MyBusiness]
+    # Support staff hold no memberships (AC2-14): the SPA asks GET /support/grants instead.
+    is_support: bool = False
 
 
 class MeUser(BaseModel):
@@ -42,6 +45,7 @@ class MeUser(BaseModel):
     email: str
     name: str | None
     totp_enabled: bool
+    is_support: bool = False  # the SPA lands support staff on /support (LLD-2 §6.2)
 
 
 class MeMembership(MyBusiness):
@@ -88,7 +92,7 @@ def _access_token(request: Request) -> str:
 
 def _me_out(me: account.Me) -> MeOut:
     return MeOut(
-        user=MeUser(id=str(me.user_id), email=me.email, name=me.name, totp_enabled=me.totp_enabled),
+        user=MeUser(id=str(me.user_id), email=me.email, name=me.name, totp_enabled=me.totp_enabled, is_support=me.is_support),
         memberships=[
             MeMembership(
                 business_id=str(m.business_id),
@@ -175,11 +179,19 @@ def totp_remove(
 
 @router.get("/me/businesses")
 def my_businesses(uow: MeUoW) -> MyBusinessesOut:
+    is_support = bool(
+        uow.tx.execute(
+            text("select is_support from identity.users where id = :me"), {"me": uow.principal.user_id}
+        ).scalar()
+    )
     uow.become_read_only()
-    return MyBusinessesOut(businesses=[
-        MyBusiness(business_id=str(m.business_id), display_name=m.display_name, gstin=m.gstin, role=m.role)
-        for m in list_my_businesses(uow.tx, uow.principal.user_id)
-    ])
+    return MyBusinessesOut(
+        businesses=[
+            MyBusiness(business_id=str(m.business_id), display_name=m.display_name, gstin=m.gstin, role=m.role)
+            for m in list_my_businesses(uow.tx, uow.principal.user_id)
+        ],
+        is_support=is_support,
+    )
 
 
 @router.post("/b", status_code=201, response_model=NewBusinessOut)

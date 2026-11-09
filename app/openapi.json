@@ -1145,6 +1145,45 @@
             "maxItems": 200,
             "title": "Lines",
             "type": "array"
+          },
+          "pos_override": {
+            "anyOf": [
+              {
+                "maxLength": 2,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pos Override"
+          },
+          "pos_override_reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pos Override Reason"
+          },
+          "ship_to": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ShipToIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ship_to_third_party": {
+            "default": false,
+            "title": "Ship To Third Party",
+            "type": "boolean"
           }
         },
         "title": "DraftIn",
@@ -1193,6 +1232,17 @@
                 "type": "null"
               }
             ]
+          },
+          "computed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Computed At"
           },
           "created_at": {
             "title": "Created At",
@@ -1256,6 +1306,39 @@
             "title": "Lines",
             "type": "array"
           },
+          "pos_override": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pos Override"
+          },
+          "pos_override_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pos Override Reason"
+          },
+          "ready": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ready"
+          },
           "ship_to": {
             "anyOf": [
               {
@@ -1267,6 +1350,21 @@
               }
             ],
             "title": "Ship To"
+          },
+          "ship_to_third_party": {
+            "title": "Ship To Third Party",
+            "type": "boolean"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
           },
           "updated_at": {
             "title": "Updated At",
@@ -1290,7 +1388,13 @@
           "charges",
           "eway",
           "customer_collects",
+          "ship_to_third_party",
+          "pos_override",
+          "pos_override_reason",
           "lines",
+          "total",
+          "ready",
+          "computed_at",
           "created_at",
           "updated_at"
         ],
@@ -1309,11 +1413,23 @@
             },
             "title": "Items",
             "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
           }
         },
         "required": [
           "items",
-          "has_more"
+          "has_more",
+          "next_cursor"
         ],
         "title": "DraftPageOut",
         "type": "object"
@@ -2548,6 +2664,11 @@
             "title": "Id",
             "type": "string"
           },
+          "is_support": {
+            "default": false,
+            "title": "Is Support",
+            "type": "boolean"
+          },
           "name": {
             "anyOf": [
               {
@@ -2771,6 +2892,11 @@
             },
             "title": "Businesses",
             "type": "array"
+          },
+          "is_support": {
+            "default": false,
+            "title": "Is Support",
+            "type": "boolean"
           }
         },
         "required": [
@@ -3977,6 +4103,82 @@
         "title": "RoleIn",
         "type": "object"
       },
+      "ShipToIn": {
+        "additionalProperties": false,
+        "description": "Where the goods go, when it isn't the customer's own delivery address (LLD-4 \u00a73.1).",
+        "properties": {
+          "city": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "line1": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line1"
+          },
+          "line2": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line2"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "pin": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pin"
+          },
+          "state_code": {
+            "maxLength": 2,
+            "title": "State Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state_code"
+        ],
+        "title": "ShipToIn",
+        "type": "object"
+      },
       "SignedInOut": {
         "properties": {
           "access_token": {
@@ -4429,6 +4631,11 @@
           "id": {
             "title": "Id",
             "type": "string"
+          },
+          "is_support": {
+            "default": false,
+            "title": "Is Support",
+            "type": "boolean"
           }
         },
         "required": [
@@ -5776,6 +5983,7 @@
     },
     "/api/v1/b/{business_id}/drafts": {
       "get": {
+        "description": "Open drafts, most recently saved first, with each one's total and readiness as of\nits last save. A cursor, not an offset: saving a draft moves it to the top, and an offset\nwould then show a row twice or skip one.",
         "operationId": "list_drafts_api_v1_b__business_id__drafts_get",
         "parameters": [
           {
@@ -5826,6 +6034,22 @@
           },
           {
             "in": "query",
+            "name": "ready",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ready"
+            }
+          },
+          {
+            "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
@@ -5838,14 +6062,19 @@
           },
           {
             "in": "query",
-            "name": "offset",
+            "name": "cursor",
             "required": false,
             "schema": {
-              "default": 0,
-              "maximum": 1000000,
-              "minimum": 0,
-              "title": "Offset",
-              "type": "integer"
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
             }
           }
         ],

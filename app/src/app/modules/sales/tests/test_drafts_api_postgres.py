@@ -70,7 +70,7 @@ def test_create_then_read_with_money_as_strings(shop):
     assert d["lines"][0] | {"id": None} == {"id": None, "line_no": 1, "product_id": p, "quantity": "2.500",
                                             "unit_price": "45.50", "discount_kind": None, "discount_value": None}
     assert d["bill_to"]["name"] == "Sharma Stores" and d["bill_to"]["state_code"] == "27"
-    got = pg.client.get(f"/api/v1/b/{biz}/drafts/{d['id']}", headers=h("cathy"))
+    got = pg.client.get(f"/api/v1/b/{biz}/drafts/{d['id']}", headers=h("bill"))
     assert got.status_code == 200 and bare(got.json()) == bare(d)
 
 
@@ -227,8 +227,11 @@ def test_roles_and_tenants(shop):
     url = f"/api/v1/b/{biz}/drafts/{d['id']}"
     assert create(pg, biz, {}, sub="bill").status_code == 201
     assert create(pg, biz, {}, sub="adam").status_code == 201
-    # the CA may view, never change: a role denial is the unknown-ID 404
-    assert pg.client.get(url, headers=h("cathy")).status_code == 200
+    # drafts are unfinished work: the CA sees invoices only once finalized (LLD-4 §9,
+    # documents.create on every draft route); a role denial is the unknown-ID 404 (LLD-0)
+    assert pg.client.get(url, headers=h("cathy")).status_code == 404
+    listed = pg.client.get(f"/api/v1/b/{biz}/drafts", headers=h("cathy"))
+    assert (listed.status_code, listed.json()["error"]["code"]) == (404, "not_found")
     assert create(pg, biz, {}, sub="cathy").status_code == 404
     assert put(pg, biz, d, {}, sub="cathy").status_code == 404
     assert pg.client.delete(url, headers=h("cathy", **{"If-Match": "1"})).status_code == 404
@@ -248,7 +251,7 @@ def test_a_save_returns_the_computation(shop):
     c = other_state["computation"]
     assert c["is_inter_state"] is True and c["supply_class"] == "B2CS" and c["method_version"]
     assert D(c["taxable_total"]) == D("113.75") and c["cgst_total"] == "0.00"
-    assert D(c["igst_total"]) in (D("20.47"), D("20.48"))
+    assert c["igst_total"] == "20.48"
     assert D(c["doc_total"]) == D(c["taxable_total"]) + D(c["igst_total"]) + D(c["round_off"])
     assert c["lines"][0]["taxes"][0]["component"] == "IGST" and c["blocks"] == []
     same_state = create(pg, biz, draft_body(p, cash_buyer={"state_code": "19"})).json()["computation"]
@@ -290,12 +293,145 @@ def test_a_customer_deleted_after_the_draft_was_saved_is_customer_not_found_on_s
     assert r.status_code == 422 and r.json()["error"]["code"] == "customer_not_found"
 
 
+# -- Delivery and place of supply on the draft (LLD-4 §3.1: case B and G16) -------------------
+
+KOLKATA = {"name": "Das Warehousing", "line1": "4 Strand Road", "line2": None, "city": "Kolkata", "pin": "700001",
+           "state_code": "19"}
+
+
+def test_case_b_goods_sent_to_a_third_party_take_the_customers_gstin_state(shop):
+    pg, biz, _ = shop  # the business is in 19, the customer's GSTIN in 27
+    p, c = make_product(pg, biz, hsn="340120"), make_customer(pg, biz)
+    own = create(pg, biz, draft_body(p, customer_id=c, ship_to=KOLKATA)).json()
+    assert own["ship_to"] == KOLKATA and own["ship_to_third_party"] is False
+    assert (own["computation"]["pos_state_code"], own["computation"]["is_inter_state"]) == ("19", False)  # case A
+    sent = create(pg, biz, draft_body(p, customer_id=c, ship_to=KOLKATA, ship_to_third_party=True)).json()
+    c_b = sent["computation"]
+    assert (c_b["computed_pos"], c_b["pos_state_code"], c_b["is_inter_state"]) == ("27", "27", True)
+    assert c_b["igst_total"] != "0.00" and c_b["blocks"] == []
+    got = pg.client.get(f"/api/v1/b/{biz}/drafts/{sent['id']}", headers=h()).json()
+    assert (got["ship_to"], got["ship_to_third_party"]) == (KOLKATA, True)
+    # Without its own ship-to the draft takes the customer's delivery address again.
+    back = put(pg, biz, sent, draft_body(p, customer_id=c)).json()
+    assert back["ship_to"]["state_code"] == "27" and back["ship_to_third_party"] is False
+
+
+@pytest.mark.parametrize(("extra", "code", "field"), [
+    ({"cash_buyer": {"state_code": "27"}, "ship_to": KOLKATA}, "third_party_needs_customer", "ship_to_third_party"),
+    ({"customer": True}, "ship_to_required", "ship_to"),
+    ({"customer": True, "ship_to": KOLKATA, "customer_collects": True}, "ship_to_conflict", "ship_to_third_party"),
+    ({"customer": True, "ship_to": {**KOLKATA, "pin": "012345"}}, "pin_invalid", "ship_to.pin"),
+    ({"customer": True, "ship_to": {**KOLKATA, "state_code": " "}}, "state_code_required", "ship_to.state_code"),
+    ({"customer": True, "ship_to": {**KOLKATA, "state_code": "99"}}, "state_code_unknown", "ship_to.state_code"),
+])
+def test_a_third_party_ship_to_is_checked(shop, extra, code, field):
+    pg, biz, _ = shop
+    p = make_product(pg, biz, hsn="340120")
+    if extra.pop("customer", False):
+        extra["customer_id"] = make_customer(pg, biz)
+    r = create(pg, biz, draft_body(p, ship_to_third_party=True, **extra))
+    assert (r.status_code, r.json()["error"]["code"], r.json()["error"]["field"]) == (422, code, field), r.text
+    assert scalar(pg.owner, "select count(*) from sales.drafts") == 0
+
+
+def test_a_pos_override_replaces_the_computed_pos_and_needs_a_reason(shop):
+    pg, biz, _ = shop
+    p, c = make_product(pg, biz, hsn="340120"), make_customer(pg, biz)
+    d = create(pg, biz, draft_body(p, customer_id=c, pos_override="19", pos_override_reason="  Goods handed over in Kolkata ")).json()
+    assert (d["pos_override"], d["pos_override_reason"]) == ("19", "Goods handed over in Kolkata")
+    comp = d["computation"]
+    assert (comp["computed_pos"], comp["pos_state_code"], comp["is_inter_state"]) == ("27", "19", False)
+    assert comp["igst_total"] == "0.00" and comp["blocks"] == []
+    # No reason: refused, as the table's check would (the reason goes on the invoice's audit trail).
+    for blank in (None, "   "):
+        no_reason = put(pg, biz, d, draft_body(p, customer_id=c, pos_override="19", pos_override_reason=blank))
+        err = no_reason.json()["error"]
+        assert (no_reason.status_code, err["code"], err["field"]) == (422, "pos_override_reason_missing", "pos_override_reason")
+    # A reason without an override has nothing to explain and isn't kept.
+    cleared = put(pg, biz, d, draft_body(p, customer_id=c, pos_override_reason="left over")).json()
+    assert (cleared["pos_override"], cleared["pos_override_reason"]) == (None, None)
+    assert cleared["computation"]["pos_state_code"] == "27"
+
+
+@pytest.mark.parametrize(("pos", "code"), [("96", "pos_other_country_unsupported"), ("99", "state_code_unknown")])
+def test_a_pos_override_must_be_an_indian_state_code(shop, pos, code):
+    pg, biz, _ = shop
+    p = make_product(pg, biz, hsn="340120")
+    d = create(pg, biz, draft_body(p, cash_buyer={"state_code": "27"})).json()
+    r = put(pg, biz, d, draft_body(p, cash_buyer={"state_code": "27"}, pos_override=pos, pos_override_reason="x"))
+    assert (r.status_code, r.json()["error"]["code"], r.json()["error"]["field"]) == (422, code, "pos_override")
+    assert pg.client.get(f"/api/v1/b/{biz}/drafts/{d['id']}", headers=h()).json()["version"] == 1
+
+
 def test_money_output_never_rounds_silently():
     from decimal import Decimal as D
-    from decimal import Inexact
+    from decimal import Inexact, InvalidOperation
 
     from app.modules.sales.api import _m
 
     assert _m(D("5")) == "5.00" and _m(D("113.750")) == "113.75"
     with pytest.raises(Inexact):
         _m(D("20.475"))
+    with pytest.raises(InvalidOperation):  # too many digits for the paise quantize
+        _m(D("1e40"))
+
+
+# -- The draft list (S5-a): stored totals, the ready filter, cursor paging ---------------------
+
+def listing(pg, biz, query=""):
+    r = pg.client.get(f"/api/v1/b/{biz}/drafts{query}", headers=h())
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def test_the_list_shows_each_drafts_total_and_readiness_from_its_last_save(shop):
+    pg, biz, _ = shop
+    p = make_product(pg, biz, hsn="340120")
+    ready = create(pg, biz, draft_body(p, cash_buyer={"state_code": "27"})).json()
+    blocked = create(pg, biz, draft_body(p)).json()  # no buyer yet: buyer_state_missing
+    assert (ready["total"], ready["ready"]) == (ready["computation"]["doc_total"], True)
+    assert blocked["ready"] is False and blocked["computed_at"]
+    items = {d["id"]: d for d in listing(pg, biz)["items"]}
+    assert (items[ready["id"]]["total"], items[ready["id"]]["ready"]) == (ready["total"], True)
+    assert items[blocked["id"]]["ready"] is False
+    assert [d["id"] for d in listing(pg, biz, "?ready=true")["items"]] == [ready["id"]]
+    assert [d["id"] for d in listing(pg, biz, "?ready=false")["items"]] == [blocked["id"]]
+    # a save keeps the new figures; version and updated_at are the save's own, not bumped again
+    fixed = put(pg, biz, blocked, draft_body(p, cash_buyer={"state_code": "19"})).json()
+    assert (fixed["version"], fixed["ready"]) == (2, True)
+    assert [d["id"] for d in listing(pg, biz, "?ready=false")["items"]] == []
+
+
+def test_a_draft_saved_before_totals_were_kept_lists_with_nulls_and_as_not_ready(shop):
+    pg, biz, _ = shop
+    d = create(pg, biz, draft_body(make_product(pg, biz, hsn="340120"), cash_buyer={"state_code": "27"})).json()
+    pg.owner.connect().execute(text("update sales.drafts set total = null, block_count = null, computed_at = null,"
+                                    " computed_method = null")).connection.commit()
+    [row] = listing(pg, biz)["items"]
+    assert (row["id"], row["total"], row["ready"], row["computed_at"]) == (d["id"], None, None, None)
+    assert listing(pg, biz, "?ready=true")["items"] == []
+    assert [x["id"] for x in listing(pg, biz, "?ready=false")["items"]] == [d["id"]]
+
+
+def test_cursor_paging_neither_repeats_nor_skips_when_a_draft_is_saved_meanwhile(shop):
+    pg, biz, _ = shop
+    p = make_product(pg, biz, hsn="340120")
+    made = [create(pg, biz, draft_body(p, cash_buyer={"state_code": "27"})).json() for _ in range(5)]
+    first = listing(pg, biz, "?limit=2")
+    assert [d["id"] for d in first["items"]] == [made[4]["id"], made[3]["id"]]
+    assert first["has_more"] is True and first["next_cursor"]
+    # made[0] is saved again: it moves to the top, behind the cursor, and is not shown twice
+    put(pg, biz, made[0], draft_body(p, cash_buyer={"state_code": "19"}))
+    seen, page = [d["id"] for d in first["items"]], first
+    while page["next_cursor"]:
+        page = listing(pg, biz, f"?limit=2&cursor={page['next_cursor']}")
+        seen += [d["id"] for d in page["items"]]
+    assert seen == [made[i]["id"] for i in (4, 3, 2, 1)]
+    assert page["has_more"] is False and page["next_cursor"] is None
+
+
+@pytest.mark.parametrize("bad", ["nope", "bm90LWEtY3Vyc29y", "MjAyNi0xMS0wOVQwODowMDowMHwx"])
+def test_a_bad_cursor_is_a_422(shop, bad):
+    pg, biz, _ = shop
+    r = pg.client.get(f"/api/v1/b/{biz}/drafts?cursor={bad}", headers=h())
+    assert (r.status_code, r.json()["error"]["code"], r.json()["error"]["field"]) == (422, "cursor_invalid", "cursor")

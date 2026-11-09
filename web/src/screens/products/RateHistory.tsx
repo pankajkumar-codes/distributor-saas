@@ -33,11 +33,12 @@ const until = (r: Rate) => (r.valid_until ? formatDate(dayBefore(r.valid_until))
 export function RateHistory(props: {
   businessId: string;
   product: Detail;
+  canEdit: boolean; // catalog.edit: void and add
   canConfirm: boolean;
   locked: boolean; // the form above has unsaved edits, which a new version would drop
   onSaved: (p: Detail) => void;
 }) {
-  const { businessId, product, canConfirm, locked, onSaved } = props;
+  const { businessId, product, canEdit, canConfirm, locked, onSaved } = props;
   const path = { business_id: businessId, product_id: product.id };
   const key = useRef(crypto.randomUUID());
   const [validFrom, setValidFrom] = useState(todayIst());
@@ -134,7 +135,7 @@ export function RateHistory(props: {
                   )}
                 </td>
                 <td>
-                  {!r.voided && (
+                  {canEdit && !r.voided && (
                     <>
                       {canConfirm && (
                         <Button type="button" variant="link" disabled={locked} onClick={() => start(confirmed ? "unconfirm" : "confirm", r)}>
@@ -167,7 +168,7 @@ export function RateHistory(props: {
         </form>
       )}
 
-      {taxable && (
+      {canEdit && taxable && (
       <form onSubmit={submitAdd} noValidate aria-labelledby="add-rate">
         <h3 id="add-rate">Add a new rate from a date</h3>
         <Field label="New rate applies from" type="date" value={validFrom} onChange={(e) => setValidFrom(e.target.value)} />

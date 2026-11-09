@@ -59,6 +59,12 @@ def filing_lines(header: FilingHeader, comp: Computation) -> tuple[SupplyLine, .
         source_kind = "own_invoice"
     out = []
     for ln in comp.lines:
+        if ln.rate is None:  # a finalizable line always has one; never write a line without it
+            raise Invalid(
+                "line_rate_missing",
+                "A line without a GST rate has no supply line.",
+                field=f"lines.{ln.line_no - 1}.product_id",
+            )
         heads = {"igst": ZERO, "cgst": ZERO, "sgst": ZERO}
         for tax in ln.taxes:
             heads[_COLUMN[tax.component]] += tax.amount

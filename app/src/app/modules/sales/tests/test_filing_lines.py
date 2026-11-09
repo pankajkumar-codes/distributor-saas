@@ -139,3 +139,12 @@ def test_only_a_finalizable_document_has_supply_lines():
     with pytest.raises(Invalid) as e:
         filing_lines(header("X/1", on, note_supply_class="CDNR"), ok)
     assert e.value.code == "note_class_on_invoice"
+
+
+def test_a_line_without_a_rate_has_no_supply_line():  # Lead and Staff, #101
+    on = date(2026, 10, 5)
+    ok = run([line(1, "100.00", 18)], registered(WB), seller_state=WB, doc_date=on)
+    no_rate = dataclasses.replace(ok, lines=(dataclasses.replace(ok.lines[0], rate=None),))
+    with pytest.raises(Invalid) as e:
+        filing_lines(header("X/1", on, registered(WB)), no_rate)
+    assert (e.value.code, e.value.field) == ("line_rate_missing", "lines.0.product_id")
