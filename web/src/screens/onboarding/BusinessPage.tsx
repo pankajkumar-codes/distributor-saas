@@ -123,8 +123,11 @@ export function BusinessPage() {
           );
         } catch (e) {
           // A replayed create (same Idempotency-Key, after the frequency step failed) finds the
-          // band already there: stale_record means it was saved, not that it failed.
-          if ((e as ApiError).code !== "stale_record") warnings = [...warnings, "previous_band_not_saved"];
+          // band already there. The server answers a PUT with no If-Match on an existing band
+          // with 422 if_match_required (409 stale_record if it was set meanwhile): either way
+          // it was saved, not lost.
+          const code = (e as ApiError).code;
+          if (code !== "if_match_required" && code !== "stale_record") warnings = [...warnings, "previous_band_not_saved"];
         }
       }
       if (frequency) choose.mutate({ id: out.business_id, frequency, warnings });
