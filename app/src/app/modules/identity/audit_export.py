@@ -14,7 +14,7 @@ rather than writing part of the log.
 
 import json
 import uuid
-from datetime import date
+from datetime import date, timedelta
 
 from platform_common import audit, jobs
 from platform_common.clock import IST, get_clock
@@ -33,6 +33,7 @@ from .service.audit_log import Filters, actor_of, details_of, rows
 
 JOB = "audit.export_csv"
 FILE_NAME = "audit-log.csv"
+KEPT_FOR = timedelta(days=1)  # the audit-exports lifecycle rule (infra/modules/storage)
 AREA = "audit-exports"  # expired after a day by its own S3 lifecycle rule (infra/modules/storage)
 HEADER = ("When (IST)", "Who", "What happened", "Reason or detail")
 
@@ -47,8 +48,8 @@ def start(uow: UnitOfWork, f: Filters) -> uuid.UUID:
 
 
 def status(uow: UnitOfWork, job_id: uuid.UUID) -> dict:
-    """preparing, ready (with a 60-second link and the row count) or failed (the job's
-    error code). Anything that isn't one of this business's audit exports is a 404."""
+    """preparing, ready (with a 60-second link and the row count), expired (the file is
+    gone, so export again) or failed (the job's error code). Anything that isn't one of this business's audit exports is a 404."""
     job = jobs.get(uow, job_id)
     if job is None or job.type != JOB:
         raise Deny("not_found")
@@ -57,7 +58,12 @@ def status(uow: UnitOfWork, job_id: uuid.UUID) -> dict:
     if job.status != "done":
         return {"status": "preparing"}
     business = uow.principal.business_id
-    url = get_store().presign_get(business, key_for(business, AREA, job_id, FILE_NAME), download_name=FILE_NAME)
+    key = key_for(business, AREA, job_id, FILE_NAME)
+    # S3 expires the file a day after it was written, but deletes it some time after that;
+    # a day on, or once it's gone, the answer is "expired" and the user exports again.
+    if get_clock().now() - job.updated_at > KEPT_FOR or get_store().head(business, key) is None:
+        return {"status": "expired"}
+    url = get_store().presign_get(business, key, download_name=FILE_NAME)
     return {"status": "ready", "url": url, "rows": (job.result or {}).get("rows")}
 
 

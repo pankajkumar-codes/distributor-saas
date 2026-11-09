@@ -35,8 +35,8 @@ from urllib.parse import quote
 from .clock import Clock
 from .errors import Deny
 
-# render-input holds what the worker hands the PDF renderer (D-042): kept a day at most,
-# deleted by the renderer once the PDF is written (renderer/renderer/inputs.py).
+# render-input holds what the worker hands the PDF renderer (D-042). Nothing deletes an
+# input: S3 expires it after a day and its old version a day later (EM on #91).
 # audit-exports holds the audit log's CSV files (LLD-2 §7): kept a day, as the link to one
 # lives 60 seconds and a user who needs it again exports again (EM, #108).
 AREAS = frozenset({"uploads", "documents", "exports", "branding", "render-input", "audit-exports"})

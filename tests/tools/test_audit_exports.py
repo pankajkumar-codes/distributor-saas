@@ -18,3 +18,7 @@ def test_the_app_writes_audit_exports_only_to_that_area():
     assert '"audit-exports"' in re.search(r"^AREAS = frozenset\(\{(.*)\}\)$", PLATFORM, re.M).group(1)
     assert re.search(r'^AREA = "audit-exports"', EXPORT, re.M)
     assert '"exports"' not in EXPORT
+
+
+def test_the_status_route_says_expired_when_the_lifecycle_rule_would_have_run():
+    assert re.search(r"^KEPT_FOR = timedelta\(days=1\)", EXPORT, re.M)
