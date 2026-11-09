@@ -11,6 +11,7 @@ import { CustomersPage } from "./screens/customers/CustomersPage";
 import { ImportPage } from "./screens/products/ImportPage";
 import { ProductPage } from "./screens/products/ProductPage";
 import { ProductsPage } from "./screens/products/ProductsPage";
+import { ResetPage } from "./screens/reset/ResetPage";
 import { CompanyPage } from "./screens/settings/CompanyPage";
 import { FilingPage } from "./screens/settings/FilingPage";
 import { SupportPage } from "./screens/settings/SupportPage";
@@ -18,11 +19,12 @@ import { SigninPage } from "./screens/signin/SigninPage";
 import { SupportBusinessesPage } from "./screens/support/SupportBusinessesPage";
 import { SignupPage } from "./screens/signup/SignupPage";
 
-// LLD-1 §11.2. Reset, Team and My account come in later S1 PRs.
+// LLD-1 §11.2. Team and My account come in later S1 PRs.
 export const routes: RouteObject[] = [
   { path: "/", element: <Navigate to="/signin" replace /> },
   { path: "/signup", element: <SignupPage /> },
   { path: "/signin", element: <SigninPage /> },
+  { path: "/reset", element: <ResetPage /> },
   { path: "/onboarding/business", element: <RequireAuth><BusinessPage /></RequireAuth> },
   { path: "/businesses", element: <RequireAuth><BusinessesPage /></RequireAuth> },
   { path: "/support", element: <RequireAuth><SupportBusinessesPage /></RequireAuth> },
