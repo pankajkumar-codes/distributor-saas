@@ -123,6 +123,17 @@ POST /b already reads `identity.max_owned_businesses` (5, provisional; **Pankaj 
 - **Draft list totals (S5-a).** `GET /drafts` shows each draft's `total` and `ready` (no blocks) as of its last save, kept on the draft (`total`, `block_count`, `computed_at`, `computed_method`) rather than recomputed per row. They can go stale when a product's rate or refdata changes after the save; finalize always recomputes (LLD-4 §4), and the draft screen recomputes on every save. Drafts saved before S5-a list with nulls and count as not ready until saved again. The list pages by an opaque cursor over (updated_at, id), not an offset. Designer to confirm the list wording ("as of last save" is not shown today).
 - **Who may see drafts (closed, EM 2026-11-09).** Every draft route needs `documents.create` (LLD-4 §9): list, read, PDF preview (ask and poll) and the preview job's own re-check, so a CA sees invoices only once finalized and gets the role-denial 404 on drafts. Finalized-invoice PDFs stay on `documents.view`.
 
+## GSTR-1 sections (S6 groundwork) items waiting on the EM, GST expert, CA or QA
+| Item | What the code does until then | Source needed |
+|---|---|---|
+| Invoice and note value on supply lines (LLD-5 §5 needed it; view contract v1 lacked it) | **Resolved 2026-11-09 (EM, D-043):** view contract v1 gains `doc_value` (LLD-5 erratum [S6-1]); `SupplyLine.doc_value`, filled by `sales.compute.filing_lines` | — |
+| L5-7 reconciliation for a QRMP quarter with locked IFFs (its Table 12 covers the IFF months; its liability tables don't) | **Resolved 2026-11-09 (EM, D-043):** the quarter reconciles with its IFF builds added (LLD-5 erratum [S6-2]); `reconciliation_gap(build, iff_builds=...)` | — |
+| Credit notes netted in Table 12 (gstr1-examples A6 [CA]); quarterly Table 12 covering IFF months (Part B [CA]) | Netted; the quarter's Table 12 takes the caller's wider member set. Each build lists these in `pending` | CA |
+| Row tax (CA-2) and Table 12 quantity (CA-3), including value-only credit notes | Row tax = sum of the invoice lines' stored tax; quantity keeps 3 decimals (the export rounds); a credit note subtracts its own quantity, so a value-only note (quantity 0) reduces value only | CA-2, CA-3 (value-only notes added to CA-3, 2026-11-09) |
+| A B2CS row that nets negative (E3) | Kept in the build; LLD-5 check C-12 blocks export until QA confirms the template accepts it | QA open item 3 |
+| b2cs Type (E/OE) and e-commerce GSTIN | Not on the section rows; own sales are Type OE, filled by the export mapping (LLD-5 §7) | Template open issue 4 (R1b) |
+| Table 12 Description column | Not on the section rows (supply lines have no product name); the export mapping decides | GST expert, with the template mapping (LLD-5 §7) |
+
 ## Refdata rows to confirm (S0b)
 Every row in `refdata/` is `provisional`. Before go-live:
 - **PO:** the `auth.*` and `identity.max_owned_businesses` rows (`kind: product`). The
