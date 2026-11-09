@@ -163,6 +163,11 @@ describe("the form's body", () => {
     });
   });
 
+  it("drops a ticked third-party flag when the buyer becomes a cash sale", () => {
+    const f = { ...blankForm(), buyer: "cash" as const, cash_state: "27", ship_different: true, third_party: true, ship: { ...blankForm().ship, state_code: "27" } };
+    expect(draftIn(f)).toMatchObject({ ship_to_third_party: false });
+  });
+
   it("sends the place-of-supply reason only with an override, and reopens a saved draft as the form it was", () => {
     expect(draftIn({ ...blankForm(), pos_reason: "stray" })).toMatchObject({ pos_override: null, pos_override_reason: null });
     const f = formOf(draft({ pos_override: "27", pos_override_reason: "Delivered in Pune" }) as never, { "p-1": "Gel" });

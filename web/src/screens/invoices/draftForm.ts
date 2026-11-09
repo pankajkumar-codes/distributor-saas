@@ -97,7 +97,7 @@ export function draftIn(f: Form): DraftIn {
     ship_to: ship
       ? { state_code: f.ship.state_code, name: orNull(f.ship.name), line1: orNull(f.ship.line1), line2: orNull(f.ship.line2), city: orNull(f.ship.city), pin: orNull(f.ship.pin) }
       : null,
-    ship_to_third_party: ship && f.third_party,
+    ship_to_third_party: ship && f.third_party && !cash, // the box is hidden for a cash sale
     pos_override: orNull(f.pos_override),
     pos_override_reason: f.pos_override.trim() ? orNull(f.pos_reason) : null,
   };
