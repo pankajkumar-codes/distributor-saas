@@ -215,7 +215,8 @@ def run(ctx: jobs.JobContext) -> dict:
     draft_id, version = _target(ctx)
     p = ctx.uow.principal
     # The job runs as whoever asked, a moment later; they may have lost access since.
-    if not has_permission(member_role(ctx.uow.tx, p.business_id, p.user_id), Permission.DOCUMENTS_VIEW):
+    # Drafts need documents.create, previews included (LLD-4 §9, EM 2026-11-09).
+    if not has_permission(member_role(ctx.uow.tx, p.business_id, p.user_id), Permission.DOCUMENTS_CREATE):
         raise jobs.JobFailed("not_allowed")
     try:
         d = drafts.get(ctx.uow, draft_id)

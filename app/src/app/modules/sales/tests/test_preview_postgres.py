@@ -31,6 +31,7 @@ def shop(pg, tmp_path):
     set_store(store)
     biz = new_business(pg, "alice")
     seed_member(pg, biz, "cathy", "ca")
+    seed_member(pg, biz, "bill", "billing")
     other = new_business(pg, "bob")
     try:
         yield pg, biz, other, jobs_q, render_q, store
@@ -93,8 +94,33 @@ def test_a_preview_writes_the_render_input_and_queues_only_its_key(shop):
 
     assert _status(pg, biz, d, job_id).json()["status"] == "rendering"
     store.put(biz, f"documents/b/{biz}/{job_id}/document.pdf", b"%PDF-1.7 test", "application/pdf")
-    ready = _status(pg, biz, d, job_id, sub="cathy").json()
+    ready = _status(pg, biz, d, job_id).json()
     assert ready["status"] == "ready" and ready["url"]
+
+
+def test_a_ca_can_neither_ask_for_nor_poll_a_draft_preview(shop):  # drafts need documents.create (LLD-4 §9)
+    pg, biz, _, jobs_q, render_q, store = shop
+    d, _ = _draft(pg, biz)
+    job_id = _ask(pg, biz, d).json()["job_id"]
+    for r in (_ask(pg, biz, d, sub="cathy"), _status(pg, biz, d, job_id, sub="cathy")):
+        assert (r.status_code, r.json()["error"]["code"]) == (404, "not_found")
+    jobs_q.drain(jobs.handle_message)
+    store.put(biz, f"documents/b/{biz}/{job_id}/document.pdf", b"%PDF-1.7 test", "application/pdf")
+    assert _status(pg, biz, d, job_id, sub="cathy").status_code == 404  # not even once it's ready
+
+
+def test_a_preview_job_fails_if_its_asker_became_a_ca_before_it_ran(shop):
+    from sqlalchemy import text
+
+    pg, biz, _, jobs_q, render_q, _ = shop
+    d, _ = _draft(pg, biz)
+    job_id = _ask(pg, biz, d, sub="bill").json()["job_id"]
+    with pg.owner.begin() as c:
+        c.execute(text("update identity.memberships set role = 'ca' where business_id = :b and user_sub = 'bill'"),
+                  {"b": biz})
+    jobs_q.drain(jobs.handle_message)
+    assert render_q.sent == []
+    assert _status(pg, biz, d, job_id).json() == {"status": "failed", "url": None, "error_code": "not_allowed"}
 
 
 def test_a_new_version_gets_a_new_preview_and_a_stale_job_fails(shop):

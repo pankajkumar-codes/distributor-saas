@@ -38,7 +38,8 @@ _TWO, _THREE = Decimal("0.01"), Decimal("0.001")
 _HUNDRED = Decimal(100)
 _OTHER_COUNTRY = "96"  # a place of supply only (gstin.md §3); exports aren't supported yet
 _COLUMNS = ("id, kind, status, version, customer_id, cash_buyer, bill_to, ship_to, ship_to_third_party, doc_date,"
-            " invoice_discount, charges, eway, customer_collects, pos_override, pos_override_reason, created_at, updated_at")
+            " invoice_discount, charges, eway, customer_collects, pos_override, pos_override_reason, total, block_count,"
+            " computed_at, computed_method, created_at, updated_at")
 
 
 def _business(uow: UnitOfWork) -> uuid.UUID:
@@ -196,8 +197,12 @@ def get(uow: UnitOfWork, draft_id: uuid.UUID, *, lock: bool = False) -> dict:
     return {**row, "lines": _lines(uow, draft_id)}
 
 
-def search(uow: UnitOfWork, *, kind: str | None, q: str | None, limit: int, offset: int) -> tuple[list[dict], bool]:
-    where, params = ["business_id = :b", "status = 'open'"], {"b": _business(uow), "limit": limit + 1, "offset": offset}
+def search(uow: UnitOfWork, *, kind: str | None, q: str | None, ready: bool | None, limit: int,
+           after: tuple | None) -> tuple[list[dict], bool]:
+    """Open drafts newest first by (updated_at, id), `limit` of them after the cursor
+    position `after`, and whether more follow. `ready` filters on the block count stored at
+    the last save; a draft never computed (saved before S5-a) counts as not ready."""
+    where, params = ["business_id = :b", "status = 'open'"], {"b": _business(uow), "limit": limit + 1}
     if kind:
         where.append("kind = :kind")
         params["kind"] = kind
@@ -205,10 +210,26 @@ def search(uow: UnitOfWork, *, kind: str | None, q: str | None, limit: int, offs
         needle = q.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         where.append("bill_to ->> 'name' ilike :frag")
         params["frag"] = f"%{needle}%"
+    if ready is not None:
+        where.append("coalesce(block_count, 1) = 0" if ready else "coalesce(block_count, 1) > 0")
+    if after is not None:
+        where.append("(updated_at, id) < (:after_at, :after_id)")
+        params["after_at"], params["after_id"] = after
     rows = uow.tx.execute(
         text(f"select {_COLUMNS} from sales.drafts where {' and '.join(where)}"
-             " order by updated_at desc, id limit :limit offset :offset"), params).mappings().all()
+             " order by updated_at desc, id desc limit :limit"), params).mappings().all()
     return [{**r, "lines": []} for r in rows[:limit]], len(rows) > limit
+
+
+def store_computation(uow: UnitOfWork, draft_id: uuid.UUID, c: Computation) -> None:
+    """Keeps the save's total and block count on the draft for the list. Not a user edit:
+    version and updated_at stay as the save left them."""
+    uow.tx.execute(
+        text("update sales.drafts set total = :total, block_count = :blocks, computed_at = now(),"
+             " computed_method = :method where id = :d and business_id = :b and status = 'open'"),
+        {"total": c.doc_total, "blocks": len(c.blocks), "method": c.method_version, "d": draft_id,
+         "b": _business(uow)},
+    )
 
 
 def _write_lines(uow: UnitOfWork, draft_id: uuid.UUID, lines: list[dict]) -> None:

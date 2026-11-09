@@ -5,6 +5,7 @@ import { api, call } from "../../api/client";
 import { errorText, type ApiError } from "../../api/errors";
 import type { components } from "../../api/schema";
 import { useMyBusinesses } from "../../auth/useMyBusinesses";
+import { canEditCatalog } from "../../auth/roles";
 import { formatRate, formatRupees } from "../../format/money";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
@@ -102,10 +103,14 @@ export function ProductsPage() {
       <main className="page page-wide">
         <div className="actions">
           <h1>Products</h1>
-          <Link className="btn btn-primary" to={`/b/${businessId}/products/new`}>
-            New product
-          </Link>{" "}
-          <Link to={`/b/${businessId}/products/import`}>Import from a file</Link>
+          {canEditCatalog(business.role) && (
+            <>
+              <Link className="btn btn-primary" to={`/b/${businessId}/products/new`}>
+                New product
+              </Link>{" "}
+              <Link to={`/b/${businessId}/products/import`}>Import from a file</Link>
+            </>
+          )}
         </div>
         <div className="field">
           <label htmlFor="product-search">Search by name, code or barcode</label>
@@ -148,7 +153,7 @@ export function ProductsPage() {
         )}
         {list.isPending && <p aria-busy="true">Loading…</p>}
         {list.isSuccess && items.length === 0 && (
-          <p>{narrowed ? "No products match." : "No products yet. Add your first with New product."}</p>
+          <p>{narrowed ? "No products match." : canEditCatalog(business.role) ? "No products yet. Add your first with New product." : "No products yet."}</p>
         )}
 
         {items.length > 0 && (

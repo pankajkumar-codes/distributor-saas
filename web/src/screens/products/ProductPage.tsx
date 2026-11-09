@@ -6,6 +6,7 @@ import { api, call } from "../../api/client";
 import { errorText, type ApiError } from "../../api/errors";
 import type { components } from "../../api/schema";
 import { useMyBusinesses } from "../../auth/useMyBusinesses";
+import { canConfirmRates, canEditCatalog } from "../../auth/roles";
 import { todayIst } from "../../format/dates";
 import { formatRate } from "../../format/money";
 import { Banner } from "../../kit/Banner";
@@ -228,6 +229,8 @@ export function ProductPage() {
     );
   }
   if (!business || product.error?.status === 404) return <NotFound />;
+  const canEdit = canEditCatalog(business.role);
+  if (isNew && !canEdit) return <NotFound />;
   // Any other failure to load is not an empty form: saving one would have nothing to edit against.
   if (!isNew && !opened && product.error) {
     return (
@@ -284,6 +287,7 @@ export function ProductPage() {
         {save.isSuccess && !isNew && <Banner>Saved. Invoices already finalized keep the details they were issued with.</Banner>}
 
         <form onSubmit={submit} noValidate>
+          <fieldset disabled={!canEdit} className="plain">
           <Field label="Product code" value={values.code} onChange={set("code")} hint={hint("code")} error={errorFor("code")} />
           <Field label="Name" value={values.name} onChange={set("name")} hint={hint("name")} error={errorFor("name")} />
           <Field
@@ -345,24 +349,28 @@ export function ProductPage() {
               />
             </>
           )}
-          <div className="actions">
-            <Button type="submit" busy={save.isPending}>
-              {isNew ? "Add product" : "Save changes"}
-            </Button>
-          </div>
+          </fieldset>
+          {canEdit && (
+            <div className="actions">
+              <Button type="submit" busy={save.isPending}>
+                {isNew ? "Add product" : "Save changes"}
+              </Button>
+            </div>
+          )}
         </form>
 
         {!isNew && base && (base.tax_category === "taxable" || base.rates.length > 0) && (
           <RateHistory
             businessId={businessId}
             product={base}
-            canConfirm={business.role === "owner" || business.role === "admin"}
+            canEdit={canEdit}
+            canConfirm={canConfirmRates(business.role)}
             locked={dirty}
             onSaved={saved}
           />
         )}
 
-        {!isNew && base && (
+        {canEdit && !isNew && base && (
           <section className="card" aria-labelledby="manage">
             <h2 id="manage">Archive or delete</h2>
             <Button

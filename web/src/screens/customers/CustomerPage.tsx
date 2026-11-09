@@ -7,6 +7,7 @@ import { errorText, type ApiError } from "../../api/errors";
 import type { components } from "../../api/schema";
 import { useStateCodes } from "../../api/useStateCodes";
 import { useMyBusinesses } from "../../auth/useMyBusinesses";
+import { canEditCatalog } from "../../auth/roles";
 import { AddressFields, NO_ADDRESS, addressIn, addressLine, addressOf, sameAddress, type Address } from "../../kit/AddressFields";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
@@ -163,6 +164,8 @@ export function CustomerPage() {
     );
   }
   if (!business || customer.error?.status === 404) return <NotFound />;
+  const canEdit = canEditCatalog(business.role);
+  if (isNew && !canEdit) return <NotFound />;
   // Any other failure to load is not an empty form: saving one would have nothing to edit against.
   if (!isNew && !opened && customer.error) {
     return (
@@ -223,6 +226,7 @@ export function CustomerPage() {
         {save.isSuccess && !isNew && <Banner>Saved. Invoices already finalized keep the details they were issued with.</Banner>}
 
         <form onSubmit={submit} noValidate>
+          <fieldset disabled={!canEdit} className="plain">
           <Field label="Name" value={values.name} onChange={(e) => setValues({ ...values, name: e.target.value })} hint={theirHint("name")} error={errorFor("name")} />
           <Field
             label="GSTIN (optional)"
@@ -264,14 +268,17 @@ export function CustomerPage() {
             hint={theirHint("credit_days") ?? "Days the customer has to pay. 0 means on the invoice date."}
             error={daysError ?? errorFor("credit_days")}
           />
-          <div className="actions">
-            <Button type="submit" busy={save.isPending}>
-              {isNew ? "Add customer" : "Save changes"}
-            </Button>
-          </div>
+          </fieldset>
+          {canEdit && (
+            <div className="actions">
+              <Button type="submit" busy={save.isPending}>
+                {isNew ? "Add customer" : "Save changes"}
+              </Button>
+            </div>
+          )}
         </form>
 
-        {!isNew && opened && (
+        {canEdit && !isNew && opened && (
           <section className="card" aria-labelledby="manage">
             <h2 id="manage">Archive or delete</h2>
             <Button type="button" variant="link" busy={archive.isPending} disabled={dirty} onClick={() => archive.mutate(opened.status !== "archived")}>

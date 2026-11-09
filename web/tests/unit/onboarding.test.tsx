@@ -170,7 +170,8 @@ describe("saving the business", () => {
     const BAND = `/api/v1/b/b-1/turnover-bands/${previousFy(fyIst())}`;
     await open();
     server.reply(CREATE, created());
-    server.reply(BAND, { status: 409, body: { error: { code: "stale_record", message: "This band changed since you opened it." } } });
+    // What business/profile.py sends for a PUT with no If-Match when the band already exists.
+    server.reply(BAND, { status: 422, body: { error: { code: "if_match_required", message: "Send the version you edited as If-Match", field: "If-Match" } } });
     server.reply(FREQUENCY, chosen([]));
     server.reply(ME, me);
     fillGstinBusiness();
