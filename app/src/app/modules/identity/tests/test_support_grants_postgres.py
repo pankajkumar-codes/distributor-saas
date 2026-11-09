@@ -232,3 +232,10 @@ def test_support_grants_is_not_found_for_anyone_else(team, who):
         support_user(who, totp=False)
     give(client, tid)
     assert support_grants(client, who).status_code == 404
+
+
+def test_my_businesses_marks_support_staff(team):  # the SPA asks GET /support/grants for them
+    client, _, _, _ = team
+    support_user()
+    assert client.get("/api/v1/me/businesses", headers=H(SUPPORT)).json() == {"businesses": [], "is_support": True}
+    assert client.get("/api/v1/me/businesses", headers=H("alice")).json()["is_support"] is False

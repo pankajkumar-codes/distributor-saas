@@ -76,6 +76,7 @@ class SignedIn:
     refresh_token: str
     expires_in: int
     memberships: list[MembershipCard]
+    is_support: bool = False
 
 
 def sign_in(email: str, password: str, ip: str, request_id: str, idp: AuthProvider, today: date) -> SignedIn | TotpStep:
@@ -126,8 +127,15 @@ def _finish(
         _refuse(tokens, idp, request_id)
     with unit_of_work(Principal(user_sub=None, request_id=request_id)) as uow:
         user = uow.tx.execute(text("select user_id, email from identity.auth_user_by_sub(:s)"), {"s": sub}).first()
+        is_support = False
         if user is not None and user.email == email:
             uow.become_user(user.user_id, sub)
+            # users_self lets the bound user read its own row.
+            is_support = bool(
+                uow.tx.execute(
+                    text("select is_support from identity.users where id = :me"), {"me": user.user_id}
+                ).scalar()
+            )
             session_id = open_session(uow, user.user_id, key, auth_time, max_days)
             audit.record(uow, "auth.signin", "session", session_id, data={"totp": totp}, user_level=True)
             uow.become_read_only()  # list_my_businesses reads through app_ro policies
@@ -137,7 +145,9 @@ def _finish(
         # sent under someone else's email: nothing was written, and the provider's
         # tokens are dropped.
         _refuse(tokens, idp, request_id)
-    return SignedIn(user.user_id, email, tokens.access_token, tokens.refresh_token, tokens.expires_in, memberships)
+    return SignedIn(
+        user.user_id, email, tokens.access_token, tokens.refresh_token, tokens.expires_in, memberships, is_support
+    )
 
 
 def _refuse(tokens: AuthResult, idp: AuthProvider, request_id: str) -> NoReturn:

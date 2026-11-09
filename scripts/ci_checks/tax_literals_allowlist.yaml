@@ -117,3 +117,6 @@
 - path: app/src/app/modules/sales/preview.py
   value: "50"
   reason: "most 'Before you can finalize' lines a preview prints (the renderer template's list cap); not a tax rule"
+- path: app/src/app/modules/sales/api.py
+  value: "500"
+  reason: "maximum length of the place-of-supply override reason; input hygiene, not a tax rule"

@@ -21,6 +21,16 @@ type Grants = components["schemas"]["GrantsOut"];
 export const SUPPORT_VIEWERS = new Set(["owner", "admin"]);
 const REASON_MAX = 500; // GrantIn.reason
 
+/**
+ * Milliseconds until the first of `instants` still ahead (plus a second, so the server has
+ * passed it too), for a refetch when a grant ends; false when none is ahead. Capped so a
+ * timer never overflows.
+ */
+export function msUntilFirst(instants: string[], now: number = Date.now()): number | false {
+  const ahead = instants.map((i) => Date.parse(i) - now).filter((ms) => ms > 0);
+  return ahead.length ? Math.min(Math.min(...ahead) + 1000, 2 ** 31 - 1) : false;
+}
+
 const pages = (n: number) => `${n} page${n === 1 ? "" : "s"} viewed`;
 
 /**
@@ -40,6 +50,8 @@ export function SupportPage() {
     queryKey,
     queryFn: () => call(() => api.GET("/api/v1/b/{business_id}/support-grants", { params: { path: { business_id: businessId } } })),
     enabled: canView,
+    // An active grant expires on its own: reload then, so the card doesn't stay "on".
+    refetchInterval: (q) => msUntilFirst(q.state.data?.grants.filter((g) => g.status === "active").map((g) => g.expires_at) ?? []),
   });
   const [reason, setReason] = useState("");
   const [said, setSaid] = useState("");
@@ -163,8 +175,8 @@ export function SupportPage() {
                   error={give.error?.field === "reason" ? give.error.message : undefined}
                 />
                 <p className="hint">
-                  Support can view your products, customers, invoices, uploads and returns. They can't create, change, export,
-                  file or invite anything, and they never see your password. Access ends on its own; you can end it sooner.
+                  Support can see your data but can't change anything or file returns, and they never see your password.
+                  Access ends on its own; you can end it sooner.
                 </p>
                 <Button type="submit" busy={give.isPending}>
                   Give support read-only access
@@ -192,7 +204,8 @@ export function SupportPage() {
                   <tr key={g.id}>
                     <td data-label="Given">{formatDateTimeIst(g.given_at)}</td>
                     <td data-label="Ended">
-                      {g.ended_at ? formatDateTimeIst(g.ended_at) : "—"} · {g.status === "revoked" ? "ended early" : "expired"}
+                      {g.ended_at ? formatDateTimeIst(g.ended_at) : "—"} ·{" "}
+                      {g.status === "revoked" ? `ended early by ${g.ended_by?.name ?? "an owner"}` : "expired"}
                     </td>
                     <td data-label="By">{g.given_by.name}</td>
                     <td data-label="For">{g.reason ?? "—"}</td>

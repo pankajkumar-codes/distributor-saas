@@ -46,6 +46,7 @@ describe("landing after sign-in (LLD-1 §11.2)", () => {
     expect(landingPath([])).toBe("/onboarding/business");
     expect(landingPath([A])).toBe("/b/b-1/home");
     expect(landingPath([A, B])).toBe("/businesses");
+    expect(landingPath([], true)).toBe("/support"); // support staff hold no memberships (LLD-2 §6.2)
   });
 
   it("only follows `next` to a path on this site", () => {

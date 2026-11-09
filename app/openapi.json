@@ -1145,6 +1145,45 @@
             "maxItems": 200,
             "title": "Lines",
             "type": "array"
+          },
+          "pos_override": {
+            "anyOf": [
+              {
+                "maxLength": 2,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pos Override"
+          },
+          "pos_override_reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pos Override Reason"
+          },
+          "ship_to": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ShipToIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ship_to_third_party": {
+            "default": false,
+            "title": "Ship To Third Party",
+            "type": "boolean"
           }
         },
         "title": "DraftIn",
@@ -1256,6 +1295,28 @@
             "title": "Lines",
             "type": "array"
           },
+          "pos_override": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pos Override"
+          },
+          "pos_override_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pos Override Reason"
+          },
           "ship_to": {
             "anyOf": [
               {
@@ -1267,6 +1328,10 @@
               }
             ],
             "title": "Ship To"
+          },
+          "ship_to_third_party": {
+            "title": "Ship To Third Party",
+            "type": "boolean"
           },
           "updated_at": {
             "title": "Updated At",
@@ -1290,6 +1355,9 @@
           "charges",
           "eway",
           "customer_collects",
+          "ship_to_third_party",
+          "pos_override",
+          "pos_override_reason",
           "lines",
           "created_at",
           "updated_at"
@@ -2548,6 +2616,11 @@
             "title": "Id",
             "type": "string"
           },
+          "is_support": {
+            "default": false,
+            "title": "Is Support",
+            "type": "boolean"
+          },
           "name": {
             "anyOf": [
               {
@@ -2771,6 +2844,11 @@
             },
             "title": "Businesses",
             "type": "array"
+          },
+          "is_support": {
+            "default": false,
+            "title": "Is Support",
+            "type": "boolean"
           }
         },
         "required": [
@@ -3977,6 +4055,82 @@
         "title": "RoleIn",
         "type": "object"
       },
+      "ShipToIn": {
+        "additionalProperties": false,
+        "description": "Where the goods go, when it isn't the customer's own delivery address (LLD-4 \u00a73.1).",
+        "properties": {
+          "city": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "line1": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line1"
+          },
+          "line2": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line2"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "pin": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pin"
+          },
+          "state_code": {
+            "maxLength": 2,
+            "title": "State Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state_code"
+        ],
+        "title": "ShipToIn",
+        "type": "object"
+      },
       "SignedInOut": {
         "properties": {
           "access_token": {
@@ -4429,6 +4583,11 @@
           "id": {
             "title": "Id",
             "type": "string"
+          },
+          "is_support": {
+            "default": false,
+            "title": "Is Support",
+            "type": "boolean"
           }
         },
         "required": [
