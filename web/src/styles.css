@@ -81,3 +81,4 @@ fieldset.plain {
 }
 /* LLD-2 §6.2: support staff always see that they are in a business under a grant. */
 .support-view { position: sticky; top: 0; z-index: 10; margin: 0; border-radius: 0; text-align: center; font-weight: 600; }
+.filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0 16px; margin: 0 0 8px; }
