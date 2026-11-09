@@ -147,3 +147,15 @@ def test_more_rows_than_the_cap_fails_with_narrow_filter(team, monkeypatch):
     assert status(client, tid, job_id).json() == {"status": "failed", "url": None, "rows": None,
                                                   "error_code": "narrow_filter"}
     assert store.head(uuid.UUID(tid), f"audit-exports/b/{tid}/{job_id}/audit-log.csv") is None
+
+
+def test_a_file_that_is_gone_or_a_day_old_reports_expired(team):
+    client, _, _, tid, queue, store = team
+    gone, old = export(client, tid).json()["job_id"], export(client, tid).json()["job_id"]
+    queue.drain(jobs.handle_message)
+    assert status(client, tid, gone).json()["status"] == "ready"
+    (store.root / f"audit-exports/b/{tid}/{gone}/audit-log.csv").unlink()  # S3's lifecycle rule ran
+    owner_sql("update platform.jobs set updated_at = now() - interval '25 hours' where id = :id", id=old)
+    for job_id in (gone, old):  # the file is still there for `old`; the rule may just not have run yet
+        assert status(client, tid, job_id).json() == {"status": "expired", "url": None, "rows": None,
+                                                      "error_code": None}
