@@ -2,9 +2,9 @@
 
 POST takes an Idempotency-Key (run_once); PUT saves the whole draft and DELETE removes an
 open one, both under If-Match with the version the user saw. Money and quantities are
-strings: a JSON number is a 422 (AC4-15). Drafts are unfinished work: listing, reading and
-changing them all need the create-documents permission (LLD-4 §9), so a CA sees invoices only
-once they are finalized.
+strings: a JSON number is a 422 (AC4-15). Drafts are unfinished work: listing, reading,
+previewing and changing them all need the create-documents permission (LLD-4 §9), so a CA
+sees invoices only once they are finalized.
 """
 
 import base64
@@ -29,7 +29,6 @@ from . import drafts, preview
 from .compute import Computation
 
 router = APIRouter(tags=["sales"])
-VIEW = [Depends(require(Permission.DOCUMENTS_VIEW))]
 EDIT = [Depends(require(Permission.DOCUMENTS_CREATE))]
 
 Text = Annotated[str, Field(max_length=300)]
@@ -355,7 +354,7 @@ class PreviewOut(BaseModel):
 
 
 @router.post("/b/{business_id}/drafts/{draft_id}/preview", status_code=http.HTTP_202_ACCEPTED,
-             response_model=PreviewRef, dependencies=VIEW)
+             response_model=PreviewRef, dependencies=EDIT)
 def preview_draft(draft_id: str, uow: BusinessUoW):
     """Queues a PDF preview of the draft as saved now ("Draft, not a tax invoice"). The
     same version always gives the same job; poll GET .../preview/{job_id}."""
@@ -363,6 +362,6 @@ def preview_draft(draft_id: str, uow: BusinessUoW):
     return {"job_id": str(job_id), "draft_version": version}
 
 
-@router.get("/b/{business_id}/drafts/{draft_id}/preview/{job_id}", response_model=PreviewOut, dependencies=VIEW)
+@router.get("/b/{business_id}/drafts/{draft_id}/preview/{job_id}", response_model=PreviewOut, dependencies=EDIT)
 def preview_status(draft_id: str, job_id: str, uow: BusinessUoW):
     return preview.status(uow, parse_id(draft_id), parse_id(job_id))
