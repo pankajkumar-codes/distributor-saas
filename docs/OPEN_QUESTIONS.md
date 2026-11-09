@@ -128,6 +128,9 @@ Every row in `refdata/` is `provisional`. Before go-live:
 - **PO:** the `auth.*` and `identity.max_owned_businesses` rows (`kind: product`). The
   BRD gives the ON-1 numbers; the sign-in, refresh, step-up and business-limit numbers
   are LLD-1's.
+- **CEO or Pankaj (PO call):** `sales.draft_keep_days` = **180** (LLD-4's proposal).
+  Drafts left unsaved this many days are deleted once `retention.purge_drafts` is switched
+  on (it ships off). Confirm the number, or give another.
 - **GST expert or CA:** `invoice.number.max_length` (CGST Rule 46(b) via GSTZen; the
   rule's own start date); `invoice.number.charset`, which allows lower-case letters
   because the rule says "alphabets" while team/gst/document-fields.md row 3 writes A-Z
