@@ -195,7 +195,7 @@ class PreviewRef(BaseModel):
 class PreviewOut(BaseModel):
     status: Literal["queued", "rendering", "ready", "failed"]
     url: str | None = None  # when ready: a link good for 60 seconds
-    error_code: str | None = None  # when failed: draft_changed, draft_not_found, not_allowed, ...
+    error_code: str | None = None  # when failed: render_failed, draft_changed, draft_not_found, not_allowed, ...
 
 
 @router.post("/b/{business_id}/drafts/{draft_id}/preview", status_code=http.HTTP_202_ACCEPTED,
