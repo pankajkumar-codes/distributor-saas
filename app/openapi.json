@@ -1233,6 +1233,17 @@
               }
             ]
           },
+          "computed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Computed At"
+          },
           "created_at": {
             "title": "Created At",
             "type": "string"
@@ -1317,6 +1328,17 @@
             ],
             "title": "Pos Override Reason"
           },
+          "ready": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ready"
+          },
           "ship_to": {
             "anyOf": [
               {
@@ -1332,6 +1354,17 @@
           "ship_to_third_party": {
             "title": "Ship To Third Party",
             "type": "boolean"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
           },
           "updated_at": {
             "title": "Updated At",
@@ -1359,6 +1392,9 @@
           "pos_override",
           "pos_override_reason",
           "lines",
+          "total",
+          "ready",
+          "computed_at",
           "created_at",
           "updated_at"
         ],
@@ -1377,11 +1413,23 @@
             },
             "title": "Items",
             "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
           }
         },
         "required": [
           "items",
-          "has_more"
+          "has_more",
+          "next_cursor"
         ],
         "title": "DraftPageOut",
         "type": "object"
@@ -5920,6 +5968,7 @@
     },
     "/api/v1/b/{business_id}/drafts": {
       "get": {
+        "description": "Open drafts, most recently saved first, with each one's total and readiness as of\nits last save. A cursor, not an offset: saving a draft moves it to the top, and an offset\nwould then show a row twice or skip one.",
         "operationId": "list_drafts_api_v1_b__business_id__drafts_get",
         "parameters": [
           {
@@ -5970,6 +6019,22 @@
           },
           {
             "in": "query",
+            "name": "ready",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ready"
+            }
+          },
+          {
+            "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
@@ -5982,14 +6047,19 @@
           },
           {
             "in": "query",
-            "name": "offset",
+            "name": "cursor",
             "required": false,
             "schema": {
-              "default": 0,
-              "maximum": 1000000,
-              "minimum": 0,
-              "title": "Offset",
-              "type": "integer"
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
             }
           }
         ],
