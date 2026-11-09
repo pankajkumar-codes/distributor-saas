@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { api, call } from "../../api/client";
 import type { components } from "../../api/schema";
@@ -24,6 +24,7 @@ type SigninReply = SignedIn | components["schemas"]["TotpStepOut"];
 export function SigninPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
+  const passwordReset = Boolean((useLocation().state as { passwordReset?: unknown } | null)?.passwordReset);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [challenge, setChallenge] = useState<string | null>(null);
@@ -78,6 +79,7 @@ export function SigninPage() {
     <main className="page">
       <h1>Sign in</h1>
       <form onSubmit={submit} noValidate>
+        {passwordReset && !error && <Banner>Your password is changed, and you're signed out everywhere. Sign in with the new password.</Banner>}
         {expired && <Banner tone="error">That took too long. Sign in again.</Banner>}
         {error && !error.field && <Banner tone="error">{errorText(error)}</Banner>}
         <Field
@@ -96,6 +98,11 @@ export function SigninPage() {
           onChange={(e) => setPassword(e.target.value)}
           error={missing.password}
         />
+        <p className="note">
+          <Link to="/reset" state={{ email: email.trim() }}>
+            Forgot your password?
+          </Link>
+        </p>
         <Button type="submit" busy={signin.isPending}>
           Sign in
         </Button>

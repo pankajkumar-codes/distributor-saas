@@ -69,3 +69,34 @@ test("a reload keeps the session; sign out, then sign in with the password", asy
   await expect(page.getByRole("heading", { name: "Your business and GST" })).toBeVisible();
   expect(page.url()).toBe("http://localhost:5173/onboarding/business");
 });
+
+test("forgot password: reset with an emailed code, then sign in with the new password", async ({ page }, info) => {
+  const email = `e2e-reset-${info.project.name}-${Date.now()}@example.com`;
+  await signUp(page, email, "seven lamps under a bridge");
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+
+  await page.getByLabel("Email").fill(email);
+  await page.getByRole("link", { name: "Forgot your password?" }).click();
+  await expect(page.getByRole("heading", { name: "Reset your password" })).toBeVisible();
+  await expect(page.getByLabel("Email")).toHaveValue(email);
+  await noSeriousAxeFindings(page);
+  await page.getByRole("button", { name: "Send code" }).click();
+  await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible();
+  expect(page.url()).toBe("http://localhost:5173/reset"); // the email stays out of the URL
+  await page.getByLabel("Digit 1 of 6").fill(await codeFor(email, "reset_code"));
+  await page.getByLabel("New password").fill("nine kites over a harbour");
+  await noSeriousAxeFindings(page);
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+  await page.getByRole("button", { name: "Set new password" }).click();
+  await expect(page.getByText(/Your password is changed, and you're signed out everywhere/)).toBeVisible();
+
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill("seven lamps under a bridge");
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByRole("alert").or(page.locator(".banner")).first()).toBeVisible(); // the old password no longer works
+  await page.getByLabel("Password").fill("nine kites over a harbour");
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByRole("heading", { name: "Your business and GST" })).toBeVisible();
+});
