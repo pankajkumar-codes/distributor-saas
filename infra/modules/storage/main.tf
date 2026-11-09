@@ -35,6 +35,9 @@ locals {
     # What the worker hands the PDF renderer (D-042). Nothing deletes an input: this rule
     # expires it after a day and its old version a day later, about two days at most.
     "render-input" = { expire_days = 1, noncurrent_days = 1 }
+    # The audit log's CSV exports (LLD-2 §7): member names and reasons, kept a day. The
+    # download link lives 60 seconds; a user who needs the file again exports again (EM, #108).
+    "audit-exports" = { expire_days = 1, noncurrent_days = 1 }
   }
 }
 

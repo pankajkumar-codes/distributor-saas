@@ -13,7 +13,7 @@ import psycopg
 import pytest
 
 # Everything retention_owner may do to a table. Nothing else: not the audit log, not any
-# financial, stock or GST table (D-041).
+# financial, stock or GST table (D-041). Drafts are not GST records (LLD-4 §2.1).
 ALLOWED = {
     "identity.invitations": {"SELECT", "DELETE"},
     "identity.pending_signups": {"SELECT", "DELETE"},
@@ -25,7 +25,16 @@ ALLOWED = {
     "platform.rate_counters": {"SELECT", "DELETE"},
     "platform.retention_runs": {"INSERT"},
     "refdata.values": {"SELECT"},
+    "sales.draft_lines": {"COLUMN SELECT"},  # counted; the cascade deletes them
+    "sales.drafts": {"COLUMN SELECT", "DELETE"},  # open drafts only (purge_drafts)
 }
+# The only columns retention_owner may read where it has no table-wide SELECT: enough to
+# pick a row, never a buyer's name, address or an amount (Staff on #107).
+ALLOWED_COLUMNS = {
+    "sales.draft_lines": {"business_id", "draft_id"},
+    "sales.drafts": {"business_id", "id", "status", "updated_at"},
+}
+DRAFTS = ("sales.drafts", "sales.draft_lines")
 PRIVILEGES = ("SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER")
 TABLES_SQL = """
     select c.oid, n.nspname || '.' || c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
@@ -61,11 +70,22 @@ def test_definer_reaches_only_operational_tables(migrated_db):
     assert _privileges(migrated_db, "retention_owner") == ALLOWED
 
 
+def test_definer_reads_only_the_columns_that_pick_a_draft(migrated_db):
+    rows = migrated_db.execute(
+        "select table_schema || '.' || table_name, column_name from information_schema.column_privileges"
+        " where grantee = 'retention_owner' and privilege_type = 'SELECT' and table_schema = 'sales'"
+    ).fetchall()
+    got: dict[str, set[str]] = {}
+    for table, column in rows:
+        got.setdefault(table, set()).add(column)
+    assert got == ALLOWED_COLUMNS
+
+
 def test_audit_and_business_tables_are_out_of_reach(migrated_db):
     held = _privileges(migrated_db, "retention_owner")
     for name in held:
         assert "audit" not in name, name
-        assert name.split(".")[0] in ("platform", "identity", "refdata"), name
+        assert name.split(".")[0] in ("platform", "identity", "refdata") or name in DRAFTS, name
 
 
 @pytest.mark.parametrize("role, login", [("retention_owner", False), ("app_retention", True)])
@@ -84,14 +104,18 @@ def test_login_role_only_executes(migrated_db):
         "select p.oid::regprocedure::text from pg_proc p join pg_namespace n on n.oid = p.pronamespace"
         " where n.nspname = 'retention'"
     ).fetchall()
-    assert [f for (f,) in fns] == ["retention.purge_operational(boolean,integer)"]
-    for role, can in (("app_retention", True), ("app_rw", False), ("app_ro", False)):
-        assert (
-            migrated_db.execute(
-                "select has_function_privilege(%s, 'retention.purge_operational(boolean,integer)', 'EXECUTE')", (role,)
-            ).fetchone()[0]
-            is can
-        ), role
+    assert sorted(f for (f,) in fns) == [
+        "retention.purge_drafts(boolean,integer)",
+        "retention.purge_operational(boolean,integer)",
+    ]
+    for fn in ("purge_operational", "purge_drafts"):
+        for role, can in (("app_retention", True), ("app_rw", False), ("app_ro", False)):
+            assert (
+                migrated_db.execute(
+                    f"select has_function_privilege(%s, 'retention.{fn}(boolean,integer)', 'EXECUTE')", (role,)
+                ).fetchone()[0]
+                is can
+            ), (fn, role)
 
 
 @pytest.fixture()
@@ -281,9 +305,116 @@ def test_limit_reports_more_and_the_next_call_continues(tx):
 
 def test_owner_sees_nothing_without_the_flag(tx):
     _plant(tx)
+    _plant_drafts(tx)
     tx.execute("set local role retention_owner")
     try:
-        for table in REMAINING:
+        for table in (*REMAINING, *DRAFTS):
             assert tx.execute(f"select count(*) from {table}").fetchone()[0] == 0, table
     finally:
         tx.execute("reset role")
+
+
+# purge_drafts (LLD-6 §6.2): open drafts last saved more than sales.draft_keep_days ago.
+
+
+def _enable_drafts(c):
+    c.execute("update refdata.values set value = 'true' where key = 'retention.purge_drafts.enabled'")
+
+
+def _run_drafts(c, dry_run=False, max_rows=5000):
+    c.execute("set local role app_retention")
+    out = c.execute("select retention.purge_drafts(%s, %s)", (dry_run, max_rows)).fetchone()[0]
+    c.execute("reset role")
+    return out
+
+
+def _plant_drafts(c):
+    """For each of two businesses: two stale open drafts (two lines each) that go; a stale
+    finalized draft, a recent open draft and an old draft saved recently, which stay.
+    reason_code (free text, unused by invoices) carries the tag the assertions group by."""
+    for _ in range(2):
+        biz, u = uuid.uuid4(), uuid.uuid4()
+        for tag, status, created, updated in (
+            ("go", "open", "181 days", "181 days"),
+            ("go", "open", "400 days", "200 days"),
+            ("stay-final", "finalized", "400 days", "400 days"),
+            ("stay-recent", "open", "10 days", "10 days"),
+            ("stay-saved", "open", "400 days", "179 days"),
+        ):
+            d = uuid.uuid4()
+            c.execute(
+                "insert into sales.drafts (id, business_id, kind, reason_code, created_at, created_by,"
+                " updated_at, updated_by) values (%s, %s, 'invoice', %s, now() - %s::interval, %s,"
+                " now() - %s::interval, %s)",
+                (d, biz, tag, created, u, updated, u),
+            )
+            for n in (1, 2):
+                c.execute(
+                    "insert into sales.draft_lines (id, business_id, draft_id, line_no) values (%s, %s, %s, %s)",
+                    (uuid.uuid4(), biz, d, n),
+                )
+            if status != "open":  # lines first: a finalized draft's lines are frozen
+                c.execute("update sales.drafts set status = %s where id = %s", (status, d))
+
+
+def _draft_counts(c):
+    return c.execute(
+        "select d.reason_code, count(distinct d.id), count(l.id) from sales.drafts d"
+        " left join sales.draft_lines l on l.draft_id = d.id group by 1 order by 1"
+    ).fetchall()
+
+
+def test_drafts_disabled_rule_deletes_nothing(tx):
+    _plant_drafts(tx)
+    before = _draft_counts(tx)
+    assert _run_drafts(tx) == {"rule": "purge_drafts", "skipped": "disabled"}
+    assert _draft_counts(tx) == before
+    assert tx.execute("select count(*) from platform.retention_runs").fetchone()[0] == 0
+
+
+def test_drafts_dry_run_counts_without_deleting(tx):
+    _plant_drafts(tx)
+    before = _draft_counts(tx)
+    out = _run_drafts(tx, dry_run=True)
+    assert out["counts"] == {"drafts": 4, "draft_lines": 8}
+    assert _draft_counts(tx) == before
+    assert tx.execute("select rule, dry_run from platform.retention_runs").fetchall() == [("purge_drafts", True)]
+
+
+def test_drafts_only_stale_open_drafts_go_with_their_lines(tx):
+    _plant_drafts(tx)
+    _enable_drafts(tx)
+    out = _run_drafts(tx)
+    assert out["counts"] == {"drafts": 4, "draft_lines": 8}
+    assert out["more"] is False
+    assert _draft_counts(tx) == [("stay-final", 2, 4), ("stay-recent", 2, 4), ("stay-saved", 2, 4)]
+    assert (
+        tx.execute(
+            "select count(*) from sales.draft_lines l where not exists"
+            " (select 1 from sales.drafts d where d.id = l.draft_id)"
+        ).fetchone()[0]
+        == 0
+    )
+    run = tx.execute("select rule, dry_run, counts from platform.retention_runs").fetchall()
+    assert run == [("purge_drafts", False, out["counts"])]
+    assert tx.execute("select current_setting('retention.active', true)").fetchone()[0] == "off"
+
+
+def test_drafts_without_a_period_are_kept(tx):
+    _plant_drafts(tx)
+    _enable_drafts(tx)
+    tx.execute("delete from refdata.values where key = 'sales.draft_keep_days'")
+    before = _draft_counts(tx)
+    out = _run_drafts(tx)
+    assert out["counts"] == {"drafts": None, "draft_lines": None}
+    assert _draft_counts(tx) == before
+
+
+def test_drafts_limit_reports_more_and_the_next_call_continues(tx):
+    _plant_drafts(tx)
+    _enable_drafts(tx)
+    first = _run_drafts(tx, max_rows=3)
+    assert first["more"] is True and first["counts"] == {"drafts": 3, "draft_lines": 6}
+    second = _run_drafts(tx, max_rows=3)
+    assert second["more"] is False and second["counts"] == {"drafts": 1, "draft_lines": 2}
+    assert [tag for tag, _, _ in _draft_counts(tx)] == ["stay-final", "stay-recent", "stay-saved"]
