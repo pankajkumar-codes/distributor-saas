@@ -85,6 +85,8 @@ export function FilingPage() {
   if (!business || profile.error?.status === 404) return <NotFound />;
 
   const data = profile.data;
+  // TODO: drop the browser-clock quarter once GET /filing-profile lists the allowed starts
+  // (a server follow-up; Staff 2's #84 review). Until then the server still decides and explains.
   const quarters = data ? [...new Set([data.window.for_quarter, quarterStartIst()])].sort() : [];
   const start = startsOn || data?.window.for_quarter || "";
   const err = (field: string) => (change.error?.field === field ? change.error.message || errorText(change.error) : undefined);
