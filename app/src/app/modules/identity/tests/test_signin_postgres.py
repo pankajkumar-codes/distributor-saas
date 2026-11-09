@@ -57,6 +57,7 @@ def test_sign_in_opens_a_session_and_sets_the_cookie(env):
     body = r.json()
     assert set(body) == {"access_token", "expires_in", "user", "memberships"}
     assert body["user"]["email"] == EMAIL and body["memberships"] == []
+    assert body["user"]["is_support"] is False
     c = cookie(r)
     assert (c["path"], c["samesite"], c["max-age"], bool(c["httponly"]), bool(c["secure"])) == (
         "/api/v1/auth",
@@ -255,3 +256,19 @@ def test_every_auth_route_declares_its_reply_for_the_web_client():
         op = paths[path]["post"]["responses"]
         assert status == "204" or op[status]["content"]["application/json"]["schema"], path
         assert "401" in op or "422" in op, path  # the error shape is declared too
+
+
+def test_a_support_user_signs_in_marked_as_support(env):  # LLD-2 §6.2: the SPA lands them on /support
+    client, idp, _, admin = env
+    code = enrol(idp)
+    with admin.begin() as c:
+        c.execute(
+            text("update identity.users set is_support = true, totp_enabled_at = now() where email = :e"), {"e": EMAIL}
+        )
+    challenge = signin(client).json()["challenge"]
+    r = totp(client, challenge, code)
+    assert r.status_code == 200, r.text
+    assert (r.json()["user"]["is_support"], r.json()["memberships"]) == (True, [])
+    me = client.get("/api/v1/me", headers={"x-debug-user": idp.user(EMAIL).sub})
+    assert me.status_code == 200, me.text
+    assert me.json()["user"]["is_support"] is True

@@ -91,6 +91,7 @@ class PasswordSetOut(BaseModel):
 class UserOut(BaseModel):
     id: str
     email: str
+    is_support: bool = False  # the SPA lands support staff on /support, not onboarding (LLD-2 §6.2)
 
 
 class SignedUpOut(BaseModel):
@@ -250,7 +251,7 @@ def _signed_in(response: Response, done: signin.SignedIn) -> SignedInOut:
     return SignedInOut(
         access_token=done.access_token,
         expires_in=done.expires_in,
-        user=UserOut(id=str(done.user_id), email=done.email),
+        user=UserOut(id=str(done.user_id), email=done.email, is_support=done.is_support),
         memberships=[
             MembershipOut(business_id=str(m.business_id), display_name=m.display_name, gstin=m.gstin, role=m.role)
             for m in done.memberships

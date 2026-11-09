@@ -2079,6 +2079,11 @@ export interface components {
             email: string;
             /** Id */
             id: string;
+            /**
+             * Is Support
+             * @default false
+             */
+            is_support: boolean;
             /** Name */
             name: string | null;
             /** Totp Enabled */
@@ -2144,6 +2149,11 @@ export interface components {
         MyBusinessesOut: {
             /** Businesses */
             businesses: components["schemas"]["MyBusiness"][];
+            /**
+             * Is Support
+             * @default false
+             */
+            is_support: boolean;
         };
         /** NameBody */
         NameBody: {
@@ -2701,6 +2711,11 @@ export interface components {
             email: string;
             /** Id */
             id: string;
+            /**
+             * Is Support
+             * @default false
+             */
+            is_support: boolean;
         };
         /** ValidationError */
         ValidationError: {

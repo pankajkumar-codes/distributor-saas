@@ -15,6 +15,7 @@ import { CompanyPage } from "./screens/settings/CompanyPage";
 import { FilingPage } from "./screens/settings/FilingPage";
 import { SupportPage } from "./screens/settings/SupportPage";
 import { SigninPage } from "./screens/signin/SigninPage";
+import { SupportBusinessesPage } from "./screens/support/SupportBusinessesPage";
 import { SignupPage } from "./screens/signup/SignupPage";
 
 // LLD-1 §11.2. Reset, Team and My account come in later S1 PRs.
@@ -24,6 +25,7 @@ export const routes: RouteObject[] = [
   { path: "/signin", element: <SigninPage /> },
   { path: "/onboarding/business", element: <RequireAuth><BusinessPage /></RequireAuth> },
   { path: "/businesses", element: <RequireAuth><BusinessesPage /></RequireAuth> },
+  { path: "/support", element: <RequireAuth><SupportBusinessesPage /></RequireAuth> },
   { path: "/b/:businessId/home", element: <RequireAuth><HomePage /></RequireAuth> },
   { path: "/b/:businessId/customers", element: <RequireAuth><CustomersPage /></RequireAuth> },
   { path: "/b/:businessId/customers/new", element: <RequireAuth><CustomerPage /></RequireAuth> },

@@ -2616,6 +2616,11 @@
             "title": "Id",
             "type": "string"
           },
+          "is_support": {
+            "default": false,
+            "title": "Is Support",
+            "type": "boolean"
+          },
           "name": {
             "anyOf": [
               {
@@ -2839,6 +2844,11 @@
             },
             "title": "Businesses",
             "type": "array"
+          },
+          "is_support": {
+            "default": false,
+            "title": "Is Support",
+            "type": "boolean"
           }
         },
         "required": [
@@ -4573,6 +4583,11 @@
           "id": {
             "title": "Id",
             "type": "string"
+          },
+          "is_support": {
+            "default": false,
+            "title": "Is Support",
+            "type": "boolean"
           }
         },
         "required": [
