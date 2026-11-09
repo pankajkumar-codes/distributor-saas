@@ -6,6 +6,7 @@ import { errorText, type ApiError } from "../../api/errors";
 import type { components } from "../../api/schema";
 import { useStateCodes } from "../../api/useStateCodes";
 import { useMyBusinesses } from "../../auth/useMyBusinesses";
+import { canEditCatalog } from "../../auth/roles";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { NotFound } from "../../kit/NotFound";
@@ -84,9 +85,11 @@ export function CustomersPage() {
       <main className="page page-wide">
         <div className="actions">
           <h1>Customers</h1>
-          <Link className="btn btn-primary" to={`/b/${businessId}/customers/new`}>
-            New customer
-          </Link>
+          {canEditCatalog(business.role) && (
+            <Link className="btn btn-primary" to={`/b/${businessId}/customers/new`}>
+              New customer
+            </Link>
+          )}
         </div>
         <div className="field">
           <label htmlFor="customer-search">Search by name or GSTIN</label>
@@ -118,7 +121,7 @@ export function CustomersPage() {
           </Banner>
         )}
         {list.isPending && <p aria-busy="true">Loading…</p>}
-        {list.isSuccess && items.length === 0 && <p>{q || status !== "active" ? "No customers match." : "No customers yet. Add your first with New customer."}</p>}
+        {list.isSuccess && items.length === 0 && <p>{q || status !== "active" ? "No customers match." : canEditCatalog(business.role) ? "No customers yet. Add your first with New customer." : "No customers yet."}</p>}
 
         {items.length > 0 && (
           <table className="products">
