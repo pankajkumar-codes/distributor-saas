@@ -271,7 +271,7 @@ def replace(uow: UnitOfWork, draft_id: uuid.UUID, body: dict, if_match: int | No
     if body.get("kind", "invoice") != "invoice":
         raise Invalid("kind_unsupported", "Only invoices can be drafted for now", field="kind")
     d = get(uow, draft_id, lock=True)
-    _check_version(d, if_match)
+    check_version(d, if_match)
     cols, lines = _checked(uow, body, today)
     uow.tx.execute(
         _bind("update sales.drafts set customer_id = :customer_id, cash_buyer = :cash_buyer, bill_to = :bill_to,"
@@ -285,7 +285,7 @@ def replace(uow: UnitOfWork, draft_id: uuid.UUID, body: dict, if_match: int | No
     audit.record(uow, "draft.updated", "draft", draft_id, data={})
 
 
-def _check_version(d: dict, if_match: int | None) -> None:
+def check_version(d: dict, if_match: int | None) -> None:
     if if_match is None:
         raise Invalid("if_match_required", "Send the version you edited as If-Match", field="If-Match")
     if d["version"] != if_match:
@@ -295,7 +295,7 @@ def _check_version(d: dict, if_match: int | None) -> None:
 
 def delete(uow: UnitOfWork, draft_id: uuid.UUID, if_match: int | None) -> None:
     d = get(uow, draft_id, lock=True)
-    _check_version(d, if_match)
+    check_version(d, if_match)
     uow.tx.execute(text("delete from sales.drafts where id = :d and business_id = :b and status = 'open'"),
                    {"d": draft_id, "b": _business(uow)})
     audit.record(uow, "draft.deleted", "draft", draft_id, data={})

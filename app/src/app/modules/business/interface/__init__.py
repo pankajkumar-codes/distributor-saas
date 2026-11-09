@@ -31,6 +31,7 @@ from ..profile import (
     setup_state,
 )
 from ..registration import Address, Registration, blank_to_none, check_state, registration
+from ..series import SeriesSetting, series_setting
 from ..thresholds import EinvoiceStatus, HsnBandMissing, einvoice_status, hsn_band_missing, hsn_min_digits
 
 __all__ = [
@@ -60,6 +61,8 @@ __all__ = [
     "hsn_min_digits",
     "lock_gstin",
     "ready_for_documents",
+    "SeriesSetting",
+    "series_setting",
     "setup_state",
 ]
 

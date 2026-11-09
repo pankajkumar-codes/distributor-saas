@@ -167,8 +167,10 @@ def test_a_finalized_draft_and_its_lines_are_frozen(two):
     with pg.app_rw.begin() as c:
         ctx(c, alice, a)
         d = add_draft(c, a, alice)
-    with pg.owner.connect() as c:  # finalize is a later slice; the owner stands in for it
+    with pg.owner.connect() as c:  # setup: frozen without a document, past the finalize guard (SDR02)
+        c.execute(text("set session_replication_role = replica"))
         c.execute(text("update sales.drafts set status = 'finalized' where id = :d"), {"d": d})
+        c.execute(text("set session_replication_role = origin"))
     for sql in ("update sales.drafts set version = version + 1",
                 "delete from sales.drafts",
                 "delete from sales.draft_lines",

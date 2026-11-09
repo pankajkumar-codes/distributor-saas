@@ -1062,6 +1062,148 @@
         "title": "CustomerPatch",
         "type": "object"
       },
+      "DocumentOut": {
+        "description": "The finalized document (LLD-4 \u00a72.3), as stored: it never changes after this.",
+        "properties": {
+          "cgst_total": {
+            "title": "Cgst Total",
+            "type": "string"
+          },
+          "counterparty_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counterparty Name"
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Customer Id"
+          },
+          "doc_date": {
+            "format": "date",
+            "title": "Doc Date",
+            "type": "string"
+          },
+          "doc_number": {
+            "title": "Doc Number",
+            "type": "string"
+          },
+          "doc_total": {
+            "title": "Doc Total",
+            "type": "string"
+          },
+          "draft_id": {
+            "title": "Draft Id",
+            "type": "string"
+          },
+          "due_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due Date"
+          },
+          "finalized_at": {
+            "title": "Finalized At",
+            "type": "string"
+          },
+          "fy": {
+            "title": "Fy",
+            "type": "string"
+          },
+          "gstin": {
+            "title": "Gstin",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "igst_total": {
+            "title": "Igst Total",
+            "type": "string"
+          },
+          "is_inter_state": {
+            "title": "Is Inter State",
+            "type": "boolean"
+          },
+          "is_practice": {
+            "title": "Is Practice",
+            "type": "boolean"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "pos_state_code": {
+            "title": "Pos State Code",
+            "type": "string"
+          },
+          "round_off": {
+            "title": "Round Off",
+            "type": "string"
+          },
+          "sgst_total": {
+            "title": "Sgst Total",
+            "type": "string"
+          },
+          "supply_class": {
+            "title": "Supply Class",
+            "type": "string"
+          },
+          "taxable_total": {
+            "title": "Taxable Total",
+            "type": "string"
+          },
+          "utgst": {
+            "title": "Utgst",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "draft_id",
+          "kind",
+          "is_practice",
+          "doc_number",
+          "doc_date",
+          "fy",
+          "gstin",
+          "supply_class",
+          "pos_state_code",
+          "is_inter_state",
+          "customer_id",
+          "counterparty_name",
+          "due_date",
+          "taxable_total",
+          "cgst_total",
+          "sgst_total",
+          "utgst",
+          "igst_total",
+          "round_off",
+          "doc_total",
+          "finalized_at"
+        ],
+        "title": "DocumentOut",
+        "type": "object"
+      },
       "DraftIn": {
         "additionalProperties": false,
         "properties": {
@@ -6351,6 +6493,90 @@
           }
         },
         "summary": "Save Draft",
+        "tags": [
+          "sales"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/drafts/{draft_id}/finalize": {
+      "post": {
+        "description": "Issues the draft as a document with the next number (LLD-4 \u00a74). Off until refdata\n`sales.finalize.enabled` is true: while it is off this route is a 404 like an unknown\ndraft, and no number is taken. The same draft finalized twice gives one document.",
+        "operationId": "finalize_draft_api_v1_b__business_id__drafts__draft_id__finalize_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Finalize Draft",
         "tags": [
           "sales"
         ]

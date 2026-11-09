@@ -67,6 +67,9 @@ ALLOWED_DATA: dict[str, frozenset[str]] = {
     "draft.created": frozenset(),
     "draft.updated": frozenset(),
     "draft.deleted": frozenset(),
+    # Finalize (LLD-4 §12): numbers, kinds and codes only; no amounts, names or GSTINs.
+    "document.finalized": frozenset({"number", "kind", "practice", "draft_id"}),
+    "document.pos_override": frozenset({"computed_pos", "chosen_pos"}),  # reason required (G16)
     "catalog.import_applied": frozenset({"counts"}),  # row counts only
     "catalog.import_superseded": frozenset({"superseded_by"}),
 }
