@@ -50,7 +50,8 @@ def queue(uow: UnitOfWork, draft_id: uuid.UUID) -> tuple[uuid.UUID, int]:
 
 def status(uow: UnitOfWork, draft_id: uuid.UUID, job_id: uuid.UUID) -> dict:
     """queued, rendering, ready (with a 60-second link) or failed (the job's error code, or
-    render_failed when the renderer gave up after its last try). A job that is not this
+    render_failed when the renderer gave up after its last try, or still has no PDF
+    render.GIVE_UP_AFTER after the job queued it). A job that is not this
     draft's preview is the same 404 as one that doesn't exist."""
     job = jobs.get(uow, job_id)
     if job is None or job.type != JOB or not (job.natural_key or "").startswith(f"{draft_id}:"):
@@ -61,7 +62,9 @@ def status(uow: UnitOfWork, draft_id: uuid.UUID, job_id: uuid.UUID) -> dict:
         return {"status": "queued"}
     business = uow.principal.business_id
     if not render.is_rendered(business, job_id):
-        if render.has_failed(business, job_id):
+        # The renderer gave up (failed.json), or its last try ended without a word (a
+        # timeout or out of memory) and the message is in the DLQ by now.
+        if render.has_failed(business, job_id) or get_clock().now() - job.updated_at > render.GIVE_UP_AFTER:
             return {"status": "failed", "error_code": "render_failed"}
         return {"status": "rendering"}
     url = get_store().presign_get(business, render.document_key(business, job_id),

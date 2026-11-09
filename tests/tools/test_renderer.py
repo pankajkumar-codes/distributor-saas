@@ -103,6 +103,17 @@ def test_the_renderer_knows_which_try_is_the_queues_last():
     assert re.search(r"render_max_receives\s*=\s*5\b", STACK)
 
 
+def test_the_app_gives_up_on_a_render_when_the_queues_last_try_is_over():
+    """platform_common.render.GIVE_UP_AFTER is max_receive_count x the render queue's
+    visibility timeout, so "render_failed" never shows while a try may still be running."""
+    from platform_common import render
+
+    queue = re.search(r'module "render" \{(.*?)\n\}', STACK, re.S).group(1)
+    visibility = int(re.search(r"visibility_timeout_seconds\s*=\s*(\d+)", queue).group(1))
+    receives = int(re.search(r"render_max_receives\s*=\s*(\d+)", STACK).group(1))
+    assert render.GIVE_UP_AFTER.total_seconds() == receives * visibility
+
+
 def test_the_worker_may_only_put_render_inputs_and_send_to_the_render_queue():
     block = re.search(r"worker_render_statements = \[(.*?)\n  \]", STACK, re.S).group(1)
     assert _statements(block) == [

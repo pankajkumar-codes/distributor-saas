@@ -7,6 +7,7 @@ Made-up data. Skipped unless PG_ADMIN_URL points at a disposable server.
 
 import json
 import uuid
+from datetime import timedelta
 
 import pytest
 
@@ -185,3 +186,23 @@ def test_a_render_the_renderer_gave_up_on_reports_failed_and_a_later_pdf_still_w
     assert _status(pg, biz, d, job_id).json() == {"status": "failed", "url": None, "error_code": "render_failed"}
     store.put(biz, f"documents/b/{biz}/{job_id}/document.pdf", b"%PDF-1.7 test", "application/pdf")  # a DLQ redrive
     assert _status(pg, biz, d, job_id).json()["status"] == "ready"
+
+
+def test_a_render_with_no_word_from_the_renderer_fails_after_its_last_try_could_have_ended(shop):
+    """A last try killed by the Lambda timeout or out of memory writes no failed.json."""
+    from sqlalchemy import text
+
+    pg, biz, _, jobs_q, _, _ = shop
+    d, _ = _draft(pg, biz)
+    job_id = _ask(pg, biz, d).json()["job_id"]
+    jobs_q.drain(jobs.handle_message)
+
+    def queued_ago(delta):
+        with pg.owner.connect() as c:
+            c.execute(text("update platform.jobs set updated_at = now() - :d where id = :id"),
+                      {"d": delta, "id": job_id})
+
+    queued_ago(render.GIVE_UP_AFTER - timedelta(minutes=1))
+    assert _status(pg, biz, d, job_id).json()["status"] == "rendering"
+    queued_ago(render.GIVE_UP_AFTER + timedelta(minutes=1))
+    assert _status(pg, biz, d, job_id).json() == {"status": "failed", "url": None, "error_code": "render_failed"}
