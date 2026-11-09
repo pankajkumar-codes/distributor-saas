@@ -5,6 +5,7 @@ interface reads.
 """
 
 from .core import compute
+from .filing_lines import FilingHeader, filing_lines
 from .inputs import load_inputs
 from .model import (
     METHOD_VERSION,
@@ -29,6 +30,7 @@ __all__ = [
     "Computation",
     "DraftIn",
     "DraftLineIn",
+    "FilingHeader",
     "Issue",
     "LineIn",
     "LineOut",
@@ -36,6 +38,7 @@ __all__ = [
     "Seller",
     "Tax",
     "compute",
+    "filing_lines",
     "inr",
     "load_inputs",
 ]

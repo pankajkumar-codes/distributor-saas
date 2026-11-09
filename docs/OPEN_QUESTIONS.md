@@ -115,6 +115,17 @@ POST /b already reads `identity.max_owned_businesses` (5, provisional; **Pankaj 
 | Rate-change warning window (`catalog.rate_change_warning_days` 30, inclusive) | Warns when the rate in force began at most 30 days before the date | CA (tax-computation §5 [CA]) |
 | **A live rate that has left `gst.rate_values` by the invoice date** (for example a rate entered while it was on the list, read for a date after the list dropped it) | Catalog checks a rate against the list for its own `valid_from` only; `product_for_line` returns it with no flag (#52 review) | **LLD-4** decides: a `rate_not_on_list_on_date` flag from catalog read against refdata for the line's date (never a hard-coded date), and whether finalize warns or blocks; the CA says which |
 
+## GSTR-1 sections (S6 groundwork) items waiting on the EM, GST expert, CA or QA
+| Item | What the code does until then | Source needed |
+|---|---|---|
+| Invoice and note value on supply lines: LLD-5 §5 fills Table 4A/5/9B's value from "the view's per-document total", but view contract v1 (LLD-5 §3, HLD §3.1) has no such column | `filing.gstr1.SupplyLine` carries `doc_value` (the document's `doc_total` on each line); `sales.compute.filing_lines` fills it | EM / LLD-5 owner: add `doc_value` to the view contract before `sales.v_filing_lines` is written (a v1 change now costs nothing; later it is `v_supply_lines_v2`) |
+| L5-7 reconciliation for a QRMP quarter with locked IFFs: the quarter's Table 12 covers its IFF months, but its liability tables exclude locked IFF members, so "4A + 5 + 7 − 9B = Table 12" fails on the quarter alone (gstr1-examples Part B) | `reconciliation_gap(build, iff_builds=...)` adds the quarter's IFF builds to the liability side; the Part B test passes only with them | EM / LLD-5 owner: erratum to L5-7 and check C-09 |
+| Credit notes netted in Table 12 (gstr1-examples A6 [CA]); quarterly Table 12 covering IFF months (Part B [CA]) | Netted; the quarter's Table 12 takes the caller's wider member set. Each build lists these in `pending` | CA |
+| Row tax (CA-2) and Table 12 quantity (CA-3) | Row tax = sum of the invoice lines' stored tax; quantity keeps 3 decimals (the export rounds) | CA-2, CA-3 |
+| A B2CS row that nets negative (E3) | Kept in the build; LLD-5 check C-12 blocks export until QA confirms the template accepts it | QA open item 3 |
+| b2cs Type (E/OE) and e-commerce GSTIN | Not on the section rows; own sales are Type OE, filled by the export mapping (LLD-5 §7) | Template open issue 4 (R1b) |
+| Table 12 Description column | Not on the section rows (supply lines have no product name); the export mapping decides | GST expert, with the template mapping (LLD-5 §7) |
+
 ## Refdata rows to confirm (S0b)
 Every row in `refdata/` is `provisional`. Before go-live:
 - **PO:** the `auth.*` and `identity.max_owned_businesses` rows (`kind: product`). The
