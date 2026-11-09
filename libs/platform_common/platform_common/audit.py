@@ -45,6 +45,8 @@ ALLOWED_DATA: dict[str, frozenset[str]] = {
     "support.view": frozenset({"method", "route_template", "object_id"}),
     "support.grant": frozenset({"expires_at", "replaced"}),  # replaced: the grant it ended, if any
     "support.revoke": frozenset(),
+    # The audit log's CSV export logs itself with its filters (LLD-2 §7 [D, RM42-11]).
+    "audit.export": frozenset({"kind", "actor", "from", "to"}),
     # Reason-required actions (permissions.yaml); their data keys come with their slices.
     **{action: frozenset() for action in REASON_REQUIRED},
     # Catalog (LLD-3 §9): IDs, product codes, changed field names and GST rate values only.
