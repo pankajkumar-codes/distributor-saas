@@ -105,13 +105,17 @@ def test_the_renderer_knows_which_try_is_the_queues_last():
 
 def test_the_app_gives_up_on_a_render_when_the_queues_last_try_is_over():
     """platform_common.render.GIVE_UP_AFTER is max_receive_count x the render queue's
-    visibility timeout, so "render_failed" never shows while a try may still be running."""
-    from platform_common import render
+    visibility timeout, so "render_failed" never shows while a try may still be running.
+    Read as text, like the rest of this file: importing platform_common pulls in fastapi,
+    which the lint job doesn't install."""
+    source = (ROOT / "libs" / "platform_common" / "platform_common" / "render.py").read_text()
+    in_code = re.search(r"^GIVE_UP_AFTER = timedelta\(seconds=(\d+) \* (\d+)\)$", source, re.M)
+    assert in_code, "GIVE_UP_AFTER should stay written as timedelta(seconds=<receives> * <visibility>)"
 
     queue = re.search(r'module "render" \{(.*?)\n\}', STACK, re.S).group(1)
     visibility = int(re.search(r"visibility_timeout_seconds\s*=\s*(\d+)", queue).group(1))
     receives = int(re.search(r"render_max_receives\s*=\s*(\d+)", STACK).group(1))
-    assert render.GIVE_UP_AFTER.total_seconds() == receives * visibility
+    assert (int(in_code.group(1)), int(in_code.group(2))) == (receives, visibility)
 
 
 def test_the_worker_may_only_put_render_inputs_and_send_to_the_render_queue():
