@@ -24,7 +24,7 @@ type Props = {
   onPasswordChange: (password: string) => void;
 };
 
-function useNow() {
+export function useNow() {
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -33,7 +33,7 @@ function useNow() {
   return now;
 }
 
-function countdown(ms: number) {
+export function countdown(ms: number) {
   const s = Math.ceil(ms / 1000);
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
