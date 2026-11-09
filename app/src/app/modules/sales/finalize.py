@@ -17,8 +17,7 @@ from datetime import date, timedelta
 from sqlalchemy import bindparam, text
 from sqlalchemy.types import JSON
 
-from app.modules.business.fiscal import fy_of
-from app.modules.business.interface import Profile, SeriesSetting, get_profile, series_setting
+from app.modules.business.interface import Profile, SeriesSetting, fy_of, get_profile, series_setting
 from app.modules.catalog.interface import customer_snapshot, mark_used
 from app.modules.refdata import RefdataMissing, value_on
 from platform_common import audit
@@ -85,6 +84,9 @@ def finalize(uow: UnitOfWork, draft_id: uuid.UUID, if_match: int | None, today: 
     if done is not None:
         return done
     try:
+        # get() filters status = 'open': a request that waited on this lock while another
+        # finalized the draft re-checks the row, finds it finalized and falls through to
+        # returning that document. Without the filter the race is a unique-violation 500.
         d = drafts.get(uow, draft_id, lock=True)
     except Deny:
         # Another request finalized it while this one waited for the row lock.

@@ -129,6 +129,12 @@ create trigger pos_overrides_insert_only before update or delete on sales.pos_ov
     for each row execute function sales.refuse_change();
 create trigger documents_no_truncate before truncate on sales.documents
     for each statement execute function sales.refuse_change();
+create trigger document_lines_no_truncate before truncate on sales.document_lines
+    for each statement execute function sales.refuse_change();
+create trigger document_line_taxes_no_truncate before truncate on sales.document_line_taxes
+    for each statement execute function sales.refuse_change();
+create trigger pos_overrides_no_truncate before truncate on sales.pos_overrides
+    for each statement execute function sales.refuse_change();
 
 -- Tenant policies, the drafts' pattern.
 alter table sales.documents enable row level security;

@@ -248,6 +248,10 @@ def test_documents_are_insert_only(shop):
         "delete from sales.document_line_taxes",
         "delete from sales.document_lines",
         "delete from sales.documents",
+        "truncate sales.pos_overrides",
+        "truncate sales.document_line_taxes",
+        "truncate sales.document_lines cascade",
+        "truncate sales.documents cascade",
     ):
         with pg.owner.connect() as c, pytest.raises(Exception, match="insert-only"):
             c.execute(text(sql))

@@ -54,6 +54,7 @@ __all__ = [
     "display_name",
     "einvoice_status",
     "filing_frequency_on",
+    "fy_of",
     "get_profile",
     "gstin_message",
     "HsnBandMissing",
