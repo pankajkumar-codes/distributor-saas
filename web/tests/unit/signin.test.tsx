@@ -106,6 +106,7 @@ describe("sign-in", () => {
     await signIn();
     await screen.findByRole("heading", { name: "Two-step sign-in" });
     expect(window.location.pathname).toBe("/signin"); // the challenge is never in the URL
+    expect(screen.getByText("Lost your phone? Contact support.")).toBeInTheDocument(); // RM2-29
 
     server.reply(TOTP, { status: 401, body: { error: { code: "totp_not_accepted", message: "" }, challenge: "ch-2" } });
     fireEvent.paste(screen.getByLabelText("Digit 1 of 6"), { clipboardData: { getData: () => "111111" } });

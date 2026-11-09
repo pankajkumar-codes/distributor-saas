@@ -105,8 +105,16 @@ describe("the audit log", () => {
     expect(await screen.findByText(words)).toBeInTheDocument();
   });
 
-  it("is not found for billing (the server would answer 404 too)", async () => {
-    open("billing");
+  it.each(["billing", "ca", "support"])("is not found for %s (the server would answer 404 too)", async (role) => {
+    if (role === "support") {
+      // Support staff reach a business only through a grant (LLD-2 §6.2), never audit.view.
+      server.reply(ME, { status: 200, body: { businesses: [], is_support: true } });
+      server.reply("/api/v1/support/grants", { status: 200, body: { grants: [{ grant_id: "g-1", business_id: B, business_name: "Vashi Essentials", expires_at: "2099-10-25T08:50:00Z" }] } });
+      window.history.replaceState(null, "", `/b/${B}/settings/audit`);
+      render(<App />);
+    } else {
+      open(role);
+    }
     expect(await screen.findByRole("heading", { name: "We couldn't find that page" })).toBeInTheDocument();
     expect(gets(LOG)).toHaveLength(0);
   });
