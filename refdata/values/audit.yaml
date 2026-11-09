@@ -1,0 +1,13 @@
+# The audit log's CSV export (LLD-2 §7 [D, RM42-11]). A product rule, provisional until
+# the PO confirms it.
+
+- key: audit.export_max_rows
+  value: "50000"
+  type: integer
+  kind: product
+  valid_from: 2026-10-24
+  source_url: team/docs/lld-2.md
+  source_title: "LLD-2 §7 CSV export: capped at 50,000 rows per file (provisional); more fails with narrow_filter"
+  last_checked: 2026-11-09
+  status: provisional
+  note: "Rows one audit-log export may hold; a wider export fails with narrow_filter. PO to confirm."

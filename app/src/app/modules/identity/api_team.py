@@ -17,7 +17,7 @@ import hashlib
 import os
 import secrets
 import uuid
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import date, datetime, timedelta
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Header, Query, Request
@@ -27,7 +27,7 @@ from sqlalchemy.exc import DBAPIError
 
 from platform_common import audit
 from platform_common.auth import debug_env
-from platform_common.clock import IST
+from platform_common.clock import Clock, get_clock
 from platform_common.errors import AppError, Conflict, Deny, Invalid, RateLimited
 from platform_common.idempotency import run_once
 from platform_common.ids import uuid7
@@ -38,8 +38,9 @@ from platform_common.uow import BusinessUoW, MeUoW, UnitOfWork, parse_id
 
 from app.modules.business.interface import display_name
 
-from . import audit_labels
+from . import audit_export, audit_labels
 from .providers import mailer
+from .service import audit_log as audit_log_service
 
 router = APIRouter(tags=["team"])
 
@@ -554,6 +555,9 @@ def reactivate_member(user_id: str, body: ReasonIn, uow: BusinessUoW):
 # --- Audit log (§7) -------------------------------------------------------------
 
 
+AuditKind = Literal["invoices", "gst_filing", "team_settings", "support"]
+
+
 class Actor(BaseModel):
     kind: Literal["member", "support", "system"]
     name: str
@@ -610,36 +614,15 @@ def _href(business_id: uuid.UUID, kind: str, target_id: uuid.UUID | None, role: 
 def audit_log(
     uow: BusinessUoW,
     cursor: str | None = Query(None, max_length=200),
-    kind: Literal["invoices", "gst_filing", "team_settings", "support"] | None = None,
+    kind: AuditKind | None = None,
     actor: uuid.UUID | None = None,
     dates: DateRange = Depends(date_range),
 ):
     """Newest first, AUDIT_PAGE rows a page. Periods are Indian dates, both ends included."""
     bid = _business(uow)
-    where = ["a.business_id = :b", "a.at >= :start", "a.at < :end"]
-    params: dict = {"b": bid, "start": _ist_midnight(dates.date_from), "end": _ist_midnight(dates.date_to, 1)}
-    if kind is not None:
-        where.append("a.action = any(:actions)")
-        params["actions"] = audit_labels.actions_of_kind(kind)
-    if actor is not None:
-        where.append("a.user_id = :actor and a.support_grant_id is null")
-        params["actor"] = actor
-    if cursor is not None:
-        params["c_at"], params["c_id"] = _decode_cursor(cursor)
-        where.append("(a.at, a.id) < (:c_at, :c_id)")
-    rows = uow.tx.execute(
-        text(
-            "select a.id, a.at, a.user_id, a.support_grant_id, a.action, a.target_kind, a.target_id,"
-            " a.reason, a.data, coalesce(p.name, p.email) as actor_name"
-            " from platform.v_audit_log a"
-            " left join identity.member_profiles(array("
-            "     select user_id from identity.memberships where business_id = :b)) p"
-            "   on p.user_id = a.user_id and a.support_grant_id is null"
-            f" where {' and '.join(where)}"
-            " order by a.at desc, a.id desc limit :limit"
-        ),
-        {**params, "limit": AUDIT_PAGE + 1},
-    ).all()
+    filters = audit_log_service.Filters(kind, actor, dates.date_from, dates.date_to)
+    after = None if cursor is None else _decode_cursor(cursor)
+    rows = audit_log_service.rows(uow, filters, after=after, limit=AUDIT_PAGE + 1)
     more = len(rows) > AUDIT_PAGE
     rows = rows[:AUDIT_PAGE]
     role = uow.principal.role
@@ -649,18 +632,67 @@ def audit_log(
     )
 
 
-def _ist_midnight(day: date, plus_days: int = 0) -> datetime:
-    return datetime.combine(day + timedelta(days=plus_days), time(), IST).astimezone(UTC)
+class AuditExportIn(BaseModel):
+    """The screen's filters; the period follows the list's rules (both ends included,
+    `to` defaults to today, at most MAX_RANGE_DAYS)."""
+
+    kind: AuditKind | None = None
+    actor: uuid.UUID | None = None
+    date_from: date | None = Field(None, alias="from")
+    date_to: date | None = Field(None, alias="to")
+
+
+class AuditExportRef(BaseModel):
+    job_id: str
+
+
+class AuditExportOut(BaseModel):
+    status: Literal["preparing", "ready", "failed"]
+    url: str | None = None  # when ready: a link good for 60 seconds
+    rows: int | None = None  # when ready
+    error_code: str | None = None  # when failed: narrow_filter, not_allowed, ...
+
+
+@router.post(
+    "/b/{business_id}/audit-log/exports",
+    status_code=202,
+    response_model=AuditExportRef,
+    dependencies=[Depends(require(Permission.AUDIT_VIEW))],
+)
+def export_audit_log(
+    body: AuditExportIn,
+    uow: BusinessUoW,
+    request: Request,
+    idempotency_key: str | None = Header(None),
+    clock: Clock = Depends(get_clock),
+):
+    """Queues the CSV of what the list shows for these filters. The export is logged as
+    `audit.export` in the same unit of work; poll GET .../exports/{job_id}."""
+    dates = date_range(body.date_from, body.date_to, clock)
+    filters = audit_log_service.Filters(body.kind, body.actor, dates.date_from, dates.date_to)
+    return run_once(
+        uow.tx,
+        _business(uow),
+        idempotency_key,
+        method="POST",
+        route=request.scope["route"].path,
+        payload=body.model_dump(mode="json", by_alias=True),
+        operation=lambda: {"job_id": str(audit_export.start(uow, filters))},
+    )
+
+
+@router.get(
+    "/b/{business_id}/audit-log/exports/{job_id}",
+    response_model=AuditExportOut,
+    dependencies=[Depends(require(Permission.AUDIT_VIEW))],
+)
+def audit_log_export(job_id: str, uow: BusinessUoW):
+    return audit_export.status(uow, parse_id(job_id))
 
 
 def _audit_row(business_id: uuid.UUID, r, role: str) -> AuditRowOut:
-    if r.support_grant_id is not None:
-        actor = Actor(kind="support", name="Support team")
-    elif r.user_id is None:
-        actor = Actor(kind="system", name="System")
-    else:
-        actor = Actor(kind="member", name=r.actor_name or "Former member", user_id=r.user_id)
-    allowed = audit.ALLOWED_DATA.get(r.action, frozenset())
+    kind, name = audit_log_service.actor_of(r)
+    actor = Actor(kind=kind, name=name, user_id=r.user_id if kind == "member" else None)
     return AuditRowOut(
         at=r.at,
         actor=actor,
@@ -668,5 +700,5 @@ def _audit_row(business_id: uuid.UUID, r, role: str) -> AuditRowOut:
         action_label=audit_labels.label(r.action),
         target=Target(kind=r.target_kind, id=r.target_id, href=_href(business_id, r.target_kind, r.target_id, role)),
         reason=r.reason,
-        details={k: v for k, v in (r.data or {}).items() if k in allowed},
+        details=audit_log_service.details_of(r),
     )
