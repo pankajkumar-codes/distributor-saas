@@ -1,9 +1,8 @@
 """Supply lines in, GSTR-1 section rows out (LLD-5 §3, §5; gstr1-examples Part A).
 
-`SupplyLine` is HLD §3.1's supply line (LLD-5 §3 view contract v1) plus `doc_value`,
-the document's total repeated on each of its lines, which LLD-5 §5 needs for the
-invoice and note value columns but the v1 column list leaves out (raised with the EM;
-see docs/OPEN_QUESTIONS.md, GSTR-1 sections). Section rows carry portal fields [MAN1]; the
+`SupplyLine` is LLD-5 §3's view contract v1, which includes `doc_value`, the
+document's total repeated on each of its lines, for the invoice and note value columns
+(LLD-5 erratum [S6-1], D-043). Section rows carry portal fields [MAN1]; the
 template's sheet names, list texts and fixed values (Reverse Charge N, Invoice Type,
 b2cs Type OE) are the export's mapping (LLD-5 §7), not the builder's.
 
@@ -47,7 +46,7 @@ class SupplyLine:
     cgst: Decimal
     sgst: Decimal
     cess: Decimal
-    doc_value: Decimal  # the document's total, on every line (not in view contract v1)
+    doc_value: Decimal  # the document's total, on every line (LLD-5 [S6-1])
     counterparty_gstin: str | None = None
     counterparty_name: str | None = None
     return_instance_id: uuid.UUID | None = None

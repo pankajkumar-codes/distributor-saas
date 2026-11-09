@@ -115,8 +115,9 @@ def hsn_total(build: Gstr1Sections) -> Amounts:
 
 
 def reconciliation_gap(build: Gstr1Sections, *, iff_builds: Iterable[Gstr1Sections] = ()) -> Amounts:
-    """Liability minus Table 12, per head; zero when they agree (L5-7, A8). A quarter's
-    Table 12 also covers its locked IFF months, so pass those IFF builds too (Part B)."""
+    """Liability minus Table 12, per head; zero when they agree (L5-7, A8). A QRMP
+    quarter's Table 12 also covers its locked IFF months, so pass those IFF builds too
+    (LLD-5 erratum [S6-2], D-043; gstr1-examples Part B)."""
     return liability(build, *iff_builds) - hsn_total(build)
 
 
