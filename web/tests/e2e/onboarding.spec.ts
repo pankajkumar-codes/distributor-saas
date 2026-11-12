@@ -18,12 +18,16 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   await page.getByLabel("City or town").fill("Pune");
   await page.getByLabel("PIN code").fill("411001");
   await expect(page.getByLabel("State", { exact: true })).toHaveValue("27");
-  await page.getByRole("radio", { name: "Every quarter (QRMP)" }).check();
   await noSeriousAxeFindings(page);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 
   await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByRole("heading", { name: "Where you sell and how you file" })).toBeVisible();
+  await page.getByRole("checkbox", { name: "Amazon" }).check();
+  await page.getByRole("radio", { name: "Quarterly (QRMP)" }).check();
+  await noSeriousAxeFindings(page);
+  await page.getByRole("button", { name: "Finish and see my filing home" }).click();
   await expect(page.getByRole("heading", { name: /^(Welcome|Good (morning|afternoon|evening))/ })).toBeVisible();
   expect(page.url()).toMatch(/\/b\/[0-9a-f-]{36}\/home$/);
   await expect(page.getByText("E2E Traders Private Limited")).toBeVisible();
