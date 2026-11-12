@@ -92,3 +92,4 @@ fieldset.line { margin: 0.75rem 0; }
 .totals dt, .totals dd { margin: 0; }
 .filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0 16px; margin: 0 0 8px; }
 .qr { display: block; margin: 8px 0; background: #fff; }
+.tag { font-size: 0.75rem; font-weight: 600; border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; margin-left: 6px; color: var(--muted); }

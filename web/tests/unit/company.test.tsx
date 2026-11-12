@@ -172,6 +172,18 @@ describe("business details", () => {
     });
   });
 
+  it("shows the business-type field disabled with an Upcoming tag, and a save never sends it", async () => {
+    server.reply(PROFILE, { status: 200, body: profile() }, { status: 200, body: { profile: profile({ trade_name: "Vashi", version: 5 }), warnings: [] } });
+    open();
+    await screen.findByLabelText("Legal name");
+    expect(screen.getByLabelText(/Business type/)).toBeDisabled();
+    expect(screen.getByText("Upcoming")).toBeInTheDocument();
+    type("Trade name (optional)", "Vashi");
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(await screen.findByText(/Saved\./)).toBeInTheDocument();
+    expect(JSON.stringify(patches()[0].body)).not.toMatch(/business_type/);
+  });
+
   it("clears the last save's message on the next edit", async () => {
     server.reply(PROFILE, { status: 200, body: profile() }, { status: 200, body: { profile: profile({ trade_name: "Vashi", version: 5 }), warnings: [] } });
     open();

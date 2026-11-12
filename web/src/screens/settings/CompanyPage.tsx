@@ -9,6 +9,7 @@ import { useStateCodes } from "../../api/useStateCodes";
 import { useMyBusinesses } from "../../auth/useMyBusinesses";
 import { fyIst, previousFy } from "../../format/dates";
 import { AddressFields, addressIn, addressLine, addressOf, sameAddress, type Address } from "../../kit/AddressFields";
+import { BusinessTypeUpcoming } from "../../kit/BusinessTypeUpcoming";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { Field } from "../../kit/Field";
@@ -306,6 +307,7 @@ export function CompanyPage() {
               hint={theirHint("trade_name")}
               error={errorFor("trade_name")}
             />
+            <BusinessTypeUpcoming />
             <AddressFields
               legend="Principal place of business"
               value={values.address}

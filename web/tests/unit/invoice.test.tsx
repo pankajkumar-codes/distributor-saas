@@ -6,6 +6,8 @@ import { resetSessionForTests } from "../../src/auth/session";
 import { blankForm, draftIn, formOf, newLine } from "../../src/screens/invoices/draftForm";
 import { fakeApi } from "./fakeApi";
 
+vi.mock("../../src/features", () => ({ FEATURES: { invoicing: true } })); // R1 ships with it off
+
 const REFRESH = "/api/v1/auth/refresh";
 const ME = "/api/v1/me/businesses";
 const STATES = "/api/v1/refdata/state-codes";
