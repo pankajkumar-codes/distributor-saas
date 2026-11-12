@@ -11,6 +11,7 @@ import { checkGstin, gstinMessage } from "../../format/gstin";
 import { BusinessTypeUpcoming } from "../../kit/BusinessTypeUpcoming";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
+import { CheckboxGroup } from "../../kit/CheckboxGroup";
 import { Field } from "../../kit/Field";
 import { RadioGroup } from "../../kit/RadioGroup";
 import { SelectField } from "../../kit/SelectField";
@@ -23,6 +24,17 @@ type Band = NewBusiness["turnover_band"];
 type Einvoice = NewBusiness["einvoice_history"];
 type Frequency = components["schemas"]["FrequencyIn"]["frequency"];
 type Errors = Record<string, string | undefined>;
+type Channels = components["schemas"]["ChannelsIn"];
+
+export const PLATFORM_OPTIONS: { value: keyof Channels; label: string; sub?: string }[] = [
+  { value: "amazon", label: "Amazon" },
+  { value: "flipkart", label: "Flipkart" },
+  { value: "meesho", label: "Meesho" },
+  { value: "own_invoices", label: "Own sales invoices", sub: "Invoices you make yourself, as PDF and/or Excel" },
+];
+export const NO_PLATFORMS: Channels = { amazon: false, flipkart: false, meesho: false, own_invoices: false };
+/** The fields that belong to step 3; a refusal naming one sends the user back there. */
+const STEP3_FIELDS = /^(registration|legal_name|trade_name|turnover_band|einvoice_history|address)(\.|$)/;
 
 export const BAND_OPTIONS: { value: Band; label: string }[] = [
   { value: "up_to_threshold", label: "Up to the limit for quarterly filing (QRMP)" },
@@ -51,9 +63,6 @@ export function fieldError(error: ApiError, gstin: string): { field: string; tex
     : (BY_CODE[error.code] ?? (error.code === "invalid" ? (INVALID[field] ?? "Check this entry.") : errorText(error)));
   return { field, text };
 }
-
-const display = (day: string) =>
-  new Date(`${day}T00:00:00Z`).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 
 /**
  * /onboarding/business (M2 step 3). The GSTIN check here is a hint only, from the same
@@ -84,6 +93,8 @@ export function BusinessPage() {
   const [addressState, setAddressState] = useState("");
   const [missing, setMissing] = useState<Errors>({});
   const [tries, setTries] = useState(0);
+  const [step, setStep] = useState<3 | 4>(3);
+  const [platforms, setPlatforms] = useState<Channels>(NO_PLATFORMS);
 
   const check = checkGstin(gstin);
   const stateName = (code: string | null) => states.data?.find((s) => s.code === code)?.name;
@@ -131,6 +142,13 @@ export function BusinessPage() {
           if (code !== "if_match_required" && code !== "stale_record") warnings = [...warnings, "previous_band_not_saved"];
         }
       }
+      // Platforms are saved after the create, like last year's band: a failure only asks the user to
+      // set them in Settings. The same answer twice is harmless, so a replay needs no special case.
+      try {
+        await call(() => api.PUT("/api/v1/b/{business_id}/channels", { params: { path: { business_id: out.business_id } }, body: platforms }));
+      } catch {
+        warnings = [...warnings, "platforms_not_saved"];
+      }
       if (frequency) choose.mutate({ id: out.business_id, frequency, warnings });
       else finish(out.business_id, warnings);
     },
@@ -139,12 +157,10 @@ export function BusinessPage() {
   // After a refused submit, take the keyboard and screen reader to the first problem.
   useEffect(() => {
     if (tries) document.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
-  }, [tries, create.error]);
+  }, [tries, create.error, step]);
 
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    if (create.isPending || create.isSuccess) return;
-    const blank = (v: string) => v.trim() || null;
+  const blank = (v: string) => v.trim() || null;
+  const step3Errors = (): Errors => {
     const found: Errors =
       kind === "gstin"
         ? {
@@ -155,7 +171,6 @@ export function BusinessPage() {
                 : gstinStateUnknown
                   ? gstinMessage("gstin_state")
                   : undefined,
-            frequency: frequency ? undefined : "Choose how often you file GSTR-1.",
           }
         : {
             "registration.enrolment_number": enrolment.trim() ? undefined : "Enter the enrolment number.",
@@ -164,6 +179,26 @@ export function BusinessPage() {
     found.turnover_band = band ? undefined : "Choose one.";
     found.einvoice_history = einvoice ? undefined : "Choose one.";
     found["address.pin"] = !pin.trim() || /^[0-9]{6}$/.test(pin.trim()) ? undefined : INVALID["address.pin"];
+    return found;
+  };
+  const step4Errors = (): Errors => ({
+    platforms: Object.values(platforms).some(Boolean) ? undefined : "Pick at least one to continue.",
+    frequency: kind === "gstin" && !frequency ? "Choose how often you file GST." : undefined,
+  });
+
+  // Step 3 only checks what step 3 asks; nothing is sent until the last step.
+  const next = (e: FormEvent) => {
+    e.preventDefault();
+    const found = step3Errors();
+    setMissing(found);
+    setTries((n) => n + 1);
+    if (!Object.values(found).some(Boolean)) setStep(4);
+  };
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (create.isPending || create.isSuccess) return;
+    const found = step4Errors();
     setMissing(found);
     setTries((n) => n + 1);
     if (Object.values(found).some(Boolean) || !band || !einvoice) return;
@@ -190,9 +225,13 @@ export function BusinessPage() {
   };
 
   const server = create.error ? fieldError(create.error, gstin) : null;
+  useEffect(() => {
+    if (create.error && STEP3_FIELDS.test(fieldError(create.error, gstin)?.field ?? "")) setStep(3);
+  }, [create.error]);
   const err = (field: string) => missing[field] ?? (server?.field === field ? server.text : undefined);
   const shown = new Set([
     ...(kind === "gstin" ? ["registration.gstin", "frequency"] : ["registration.enrolment_number", "registration.state_code"]),
+    "platforms",
     ...["legal_name", "trade_name", "turnover_band", "einvoice_history"],
     ...["address.line1", "address.line2", "address.city", "address.pin", "address.state_code"],
   ]);
@@ -248,9 +287,9 @@ export function BusinessPage() {
     <>
       <TopBar />
       <main className="page">
-        <p className="step">Step 3 of 4</p>
-        <h1>Your business and GST</h1>
-        <form onSubmit={submit} noValidate>
+        <p className="step">Step {step} of 4</p>
+        <h1>{step === 3 ? "Your business and GST" : "Where you sell and how you file"}</h1>
+        <form onSubmit={step === 3 ? next : submit} noValidate>
           {bannerError &&
             (bannerError.code === "idempotency_mismatch" ? (
               <Banner tone="error">
@@ -262,6 +301,8 @@ export function BusinessPage() {
             ))}
           {states.isError && <Banner tone="error">We couldn't load the list of states. {errorText(states.error)}</Banner>}
 
+          {step === 3 && (
+            <>
           {kind === "gstin" ? (
             <>
               <Field
@@ -392,25 +433,44 @@ export function BusinessPage() {
             }
             error={err("address.state_code")}
           />
-
+              <Button type="submit">Continue</Button>
+            </>
+          )}
+          {step === 4 && (
+            <>
+          <CheckboxGroup<keyof Channels>
+            legend="Which platforms do you sell on?"
+            options={PLATFORM_OPTIONS}
+            value={platforms}
+            onChange={setPlatforms}
+            hint="Tick every one that applies. At least one is needed. You can change this later."
+            error={err("platforms")}
+          />
           {kind === "gstin" && (
             <RadioGroup<Frequency>
-              legend="How often do you file GSTR-1?"
+              legend="How often do you file GST?"
               name="frequency"
               options={[
-                { value: "quarterly", label: "Every quarter (QRMP)" },
-                { value: "monthly", label: "Every month" },
+                { value: "monthly", label: "Monthly", sub: "GSTR-1 and GSTR-3B every month" },
+                { value: "quarterly", label: "Quarterly (QRMP)", sub: "GSTR-1 and GSTR-3B every quarter" },
               ]}
               value={frequency}
               onChange={setFrequency}
-              hint={`This applies from the quarter starting ${display(startsOn)}. If you're not sure, ask your CA.`}
+              hint="This sets the deadlines we show. It doesn't change anything on the GST portal."
               error={err("frequency")}
             />
           )}
 
-          <Button type="submit" busy={create.isPending || choose.isPending}>
-            Continue
-          </Button>
+          <div className="actions">
+            <Button type="button" variant="link" onClick={() => setStep(3)}>
+              Back
+            </Button>
+            <Button type="submit" busy={create.isPending || choose.isPending}>
+              Finish and see my filing home
+            </Button>
+          </div>
+            </>
+          )}
         </form>
       </main>
     </>

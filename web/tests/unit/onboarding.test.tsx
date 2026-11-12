@@ -64,8 +64,20 @@ function fillGstinBusiness() {
   type("Address line 1", "12 Market Road");
   type("City or town", "Pune");
   type("PIN code", "411001");
-  pick("Every quarter (QRMP)");
 }
+
+const CHANNELS = "/api/v1/b/b-1/channels";
+const channelsSaved = { status: 200, body: { amazon: true, flipkart: false, meesho: false, own_invoices: false, answered: true } };
+/** Step 3's Continue, then step 4: one platform, quarterly, Finish. A test that wants the channels call to fail queues its reply first. */
+function submitAll(frequency: string | null = "Quarterly (QRMP)") {
+  server.reply(CHANNELS, channelsSaved);
+  fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+  pickPlatform("Amazon");
+  if (frequency) pick(frequency);
+  finish();
+}
+const finish = () => fireEvent.click(screen.getByRole("button", { name: "Finish and see my filing home" }));
+const pickPlatform = (name: string) => fireEvent.click(screen.getByRole("checkbox", { name }));
 
 const sentTo = (path: string) => server.sent.filter((s) => s.path === path);
 
@@ -79,7 +91,7 @@ describe("the business-type field (ON-7)", () => {
     server.reply(FREQUENCY, chosen([]));
     server.reply(ME, me);
     fillGstinBusiness();
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    submitAll();
     expect(await screen.findByRole("heading", { name: HOME })).toBeInTheDocument();
     expect(JSON.stringify(sentTo(CREATE)[0].body)).not.toMatch(/business_type|distributor|retail/i);
   });
@@ -121,6 +133,49 @@ describe("the GSTIN hint", () => {
   });
 });
 
+describe("where you sell (step 2 of the form)", () => {
+  it("sends the ticked platforms, own invoices included, to the channels route", async () => {
+    await open();
+    server.reply(CREATE, created());
+    server.reply(FREQUENCY, chosen());
+    server.reply(ME, me);
+    fillGstinBusiness();
+    server.reply(CHANNELS, channelsSaved);
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    pickPlatform("Flipkart");
+    pickPlatform("Own sales invoices");
+    pick("Monthly");
+    finish();
+    await screen.findByRole("heading", { name: HOME });
+    expect(sentTo(CHANNELS)[0].body).toEqual({ amazon: false, flipkart: true, meesho: false, own_invoices: true });
+  });
+
+  it("keeps what you typed when you go Back, and sends nothing before Finish", async () => {
+    await open();
+    fillGstinBusiness();
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    pickPlatform("Amazon");
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(screen.getByLabelText("PIN code")).toHaveValue("411001");
+    expect(server.sent.filter((s) => s.path === CREATE || s.path === CHANNELS)).toHaveLength(0);
+  });
+
+  it("finishes with a note when the platforms can't be saved", async () => {
+    await open();
+    server.reply(CREATE, created());
+    server.reply(FREQUENCY, chosen());
+    server.reply(ME, me);
+    fillGstinBusiness();
+    server.reply(CHANNELS, { status: 400, body: { error: { code: "invalid", message: "x" } } });
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    pickPlatform("Amazon");
+    pick("Quarterly (QRMP)");
+    finish();
+    await screen.findByRole("heading", { name: HOME });
+    expect(screen.getByText(/couldn't save where you sell/)).toBeInTheDocument();
+  });
+});
+
 describe("saving the business", () => {
   it("creates the business, then the frequency from this quarter, and shows the warnings on Home", async () => {
     await open();
@@ -128,7 +183,7 @@ describe("saving the business", () => {
     server.reply(FREQUENCY, chosen());
     server.reply(ME, me);
     fillGstinBusiness();
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    submitAll();
     expect(await screen.findByRole("heading", { name: HOME })).toBeInTheDocument();
     expect(window.location.pathname).toBe("/b/b-1/home");
 
@@ -158,7 +213,7 @@ describe("saving the business", () => {
     server.reply(ME, me);
     fillGstinBusiness();
     pickIn(`What was your turnover last financial year (FY ${previousFy(fyIst())})? (optional)`, "Above that limit");
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    submitAll();
     expect(await screen.findByRole("heading", { name: HOME })).toBeInTheDocument();
     const [band] = sentTo(BAND);
     expect(band.method).toBe("PUT");
@@ -177,7 +232,7 @@ describe("saving the business", () => {
     const lastYear = `What was your turnover last financial year (FY ${previousFy(fyIst())})? (optional)`;
     pickIn(lastYear, "Not sure");
     pickIn(lastYear, "Up to the limit for quarterly filing (QRMP)");
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    submitAll();
     expect(await screen.findByRole("heading", { name: HOME })).toBeInTheDocument();
     expect(screen.getByText(/We couldn't save last year's turnover\. Add it in Settings → Business details\./)).toBeInTheDocument();
   });
@@ -192,7 +247,7 @@ describe("saving the business", () => {
     server.reply(ME, me);
     fillGstinBusiness();
     pickIn(/^What was your turnover last financial year/, "Above that limit");
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    submitAll();
     expect(await screen.findByRole("heading", { name: HOME })).toBeInTheDocument();
     expect(screen.queryByText(/We couldn't save last year's turnover/)).toBeNull();
   });
@@ -204,7 +259,7 @@ describe("saving the business", () => {
     server.reply(ME, me);
     fillGstinBusiness();
     pickIn(/^What was your turnover last financial year/, "Not sure");
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    submitAll();
     expect(await screen.findByRole("heading", { name: HOME })).toBeInTheDocument();
     expect(server.paths().some((p) => p.includes("/turnover-bands/"))).toBe(false);
   });
@@ -215,9 +270,9 @@ describe("saving the business", () => {
     server.reply(FREQUENCY, chosen());
     server.reply(ME, me);
     fillGstinBusiness();
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    submitAll();
     expect(await screen.findByText(/Something went wrong on our side/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    finish();
     await screen.findByRole("heading", { name: HOME });
     const [first, second] = sentTo(CREATE);
     expect(second.headers.get("Idempotency-Key")).toBe(first.headers.get("Idempotency-Key"));
@@ -230,8 +285,8 @@ describe("saving the business", () => {
       body: { error: { code: "invalid", message: "String should match pattern", field: "address.pin" } },
     });
     fillGstinBusiness();
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    const pin = screen.getByLabelText("PIN code");
+    submitAll();
+    const pin = await screen.findByLabelText("PIN code");
     await waitFor(() => expect(pin).toHaveAttribute("aria-invalid", "true"));
     expect(screen.getByText("Enter a 6-digit PIN code.")).toBeInTheDocument();
     expect(pin).toHaveFocus();
@@ -242,8 +297,14 @@ describe("saving the business", () => {
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     expect(screen.getByText("Enter your GSTIN.")).toBeInTheDocument();
     expect(screen.getAllByText("Choose one.")).toHaveLength(2);
-    expect(screen.getByText("Choose how often you file GSTR-1.")).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "Amazon" })).toBeNull(); // still on step 3
+    fillGstinBusiness();
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    finish();
+    expect(screen.getByText("Pick at least one to continue.")).toBeInTheDocument();
+    expect(screen.getByText("Choose how often you file GST.")).toBeInTheDocument();
     expect(sentTo(CREATE)).toHaveLength(0);
+    expect(sentTo(CHANNELS)).toHaveLength(0);
   });
 
   it("sends an enrolment number with its state, and no frequency", async () => {
@@ -255,7 +316,7 @@ describe("saving the business", () => {
     type("State you're enrolled in", "19");
     pickIn(THIS_YEAR, "Up to the limit for quarterly filing (QRMP)");
     pickIn(/e-invoicing limit/, "Not sure");
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    submitAll(null);
     await screen.findByRole("heading", { name: HOME });
     expect(sentTo(CREATE)[0].body).toMatchObject({
       registration: { kind: "enrolment", enrolment_number: "EN123", state_code: "19" },
@@ -278,7 +339,7 @@ describe("saving the business", () => {
     server.reply(FREQUENCY, { status: 503 }, chosen([]));
     server.reply(ME, me);
     fillGstinBusiness();
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    submitAll();
     expect(await screen.findByText(/Your business is saved, but we couldn't save how often you file/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     await screen.findByRole("heading", { name: HOME });
@@ -291,7 +352,7 @@ describe("saving the business", () => {
     await open();
     server.reply(CREATE, { status: 409, body: { error: { code: "idempotency_mismatch", message: "x" } } });
     fillGstinBusiness();
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    submitAll();
     expect(await screen.findByText(/may already have been saved/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Check your businesses" })).toHaveAttribute("href", "/businesses");
   });

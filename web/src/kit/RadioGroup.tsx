@@ -1,6 +1,6 @@
 import { useId } from "react";
 
-type Option<T extends string> = { value: T; label: string };
+type Option<T extends string> = { value: T; label: string; sub?: string };
 type Props<T extends string> = {
   legend: string;
   name: string;
@@ -19,9 +19,11 @@ export function RadioGroup<T extends string>({ legend, name, options, value, onC
     <fieldset className="field radios" aria-describedby={described || undefined}>
       <legend>{legend}</legend>
       {options.map((o) => (
-        <label key={o.value} className="radio">
+        <div key={o.value} className="opt">
+          <label className="radio">
           <input
             type="radio"
+            aria-describedby={o.sub ? `${id}-${o.value}-sub` : undefined}
             name={name}
             value={o.value}
             checked={value === o.value}
@@ -29,7 +31,13 @@ export function RadioGroup<T extends string>({ legend, name, options, value, onC
             onChange={() => onChange(o.value)}
           />
           {o.label}
-        </label>
+          </label>
+          {o.sub && (
+            <span id={`${id}-${o.value}-sub`} className="hint sub">
+              {o.sub}
+            </span>
+          )}
+        </div>
       ))}
       {hint && (
         <p id={`${id}-hint`} className="hint">
