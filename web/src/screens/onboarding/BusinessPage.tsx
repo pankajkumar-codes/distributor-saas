@@ -24,7 +24,7 @@ type Band = NewBusiness["turnover_band"];
 type Einvoice = NewBusiness["einvoice_history"];
 type Frequency = components["schemas"]["FrequencyIn"]["frequency"];
 type Errors = Record<string, string | undefined>;
-type Channels = components["schemas"]["ChannelsIn"];
+export type Channels = components["schemas"]["ChannelsIn"];
 
 export const PLATFORM_OPTIONS: { value: keyof Channels; label: string; sub?: string }[] = [
   { value: "amazon", label: "Amazon" },

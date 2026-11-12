@@ -263,3 +263,54 @@ describe("the business details edit rules", () => {
     expect(rebase(opened, latest, mine)).toEqual({ ...latest, einvoice_history: "yes" });
   });
 });
+
+describe("where you sell", () => {
+  const CH = "/api/v1/b/b-1/channels";
+  const ch = (over: Record<string, boolean> = {}) => ({
+    status: 200,
+    body: { amazon: true, flipkart: false, meesho: false, own_invoices: false, answered: true, ...over },
+  });
+  const ready = async (role = "owner") => {
+    server.reply(PROFILE, { status: 200, body: profile() });
+    open(role);
+    await screen.findByRole("heading", { name: "Where you sell" });
+    await vi.waitFor(() => expect(screen.getByRole("checkbox", { name: "Amazon" })).toBeChecked());
+  };
+
+  it("shows what's saved and sends all four answers, own invoices included", async () => {
+    server.reply(CH, ch(), ch({ own_invoices: true }));
+    await ready();
+    const save = screen.getByRole("button", { name: "Save where you sell" });
+    expect(save).toBeDisabled();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Own sales invoices" }));
+    fireEvent.click(save);
+    expect(await screen.findByText(/Saved\. Your deadlines/)).toBeInTheDocument();
+    const put = server.sent.find((s) => s.path === CH && s.method === "PUT");
+    expect(put?.body).toEqual({ amazon: true, flipkart: false, meesho: false, own_invoices: true });
+  });
+
+  it("won't save with nothing ticked", async () => {
+    server.reply(CH, ch());
+    await ready();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Amazon" }));
+    expect(screen.getByText("Pick at least one to continue.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save where you sell" })).toBeDisabled();
+    expect(server.sent.some((s) => s.path === CH && s.method === "PUT")).toBe(false);
+  });
+
+  it("is read-only for a role that can't edit settings", async () => {
+    server.reply(CH, ch());
+    await ready("viewer");
+    expect(screen.getByRole("checkbox", { name: "Amazon" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Save where you sell" })).toBeNull();
+  });
+
+  it("shows the server's refusal and keeps the ticks", async () => {
+    server.reply(CH, ch(), { status: 404, body: { error: { code: "not_found", message: "" } } });
+    await ready();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Meesho" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save where you sell" }));
+    await vi.waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
+    expect(screen.getByRole("checkbox", { name: "Meesho" })).toBeChecked();
+  });
+});
