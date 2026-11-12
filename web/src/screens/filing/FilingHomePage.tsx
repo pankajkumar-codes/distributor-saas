@@ -56,7 +56,7 @@ export function FilingHomePage() {
   const fy = fyIst();
   const last = previousFy(fy);
   const now = useReturns(businessId, fy, Boolean(business));
-  const before = useReturns(businessId, last, Boolean(business) && now.isSuccess);
+  const before = useReturns(businessId, last, Boolean(business) && now.isSuccess && now.data.filing_frequency !== null);
 
   if (businesses.isPending) {
     return (
@@ -67,7 +67,7 @@ export function FilingHomePage() {
   }
   if (!business) return <NotFound />;
 
-  const notSet = now.error?.code === "filing_frequency_not_set";
+  const notSet = now.isSuccess && now.data.filing_frequency === null; // the server sends an empty list, not an error
   // Last year's rows only while something is still open there (a late March or Q4 return).
   const rows: ReturnRow[] = [
     ...(before.data?.returns.filter((r) => r.status === "open" || r.status === "unlocked") ?? []),
@@ -94,8 +94,8 @@ export function FilingHomePage() {
             </p>
           </section>
         )}
-        {now.isError && !notSet && <Banner tone="error">We couldn't load your deadlines. {errorText(now.error)}</Banner>}
-        {now.isSuccess && (
+        {now.isError && <Banner tone="error">We couldn't load your deadlines. {errorText(now.error)}</Banner>}
+        {now.isSuccess && !notSet && (
           <section className="card" aria-labelledby="deadlines">
             <h2 id="deadlines">Deadlines</h2>
             {rows.length === 0 ? (

@@ -19,7 +19,7 @@ export type ReturnRow = {
   due_date_source_url: string | null;
   status: string;
 };
-export type ReturnsOut = { fy: string; filing_frequency: "monthly" | "quarterly"; returns: ReturnRow[] };
+export type ReturnsOut = { fy: string; filing_frequency: "monthly" | "quarterly" | null; returns: ReturnRow[] };
 
 type RawGet = (path: string, init: { params: { path: { business_id: string }; query: { fy: string } } }) => Promise<{ data?: ReturnsOut; error?: unknown; response: Response }>;
 
@@ -31,6 +31,5 @@ export function useReturns(businessId: string, fy: string, enabled: boolean) {
         (api.GET as unknown as RawGet)("/api/v1/b/{business_id}/returns", { params: { path: { business_id: businessId }, query: { fy } } }),
       ),
     enabled,
-    retry: (count, error) => error.code !== "filing_frequency_not_set" && count < 2,
   });
 }

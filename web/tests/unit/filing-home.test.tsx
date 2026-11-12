@@ -27,7 +27,7 @@ const row = (over: Record<string, unknown>) => ({
   ...over,
 });
 const ok = (returns: unknown[], filing_frequency = "quarterly") => ({ status: 200, body: { fy: "x", filing_frequency, returns } });
-const NOT_SET = { status: 409, body: { error: { code: "filing_frequency_not_set", message: "" } } };
+const NOT_SET = { status: 200, body: { fy: "x", filing_frequency: null, returns: [] } };
 
 let server: ReturnType<typeof fakeApi>;
 beforeEach(() => {
@@ -123,7 +123,7 @@ describe("Filing home", () => {
     expect(asked).toEqual([fyIst(), previousFy(fyIst())]);
   });
 
-  it("sends the user to Settings when no frequency is set, and doesn't retry that", async () => {
+  it("sends the user to Settings when no frequency is set, and doesn't ask for last year", async () => {
     server.reply(NOW, NOT_SET);
     open();
     const link = await screen.findByRole("link", { name: "Choose your filing frequency" });
