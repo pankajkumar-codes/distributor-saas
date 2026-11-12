@@ -69,7 +69,7 @@ function fillGstinBusiness() {
 const CHANNELS = "/api/v1/b/b-1/channels";
 const channelsSaved = { status: 200, body: { amazon: true, flipkart: false, meesho: false, own_invoices: false, answered: true } };
 /** Step 3's Continue, then step 4: one platform, quarterly, Finish. A test that wants the channels call to fail queues its reply first. */
-function submitAll(frequency: string | null = "Every quarter (QRMP)") {
+function submitAll(frequency: string | null = "Quarterly (QRMP)") {
   server.reply(CHANNELS, channelsSaved);
   fireEvent.click(screen.getByRole("button", { name: "Continue" }));
   pickPlatform("Amazon");
@@ -143,8 +143,8 @@ describe("where you sell (step 2 of the form)", () => {
     server.reply(CHANNELS, channelsSaved);
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     pickPlatform("Flipkart");
-    pickPlatform("Own sales invoices (PDF or Excel)");
-    pick("Every month");
+    pickPlatform("Own sales invoices");
+    pick("Monthly");
     finish();
     await screen.findByRole("heading", { name: HOME });
     expect(sentTo(CHANNELS)[0].body).toEqual({ amazon: false, flipkart: true, meesho: false, own_invoices: true });
@@ -169,7 +169,7 @@ describe("where you sell (step 2 of the form)", () => {
     server.reply(CHANNELS, { status: 400, body: { error: { code: "invalid", message: "x" } } });
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     pickPlatform("Amazon");
-    pick("Every quarter (QRMP)");
+    pick("Quarterly (QRMP)");
     finish();
     await screen.findByRole("heading", { name: HOME });
     expect(screen.getByText(/couldn't save where you sell/)).toBeInTheDocument();
@@ -301,7 +301,7 @@ describe("saving the business", () => {
     fillGstinBusiness();
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     finish();
-    expect(screen.getByText(/Choose at least one/)).toBeInTheDocument();
+    expect(screen.getByText("Pick at least one to continue.")).toBeInTheDocument();
     expect(screen.getByText("Choose how often you file GST.")).toBeInTheDocument();
     expect(sentTo(CREATE)).toHaveLength(0);
     expect(sentTo(CHANNELS)).toHaveLength(0);

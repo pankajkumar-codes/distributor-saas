@@ -26,11 +26,11 @@ type Frequency = components["schemas"]["FrequencyIn"]["frequency"];
 type Errors = Record<string, string | undefined>;
 type Channels = components["schemas"]["ChannelsIn"];
 
-export const PLATFORM_OPTIONS: { value: keyof Channels; label: string }[] = [
+export const PLATFORM_OPTIONS: { value: keyof Channels; label: string; sub?: string }[] = [
   { value: "amazon", label: "Amazon" },
   { value: "flipkart", label: "Flipkart" },
   { value: "meesho", label: "Meesho" },
-  { value: "own_invoices", label: "Own sales invoices (PDF or Excel)" },
+  { value: "own_invoices", label: "Own sales invoices", sub: "Invoices you make yourself, as PDF and/or Excel" },
 ];
 export const NO_PLATFORMS: Channels = { amazon: false, flipkart: false, meesho: false, own_invoices: false };
 /** The fields that belong to step 3; a refusal naming one sends the user back there. */
@@ -63,9 +63,6 @@ export function fieldError(error: ApiError, gstin: string): { field: string; tex
     : (BY_CODE[error.code] ?? (error.code === "invalid" ? (INVALID[field] ?? "Check this entry.") : errorText(error)));
   return { field, text };
 }
-
-const display = (day: string) =>
-  new Date(`${day}T00:00:00Z`).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 
 /**
  * /onboarding/business (M2 step 3). The GSTIN check here is a hint only, from the same
@@ -185,7 +182,7 @@ export function BusinessPage() {
     return found;
   };
   const step4Errors = (): Errors => ({
-    platforms: Object.values(platforms).some(Boolean) ? undefined : "Choose at least one. Tick your own sales invoices if you sell directly.",
+    platforms: Object.values(platforms).some(Boolean) ? undefined : "Pick at least one to continue.",
     frequency: kind === "gstin" && !frequency ? "Choose how often you file GST." : undefined,
   });
 
@@ -446,20 +443,20 @@ export function BusinessPage() {
             options={PLATFORM_OPTIONS}
             value={platforms}
             onChange={setPlatforms}
-            hint="Tick all that apply. You can change this later in Business setup."
+            hint="Tick every one that applies. At least one is needed. You can change this later."
             error={err("platforms")}
           />
           {kind === "gstin" && (
             <RadioGroup<Frequency>
-              legend="How often do you file GSTR-1?"
+              legend="How often do you file GST?"
               name="frequency"
               options={[
-                { value: "quarterly", label: "Every quarter (QRMP)" },
-                { value: "monthly", label: "Every month" },
+                { value: "monthly", label: "Monthly", sub: "GSTR-1 and GSTR-3B every month" },
+                { value: "quarterly", label: "Quarterly (QRMP)", sub: "GSTR-1 and GSTR-3B every quarter" },
               ]}
               value={frequency}
               onChange={setFrequency}
-              hint={`This applies from the quarter starting ${display(startsOn)}. If you're not sure, ask your CA.`}
+              hint="This sets the deadlines we show. It doesn't change anything on the GST portal."
               error={err("frequency")}
             />
           )}

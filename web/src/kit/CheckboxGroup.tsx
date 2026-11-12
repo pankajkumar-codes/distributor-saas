@@ -1,6 +1,6 @@
 import { useId } from "react";
 
-type Option<T extends string> = { value: T; label: string };
+type Option<T extends string> = { value: T; label: string; sub?: string };
 type Props<T extends string> = {
   legend: string;
   options: Option<T>[];
@@ -19,15 +19,23 @@ export function CheckboxGroup<T extends string>({ legend, options, value, onChan
     <fieldset className="field radios" aria-describedby={described || undefined} disabled={disabled}>
       <legend>{legend}</legend>
       {options.map((o) => (
-        <label key={o.value} className="radio">
+        <div key={o.value} className="opt">
+          <label className="radio">
           <input
             type="checkbox"
+            aria-describedby={o.sub ? `${id}-${o.value}-sub` : undefined}
             checked={value[o.value]}
             aria-invalid={error ? true : undefined}
             onChange={(e) => onChange({ ...value, [o.value]: e.target.checked })}
           />
           {o.label}
-        </label>
+          </label>
+          {o.sub && (
+            <span id={`${id}-${o.value}-sub`} className="hint sub">
+              {o.sub}
+            </span>
+          )}
+        </div>
       ))}
       {hint && (
         <p id={`${id}-hint`} className="hint">
