@@ -8,3 +8,6 @@ const RATE_CONFIRMERS = new Set(["owner", "admin"]); // L3-3, a rule inside cata
 
 export const canEditCatalog = (role: string) => CATALOG_EDITORS.has(role);
 export const canConfirmRates = (role: string) => RATE_CONFIRMERS.has(role);
+
+const DOCUMENT_EDITORS = new Set(["owner", "admin", "billing"]); // documents.create
+export const canCreateDocuments = (role: string) => DOCUMENT_EDITORS.has(role);
