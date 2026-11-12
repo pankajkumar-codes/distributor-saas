@@ -9,6 +9,7 @@ import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
+import { useMe } from "../../auth/useMe";
 import { msUntilFirst } from "../settings/SupportPage";
 
 type Grants = components["schemas"]["SupportGrants"];
@@ -16,7 +17,8 @@ type Grants = components["schemas"]["SupportGrants"];
 /**
  * Support staff's landing page (LLD-2 §6.2): the businesses whose owner has given support
  * access now, soonest to end first. The list is the whole support team's, by design. Anyone
- * who isn't support with TOTP on gets the server's 404, shown as not found.
+ * who isn't support with TOTP on gets the server's 404, shown as not found, except support
+ * staff who haven't turned TOTP on yet: they are sent to turn it on (L2-5).
  */
 export function SupportBusinessesPage() {
   const grants = useQuery<Grants, ApiError>({
@@ -25,7 +27,28 @@ export function SupportBusinessesPage() {
     // Drop a business from the list when its access ends, without a reload.
     refetchInterval: (q) => msUntilFirst(q.state.data?.grants.map((g) => g.expires_at) ?? []),
   });
-  if (grants.error?.status === 404) return <NotFound />;
+  const refused = grants.error?.status === 404;
+  const me = useMe({ enabled: refused });
+  if (refused && me.data?.user.is_support && !me.data.user.totp_enabled) {
+    return (
+      <>
+        <TopBar />
+        <main className="page">
+          <h1>Turn on two-step sign-in first</h1>
+          <p>Support staff need two-step sign-in on before they can view any business.</p>
+          <Link to="/account/security">Turn on two-step sign-in</Link>
+        </main>
+      </>
+    );
+  }
+  if (refused && (me.data || me.error)) return <NotFound />;
+  if (refused) {
+    return (
+      <main className="page" aria-busy="true">
+        <p>Loading…</p>
+      </main>
+    );
+  }
   const list = grants.data?.grants ?? [];
 
   return (
@@ -55,6 +78,19 @@ export function SupportBusinessesPage() {
               </li>
             ))}
           </ul>
+        )}
+        {grants.data && (
+          <nav className="card" aria-labelledby="tools">
+            <h2 id="tools">Support tools</h2>
+            <ul className="list">
+              <li>
+                <Link to="/support/totp-recovery">Remove someone's two-step sign-in</Link>
+              </li>
+              <li>
+                <Link to="/account/security">Your two-step sign-in</Link>
+              </li>
+            </ul>
+          </nav>
         )}
       </main>
     </>

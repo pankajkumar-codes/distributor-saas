@@ -13,11 +13,13 @@ import { ProductPage } from "./screens/products/ProductPage";
 import { ProductsPage } from "./screens/products/ProductsPage";
 import { ResetPage } from "./screens/reset/ResetPage";
 import { AuditPage } from "./screens/settings/AuditPage";
+import { SecurityPage } from "./screens/settings/SecurityPage";
 import { CompanyPage } from "./screens/settings/CompanyPage";
 import { FilingPage } from "./screens/settings/FilingPage";
 import { SupportPage } from "./screens/settings/SupportPage";
 import { SigninPage } from "./screens/signin/SigninPage";
 import { SupportBusinessesPage } from "./screens/support/SupportBusinessesPage";
+import { TotpRecoveryPage } from "./screens/support/TotpRecoveryPage";
 import { SignupPage } from "./screens/signup/SignupPage";
 
 // LLD-1 §11.2. Team and My account come in later S1 PRs.
@@ -41,5 +43,8 @@ export const routes: RouteObject[] = [
   { path: "/b/:businessId/settings/filing", element: <RequireAuth><FilingPage /></RequireAuth> },
   { path: "/b/:businessId/settings/support", element: <RequireAuth><SupportPage /></RequireAuth> },
   { path: "/b/:businessId/settings/audit", element: <RequireAuth><AuditPage /></RequireAuth> },
+  { path: "/b/:businessId/settings/security", element: <RequireAuth><SecurityPage /></RequireAuth> },
+  { path: "/account/security", element: <RequireAuth><SecurityPage /></RequireAuth> },
+  { path: "/support/totp-recovery", element: <RequireAuth><TotpRecoveryPage /></RequireAuth> },
   { path: "*", element: <NotFound /> },
 ];
