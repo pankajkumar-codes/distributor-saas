@@ -10,6 +10,11 @@
 useDefault = true
 
 [allowlist]
-description = "refdata row names (refdata/values/*.yaml `key:` lines)"
+description = "refdata row names (refdata/values/*.yaml `key:` lines, and code that names a refdata key)"
 regexTarget = "line"
-regexes = ['''^\+?\s*-?\s*key: [a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+\s*$''']
+regexes = [
+    '''^\+?\s*-?\s*key: [a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+\s*$''',
+    # Python that names a refdata key: `key = "due.gstr3b.quarterly"`, `key == '...'` or `key = spec.due_key`.
+    '''\bkey ={1,2} ['"][a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+['"]''',
+    '''\bkey = spec\.due_key\b''',
+]

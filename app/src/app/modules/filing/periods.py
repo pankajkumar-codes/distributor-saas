@@ -1,7 +1,7 @@
 """Return instances and assignment (LLD-5 §4, §8; LLD-4 §11, L4-12; HLD §5.4).
 
 One return instance per GSTIN, form and period, created lazily from the filing frequency
-(business.filing_frequency_on) and the due dates in refdata (refdata/values/returns.yaml).
+(the business module's frequency lookup) and the due dates in refdata (refdata/values/returns.yaml).
 Finalize calls `target_return_instance` and then `assert_period_open` in its transaction,
 before allocating a number (agreed with Staff 2 (4) for F2).
 
