@@ -19,6 +19,7 @@ Render input v1, template "invoice-draft" (written by app.modules.sales.preview)
      "charges": [{"label", "amount"}], "invoice_discount"?,
      "totals": {"taxable", "taxes": [{"component", "amount"}], "round_off"?, "total",
                 "in_words"} | null,
+     "blocks"?: [str],  # what still stops a finalize, printed under "Before you can finalize"
      "note"?}
 
 Amounts arrive as decimal strings already formatted; the template never does arithmetic.
@@ -43,6 +44,7 @@ td.n { text-align: right; white-space: nowrap }
 .totals { margin-top: 3mm; width: 60%; margin-left: 40%; border-collapse: collapse }
 .totals td { padding: 0.8mm }
 .note { margin-top: 4mm; font-style: italic }
+.blocks { margin-top: 4mm; border: 0.5pt solid #000; padding: 1.5mm }
 """
 
 
@@ -157,6 +159,10 @@ def render_html(doc: dict) -> str:
             f'<tr><td>{label}</td><td class="n">{amount}</td></tr>' for label, amount in rows) + "</table>")
     if totals is not None and totals.get("in_words"):
         out.append(f"<p>Amount in words: {_t(totals.get('in_words'))}</p>")
+    blocks = [_t(b, optional=False) for b in _list(doc.get("blocks"))]
+    if blocks:
+        out.append('<div class="blocks"><b>Before you can finalize</b><ul>'
+                   + "".join(f"<li>{b}</li>" for b in blocks) + "</ul></div>")
     if doc.get("note"):
         out.append(f'<p class="note">{_t(doc.get("note"))}</p>')
     out.append("</body></html>")
