@@ -5,6 +5,7 @@ import { FEATURES } from "./features";
 import { RequireAuth } from "./auth/AuthProvider";
 import { NotFound } from "./kit/NotFound";
 import { BusinessesPage } from "./screens/businesses/BusinessesPage";
+import { FilingHomePage } from "./screens/filing/FilingHomePage";
 import { HomePage } from "./screens/home/HomePage";
 import { BusinessPage } from "./screens/onboarding/BusinessPage";
 import { CustomerPage } from "./screens/customers/CustomerPage";
@@ -34,6 +35,7 @@ export const routes: RouteObject[] = [
   { path: "/businesses", element: <RequireAuth><BusinessesPage /></RequireAuth> },
   { path: "/support", element: <RequireAuth><SupportBusinessesPage /></RequireAuth> },
   { path: "/b/:businessId/home", element: <RequireAuth><HomePage /></RequireAuth> },
+  { path: "/b/:businessId/filing", element: <RequireAuth><FilingHomePage /></RequireAuth> },
   { path: "/b/:businessId/customers", element: <RequireAuth><CustomersPage /></RequireAuth> },
   { path: "/b/:businessId/customers/new", element: <RequireAuth><CustomerPage /></RequireAuth> },
   { path: "/b/:businessId/customers/:customerId", element: <RequireAuth><CustomerPage /></RequireAuth> },
