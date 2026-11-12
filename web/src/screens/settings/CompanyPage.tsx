@@ -16,6 +16,7 @@ import { Field } from "../../kit/Field";
 import { NotFound } from "../../kit/NotFound";
 import { RadioGroup } from "../../kit/RadioGroup";
 import { TopBar } from "../../kit/TopBar";
+import { PlatformsSection } from "./PlatformsSection";
 import { BAND_OPTIONS } from "../onboarding/BusinessPage";
 import { warningText } from "../onboarding/warnings";
 
@@ -353,6 +354,7 @@ export function CompanyPage() {
             </div>
           )}
         </form>
+        <PlatformsSection businessId={businessId} canEdit={canEdit} />
         <p>
           <Link to={`/b/${businessId}/settings/filing`}>Filing frequency</Link>
         </p>
