@@ -24,7 +24,9 @@ from .fiscal import fy_of, previous_fy
 from .frequency import BOUND, carry_frequency
 from .registration import Address, Registration, blank_to_none, check_state, registration
 
-MARKETPLACES = ("amazon", "flipkart", "meesho")
+# ON-2: the three marketplaces and "own sales invoices" (BRD v1.2). One row each in
+# business.marketplace_channels, whose column keeps its old name.
+MARKETPLACES = ("amazon", "flipkart", "meesho", "own_invoices")
 
 
 @dataclass(frozen=True)
@@ -66,6 +68,7 @@ class Channels:
     amazon: bool
     flipkart: bool
     meesho: bool
+    own_invoices: bool
     answered: bool
 
 

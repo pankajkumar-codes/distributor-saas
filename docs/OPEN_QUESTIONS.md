@@ -94,6 +94,8 @@ POST /b already reads `identity.max_owned_businesses` (5, provisional; **Pankaj 
   - **Screen (S2-i).** Settings › Audit log is at `/b/{id}/settings/audit`, for owners and admins, linked from Home. It has the period, person and kind filters, Load more, and Export CSV, which polls until the file is ready. The export status reports `expired` once the file is a day old or gone, and the screen then asks the user to export again. Rows link only to screens that exist (business details, filing, support access, a product, a customer); invoices, returns, drafts and the Team tab show as text until they are built. The mocks' "See what support viewed" link from Support access is still to do. Designer to confirm the filter layout.
   - **File format.** UTF-8 with a BOM, so Excel shows Indian names correctly. Times are in IST (`When (IST)`). "Reason or detail" is the reason followed by the allowlisted details as `key: value`.
 
+- **Own sales invoices as a platform (S-1, ON-2, BRD v1.2).** `PUT /b/{id}/channels` and `GET` carry a fourth boolean, `own_invoices`, required on the PUT (a client that sends only the three marketplaces gets 422, never "off"). It is one more row in `business.marketplace_channels`, whose name is unchanged. The server accepts an empty choice: ON-2 says one or more can be chosen, and the web enforces that on the onboarding step. Nothing else reads the channels yet; upload sections for chosen platforms (GF-13) come with R1b.
+
 ## Business profile (S1-d) items waiting on the GST expert or PO
 | Item | What the code does until then | Source needed |
 |---|---|---|

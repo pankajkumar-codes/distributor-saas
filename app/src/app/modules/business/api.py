@@ -139,6 +139,7 @@ class ChannelsIn(BaseModel):
     amazon: bool
     flipkart: bool
     meesho: bool
+    own_invoices: bool  # required: a stale client must not silently turn it off
 
 
 class ChannelsOut(ChannelsIn):
@@ -275,7 +276,8 @@ def post_frequency(
 # --- Marketplace channels -------------------------------------------------------------
 
 def _channels_out(c: prof.Channels) -> ChannelsOut:
-    return ChannelsOut(amazon=c.amazon, flipkart=c.flipkart, meesho=c.meesho, answered=c.answered)
+    return ChannelsOut(amazon=c.amazon, flipkart=c.flipkart, meesho=c.meesho, own_invoices=c.own_invoices,
+                       answered=c.answered)
 
 
 @router.get("/channels")
