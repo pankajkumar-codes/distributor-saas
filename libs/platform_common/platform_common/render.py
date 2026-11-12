@@ -21,6 +21,7 @@ can see what would have been sent.
 
 import json
 import uuid
+from datetime import timedelta
 
 from .queue import Queue
 from .storage import get_store, key_for
@@ -31,6 +32,11 @@ INPUT_NAME = "input.json"
 DOCUMENT_NAME = "document.pdf"
 FAILED_NAME = "failed.json"  # the renderer's mark that its last try failed (no data in it)
 MAX_INPUT_BYTES = 1024 * 1024  # a 200-line draft is about 60 KB; the renderer refuses more
+# The renderer's last try is over at most max_receive_count x visibility timeout after the
+# message is sent (infra/modules/stack/main.tf: render_max_receives 5 x 360 s; a tools test
+# keeps them equal). A try killed by the Lambda timeout or out of memory writes no
+# failed.json, so a document still missing after this will never come.
+GIVE_UP_AFTER = timedelta(seconds=5 * 360)
 
 _queue: Queue | None = None
 

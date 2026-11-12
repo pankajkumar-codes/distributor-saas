@@ -155,7 +155,7 @@ def test_a_url_planted_in_any_field_is_printed_as_text_and_never_fetched():
             buyer={"name": planted[3], "address": [planted[4]]},
             lines=[{"no": "1", "description": planted[0], "hsn": planted[1], "quantity": "1", "uqc": planted[2],
                     "unit_price": "1.00", "discount": planted[3]}],
-            charges=[{"label": planted[4], "amount": "1.00"}], note=planted[1],
+            charges=[{"label": planted[4], "amount": "1.00"}], note=planted[1], blocks=planted,
         )
         html = template.render_html(doc)
         for tag in ("<img", "<link", "<iframe"):
@@ -221,6 +221,7 @@ def test_a_failed_write_keeps_the_input_for_the_retry():
 @pytest.mark.parametrize("bad", [
     {"v": 2}, {"template": "other"}, {"lines": [{"no": 1, "description": "x", "quantity": "1", "unit_price": "1"}]},
     {"seller": {"name": "x" * 501}}, {"lines": "not a list"}, {"buyer": ["not", "an", "object"]},
+    {"blocks": [1]}, {"blocks": ["x"] * 51},
 ])
 def test_a_malformed_input_writes_no_pdf(bad):
     from renderer import handler
@@ -244,6 +245,15 @@ def test_computed_fields_print_when_present():
                note=None)
     html = template.render_html(doc)
     assert "Taxable value" in html and "CGST 6%: 12.00" in html and "224.00" in html and "Two hundred" in html
+
+
+def test_blocks_print_under_before_you_can_finalize():
+    from renderer import template
+
+    assert "Before you can finalize" not in template.render_html(_doc())
+    html = template.render_html(_doc(blocks=["Add your business address.", "Line 2: Add the HSN code."]))
+    assert "Before you can finalize" in html
+    assert "<li>Add your business address.</li><li>Line 2: Add the HSN code.</li>" in html
 
 
 def _event_try(key, receive_count):

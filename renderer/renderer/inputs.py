@@ -50,7 +50,6 @@ def document_key(key: str) -> str:
     return f"documents/{match[1]}/{DOCUMENT_NAME}"
 
 
-
 def failure_key(key: str) -> str:
     """Where the renderer records that this input's last try failed, next to the PDF it
     could not write. platform_common.render.has_failed reads it."""
