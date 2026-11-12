@@ -525,12 +525,17 @@
           "meesho": {
             "title": "Meesho",
             "type": "boolean"
+          },
+          "own_invoices": {
+            "title": "Own Invoices",
+            "type": "boolean"
           }
         },
         "required": [
           "amazon",
           "flipkart",
-          "meesho"
+          "meesho",
+          "own_invoices"
         ],
         "title": "ChannelsIn",
         "type": "object"
@@ -552,12 +557,17 @@
           "meesho": {
             "title": "Meesho",
             "type": "boolean"
+          },
+          "own_invoices": {
+            "title": "Own Invoices",
+            "type": "boolean"
           }
         },
         "required": [
           "amazon",
           "flipkart",
           "meesho",
+          "own_invoices",
           "answered"
         ],
         "title": "ChannelsOut",

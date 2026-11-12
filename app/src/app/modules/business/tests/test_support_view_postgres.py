@@ -86,7 +86,7 @@ def test_a_write_is_refused_before_the_database(biz, caplog):
     support_user(pg)
     grant(pg, bid)
     before = scalar(pg.owner, "select count(*) from business.marketplace_channels")
-    r = pg.client.put(f"/api/v1/b/{bid}/channels", json={"amazon": True, "flipkart": False, "meesho": False},
+    r = pg.client.put(f"/api/v1/b/{bid}/channels", json={"amazon": True, "flipkart": False, "meesho": False, "own_invoices": False},
                       headers=as_user(SUPPORT))
     assert r.status_code == 404
     assert scalar(pg.owner, "select count(*) from business.marketplace_channels") == before
