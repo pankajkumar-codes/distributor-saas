@@ -352,6 +352,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/drafts/{draft_id}/finalize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finalize Draft
+         * @description Issues the draft as a document with the next number (LLD-4 §4). Off until refdata
+         *     `sales.finalize.enabled` is true: while it is off this route is a 404 like an unknown
+         *     draft, and no number is taken. The same draft finalized twice gives one document.
+         */
+        post: operations["finalize_draft_api_v1_b__business_id__drafts__draft_id__finalize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/drafts/{draft_id}/preview": {
         parameters: {
             query?: never;
@@ -1662,6 +1684,59 @@ export interface components {
             gstin?: string | null;
             /** Name */
             name?: string | null;
+        };
+        /**
+         * DocumentOut
+         * @description The finalized document (LLD-4 §2.3), as stored: it never changes after this.
+         */
+        DocumentOut: {
+            /** Cgst Total */
+            cgst_total: string;
+            /** Counterparty Name */
+            counterparty_name: string | null;
+            /** Customer Id */
+            customer_id: string | null;
+            /**
+             * Doc Date
+             * Format: date
+             */
+            doc_date: string;
+            /** Doc Number */
+            doc_number: string;
+            /** Doc Total */
+            doc_total: string;
+            /** Draft Id */
+            draft_id: string;
+            /** Due Date */
+            due_date: string | null;
+            /** Finalized At */
+            finalized_at: string;
+            /** Fy */
+            fy: string;
+            /** Gstin */
+            gstin: string;
+            /** Id */
+            id: string;
+            /** Igst Total */
+            igst_total: string;
+            /** Is Inter State */
+            is_inter_state: boolean;
+            /** Is Practice */
+            is_practice: boolean;
+            /** Kind */
+            kind: string;
+            /** Pos State Code */
+            pos_state_code: string;
+            /** Round Off */
+            round_off: string;
+            /** Sgst Total */
+            sgst_total: string;
+            /** Supply Class */
+            supply_class: string;
+            /** Taxable Total */
+            taxable_total: string;
+            /** Utgst */
+            utgst: boolean;
         };
         /** DraftIn */
         DraftIn: {
@@ -3827,6 +3902,41 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    finalize_draft_api_v1_b__business_id__drafts__draft_id__finalize_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "If-Match"?: string | null;
+            };
+            path: {
+                draft_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentOut"];
+                };
             };
             /** @description Validation Error */
             422: {

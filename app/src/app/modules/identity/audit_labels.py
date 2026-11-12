@@ -60,6 +60,8 @@ ACTIONS: dict[str, tuple[str, str]] = {
     "draft.created": ("Started an invoice draft", "invoices"),
     "draft.updated": ("Edited an invoice draft", "invoices"),
     "draft.deleted": ("Deleted an invoice draft", "invoices"),
+    "document.finalized": ("Finalized an invoice", "invoices"),
+    "document.pos_override": ("Changed an invoice's place of supply", "invoices"),
     "catalog.import_applied": ("Imported products from a file", "invoices"),
     "catalog.import_superseded": ("Replaced a product file preview with a new upload", "invoices"),
     # Rows copied from identity.audit_events (LLD-1 §3.6) keep their stock-era names.

@@ -37,6 +37,7 @@ A blank or whitespace-only reason is refused (422 `reason_required`). The reason
 - `members.deactivate`
 - `members.reactivate`
 - `documents.s34_override`
+- `document.pos_override`
 - `filing.accept_warning`
 - `imports.changed_line_choice`
 - `product.rate_voided`

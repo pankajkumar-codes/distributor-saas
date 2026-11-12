@@ -131,6 +131,11 @@ POST /b already reads `identity.max_owned_businesses` (5, provisional; **Pankaj 
 | Rate-change warning window (`catalog.rate_change_warning_days` 30, inclusive) | Warns when the rate in force began at most 30 days before the date | CA (tax-computation §5 [CA]) |
 | **A live rate that has left `gst.rate_values` by the invoice date** (for example a rate entered while it was on the list, read for a date after the list dropped it) | Catalog checks a rate against the list for its own `valid_from` only; `product_for_line` returns it with no flag (#52 review) | **LLD-4** decides: a `rate_not_on_list_on_date` flag from catalog read against refdata for the line's date (never a hard-coded date), and whether finalize warns or blocks; the CA says which |
 
+## Finalize (S5, D-044)
+- **Turning finalize on (CA, then CEO or Pankaj):** refdata `sales.finalize.enabled` ships `"false"`, so finalize is a 404 and issues no numbers. Flip it with a new row only after the CA confirms the invoice-numbering scope (D-010, CA-1). The scope the code uses today is `sales.numbering_scope` = `gstin_kind_fy` (LLD-4 L4-2), provisional; another scope would need code and a migration for its unique index.
+- **F1 is practice only.** No `series_settings` row, or `practice_mode` true, gives a practice document (`PR-0001`, refdata `sales.practice_prefix` and `sales.practice_width`, both provisional product rows). A business set to live numbering gets 422 `live_numbering_unavailable` until F2 (return assignment through the Senior's filing interface, `lock_gstin`, the e-invoicing block). The settings screen that writes `series_settings` also comes later.
+- **Not yet in F1:** the PDF render job after finalize, the `invoice.first` usage event, and branding in the snapshot (empty until LLD-1's branding table lands). A document's `print` holds the seller and buyer as they were at finalize.
+
 ## Invoice drafts (S4) items waiting on the GST expert, CA or PO
 
 - **Place of supply 96 (other country) on a draft (S4-b3).** `pos_override = "96"` is refused (`pos_other_country_unsupported`) because exports and SEZ supplies (zero-rated, LUT or IGST paid, their own GSTR-1 tables) aren't modelled. GST expert and PO to say whether R1 needs them.

@@ -10,3 +10,50 @@
   last_checked: 2026-11-09
   status: provisional
   note: "Counted from the draft's last save. Read only by retention.purge_drafts, which ships disabled."
+
+# Finalize (LLD-4 §4). Built behind a switch while the numbering scope waits for the CA
+# (D-010, CA-1); CEO 2026-11-09: finalize is built, off by default, with the scope from
+# config on a provisional row.
+
+- key: sales.finalize.enabled
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-09
+  source_url: team/docs/lld-4.md
+  source_title: "LLD-4 §4 finalize; CEO 2026-11-09: build it behind a switch that is off until the CA confirms the numbering scope"
+  last_checked: 2026-11-09
+  status: provisional
+  note: "While false, POST /drafts/{id}/finalize is a 404 and no number is issued. Turn on with a later row once D-010 is confirmed."
+
+- key: sales.numbering_scope
+  value: "gstin_kind_fy"
+  type: enum
+  allowed: [gstin_kind_fy]
+  kind: product
+  valid_from: 2026-11-09
+  source_url: team/docs/lld-4.md
+  source_title: "LLD-4 §2.2 and L4-2: one series per GSTIN, document kind and FY, prefix fixed for the FY"
+  last_checked: 2026-11-09
+  status: provisional
+  note: "D-010: the CA confirms the legal scope (CA-1). Another scope is a new allowed value plus code and a migration for its unique index."
+
+- key: sales.practice_prefix
+  value: "PR-"
+  type: text
+  kind: product
+  valid_from: 2026-11-09
+  source_url: team/docs/lld-4.md
+  source_title: "LLD-4 §2.2: practice series use prefix sales.practice_prefix (PR-), width 4"
+  last_checked: 2026-11-09
+  status: provisional
+
+- key: sales.practice_width
+  value: "4"
+  type: integer
+  kind: product
+  valid_from: 2026-11-09
+  source_url: team/docs/lld-4.md
+  source_title: "LLD-4 §2.2: practice series use prefix sales.practice_prefix (PR-), width 4"
+  last_checked: 2026-11-09
+  status: provisional

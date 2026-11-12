@@ -354,7 +354,10 @@ def _plant_drafts(c):
                     (uuid.uuid4(), biz, d, n),
                 )
             if status != "open":  # lines first: a finalized draft's lines are frozen
+                # Setup only: frozen without a document, past the finalize guard (SDR02).
+                c.execute("set local session_replication_role = replica")
                 c.execute("update sales.drafts set status = %s where id = %s", (status, d))
+                c.execute("set local session_replication_role = origin")
 
 
 def _draft_counts(c):
