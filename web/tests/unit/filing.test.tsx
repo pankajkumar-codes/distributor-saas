@@ -1,33 +1,42 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../../src/App";
 import { resetSessionForTests } from "../../src/auth/session";
-import { fyIst, previousFy } from "../../src/format/dates";
+import { quarterStartIst } from "../../src/format/dates";
 import { fakeApi } from "./fakeApi";
 
 const REFRESH = "/api/v1/auth/refresh";
 const ME = "/api/v1/me/businesses";
-const NOW = `/api/v1/b/b-1/returns`;
+const PROFILE = "/api/v1/b/b-1/filing-profile";
+const CHANGE = `${PROFILE}/frequency`;
+const GSTIN = "19ABCDE1234F1Z5";
 const me = (role = "owner") => ({
   status: 200,
-  body: { businesses: [{ business_id: "b-1", display_name: "Vashi Essentials", gstin: "19ABCDE1234F1Z5", role }] },
+  body: { businesses: [{ business_id: "b-1", display_name: "Vashi Essentials", gstin: GSTIN, role }] },
 });
-const row = (over: Record<string, unknown>) => ({
-  instance_id: crypto.randomUUID(),
-  form: "GSTR1",
-  period: "2026-Q3",
-  period_label: "Oct–Dec 2026",
-  period_start: "2026-10-01",
-  period_end: "2026-12-31",
-  due_date: "2027-01-13",
-  due_date_confirmed: true,
-  due_date_source_url: null,
-  status: "open",
+// A quarter the server names that is neither this quarter nor anything the web could work out.
+const NEXT = "2099-04-01";
+const row = (over: Record<string, unknown> = {}) => ({
+  id: "f-1",
+  gstin: GSTIN,
+  frequency: "quarterly",
+  effective_from: "2026-04-01",
+  chosen_at: "2026-10-31T20:00:00Z", // 1 Nov in India
+  warnings: [],
   ...over,
 });
-const ok = (returns: unknown[], filing_frequency = "quarterly") => ({ status: 200, body: { fy: "x", filing_frequency, returns } });
-const NOT_SET = { status: 409, body: { error: { code: "filing_frequency_not_set", message: "" } } };
+const profile = (over: Record<string, unknown> = {}) => ({
+  status: 200,
+  body: {
+    gstin: GSTIN,
+    current: { frequency: "quarterly", effective_from: "2026-04-01" },
+    history: [row()],
+    window: { for_quarter: NEXT, opens: "2099-03-01", closes: "2099-04-30" },
+    warnings: [],
+    ...over,
+  },
+});
 
 let server: ReturnType<typeof fakeApi>;
 beforeEach(() => {
@@ -39,110 +48,89 @@ afterEach(() => vi.unstubAllGlobals());
 
 function open(role = "owner") {
   server.reply(ME, me(role));
-  window.history.replaceState(null, "", "/b/b-1/filing");
+  window.history.replaceState(null, "", "/b/b-1/settings/filing");
   render(<App />);
 }
+const sent = () => server.sent.filter((s) => s.path === CHANGE && s.method === "POST");
 
-describe("Filing home", () => {
-  it("shows the server's rows in order with its labels, only GSTR-1 and GSTR-3B", async () => {
-    server.reply(
-      NOW,
-      ok([
-        row({ form: "GSTR1", due_date: "2027-01-13" }),
-        row({ form: "GSTR3B", due_date: "2027-01-24", period_label: "Oct–Dec 2026" }),
-        row({ form: "IFF", period: "2026-10", period_label: "October 2026" }),
-        row({ form: "PMT06", period: "2026-10", period_label: "October 2026" }),
-      ]),
-      ok([]),
-    );
+describe("filing frequency", () => {
+  it("shows the current frequency, the server's window and the history", async () => {
+    server.reply(PROFILE, profile());
     open();
-    const table = await screen.findByRole("table");
-    const rows = within(table).getAllByRole("row").slice(1);
-    expect(rows).toHaveLength(2);
-    expect(rows[0]).toHaveTextContent("Oct–Dec 2026");
-    expect(rows[0]).toHaveTextContent("01-Oct-2026 to 31-Dec-2026");
-    expect(rows[0]).toHaveTextContent("GSTR-1");
-    expect(rows[0]).toHaveTextContent("13-Jan-2027");
-    expect(rows[1]).toHaveTextContent("GSTR-3B");
-    expect(rows[1]).toHaveTextContent("24-Jan-2027");
-    expect(screen.getByText("Quarterly (QRMP) filer.")).toBeInTheDocument();
-    expect(within(table).queryByRole("button")).toBeNull(); // no filing action until the upload screens exist
-    expect(screen.queryByText("To be confirmed")).toBeNull();
+    expect(await screen.findByText("Every quarter (QRMP), from 01-Apr-2026.")).toBeInTheDocument();
+    expect(screen.getByText(/quarter starting 01-Apr-2099 can be made on the GST portal from 01-Mar-2099 to 30-Apr-2099/)).toBeInTheDocument();
+    const history = screen.getByRole("table");
+    expect(within(history).getByText("01-Nov-2026")).toBeInTheDocument();
   });
 
-  it("marks an unconfirmed date as to be confirmed, with the source link only when it is https", async () => {
-    server.reply(
-      NOW,
-      ok([
-        row({ due_date_confirmed: false, due_date_source_url: "https://example.gov/notice" }),
-        row({ form: "GSTR3B", due_date_confirmed: false, due_date_source_url: "javascript:alert(1)" }),
-        row({ form: "GSTR3B", period: "2026-Q2", period_label: "Jul–Sep 2026", due_date: null, due_date_confirmed: false }),
-      ]),
-      ok([]),
-    );
+  it("offers only the server's quarter and this one, and changes the frequency with the server's warnings", async () => {
+    server.reply(PROFILE, profile(), profile({ current: { frequency: "monthly", effective_from: NEXT }, history: [row({ id: "f-2", frequency: "monthly", effective_from: NEXT }), row()] }));
+    server.reply(CHANGE, { status: 422, body: { error: { code: "effective_from_too_far", message: "choose a quarter starting 2027-01-01 or earlier", field: "effective_from" } } }, {
+      status: 201,
+      body: { row: row({ id: "f-2", frequency: "monthly", effective_from: NEXT }), warnings: ["outside_window"], superseded_instances: ["r-1", "r-2"] },
+    });
     open();
-    await screen.findByRole("table");
-    expect(screen.getAllByText("To be confirmed")).toHaveLength(2);
-    const link = screen.getByRole("link", { name: "Where this date comes from" });
-    expect(link).toHaveAttribute("href", "https://example.gov/notice");
-    expect(screen.getAllByRole("link", { name: "Where this date comes from" })).toHaveLength(1);
-    expect(screen.getByText(/No date available/)).toBeInTheDocument();
+    await screen.findByText("Every quarter (QRMP), from 01-Apr-2026.");
+    const starts = screen.getByRole("group", { name: "Starting from the quarter that begins" });
+    expect(within(starts).getAllByRole("radio").map((r) => (r as HTMLInputElement).value)).toEqual([quarterStartIst(), NEXT].sort());
+    expect(within(starts).getByRole("radio", { name: "01-Apr-2099" })).toBeChecked();
+
+    fireEvent.click(screen.getByRole("radio", { name: "Every month" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save frequency" }));
+    expect(await within(starts).findByText("choose a quarter starting 2027-01-01 or earlier")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Save frequency" }));
+
+    expect(await screen.findByText(/Saved: Every month, from 01-Apr-2099\. 2 empty return periods were replaced to match\./)).toBeInTheDocument();
+    expect(screen.getByText(/may fall outside the period when it can be changed on the GST portal/)).toBeInTheDocument();
+    expect(await screen.findByText("Every month, from 01-Apr-2099.")).toBeInTheDocument();
+    const [first, second] = sent();
+    expect(first.body).toEqual({ frequency: "monthly", effective_from: NEXT });
+    expect(second.headers.get("Idempotency-Key")).toBe(first.headers.get("Idempotency-Key")); // same choice, same key
   });
 
-  it("shows each status in words, and monthly labels as sent", async () => {
-    server.reply(
-      NOW,
-      ok(
-        [
-          row({ period: "2026-10", period_label: "October 2026", status: "filed_locked" }),
-          row({ period: "2026-10", period_label: "October 2026", form: "GSTR3B", status: "unlocked" }),
-          row({ period: "2026-09", period_label: "September 2026", status: "skipped" }),
-        ],
-        "monthly",
-      ),
-      ok([]),
-    );
+  it("uses a new key for a new choice", async () => {
+    server.reply(PROFILE, profile());
+    server.reply(CHANGE, { status: 503 }, { status: 503 });
     open();
-    await screen.findByRole("table");
-    expect(screen.getByText("Marked as filed")).toBeInTheDocument();
-    expect(screen.getByText("Reopened after filing")).toBeInTheDocument();
-    expect(screen.getByText("Not required")).toBeInTheDocument();
-    expect(screen.getByText("Monthly filer.")).toBeInTheDocument();
-    expect(screen.getAllByText("October 2026")).toHaveLength(2);
+    await screen.findByText("Every quarter (QRMP), from 01-Apr-2026.");
+    fireEvent.click(screen.getByRole("radio", { name: "Every month" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save frequency" }));
+    expect(await screen.findByText(/Something went wrong on our side/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: "Every quarter (QRMP)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save frequency" }));
+    await vi.waitFor(() => expect(sent()).toHaveLength(2));
+    expect(sent()[1].headers.get("Idempotency-Key")).not.toBe(sent()[0].headers.get("Idempotency-Key"));
   });
 
-  it("adds last year's rows only while they are still open", async () => {
-    server.reply(NOW, ok([row({ period_label: "Apr–Jun 2026", instance_id: "now" })]), ok([
-      row({ period_label: "Jan–Mar 2026", instance_id: "a", status: "open" }),
-      row({ period_label: "Oct–Dec 2025", instance_id: "b", status: "filed_locked" }),
-    ]));
+  it("shows no window dates when the server doesn't know them, only its warning", async () => {
+    server.reply(PROFILE, profile({ current: null, history: [], window: { for_quarter: NEXT, opens: null, closes: null }, warnings: ["window_unknown"] }));
     open();
-    expect(await screen.findByText("Jan–Mar 2026")).toBeInTheDocument();
-    expect(screen.queryByText("Oct–Dec 2025")).toBeNull();
-    const asked = server.sent.filter((s) => s.path === NOW).map((s) => new URL(s.url).searchParams.get("fy"));
-    expect(asked).toEqual([fyIst(), previousFy(fyIst())]);
+    expect(await screen.findByText("You haven't chosen a filing frequency yet.")).toBeInTheDocument();
+    expect(screen.getByText(/We can't show the dates for changing your filing frequency yet/)).toBeInTheDocument();
+    expect(screen.queryByText(/can be made on the GST portal/)).toBeNull();
+    expect(screen.getByRole("heading", { name: "Choose frequency" })).toBeInTheDocument();
   });
 
-  it("sends the user to Settings when no frequency is set, and doesn't retry that", async () => {
-    server.reply(NOW, NOT_SET);
+  it("says a frequency needs a GSTIN, without promising a GSTIN change the app doesn't offer", async () => {
+    server.reply(PROFILE, profile({ gstin: null, current: null, history: [] }));
     open();
-    const link = await screen.findByRole("link", { name: "Choose your filing frequency" });
-    expect(link).toHaveAttribute("href", "/b/b-1/settings/filing");
-    expect(server.sent.filter((s) => s.path === NOW)).toHaveLength(1);
-    expect(screen.queryByRole("table")).toBeNull();
+    expect(await screen.findByText(/You can choose a filing frequency once your business has a GSTIN\. Adding a GSTIN to a business registered with an enrolment number isn't available in the app yet\./)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "business details" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Save frequency" })).toBeNull();
   });
 
-  it("is NotFound for a business the user isn't in, without asking the server for it", async () => {
-    server.reply(ME, me());
-    window.history.replaceState(null, "", "/b/b-9/filing");
+  it("shows the values but no form to a role that can't change settings", async () => {
+    server.reply(PROFILE, profile());
+    open("ca");
+    await screen.findByText("Every quarter (QRMP), from 01-Apr-2026.");
+    expect(screen.queryByRole("button", { name: "Save frequency" })).toBeNull();
+  });
+
+  it("is NotFound for another business", async () => {
+    server.reply(ME, { status: 200, body: { businesses: [] } });
+    window.history.replaceState(null, "", "/b/b-1/settings/filing");
     render(<App />);
     expect(await screen.findByText(/couldn't find that page/i)).toBeInTheDocument();
-    expect(server.paths()).not.toContain("/api/v1/b/b-9/returns");
-  });
-
-  it("lets a CA read it (the server decides, and the screen has no actions to hide)", async () => {
-    server.reply(NOW, ok([row({})]), ok([]));
-    open("ca");
-    expect(await screen.findByRole("table")).toBeInTheDocument();
+    expect(server.paths()).not.toContain(PROFILE);
   });
 });
