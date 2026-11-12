@@ -7,10 +7,10 @@ Made-up data. Skipped unless PG_ADMIN_URL points at a disposable server.
 
 import json
 import uuid
+from datetime import timedelta
 
 import pytest
 
-from app.modules.sales import preview
 from platform_common import jobs, render
 from platform_common.queue import FakeQueue, set_queue
 from platform_common.storage import LocalObjectStore, set_store
@@ -76,10 +76,20 @@ def test_a_preview_writes_the_render_input_and_queues_only_its_key(shop):
     assert doc["buyer"]["name"] == "Sharma Stores" and doc["buyer"]["gstin"] == "27AAPFU0939F1ZV"
     assert doc["buyer"]["state"].endswith("(27)")
     assert doc["lines"] == [{"no": "1", "description": "Neem soap", "hsn": "3401", "quantity": "2.5", "uqc": "PCS",
-                             "unit_price": "45.50", "discount": "5.00%"}]
+                             "unit_price": "45.50", "discount": "5.00%",
+                             # 2.5 x 45.50 = 113.75, less 5% = 108.06, plus the 150.00 freight
+                             # (charges are taxable with the line) = 258.06; IGST 18% = 46.45.
+                             "taxable": "258.06", "rate": "18",
+                             "taxes": [{"component": "IGST", "rate": "18", "amount": "46.45"}], "total": "304.51"}]
     assert doc["charges"] == [{"label": "Freight", "amount": "150.00"}]
-    # No tax figures until the computation is wired in (S4-b), and nothing that looks like a number.
-    assert doc["totals"] is None and doc["place_of_supply"] is None and doc["note"] == preview.TAX_LATER
+    # The computation's figures, as a save stores them (drafts.computation).
+    assert doc["place_of_supply"] == "Maharashtra (27)"
+    assert doc["totals"] == {"taxable": "258.06", "taxes": [{"component": "IGST", "amount": "46.45"}],
+                             "round_off": None, "total": "304.51",
+                             "in_words": "Rupees Three Hundred Four and Fifty One Paise Only"}
+    assert doc["blocks"] == ["Line 1: Tell us last year's turnover band (FY 2025-26) to use 4-digit HSN codes. "
+                             "Until then, HSN codes need at least 6 digits."]
+    assert "note" not in doc
     assert "number" not in json.dumps(doc)
 
     assert _status(pg, biz, d, job_id).json()["status"] == "rendering"
@@ -158,15 +168,38 @@ def test_a_deleted_draft_fails_its_preview_job(shop):
     assert job_id  # the status route 404s with the draft gone; the job row says draft_not_found
 
 
+def test_a_draft_the_computation_refuses_fails_its_job_with_that_code(shop, monkeypatch):
+    from app.modules.sales import drafts
+    from platform_common.errors import Invalid
+
+    pg, biz, _, jobs_q, render_q, _ = shop
+    d, _ = _draft(pg, biz)
+
+    def refuse(uow, d, *, today):
+        raise Invalid("doc_date_not_supported", "The app has no GST rules for this invoice date.", field="doc_date")
+
+    monkeypatch.setattr(drafts, "computation", refuse)  # as for a date before the app's GST rules
+    job_id = _ask(pg, biz, d).json()["job_id"]
+    assert jobs_q.drain(jobs.handle_message) == [jobs.FAILED]
+    assert render_q.sent == []
+    assert _status(pg, biz, d, job_id).json() == {"status": "failed", "url": None,
+                                                  "error_code": "doc_date_not_supported"}
+
+
 def test_a_cash_sale_previews_without_a_customer(shop):
     pg, biz, _, jobs_q, render_q, store = shop
     p = make_product(pg, biz)
-    d = create(pg, biz, draft_body(p, cash_buyer={"name": "Walk-in", "state_code": "27", "address": "Shop 4"})).json()
+    d = create(pg, biz, draft_body(p, cash_buyer={"name": "Walk-in", "state_code": "19", "address": "Shop 4"})).json()
     job_id = _ask(pg, biz, d).json()["job_id"]
     jobs_q.drain(jobs.handle_message)
     doc = json.loads(store.get_bytes(biz, f"render-input/b/{biz}/{job_id}/input.json"))
     assert doc["buyer"]["name"] == "Walk-in" and doc["buyer"]["gstin"] is None and doc["buyer"]["address"] == ["Shop 4"]
     assert doc["ship_to"] is None
+    # Within West Bengal: CGST and SGST, half the rate each.
+    assert doc["place_of_supply"] == "West Bengal (19)"
+    assert [t["component"] for t in doc["lines"][0]["taxes"]] == ["CGST", "SGST"]
+    assert {t["rate"] for t in doc["lines"][0]["taxes"]} == {"9"}
+    assert [t["component"] for t in doc["totals"]["taxes"]] == ["CGST", "SGST"]
 
 
 def test_a_render_the_renderer_gave_up_on_reports_failed_and_a_later_pdf_still_wins(shop):
@@ -179,3 +212,23 @@ def test_a_render_the_renderer_gave_up_on_reports_failed_and_a_later_pdf_still_w
     assert _status(pg, biz, d, job_id).json() == {"status": "failed", "url": None, "error_code": "render_failed"}
     store.put(biz, f"documents/b/{biz}/{job_id}/document.pdf", b"%PDF-1.7 test", "application/pdf")  # a DLQ redrive
     assert _status(pg, biz, d, job_id).json()["status"] == "ready"
+
+
+def test_a_render_with_no_word_from_the_renderer_fails_after_its_last_try_could_have_ended(shop):
+    """A last try killed by the Lambda timeout or out of memory writes no failed.json."""
+    from sqlalchemy import text
+
+    pg, biz, _, jobs_q, _, _ = shop
+    d, _ = _draft(pg, biz)
+    job_id = _ask(pg, biz, d).json()["job_id"]
+    jobs_q.drain(jobs.handle_message)
+
+    def queued_ago(delta):
+        with pg.owner.connect() as c:
+            c.execute(text("update platform.jobs set updated_at = now() - :d where id = :id"),
+                      {"d": delta, "id": job_id})
+
+    queued_ago(render.GIVE_UP_AFTER - timedelta(minutes=1))
+    assert _status(pg, biz, d, job_id).json()["status"] == "rendering"
+    queued_ago(render.GIVE_UP_AFTER + timedelta(minutes=1))
+    assert _status(pg, biz, d, job_id).json() == {"status": "failed", "url": None, "error_code": "render_failed"}

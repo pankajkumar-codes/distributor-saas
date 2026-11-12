@@ -10,11 +10,14 @@ render input (template "invoice-draft", renderer/renderer/template.py has its sh
 hands it to platform_common.render, which writes it under render-input/b/ and queues
 its key for the renderer. The PDF lands at documents/b/<business>/<job id>/document.pdf.
 
-A preview is not a tax invoice and says so: it has no number, its title is "Draft, not a
-tax invoice", and until the invoice computation can be called from here
-(compute.load_inputs, S4-b) it shows no tax, no totals and no place of supply, only a
-fixed line saying they are worked out at finalize. Every value is a string; nothing
-here does tax arithmetic.
+A preview is not a tax invoice and says so: it has no number and its title is "Draft, not
+a tax invoice". Its tax figures are the invoice computation's, exactly as a save stores
+them (drafts.computation, which is compute(load_inputs(...)), S4-b): the place of supply,
+each line's taxable value, rate, tax and total, the totals, round-off and amount in
+words. What still stops the draft from being finalized (the computation's blocks) is
+listed under "Before you can finalize". A draft the computation refuses (for example a
+date the app has no GST rules for) fails the job with that error code, as a save would.
+Every value is a decimal string formatted here; nothing here does tax arithmetic.
 """
 
 import uuid
@@ -27,15 +30,16 @@ from app.modules.identity.interface import member_role
 from app.modules.refdata import state_name
 from platform_common import jobs, render
 from platform_common.clock import get_clock
-from platform_common.errors import Deny
+from platform_common.errors import Deny, Invalid
 from platform_common.permissions import Permission, has_permission
 from platform_common.storage import get_store
 from platform_common.uow import UnitOfWork
 
 from . import drafts
+from .compute import Computation
 
 JOB = "sales.draft_preview"
-TAX_LATER = "Tax, totals and the place of supply are worked out when you finalize."
+MAX_BLOCKS = 50  # the template prints at most this many (renderer template MAX_LIST)
 
 
 def queue(uow: UnitOfWork, draft_id: uuid.UUID) -> tuple[uuid.UUID, int]:
@@ -46,7 +50,8 @@ def queue(uow: UnitOfWork, draft_id: uuid.UUID) -> tuple[uuid.UUID, int]:
 
 def status(uow: UnitOfWork, draft_id: uuid.UUID, job_id: uuid.UUID) -> dict:
     """queued, rendering, ready (with a 60-second link) or failed (the job's error code, or
-    render_failed when the renderer gave up after its last try). A job that is not this
+    render_failed when the renderer gave up after its last try, or still has no PDF
+    render.GIVE_UP_AFTER after the job queued it). A job that is not this
     draft's preview is the same 404 as one that doesn't exist."""
     job = jobs.get(uow, job_id)
     if job is None or job.type != JOB or not (job.natural_key or "").startswith(f"{draft_id}:"):
@@ -57,7 +62,9 @@ def status(uow: UnitOfWork, draft_id: uuid.UUID, job_id: uuid.UUID) -> dict:
         return {"status": "queued"}
     business = uow.principal.business_id
     if not render.is_rendered(business, job_id):
-        if render.has_failed(business, job_id):
+        # The renderer gave up (failed.json), or its last try ended without a word (a
+        # timeout or out of memory) and the message is in the DLQ by now.
+        if render.has_failed(business, job_id) or get_clock().now() - job.updated_at > render.GIVE_UP_AFTER:
             return {"status": "failed", "error_code": "render_failed"}
         return {"status": "rendering"}
     url = get_store().presign_get(business, render.document_key(business, job_id),
@@ -86,9 +93,50 @@ def _qty(value: Decimal) -> str:
     return format(Decimal(value).normalize(), "f")  # 2.000 -> 2, 1.250 -> 1.25
 
 
-def build(tx, d: dict, today: date) -> dict:
-    """The render input for one draft (render input v1, template invoice-draft)."""
+def _components(comp: Computation) -> list[tuple[str, Decimal]]:
+    """The tax heads the document carries: IGST inter-state, CGST and SGST (or UTGST)
+    intra-state, none while the place of supply is unknown."""
+    if comp.is_inter_state is None:
+        return []
+    if comp.is_inter_state:
+        return [("IGST", comp.igst_total)]
+    return [("CGST", comp.cgst_total), ("UTGST" if comp.utgst else "SGST", comp.sgst_total)]
+
+
+def _totals(comp: Computation) -> dict:
+    return {
+        "taxable": _money(comp.taxable_total),
+        "taxes": [{"component": c, "amount": _money(a)} for c, a in _components(comp)],
+        "round_off": None if not comp.round_off else _money(comp.round_off),
+        "total": _money(comp.doc_total),
+        "in_words": comp.amount_in_words,
+    }
+
+
+def _line_tax(out) -> dict:
+    return {
+        "taxable": _money(out.taxable),
+        "rate": None if out.rate is None else _qty(out.rate),
+        "taxes": [{"component": t.component, "rate": _qty(t.rate), "amount": _money(t.amount)} for t in out.taxes],
+        "total": _money(out.total),
+    }
+
+
+def _blocks(comp: Computation) -> list[str]:
+    """What stops a finalize, each fix once, in the computation's order."""
+    out: list[str] = []
+    for b in comp.blocks:
+        fix = f"Line {b.line_no}: {b.fix}" if b.line_no else b.fix
+        if fix not in out:
+            out.append(fix)
+    return out[:MAX_BLOCKS]
+
+
+def build(tx, d: dict, today: date, comp: Computation) -> dict:
+    """The render input for one draft (render input v1, template invoice-draft), with the
+    computation `comp` for that same draft."""
     on = d["doc_date"] or today
+    computed = {ln.line_no: ln for ln in comp.lines}
     profile = get_profile(tx)
     if profile is None:
         raise jobs.JobFailed("no_profile")
@@ -134,6 +182,7 @@ def build(tx, d: dict, today: date) -> dict:
             "uqc": (p.uqc if p else None),
             "unit_price": _money(ln["unit_price"]),
             "discount": discount,
+            **(_line_tax(computed[ln["line_no"]]) if ln["line_no"] in computed else {}),
         })
     return {
         "template": "invoice-draft",
@@ -141,13 +190,13 @@ def build(tx, d: dict, today: date) -> dict:
         "buyer": buyer,
         "ship_to": ship_to,
         "doc_date": on.isoformat() if d["doc_date"] else None,
-        "place_of_supply": None,
+        "place_of_supply": _state(tx, comp.pos_state_code, on),
         "reverse_charge": "No",
         "lines": lines,
         "charges": [{"label": c["label"], "amount": _money(c["amount"])} for c in d["charges"] or []],
         "invoice_discount": _money(d["invoice_discount"]),
-        "totals": None,
-        "note": TAX_LATER,
+        "totals": _totals(comp),
+        "blocks": _blocks(comp),
     }
 
 
@@ -175,5 +224,10 @@ def run(ctx: jobs.JobContext) -> dict:
         raise jobs.JobFailed("draft_not_found") from None
     if d["version"] != version:
         raise jobs.JobFailed("draft_changed")  # the user saved again; they ask for a new preview
-    render.request(p.business_id, ctx.job_id, build(ctx.uow.tx, d, get_clock().today()))
+    today = get_clock().today()
+    try:
+        comp = drafts.computation(ctx.uow, d, today=today)
+    except Invalid as e:
+        raise jobs.JobFailed(e.code) from None  # e.g. doc_date_not_supported, as the save says
+    render.request(p.business_id, ctx.job_id, build(ctx.uow.tx, d, today, comp))
     return {"render_id": str(ctx.job_id)}

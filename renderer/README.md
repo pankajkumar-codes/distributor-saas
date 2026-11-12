@@ -21,7 +21,7 @@ the embedded fonts.
 - No delete and no list.
 - `kms:Decrypt` and `kms:GenerateDataKey` only through S3.
 
-**Retries.** A redelivered message renders again to the same document key. An input expires a day after it is written, so a message whose input has expired fails (S3 answers 403 without list rights) and goes to the DLQ. On the last try (`RENDER_MAX_RECEIVES`, set from the queue's `maxReceiveCount`), a failure also writes `failed.json` next to where the PDF would be, holding only `{"error_code": "render_failed"}`, so the app reports the failure instead of waiting. Redriving a DLQ message more than a day old finds nothing, and the user asks for the preview again. At most `render_max_concurrency` (5) renders run at once.
+**Retries.** A redelivered message renders again to the same document key. An input expires a day after it is written, so a message whose input has expired fails (S3 answers 403 without list rights) and goes to the DLQ. On the last try (`RENDER_MAX_RECEIVES`, set from the queue's `maxReceiveCount`), a failure also writes `failed.json` next to where the PDF would be, holding only `{"error_code": "render_failed"}`, so the app reports the failure instead of waiting. A last try killed by the timeout or out of memory writes nothing; the app then reports `render_failed` once 5 × the 360 s visibility timeout has passed with no PDF. Redriving a DLQ message more than a day old finds nothing, and the user asks for the preview again. At most `render_max_concurrency` (5) renders run at once.
 
 **Tests.** `renderer/tests` need WeasyPrint's native libraries, so they run against an unpacked zip: `RENDERER_TASK=<dir> python -m pytest renderer/tests`. CI does this for the x86_64 build.
 
