@@ -390,18 +390,47 @@ def test_last_year_s_band_is_set_once_then_changed_with_if_match(biz):  # mock-n
 def test_channels_start_unanswered_and_an_answer_is_recorded(biz):
     pg, bid = biz
     assert pg.client.get(url(bid, "/channels"), headers=as_user("alice")).json() == {
-        "amazon": False, "flipkart": False, "meesho": False, "answered": False}
+        "amazon": False, "flipkart": False, "meesho": False, "own_invoices": False, "answered": False}
     r = pg.client.put(url(bid, "/channels"), headers=as_user("alice"),
-                      json={"amazon": True, "flipkart": False, "meesho": True})
-    assert r.json() == {"amazon": True, "flipkart": False, "meesho": True, "answered": True}
+                      json={"amazon": True, "flipkart": False, "meesho": True, "own_invoices": False})
+    assert r.json() == {"amazon": True, "flipkart": False, "meesho": True, "own_invoices": False, "answered": True}
     none = pg.client.put(url(bid, "/channels"), headers=as_user("alice"),
-                         json={"amazon": False, "flipkart": False, "meesho": False})
-    assert none.json()["answered"] is True and none.json()["amazon"] is False
+                         json={"amazon": False, "flipkart": False, "meesho": False, "own_invoices": False})
+    assert none.json()["answered"] is True and none.json()["amazon"] is False  # the server doesn't refuse "none" (ON-2)
     assert pg.client.put(url(bid, "/channels"), headers=as_user("alice"), json={"amazon": True}).status_code == 422
     with pg.owner.connect() as c:
         data = [d for (d,) in c.execute(text("select data from platform.audit_log"
                                              " where action = 'business.channels_update' order by id"))]
     assert data == [{"enabled": ["amazon", "meesho"]}, {"enabled": []}]
+
+
+def test_own_invoices_is_a_choice_of_its_own_and_is_required(biz):  # ON-2, BRD v1.2
+    pg, bid = biz
+    put = lambda body: pg.client.put(url(bid, "/channels"), headers=as_user("alice"), json=body)  # noqa: E731
+    only = put({"amazon": False, "flipkart": False, "meesho": False, "own_invoices": True})
+    assert only.json() == {"amazon": False, "flipkart": False, "meesho": False, "own_invoices": True, "answered": True}
+    assert pg.client.get(url(bid, "/channels"), headers=as_user("alice")).json()["own_invoices"] is True
+    both = put({"amazon": True, "flipkart": False, "meesho": False, "own_invoices": True}).json()
+    assert both["amazon"] is True and both["own_invoices"] is True
+    # A client that only knows the three marketplaces is refused, never read as "off".
+    assert put({"amazon": False, "flipkart": False, "meesho": False}).status_code == 422
+    assert put({"amazon": False, "flipkart": False, "meesho": False, "own_invoices": "maybe"}).status_code == 422
+    assert pg.client.get(url(bid, "/channels"), headers=as_user("alice")).json()["own_invoices"] is True
+    with pg.owner.connect() as c:
+        data = [d for (d,) in c.execute(text("select data from platform.audit_log"
+                                             " where action = 'business.channels_update' order by id"))]
+    assert data == [{"enabled": ["own_invoices"]}, {"enabled": ["amazon", "own_invoices"]}]
+
+
+def test_the_table_accepts_own_invoices_and_still_refuses_any_other_name(biz):
+    pg, bid = biz
+    who = scalar(pg.owner, "select id from identity.users limit 1")
+    insert = ("insert into business.marketplace_channels (business_id, marketplace, enabled, changed_by)"
+              " values (:b, :m, true, :u)")
+    with pg.owner.begin() as c:
+        c.execute(text(insert), {"b": bid, "m": "own_invoices", "u": who})
+    with pytest.raises(Exception, match="marketplace_channels_marketplace_check"), pg.owner.begin() as c:
+        c.execute(text(insert), {"b": bid, "m": "ebay", "u": who})
 
 
 # --- Home ---------------------------------------------------------------------------------
@@ -423,7 +452,7 @@ def test_home_checklist_follows_setup(biz):
     assert (first["done"], first["total"]) == (1, 6)
     choose(pg.client, bid, "quarterly", "2026-10-01")
     pg.client.put(url(bid, "/channels"), headers=as_user("alice"), json={"amazon": False, "flipkart": False,
-                                                                          "meesho": False})
+                                                                          "meesho": False, "own_invoices": False})
     add_member(pg, bid, "carol", "ca")
     done = {i["key"]: i["done"] for i in checklist()["items"]}
     assert done == {"business_profile": True, "filing_frequency": True, "marketplaces": True,
@@ -446,7 +475,7 @@ WRITES = [
     ("patch", "/profile", {"trade_name": "X"}),
     ("put", "/turnover-bands/2025-26", {"band": "up_to_threshold"}),  # a first band: no If-Match
     ("post", "/filing-profile/frequency", {"frequency": "quarterly", "effective_from": "2026-10-01"}),
-    ("put", "/channels", {"amazon": True, "flipkart": True, "meesho": True}),
+    ("put", "/channels", {"amazon": True, "flipkart": True, "meesho": True, "own_invoices": True}),
 ]
 
 

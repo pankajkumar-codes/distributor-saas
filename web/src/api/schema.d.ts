@@ -1466,6 +1466,8 @@ export interface components {
             flipkart: boolean;
             /** Meesho */
             meesho: boolean;
+            /** Own Invoices */
+            own_invoices: boolean;
         };
         /** ChannelsOut */
         ChannelsOut: {
@@ -1477,6 +1479,8 @@ export interface components {
             flipkart: boolean;
             /** Meesho */
             meesho: boolean;
+            /** Own Invoices */
+            own_invoices: boolean;
         };
         /** ChargeIn */
         ChargeIn: {
