@@ -48,6 +48,7 @@ describe("support staff", () => {
 
   it("is not found for anyone who isn't support (the server's 404)", async () => {
     server.reply(GRANTS, { status: 404, body: { error: { code: "not_found", message: "not found" } } });
+    server.reply("/api/v1/me", { status: 200, body: { user: { id: "u", email: "a@b.in", name: null, totp_enabled: false, is_support: false }, memberships: [] } });
     open("/support");
     expect(await screen.findByRole("heading", { name: "We couldn't find that page" })).toBeInTheDocument();
   });

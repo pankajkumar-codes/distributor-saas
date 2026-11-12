@@ -5,7 +5,8 @@ import { api, call } from "../../api/client";
 import { errorText, type ApiError } from "../../api/errors";
 import type { components } from "../../api/schema";
 import { canCreateDocuments } from "../../auth/roles";
-import { useMyBusinesses } from "../../auth/useMyBusinesses";
+import { TOTP_PROMPTED, useMe } from "../../auth/useMe";
+import { SUPPORT_ROLE, useMyBusinesses } from "../../auth/useMyBusinesses";
 import { formatDate, hourIst } from "../../format/dates";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
@@ -60,6 +61,8 @@ export function HomePage() {
     queryFn: () => call(() => api.GET("/api/v1/b/{business_id}/home", { params: { path: { business_id: businessId } } })),
     enabled: Boolean(business),
   });
+  // Owners and CAs are asked to turn on two-step sign-in (H-1 item 3); nobody else is asked.
+  const me = useMe({ enabled: Boolean(business && TOTP_PROMPTED.has(business.role)) });
   // Warnings from creating the business, handed over by /onboarding/business; gone on reload.
   const state = useLocation().state as { warnings?: unknown } | null;
   const warnings = Array.isArray(state?.warnings) ? state.warnings.filter((w): w is string => typeof w === "string") : [];
@@ -107,6 +110,14 @@ export function HomePage() {
               Try again
             </Button>
           </Banner>
+        )}
+
+        {me.data && !me.data.user.totp_enabled && (
+          <section className="card" aria-labelledby="totp-prompt">
+            <h2 id="totp-prompt">Protect your account</h2>
+            <p className="hint">Two-step sign-in asks for a code from your phone as well as your password.</p>
+            <Link to={`/b/${businessId}/settings/security`}>Turn on two-step sign-in</Link>
+          </section>
         )}
 
         {nudges.length > 0 && (
@@ -180,6 +191,11 @@ export function HomePage() {
             {AUDIT_VIEWERS.has(business.role) && (
               <li>
                 <Link to={`/b/${businessId}/settings/audit`}>Audit log</Link>
+              </li>
+            )}
+            {business.role !== SUPPORT_ROLE && (
+              <li>
+                <Link to={`/b/${businessId}/settings/security`}>Two-step sign-in</Link>
               </li>
             )}
           </ul>
