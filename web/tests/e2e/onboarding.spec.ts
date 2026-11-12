@@ -34,7 +34,7 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   // Whether Home shows a rule 61A warning depends on today's date against the window, so
   // the unit tests cover the warning words. The details and the frequency are both done.
   const setup = page.getByRole("region", { name: "Set up your business" });
-  await expect(setup.getByText("2 of 6 done")).toBeVisible();
+  await expect(setup.getByText("3 of 6 done")).toBeVisible();
   await expect(setup.getByText("Coming soon").first()).toBeVisible();
 
   // The customer step opens the (still empty) customers list; add one, find it, go back Home.
