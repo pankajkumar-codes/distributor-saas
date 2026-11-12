@@ -8,6 +8,7 @@ import { errorText, type ApiError } from "../../api/errors";
 import type { components } from "../../api/schema";
 import { fyIst, previousFy, quarterStartIst } from "../../format/dates";
 import { checkGstin, gstinMessage } from "../../format/gstin";
+import { BusinessTypeUpcoming } from "../../kit/BusinessTypeUpcoming";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { Field } from "../../kit/Field";
@@ -303,6 +304,7 @@ export function BusinessPage() {
             </>
           )}
 
+          <BusinessTypeUpcoming />
           <Field
             label="Legal name (as on GST certificate)"
             autoComplete="organization"

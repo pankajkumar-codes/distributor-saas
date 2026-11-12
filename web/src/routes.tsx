@@ -1,6 +1,7 @@
 import type { RouteObject } from "react-router-dom";
 import { Navigate } from "react-router-dom";
 
+import { FEATURES } from "./features";
 import { RequireAuth } from "./auth/AuthProvider";
 import { NotFound } from "./kit/NotFound";
 import { BusinessesPage } from "./screens/businesses/BusinessesPage";
@@ -40,8 +41,12 @@ export const routes: RouteObject[] = [
   { path: "/b/:businessId/products/import", element: <RequireAuth><ImportPage /></RequireAuth> },
   { path: "/b/:businessId/products/new", element: <RequireAuth><ProductPage /></RequireAuth> },
   { path: "/b/:businessId/products/:productId", element: <RequireAuth><ProductPage /></RequireAuth> },
-  { path: "/b/:businessId/invoices/new", element: <RequireAuth><InvoicePage /></RequireAuth> },
-  { path: "/b/:businessId/invoices/:draftId", element: <RequireAuth><InvoicePage /></RequireAuth> },
+  ...(FEATURES.invoicing
+    ? [
+        { path: "/b/:businessId/invoices/new", element: <RequireAuth><InvoicePage /></RequireAuth> },
+        { path: "/b/:businessId/invoices/:draftId", element: <RequireAuth><InvoicePage /></RequireAuth> },
+      ]
+    : []),
   { path: "/b/:businessId/settings/company", element: <RequireAuth><CompanyPage /></RequireAuth> },
   { path: "/b/:businessId/settings/filing", element: <RequireAuth><FilingPage /></RequireAuth> },
   { path: "/b/:businessId/settings/support", element: <RequireAuth><SupportPage /></RequireAuth> },

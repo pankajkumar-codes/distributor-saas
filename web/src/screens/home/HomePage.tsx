@@ -5,6 +5,7 @@ import { api, call } from "../../api/client";
 import { errorText, type ApiError } from "../../api/errors";
 import type { components } from "../../api/schema";
 import { canCreateDocuments } from "../../auth/roles";
+import { FEATURES } from "../../features";
 import { TOTP_PROMPTED, useMe } from "../../auth/useMe";
 import { SUPPORT_ROLE, useMyBusinesses } from "../../auth/useMyBusinesses";
 import { formatDate, hourIst } from "../../format/dates";
@@ -164,7 +165,7 @@ export function HomePage() {
         )}
 
         {/* Until the app has its own navigation (Designer, OPEN_QUESTIONS), Home is the way in. */}
-        {canCreateDocuments(business.role) && (
+        {FEATURES.invoicing && canCreateDocuments(business.role) && (
           <nav className="card" aria-labelledby="sell">
             <h2 id="sell">Sell</h2>
             <ul className="list">

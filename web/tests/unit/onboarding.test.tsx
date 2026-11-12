@@ -69,6 +69,22 @@ function fillGstinBusiness() {
 
 const sentTo = (path: string) => server.sent.filter((s) => s.path === path);
 
+describe("the business-type field (ON-7)", () => {
+  it("is shown disabled with an Upcoming tag, and nothing is sent for it", async () => {
+    await open();
+    const select = screen.getByLabelText(/Business type/);
+    expect(select).toBeDisabled();
+    expect(screen.getByText("Upcoming")).toBeInTheDocument();
+    server.reply(CREATE, created());
+    server.reply(FREQUENCY, chosen([]));
+    server.reply(ME, me);
+    fillGstinBusiness();
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByRole("heading", { name: HOME })).toBeInTheDocument();
+    expect(JSON.stringify(sentTo(CREATE)[0].body)).not.toMatch(/business_type|distributor|retail/i);
+  });
+});
+
 describe("the GSTIN hint", () => {
   it("says the format looks right and names the state, and never says verified", async () => {
     await open();
