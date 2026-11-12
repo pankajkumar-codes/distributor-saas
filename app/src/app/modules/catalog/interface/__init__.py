@@ -85,7 +85,7 @@ class SetupCounts:
 def products_for_lines(tx: Session, product_ids: list[uuid.UUID], on: date) -> dict[uuid.UUID, ProductForLine]:
     """One query for a draft's products. Deleted or unknown IDs are left out; the caller
     compares with what it asked for (product_for_line raises instead)."""
-    ids = list(dict.fromkeys(product_ids))
+    ids = sorted(set(product_ids))
     if not ids:
         return {}
     days = int(value_on(tx, "catalog.rate_change_warning_days", on))
@@ -158,9 +158,13 @@ def customer_snapshot(tx: Session, customer_id: uuid.UUID) -> CustomerSnapshot:
 
 def _mark(tx: Session, table: str, ids: list[uuid.UUID]) -> int:
     return len(tx.execute(
+        # Rows are locked in id order first, so two finalizes listing the same products in
+        # a different order can't deadlock (Staff on #110).
         text(
-            f"update catalog.{table} set first_used_at = coalesce(first_used_at, now())"
-            f" where id in :ids and {_MINE} and status <> 'deleted' returning id"
+            f"with locked as (select id from catalog.{table} where id in :ids and {_MINE}"
+            f" and status <> 'deleted' order by id for update)"
+            f" update catalog.{table} set first_used_at = coalesce(first_used_at, now())"
+            f" where id in (select id from locked) returning id"
         ).bindparams(bindparam("ids", expanding=True)),
         {"ids": ids},
     ).all())
@@ -171,7 +175,7 @@ def mark_used(tx: Session, product_ids: list[uuid.UUID], customer_id: uuid.UUID 
     raises Conflict("product_deleted") or Conflict("customer_deleted") if one was deleted
     meanwhile, so the finalize rolls back. One product on two lines counts once (RM-4.3
     row 14). It takes the same row lock as delete and doesn't bump version."""
-    ids = list(dict.fromkeys(product_ids))
+    ids = sorted(set(product_ids))
     if ids and _mark(tx, "products", ids) != len(ids):
         raise Conflict("product_deleted", "A product on this invoice was deleted", fix="Remove the line and add it again")
     if customer_id is not None and _mark(tx, "customers", [customer_id]) != 1:

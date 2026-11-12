@@ -20,12 +20,12 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool
 from platform_common.clock import Clock, get_clock
 from platform_common.etag import if_match_version, set_etag
 from platform_common.idempotency import run_once
-from platform_common.errors import Invalid
+from platform_common.errors import Deny, Invalid
 from platform_common.paging import DEFAULT_LIMIT, MAX_LIMIT
 from platform_common.permissions import Permission, require
 from platform_common.uow import BusinessUoW, parse_id
 
-from . import drafts, preview
+from . import drafts, finalize, preview
 from .compute import Computation
 
 router = APIRouter(tags=["sales"])
@@ -365,3 +365,57 @@ def preview_draft(draft_id: str, uow: BusinessUoW):
 @router.get("/b/{business_id}/drafts/{draft_id}/preview/{job_id}", response_model=PreviewOut, dependencies=EDIT)
 def preview_status(draft_id: str, job_id: str, uow: BusinessUoW):
     return preview.status(uow, parse_id(draft_id), parse_id(job_id))
+
+
+class DocumentOut(BaseModel):
+    """The finalized document (LLD-4 §2.3), as stored: it never changes after this."""
+
+    id: str
+    draft_id: str
+    kind: str
+    is_practice: bool  # a practice document: never in a return, never in a live series (BH-5)
+    doc_number: str
+    doc_date: date
+    fy: str
+    gstin: str
+    supply_class: str
+    pos_state_code: str
+    is_inter_state: bool
+    customer_id: str | None
+    counterparty_name: str | None
+    due_date: date | None
+    taxable_total: str
+    cgst_total: str
+    sgst_total: str  # carries UTGST when utgst
+    utgst: bool
+    igst_total: str
+    round_off: str
+    doc_total: str
+    finalized_at: str
+
+
+def _document(doc: dict) -> dict:
+    money_cols = ("taxable_total", "cgst_total", "sgst_total", "igst_total", "round_off", "doc_total")
+    return {**doc, **{k: _m(doc[k]) for k in money_cols}, "id": str(doc["id"]), "draft_id": str(doc["draft_id"]),
+            "customer_id": _s(doc["customer_id"]), "finalized_at": doc["finalized_at"].isoformat()}
+
+
+@router.post("/b/{business_id}/drafts/{draft_id}/finalize", response_model=DocumentOut, dependencies=EDIT)
+def finalize_draft(
+    draft_id: str,
+    request: Request,
+    uow: BusinessUoW,
+    clock: Annotated[Clock, Depends(get_clock)],
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+    if_match: Annotated[str | None, Header(alias="If-Match")] = None,
+):
+    """Issues the draft as a document with the next number (LLD-4 §4). Off until refdata
+    `sales.finalize.enabled` is true: while it is off this route is a 404 like an unknown
+    draft, and no number is taken. The same draft finalized twice gives one document."""
+    if not finalize.enabled(uow, clock.today()):
+        raise Deny("not_found")
+    did = parse_id(draft_id)
+    version = if_match_version(if_match)
+    return run_once(uow.tx, uow.principal.business_id, idempotency_key, method=request.method,
+                    route=request.scope["route"].path, payload={"draft_id": str(did), "if_match": version},
+                    operation=lambda: _document(finalize.finalize(uow, did, version, clock.today())))
