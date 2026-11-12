@@ -56,6 +56,8 @@ export function TotpStep({ email, challenge, onChallenge, onDone, onExpired }: P
         <Button type="submit" busy={totp.isPending}>
           Sign in
         </Button>
+        {/* RM2-29, the PO's words; support removes it after an email-code check (LLD-2 §6.3). */}
+        <p className="hint">Lost your phone? Contact support.</p>
       </form>
     </main>
   );
