@@ -31,3 +31,243 @@
   source_title: "LLD-7 §3 step 3: the most bytes a zip may expand to (200 MB, the parser's own limit)"
   last_checked: 2026-11-13
   status: provisional
+
+- key: imports.held.blank_hsn.label
+  value: "HSN missing"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: what a seller reads for a row held as blank_hsn (wording to be settled with the platform reader spec)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.blank_hsn.effect_note
+  value: "This row is left out of the return until its HSN is known."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: what leaving a blank_hsn row alone does"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.blank_hsn.accept_allowed
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: may a blank_hsn row be accepted as the file states it? Off until the PO and CA decide"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.blank_hsn.needs_ca_check
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: whether a blank_hsn row should be shown to the CA (provisional; the CA sheet decides)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.blank_uqc.label
+  value: "Unit missing"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: what a seller reads for a row held as blank_uqc (wording to be settled with the platform reader spec)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.blank_uqc.effect_note
+  value: "This row is left out of the return until its unit is known."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: what leaving a blank_uqc row alone does"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.blank_uqc.accept_allowed
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: may a blank_uqc row be accepted as the file states it? Off until the PO and CA decide"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.blank_uqc.needs_ca_check
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: whether a blank_uqc row should be shown to the CA (provisional; the CA sheet decides)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.unknown_state.label
+  value: "State not recognised"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: what a seller reads for a row held as unknown_state (wording to be settled with the platform reader spec)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.unknown_state.effect_note
+  value: "This row is left out of the return until its state is known."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: what leaving a unknown_state row alone does"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.unknown_state.accept_allowed
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: may a unknown_state row be accepted as the file states it? Off until the PO and CA decide"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.unknown_state.needs_ca_check
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: whether a unknown_state row should be shown to the CA (provisional; the CA sheet decides)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.unknown_txn_type.label
+  value: "Transaction type not recognised"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: what a seller reads for a row held as unknown_txn_type (wording to be settled with the platform reader spec)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.unknown_txn_type.effect_note
+  value: "This row is left out of the return until we know what kind of transaction it is."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: what leaving a unknown_txn_type row alone does"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.unknown_txn_type.accept_allowed
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: may a unknown_txn_type row be accepted as the file states it? Off until the PO and CA decide"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.unknown_txn_type.needs_ca_check
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: whether a unknown_txn_type row should be shown to the CA (provisional; the CA sheet decides)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.blank_qty.label
+  value: "Quantity missing"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: what a seller reads for a row held as blank_qty (wording to be settled with the platform reader spec)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.blank_qty.effect_note
+  value: "This row is left out of the return until its quantity is known."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: what leaving a blank_qty row alone does"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.blank_qty.accept_allowed
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: may a blank_qty row be accepted as the file states it? Off until the PO and CA decide"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.blank_qty.needs_ca_check
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: whether a blank_qty row should be shown to the CA (provisional; the CA sheet decides)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.sanity.label
+  value: "Amounts don't add up"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: what a seller reads for a row held as sanity (wording to be settled with the platform reader spec)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.sanity.effect_note
+  value: "This row is left out of the return until you decide what to do with it."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: what leaving a sanity row alone does"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.sanity.accept_allowed
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: may a sanity row be accepted as the file states it? Off until the PO and CA decide"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.sanity.needs_ca_check
+  value: "true"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: whether a sanity row should be shown to the CA (provisional; the CA sheet decides)"
+  last_checked: 2026-11-13
+  status: provisional

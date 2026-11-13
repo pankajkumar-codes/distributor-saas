@@ -4543,6 +4543,248 @@
         "title": "RoleIn",
         "type": "object"
       },
+      "RowOut": {
+        "properties": {
+          "ca_check_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ca Check Note"
+          },
+          "errors": {
+            "items": {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "file_name": {
+            "title": "File Name",
+            "type": "string"
+          },
+          "hold_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hold Reason"
+          },
+          "needs_ca_check": {
+            "title": "Needs Ca Check",
+            "type": "boolean"
+          },
+          "reason_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Label"
+          },
+          "row_id": {
+            "title": "Row Id",
+            "type": "string"
+          },
+          "row_number": {
+            "title": "Row Number",
+            "type": "integer"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "new",
+              "already_imported",
+              "changed",
+              "duplicate",
+              "conflict",
+              "invalid",
+              "held",
+              "skipped_zero"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "row_id",
+          "run_id",
+          "file_name",
+          "row_number",
+          "status",
+          "hold_reason",
+          "reason_label",
+          "values",
+          "errors",
+          "needs_ca_check",
+          "ca_check_note"
+        ],
+        "title": "RowOut",
+        "type": "object"
+      },
+      "RowsOut": {
+        "properties": {
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/RowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "rows",
+          "has_more"
+        ],
+        "title": "RowsOut",
+        "type": "object"
+      },
+      "RunOut": {
+        "properties": {
+          "columns_not_stored": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Columns Not Stored",
+            "type": "array"
+          },
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Counts",
+            "type": "object"
+          },
+          "gstin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gstin"
+          },
+          "held_by_reason": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Held By Reason",
+            "type": "object"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "profile_verified": {
+            "title": "Profile Verified",
+            "type": "boolean"
+          },
+          "reader": {
+            "title": "Reader",
+            "type": "string"
+          },
+          "section": {
+            "anyOf": [
+              {
+                "enum": [
+                  "amazon",
+                  "flipkart",
+                  "meesho",
+                  "own_invoices_excel",
+                  "own_invoices_pdf"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section"
+          },
+          "status": {
+            "enum": [
+              "staged",
+              "confirmed",
+              "discarded"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "upload_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upload Id"
+          },
+          "warnings": {
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "upload_id",
+          "section",
+          "reader",
+          "profile_verified",
+          "gstin",
+          "status",
+          "counts",
+          "held_by_reason",
+          "warnings",
+          "columns_not_stored"
+        ],
+        "title": "RunOut",
+        "type": "object"
+      },
       "ShipToIn": {
         "additionalProperties": false,
         "description": "Where the goods go, when it isn't the customer's own delivery address (LLD-4 \u00a73.1).",
@@ -9286,6 +9528,148 @@
         "summary": "List Returns",
         "tags": [
           "filing"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/runs/{run_id}": {
+      "get": {
+        "operationId": "get_run_api_v1_b__business_id__runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Run",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/runs/{run_id}/rows": {
+      "get": {
+        "operationId": "list_rows_api_v1_b__business_id__runs__run_id__rows_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 1000000,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RowsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Rows",
+        "tags": [
+          "imports"
         ]
       }
     },

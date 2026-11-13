@@ -921,6 +921,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Run */
+        get: operations["get_run_api_v1_b__business_id__runs__run_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/runs/{run_id}/rows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Rows */
+        get: operations["list_rows_api_v1_b__business_id__runs__run_id__rows_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/support-grants": {
         parameters: {
             query?: never;
@@ -2810,6 +2844,79 @@ export interface components {
         /** RoleIn */
         RoleIn: {
             role: components["schemas"]["Role"];
+        };
+        /** RowOut */
+        RowOut: {
+            /** Ca Check Note */
+            ca_check_note: string | null;
+            /** Errors */
+            errors: {
+                [key: string]: string | null;
+            }[];
+            /** File Name */
+            file_name: string;
+            /** Hold Reason */
+            hold_reason: string | null;
+            /** Needs Ca Check */
+            needs_ca_check: boolean;
+            /** Reason Label */
+            reason_label: string | null;
+            /** Row Id */
+            row_id: string;
+            /** Row Number */
+            row_number: number;
+            /** Run Id */
+            run_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "new" | "already_imported" | "changed" | "duplicate" | "conflict" | "invalid" | "held" | "skipped_zero";
+            /** Values */
+            values: {
+                [key: string]: string;
+            };
+        };
+        /** RowsOut */
+        RowsOut: {
+            /** Has More */
+            has_more: boolean;
+            /** Rows */
+            rows: components["schemas"]["RowOut"][];
+        };
+        /** RunOut */
+        RunOut: {
+            /** Columns Not Stored */
+            columns_not_stored: string[];
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+            /** Gstin */
+            gstin: string | null;
+            /** Held By Reason */
+            held_by_reason: {
+                [key: string]: number;
+            };
+            /** Id */
+            id: string;
+            /** Profile Verified */
+            profile_verified: boolean;
+            /** Reader */
+            reader: string;
+            /** Section */
+            section: ("amazon" | "flipkart" | "meesho" | "own_invoices_excel" | "own_invoices_pdf") | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "staged" | "confirmed" | "discarded";
+            /** Upload Id */
+            upload_id: string | null;
+            /** Warnings */
+            warnings: {
+                [key: string]: string;
+            }[];
         };
         /**
          * ShipToIn
@@ -5309,6 +5416,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReturnsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_run_api_v1_b__business_id__runs__run_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_rows_api_v1_b__business_id__runs__run_id__rows_get: {
+        parameters: {
+            query?: {
+                status?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                run_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RowsOut"];
                 };
             };
             /** @description Validation Error */
