@@ -167,7 +167,7 @@ def test_the_run_and_its_rows_read_back_in_plain_words(shop):  # noqa: F811
     run_id = run_of(shop, upload_id)
     run = get(pg, f"/api/v1/b/{biz}/runs/{run_id}").json()
     assert run["counts"] == {"new": 1, "already_imported": 0, "changed": 0, "duplicate": 0, "conflict": 0,
-                             "invalid": 0, "held": 2, "skipped_zero": 1, "set_aside": 0, "accepted": 0}
+                             "invalid": 0, "held": 2, "skipped_zero": 1, "set_aside": 0, "accepted": 0, "fixed": 0}
     assert run["held_by_reason"] == {"blank_hsn": 1, "blank_qty": 1}
     assert (run["section"], run["upload_id"], run["gstin"], run["status"]) == ("amazon", upload_id, GSTIN, "staged")
     assert run["profile_verified"] is False and run["warnings"][0]["code"] == "layout_unchecked"
@@ -541,7 +541,7 @@ def test_accept_is_offered_only_when_refdata_allows_it(shop):  # noqa: F811
     try:
         rows = {r["hold_reason"]: r for r in held_rows(shop, run_id)}
         assert [a["action"] for a in rows["blank_qty"]["allowed_actions"]] == ["set_aside", "accept"]
-        assert [a["action"] for a in rows["blank_hsn"]["allowed_actions"]] == ["set_aside"]
+        assert [a["action"] for a in rows["blank_hsn"]["allowed_actions"]] == ["set_aside", "enter_hsn"]  # accept stays off; the fix is offered
         done = resolve(shop, rows["blank_qty"]["row_id"], "accept", "Quantity is one, I checked the invoice")
         assert done.json()["resolution"]["action"] == "accept"
         assert scalar(pg.owner, "select count(*) from platform.audit_log where action = 'imports.row_accepted'") == 1

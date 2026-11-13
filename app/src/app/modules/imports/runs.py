@@ -21,6 +21,10 @@ from .readers import HOLD_REASONS
 
 ROW_STATUSES = ("new", "already_imported", "changed", "duplicate", "conflict", "invalid", "held", "skipped_zero")
 COUNT_KEYS = ROW_STATUSES
+# A value fix names the field it fills; each is offered only on the hold reason that is missing that value.
+FIX_ACTION = {"hsn": "enter_hsn", "state": "pick_state"}
+FIX_FIELD = {"enter_hsn": "hsn", "pick_state": "state"}
+FIX_REASON = {"enter_hsn": "blank_hsn", "pick_state": "unknown_state"}
 SKIPPED_ZERO_LABEL = "Zero value: nothing to file."
 
 
@@ -38,6 +42,7 @@ class Run:
     held_by_reason: dict[str, int]  # unresolved held rows only
     set_aside: int = 0
     accepted: int = 0
+    fixed: int = 0
 
 
 @dataclass(frozen=True)
@@ -61,7 +66,7 @@ def _business(uow: UnitOfWork) -> uuid.UUID:
     return uow.principal.business_id
 
 
-LATEST = ("select distinct on (row_id) row_id, kind, note, created_at from imports.row_resolutions"
+LATEST = ("select distinct on (row_id) row_id, kind, note, created_at, fix_field, fix_value from imports.row_resolutions"
           " where business_id = :b order by row_id, created_at desc, id desc")
 
 
@@ -75,7 +80,7 @@ def get_run(uow: UnitOfWork, run_id: uuid.UUID) -> Run:
     if r is None:
         raise Deny("not_found")
     held: dict[str, int] = {}
-    resolved = {"set_aside": 0, "accepted": 0}
+    resolved = {"set_aside": 0, "accepted": 0, "fixed": 0}
     for status, reason, kind, n in uow.tx.execute(
         text(f"with latest as ({LATEST}) select w.status, w.hold_reason, l.kind, count(*)"
              " from imports.import_rows w left join latest l on l.row_id = w.id"
@@ -87,7 +92,7 @@ def get_run(uow: UnitOfWork, run_id: uuid.UUID) -> Run:
         else:
             resolved[kind] += n
     return Run(r.id, r.upload_id, r.section, r.marketplace, r.profile_id, r.profile_verified, r.gstin, r.status,
-               r.summary or {}, held, resolved["set_aside"], resolved["accepted"])
+               r.summary or {}, held, resolved["set_aside"], resolved["accepted"], resolved["fixed"])
 
 
 def counts(run: Run) -> dict[str, int]:
@@ -95,7 +100,7 @@ def counts(run: Run) -> dict[str, int]:
     counted on their own."""
     out = {k: int(run.summary.get(k, 0)) for k in COUNT_KEYS}
     out["held"] = sum(run.held_by_reason.values())
-    out["set_aside"], out["accepted"] = run.set_aside, run.accepted
+    out["set_aside"], out["accepted"], out["fixed"] = run.set_aside, run.accepted, run.fixed
     return out
 
 
@@ -114,7 +119,8 @@ def list_rows(uow: UnitOfWork, run_id: uuid.UUID, status: str | None, limit: int
 
 
 _ROW_SELECT = ("select w.id, w.run_id, r.filename, w.row_number, w.status, w.hold_reason, w.raw, w.errors,"
-               " l.kind as res_kind, l.note as res_note, l.created_at as res_at, r.status as run_status"
+               " l.kind as res_kind, l.note as res_note, l.created_at as res_at, l.fix_field, l.fix_value,"
+               " r.status as run_status"
                " from imports.import_rows w join imports.import_runs r on r.id = w.run_id and r.business_id = w.business_id"
                " left join latest l on l.row_id = w.id")
 
@@ -139,7 +145,7 @@ def allowed_actions(uow: UnitOfWork, status: str, reason: str | None, run_status
     false: whether an inconsistent row may be used as the file states it is the PO's and the CA's)."""
     if status != "held" or run_status != "staged" or reason not in HOLD_REASONS:
         return []
-    actions = ["set_aside"]
+    actions = ["set_aside"] + [a for a, r in FIX_REASON.items() if r == reason]
     if bool(value_on(uow.tx, f"imports.held.{reason}.accept_allowed", today)):
         actions.append("accept")
     return [{"action": a, "label": _words(uow, f"imports.action.{a}.label", today),
@@ -164,8 +170,9 @@ def _build(uow: UnitOfWork, found, today: date) -> list[Row]:
             label = SKIPPED_ZERO_LABEL
         resolution = None
         if w.res_kind is not None:
-            resolution = {"action": "accept" if w.res_kind == "accepted" else "set_aside", "note": w.res_note,
-                          "at": w.res_at}
+            action = {"accepted": "accept", "set_aside": "set_aside"}.get(w.res_kind) or FIX_ACTION[w.fix_field]
+            resolution = {"action": action, "note": w.res_note, "at": w.res_at,
+                          "value": w.fix_value if w.res_kind == "fixed" else None}
         # A resolved row has nothing more to decide.
         actions = [] if resolution else allowed_actions(uow, w.status, w.hold_reason, w.run_status, today)
         rows.append(Row(w.id, w.run_id, w.filename, w.row_number, w.status, w.hold_reason,
@@ -211,10 +218,30 @@ def discard_run(uow: UnitOfWork, run_id: uuid.UUID) -> Run:
     return get_run(uow, run_id)
 
 
-def resolve(uow: UnitOfWork, row_id: uuid.UUID, action: str, note: str, today: date) -> Row:
+def _checked_value(uow: UnitOfWork, action: str, value: str | None, today: date) -> str:
+    """The value a user enters for a fix, checked for shape only (never which HSN or state is right):
+    an HSN in the shape refdata `hsn.pattern` allows, a state from the refdata state list (by code)."""
+    from app.modules.refdata import state_codes
+
+    text_value = (value or "").strip()
+    if not text_value:
+        raise Invalid("value_required", "Enter a value.", field="value")
+    if action == "enter_hsn":
+        if not value_on(uow.tx, "hsn.pattern", today).fullmatch(text_value):
+            raise Invalid("hsn_invalid", "That isn't a valid HSN: use digits only, with no spaces", field="value")
+        return text_value
+    codes = {code for code, _ in state_codes(uow.tx, today)}
+    if text_value not in codes:
+        raise Invalid("state_unknown", "Choose a state from the list.", field="value")
+    return text_value
+
+
+def resolve(uow: UnitOfWork, row_id: uuid.UUID, action: str, note: str, today: date, value: str | None = None) -> Row:
     """Record the user's decision on a held row (insert-only; the latest decision wins).
     404 for another business's row; 409 once the run is no longer staged; 422 for an action
-    the row doesn't offer or a blank note. The same decision twice records nothing new."""
+    the row doesn't offer, a blank note, or a bad value for a fix. The same decision twice records
+    nothing new. A fix (`enter_hsn`, `pick_state`) keeps the value chosen beside the decision; the row as the
+    file said it is never changed."""
     from platform_common import audit
     from platform_common.errors import Conflict
     from platform_common.ids import uuid7
@@ -224,34 +251,40 @@ def resolve(uow: UnitOfWork, row_id: uuid.UUID, action: str, note: str, today: d
     run = get_run(uow, row.run_id)
     if run.status != "staged":
         raise Conflict("run_not_staged", "This file's preview has been closed, so its rows can't be changed.")
-    if action not in ("set_aside", "accept"):
+    if action not in ("set_aside", "accept", *FIX_FIELD):
         raise Invalid("action_not_allowed", "That isn't something you can do with this row.", field="action")
     if not note:
         raise Invalid("note_required", "Add a note saying why.", field="note")
     if len(note) > 500:
         raise Invalid("note_too_long", "Keep the note to 500 characters.", field="note")
-    kind = "accepted" if action == "accept" else "set_aside"
+    kind = {"accept": "accepted", "set_aside": "set_aside"}.get(action, "fixed")
     if row.resolution is not None:
-        if row.resolution["action"] == action:
+        same = row.resolution["action"] == action and (kind != "fixed" or row.resolution["value"] == (value or "").strip())
+        if same:
             return row  # already decided this way
         raise Invalid("action_not_allowed", "This row has already been decided.", field="action")
     if action not in [a["action"] for a in allowed_actions(uow, row.status, row.hold_reason, run.status, today)]:
         raise Invalid("action_not_allowed", "That isn't something you can do with this row.", field="action")
+    fix_value = _checked_value(uow, action, value, today) if kind == "fixed" else None
     # One decision per row is held by the unique index; of two simultaneous decisions the second
     # inserts nothing (ON CONFLICT waits for the first to commit) and is answered as the code path
     # answers a row that is already decided.
     inserted = uow.tx.execute(
-        text("insert into imports.row_resolutions (id, business_id, row_id, kind, note, created_by)"
-             " values (:i, :b, :r, :k, :n, :u) on conflict (row_id) do nothing returning id"),
-        {"i": uuid7(), "b": _business(uow), "r": row_id, "k": kind, "n": note, "u": uow.principal.user_id},
+        text("insert into imports.row_resolutions (id, business_id, row_id, kind, note, created_by, fix_field, fix_value)"
+             " values (:i, :b, :r, :k, :n, :u, :ff, :fv) on conflict (row_id) do nothing returning id"),
+        {"i": uuid7(), "b": _business(uow), "r": row_id, "k": kind, "n": note, "u": uow.principal.user_id,
+         "ff": FIX_FIELD.get(action), "fv": fix_value},
     ).first()
     if inserted is None:
         won = uow.tx.execute(
-            text("select kind from imports.row_resolutions where row_id = :r"), {"r": row_id}
-        ).scalar_one()
-        if won == kind:
+            text("select kind, fix_field, fix_value from imports.row_resolutions where row_id = :r"), {"r": row_id}
+        ).one()
+        if won.kind == kind and (kind != "fixed" or (won.fix_field, won.fix_value) == (FIX_FIELD.get(action), fix_value)):
             return get_row(uow, row_id, today)
         raise Invalid("action_not_allowed", "This row has already been decided.", field="action")
-    audit.record(uow, "imports.row_accepted" if kind == "accepted" else "imports.row_set_aside", "import_row", row_id,
-                 reason=note, data={"run_id": str(row.run_id), "row_id": str(row_id), "hold_reason": row.hold_reason})
+    event = {"accepted": "imports.row_accepted", "set_aside": "imports.row_set_aside",
+             "fixed": "imports.row_fixed"}[kind]
+    audit.record(uow, event, "import_row", row_id, reason=note,
+                 data={"run_id": str(row.run_id), "row_id": str(row_id), "hold_reason": row.hold_reason,
+                       **({"field": FIX_FIELD[action]} if kind == "fixed" else {})})
     return get_row(uow, row_id, today)
