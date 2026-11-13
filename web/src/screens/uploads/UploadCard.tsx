@@ -4,7 +4,7 @@ import { errorText } from "../../api/errors";
 import { formatDateTimeIst } from "../../format/dates";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
-import { ACCEPT, settled, statusText, wrongType, type Section, type Upload } from "./sections";
+import { acceptFor, settled, statusText, wrongType, SECTIONS, type Section, type Upload } from "./sections";
 import { useStartUpload, useUpload, useUploads } from "./useUpload";
 
 type Props = {
@@ -25,6 +25,7 @@ type Props = {
  */
 export function UploadCard({ businessId, section, label, hint, canUpload, uploadId, onUpload }: Props) {
   const id = useId();
+  const choice = SECTIONS.find((s) => s.id === section) ?? SECTIONS[0];
   const input = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [problem, setProblem] = useState<string>();
@@ -40,7 +41,7 @@ export function UploadCard({ businessId, section, label, hint, canUpload, upload
     start.reset();
     start.newChoice(); // a different file is a different upload
     setFile(picked ?? null);
-    setProblem(picked && wrongType(picked.name) ? "Choose a CSV, Excel or zip file." : picked && picked.size === 0 ? "That file is empty." : undefined);
+    setProblem(picked && wrongType(choice, picked.name) ? `Choose ${choice.typeWords}.` : picked && picked.size === 0 ? "That file is empty." : undefined);
   };
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -73,7 +74,7 @@ export function UploadCard({ businessId, section, label, hint, canUpload, upload
               ref={input}
               id={`${id}-file`}
               type="file"
-              accept={ACCEPT}
+              accept={acceptFor(choice)}
               aria-invalid={problem ? true : undefined}
               aria-describedby={problem ? `${id}-problem` : undefined}
               onChange={(e) => choose(e.target.files?.[0])}

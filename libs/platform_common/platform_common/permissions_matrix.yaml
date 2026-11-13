@@ -32,7 +32,10 @@ permissions:
     row: Mark an invoice paid
     roles: [owner, admin, billing]
   uploads.create:
-    row: Upload marketplace reports
+    row: Upload marketplace reports and own sales invoices
+    roles: [owner, admin]
+  uploads.view:
+    row: See uploaded files and what was read from them
     roles: [owner, admin, ca]
   returns.prepare:
     row: Prepare and export returns, TCS check

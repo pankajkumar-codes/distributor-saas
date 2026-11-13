@@ -103,7 +103,7 @@ describe("upload page", () => {
     expect(sent(`${BASE}/u-1`, "GET")).toHaveLength(2);
   });
 
-  it("says a PDF-style upload is saved but not read yet", async () => {
+  it("says a stored upload is saved but not read yet", async () => {
     open("owner", "/b/b-1/uploads?own_invoices_excel=u-1");
     server.reply(`${BASE}/u-1`, { status: 200, body: upload("stored", { section: "own_invoices_excel" }) });
     expect(await screen.findByText("Saved, not read yet.")).toBeInTheDocument();
@@ -117,6 +117,17 @@ describe("upload page", () => {
     fireEvent.click(amazon.querySelector("button")!);
     pick(amazon.querySelector("input")!, "empty.csv", "");
     expect(await screen.findByText("That file is empty.")).toBeInTheDocument();
+    expect(sent(BASE)).toHaveLength(0);
+  });
+
+  it("offers each section only the types the server takes: no zip for own invoices", async () => {
+    open();
+    const own = await card("Your own sales invoices (Excel)");
+    expect(own.querySelector("input")!.getAttribute("accept")).toBe(".csv,.xlsx");
+    expect((await card("Amazon")).querySelector("input")!.getAttribute("accept")).toBe(".csv,.xlsx,.zip");
+    pick(own.querySelector("input")!, "invoices.zip");
+    expect(await screen.findByText("Choose a CSV or Excel file.")).toBeInTheDocument();
+    fireEvent.click(own.querySelector("button")!);
     expect(sent(BASE)).toHaveLength(0);
   });
 

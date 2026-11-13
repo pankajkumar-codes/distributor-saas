@@ -31,6 +31,8 @@ ignore_imports =
     app.modules.catalog.** -> app.modules.imports.interface
 ; catalog's import jobs re-check the queuing user's role when they run (#69 review).
     app.modules.catalog.** -> app.modules.identity.interface
+; imports' parse job re-checks the queuing user's role when it runs, as catalog's import jobs do.
+    app.modules.imports.** -> app.modules.identity.interface
 ; sales checks buyers and products through catalog and states through business (LLD-4 §8.1).
     app.modules.sales.** -> app.modules.catalog.interface
     app.modules.sales.** -> app.modules.business.interface

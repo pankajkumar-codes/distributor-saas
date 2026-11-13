@@ -48,7 +48,8 @@ def test_every_client_gets_the_shared_config(aws):
     assert module.get_parameter("/x") == "v"
     assert [s for s, _ in built] == ["sqs", "s3", "sesv2", "cognito-idp", "ssm"]
     for service, kwargs in built:
-        assert kwargs["config"].kwargs == EXPECTED, service
+        want = {**EXPECTED, "s3": {"addressing_style": "virtual"}} if service == "s3" else EXPECTED
+        assert kwargs["config"].kwargs == want, service
 
 
 def test_a_client_passed_in_is_used_as_is(aws):
