@@ -72,6 +72,9 @@
 - path: app/src/app/modules/imports/uploads.py
   value: "1024"
   reason: "bytes per KB and MB in the file-size message"
+- path: app/src/app/modules/imports/runs.py
+  value: "500"
+  reason: "longest note kept with a decision on a held row (matches the column check)"
 - path: app/src/app/modules/imports/sections.py
   value: "50"
   reason: "most uploads listed per section on the page (a page size, not a tax value)"

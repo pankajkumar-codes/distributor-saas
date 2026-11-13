@@ -33,6 +33,33 @@
         "title": "AccessTokenOut",
         "type": "object"
       },
+      "ActionOut": {
+        "properties": {
+          "action": {
+            "enum": [
+              "set_aside",
+              "accept"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "effect_note": {
+            "title": "Effect Note",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "label",
+          "effect_note"
+        ],
+        "title": "ActionOut",
+        "type": "object"
+      },
       "Actor": {
         "properties": {
           "kind": {
@@ -4385,6 +4412,57 @@
         "title": "ResetVerifyBody",
         "type": "object"
       },
+      "ResolutionOut": {
+        "properties": {
+          "action": {
+            "enum": [
+              "set_aside",
+              "accept"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "note",
+          "at"
+        ],
+        "title": "ResolutionOut",
+        "type": "object"
+      },
+      "ResolveIn": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "set_aside",
+              "accept"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "note"
+        ],
+        "title": "ResolveIn",
+        "type": "object"
+      },
       "ReturnOut": {
         "properties": {
           "due_date": {
@@ -4545,6 +4623,13 @@
       },
       "RowOut": {
         "properties": {
+          "allowed_actions": {
+            "items": {
+              "$ref": "#/components/schemas/ActionOut"
+            },
+            "title": "Allowed Actions",
+            "type": "array"
+          },
           "ca_check_note": {
             "anyOf": [
               {
@@ -4603,6 +4688,16 @@
             ],
             "title": "Reason Label"
           },
+          "resolution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResolutionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "row_id": {
             "title": "Row Id",
             "type": "string"
@@ -4648,7 +4743,9 @@
           "values",
           "errors",
           "needs_ca_check",
-          "ca_check_note"
+          "ca_check_note",
+          "allowed_actions",
+          "resolution"
         ],
         "title": "RowOut",
         "type": "object"
@@ -9618,6 +9715,84 @@
         "summary": "List Returns",
         "tags": [
           "filing"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/rows/{row_id}/resolve": {
+      "post": {
+        "description": "Decide a held row: leave it out (with a note), or, where allowed, use it as the file\nstates it. The decision is kept and audited; the preview and the section update at once.",
+        "operationId": "resolve_row_api_v1_b__business_id__rows__row_id__resolve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "row_id",
+            "required": true,
+            "schema": {
+              "title": "Row Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RowOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resolve Row",
+        "tags": [
+          "imports"
         ]
       }
     },

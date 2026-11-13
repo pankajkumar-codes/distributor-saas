@@ -44,17 +44,23 @@ def sections(uow: UnitOfWork, today: date) -> list[Section]:
              " order by created_at desc, id desc"),
         {"b": b},
     ).all()
-    held = {
-        (s, reason): n
-        for s, reason, n in uow.tx.execute(
-            text("select u.section, w.hold_reason, count(*) from imports.import_rows w"
-                 " join imports.import_runs r on r.id = w.run_id and r.business_id = w.business_id"
-                 " join imports.uploads u on u.id = r.upload_id and u.business_id = r.business_id"
-                 " where w.business_id = :b and w.status = 'held' and r.status = 'staged'"
-                 " group by u.section, w.hold_reason"),
-            {"b": b},
-        )
-    }
+    held: dict[tuple[str, str], int] = {}
+    flagged: set[tuple[str, str]] = set()  # unresolved or accepted rows by (section, reason)
+    for section, reason, kind, n in uow.tx.execute(
+        text("with latest as (select distinct on (row_id) row_id, kind from imports.row_resolutions"
+             "   where business_id = :b order by row_id, created_at desc, id desc)"
+             " select u.section, w.hold_reason, l.kind, count(*) from imports.import_rows w"
+             " join imports.import_runs r on r.id = w.run_id and r.business_id = w.business_id"
+             " join imports.uploads u on u.id = r.upload_id and u.business_id = r.business_id"
+             " left join latest l on l.row_id = w.id"
+             " where w.business_id = :b and w.status = 'held' and r.status = 'staged'"
+             " group by u.section, w.hold_reason, l.kind"),
+        {"b": b},
+    ):
+        if kind is None:
+            held[(section, reason)] = held.get((section, reason), 0) + n
+        if kind in (None, "accepted"):
+            flagged.add((section, reason))
     ca_flag = {reason: bool(value_on(uow.tx, f"imports.held.{reason}.needs_ca_check", today))
                for reason in HOLD_REASONS}
     out = []
@@ -72,6 +78,6 @@ def sections(uow: UnitOfWork, today: date) -> list[Section]:
             status = "not uploaded"
         notes = [getattr(r, "requirement_note", None) for r in readers_for(section)]
         out.append(Section(section, ENABLED[section], status, mine[:LIVE_LIMIT], count,
-                           any(ca_flag.get(reason, False) for reason in held_here),
+                           any(ca_flag.get(reason, False) for s, reason in flagged if s == section),
                            next((n for n in notes if n), None)))
     return out

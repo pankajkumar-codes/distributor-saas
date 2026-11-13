@@ -146,6 +146,18 @@ class RunOut(BaseModel):
     columns_not_stored: list[str]
 
 
+class ActionOut(BaseModel):
+    action: Literal["set_aside", "accept"]
+    label: str
+    effect_note: str
+
+
+class ResolutionOut(BaseModel):
+    action: Literal["set_aside", "accept"]
+    note: str
+    at: datetime
+
+
 class RowOut(BaseModel):
     row_id: str
     run_id: str
@@ -158,6 +170,8 @@ class RowOut(BaseModel):
     errors: list[dict[str, str | None]]
     needs_ca_check: bool
     ca_check_note: str | None
+    allowed_actions: list[ActionOut]
+    resolution: ResolutionOut | None
 
 
 class RowsOut(BaseModel):
@@ -188,11 +202,39 @@ def get_run(run_id: str, uow: BusinessUoW):
 def list_rows(run_id: str, uow: BusinessUoW, page: Annotated[PageParams, Depends(page_params)],
               clock: Annotated[Clock, Depends(get_clock)], status: str | None = None):
     found, more = runs.list_rows(uow, parse_id(run_id), status, page.limit, page.offset, clock.today())
-    return RowsOut(has_more=more, rows=[
-        RowOut(row_id=str(r.id), run_id=str(r.run_id), file_name=r.file_name, row_number=r.row_number,
-               status=r.status, hold_reason=r.hold_reason, reason_label=r.reason_label, values=r.values,
-               errors=r.errors, needs_ca_check=r.needs_ca_check, ca_check_note=r.ca_check_note)
-        for r in found])
+    return RowsOut(has_more=more, rows=[_row_out(r) for r in found])
+
+
+def _row_out(r: runs.Row) -> RowOut:
+    return RowOut(row_id=str(r.id), run_id=str(r.run_id), file_name=r.file_name, row_number=r.row_number,
+                  status=r.status, hold_reason=r.hold_reason, reason_label=r.reason_label, values=r.values,
+                  errors=r.errors, needs_ca_check=r.needs_ca_check, ca_check_note=r.ca_check_note,
+                  allowed_actions=[ActionOut(**a) for a in r.allowed_actions],
+                  resolution=None if r.resolution is None else ResolutionOut(**r.resolution))
+
+
+class ResolveIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    action: Literal["set_aside", "accept"]
+    note: str
+
+
+@router.post("/b/{business_id}/rows/{row_id}/resolve", response_model=RowOut, dependencies=CREATE)
+def resolve_row(row_id: str, body: ResolveIn, request: Request, uow: BusinessUoW,
+                clock: Annotated[Clock, Depends(get_clock)],
+                idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None):
+    """Decide a held row: leave it out (with a note), or, where allowed, use it as the file
+    states it. The decision is kept and audited; the preview and the section update at once."""
+    today = clock.today()
+    rid = parse_id(row_id)
+
+    def decide():
+        return _row_out(runs.resolve(uow, rid, body.action, body.note, today)).model_dump(mode="json")
+
+    return run_once(uow.tx, uow.principal.business_id, idempotency_key, method=request.method,
+                    route=request.scope["route"].path, payload={"row": row_id, **body.model_dump(mode="json")},
+                    operation=decide)
 
 
 @router.post("/b/{business_id}/runs/{run_id}/discard", response_model=RunOut, dependencies=CREATE)
