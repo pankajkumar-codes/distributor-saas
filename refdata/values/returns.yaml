@@ -1,34 +1,37 @@
-# Return due dates and the IFF cap (LLD-5 §2.5, §4, §8). Values and citations from the GST
-# expert's team/gst/refdata-lld4.md §3 (2026-10-24) and review-RS-1 item 1; every row is
-# provisional until the expert confirms it (D-038).
+# Return due dates and the IFF cap (LLD-5 §2.5, §4, §8). GSTR-1 and GSTR-3B dates (monthly,
+# QRMP, and the QRMP 3B state groups) are from the SMFG India Credit page Pankaj designated
+# on 2026-11-13: a lender's article, third-party and unconfirmed. IFF, PMT-06 and the cap are
+# from the GST expert's team/gst/refdata-lld4.md §3. Every row is provisional until the GST
+# expert or CA confirms it (D-038); the web shows no date as confirmed until then.
 #
 # A due date is "day N of the month after the period": after the month for monthly returns,
 # the IFF and PMT-06, and after the quarter's last month for quarterly returns
 # (refdata-lld4.md §3). A holiday does not move it; extensions are separate rows (GC-24).
 # The quarterly GSTR-3B day depends on the GSTIN's state: two state lists, no overlap, and
-# a state in neither (97, Other Territory) has no due date (RefdataMissing, never a guess).
+# a state in neither list has no date (a null date, never a guess). Today the lists hold only the
+# states the source page names.
 
 - key: due.gstr1.monthly.day
   value: "11"
   type: integer
   kind: tax
   valid_from: 2021-01-01
-  source_url: https://gstcouncil.gov.in/sites/default/files/2024-05/notfctn-83-central-tax-english-2020.pdf
-  source_title: "Notf 83/2020-CT (10-11-2020) w.e.f. 01-01-2021: 'till the eleventh day of the month succeeding such tax period'"
-  last_checked: 2026-10-24
+  source_url: https://www.smfgindiacredit.com/knowledge-center/gst-return-due-date.aspx
+  source_title: "SMFG India Credit knowledge-center page \"GST Return Due Dates & Compliance Calendar 2026\" (updated 13 Oct 2026), a lender article, not GSTN or CBIC: GSTR-1, monthly filer: 11th of the next month"
+  last_checked: 2026-11-13
   status: provisional
-  note: "team/gst/refdata-lld4.md §3; review-RS-1 item 1."
+  note: "Third-party, unconfirmed (supplied by Pankaj, 2026-11-13); matches Notf 83/2020-CT as read earlier. Confirm from the GST portal or CBIC; the page itself says to check for extensions."
 
 - key: due.gstr1.quarterly.day
   value: "13"
   type: integer
   kind: tax
   valid_from: 2021-01-01
-  source_url: https://gstcouncil.gov.in/sites/default/files/2024-05/notfctn-83-central-tax-english-2020.pdf
-  source_title: "Notf 83/2020-CT: quarterly filers 'till the thirteenth day of the month succeeding such tax period'"
-  last_checked: 2026-10-24
+  source_url: https://www.smfgindiacredit.com/knowledge-center/gst-return-due-date.aspx
+  source_title: "SMFG India Credit knowledge-center page \"GST Return Due Dates & Compliance Calendar 2026\" (updated 13 Oct 2026), a lender article, not GSTN or CBIC: GSTR-1, quarterly (QRMP) filer: 13th of the month after the quarter"
+  last_checked: 2026-11-13
   status: provisional
-  note: "team/gst/refdata-lld4.md §3; review-RS-1 item 1."
+  note: "Third-party, unconfirmed (supplied by Pankaj, 2026-11-13). Confirm from the GST portal or CBIC."
 
 - key: due.iff.day
   value: "13"
@@ -57,55 +60,55 @@
   type: integer
   kind: tax
   valid_from: 2021-01-01
-  source_url: https://taxinformation.cbic.gov.in/content/html/tax_repository/gst/rules/cgst_rules/active/chapter8/rule61_v1.00.html
-  source_title: "CGST Rule 61(1)(i) (subst. by Notf 82/2020-CT w.e.f. 01-01-2021): 'on or before the twentieth day of the month succeeding such month'"
-  last_checked: 2026-10-24
+  source_url: https://www.smfgindiacredit.com/knowledge-center/gst-return-due-date.aspx
+  source_title: "SMFG India Credit knowledge-center page \"GST Return Due Dates & Compliance Calendar 2026\" (updated 13 Oct 2026), a lender article, not GSTN or CBIC: GSTR-3B, monthly filer: 20th of the next month"
+  last_checked: 2026-11-13
   status: provisional
-  note: "team/gst/refdata-lld4.md §3; review-RS-1 item 1 asks for rule 61 to be cited when fetched."
+  note: "Third-party, unconfirmed (supplied by Pankaj, 2026-11-13). Confirm from the GST portal or CBIC."
 
 - key: due.gstr3b.quarterly.group_a.day
   value: "22"
   type: integer
   kind: tax
   valid_from: 2021-01-01
-  source_url: https://taxinformation.cbic.gov.in/content/html/tax_repository/gst/rules/cgst_rules/active/chapter8/rule61_v1.00.html
-  source_title: "CGST Rule 61(1)(ii), 'twenty-second day' group"
-  last_checked: 2026-10-24
+  source_url: https://www.smfgindiacredit.com/knowledge-center/gst-return-due-date.aspx
+  source_title: "SMFG India Credit knowledge-center page \"GST Return Due Dates & Compliance Calendar 2026\" (updated 13 Oct 2026), a lender article, not GSTN or CBIC: GSTR-3B, quarterly filer, Category X states: 22nd of the month after the quarter"
+  last_checked: 2026-11-13
   status: provisional
-  note: "For the states in due.gstr3b.quarterly.group_a.states (team/gst/refdata-lld4.md §3)."
+  note: "Third-party, unconfirmed. Category X as on the page."
 
 - key: due.gstr3b.quarterly.group_a.states
-  value: "22,23,24,27,29,30,32,33,36,37,25,26,34,35,31"
+  value: "27,24,29,33,37"
   type: text
   kind: tax
   valid_from: 2021-01-01
-  source_url: https://taxinformation.cbic.gov.in/content/html/tax_repository/gst/rules/cgst_rules/active/chapter8/rule61_v1.00.html
-  source_title: "CGST Rule 61(1)(ii), 'twenty-second day' group: Chhattisgarh, MP, Gujarat, Maharashtra, Karnataka, Goa, Kerala, Tamil Nadu, Telangana, Andhra Pradesh, UTs of Daman and Diu and Dadra and Nagar Haveli, Puducherry, A&N Islands, Lakshadweep"
-  last_checked: 2026-10-24
+  source_url: https://www.smfgindiacredit.com/knowledge-center/gst-return-due-date.aspx
+  source_title: "SMFG India Credit knowledge-center page \"GST Return Due Dates & Compliance Calendar 2026\" (updated 13 Oct 2026), a lender article, not GSTN or CBIC: Category X states named on the page: Maharashtra, Gujarat, Karnataka, Tamil Nadu, Andhra Pradesh (the page says 'among others' and gives no full list)"
+  last_checked: 2026-11-13
   status: provisional
-  note: "GST state codes, comma-separated (team/gst/refdata-lld4.md §3)."
+  note: "Only the states the page names; any other state has no date until the official list is read (a null date, never a guess). GST state codes, comma-separated."
 
 - key: due.gstr3b.quarterly.group_b.day
   value: "24"
   type: integer
   kind: tax
   valid_from: 2021-01-01
-  source_url: https://taxinformation.cbic.gov.in/content/html/tax_repository/gst/rules/cgst_rules/active/chapter8/rule61_v1.00.html
-  source_title: "CGST Rule 61(1)(ii), 'twenty-fourth day' group"
-  last_checked: 2026-10-24
+  source_url: https://www.smfgindiacredit.com/knowledge-center/gst-return-due-date.aspx
+  source_title: "SMFG India Credit knowledge-center page \"GST Return Due Dates & Compliance Calendar 2026\" (updated 13 Oct 2026), a lender article, not GSTN or CBIC: GSTR-3B, quarterly filer, Category Y states: 24th of the month after the quarter"
+  last_checked: 2026-11-13
   status: provisional
-  note: "For the states in due.gstr3b.quarterly.group_b.states (team/gst/refdata-lld4.md §3)."
+  note: "Third-party, unconfirmed. Category Y as on the page."
 
 - key: due.gstr3b.quarterly.group_b.states
-  value: "02,03,05,06,08,09,10,11,12,13,14,15,16,17,18,19,20,21,01,38,04,07"
+  value: "09,08,03,19"
   type: text
   kind: tax
   valid_from: 2021-01-01
-  source_url: https://taxinformation.cbic.gov.in/content/html/tax_repository/gst/rules/cgst_rules/active/chapter8/rule61_v1.00.html
-  source_title: "CGST Rule 61(1)(ii), 'twenty-fourth day' group: HP, Punjab, Uttarakhand, Haryana, Rajasthan, UP, Bihar, Sikkim, Arunachal, Nagaland, Manipur, Mizoram, Tripura, Meghalaya, Assam, West Bengal, Jharkhand, Odisha, UTs of J&K, Ladakh, Chandigarh, Delhi"
-  last_checked: 2026-10-24
+  source_url: https://www.smfgindiacredit.com/knowledge-center/gst-return-due-date.aspx
+  source_title: "SMFG India Credit knowledge-center page \"GST Return Due Dates & Compliance Calendar 2026\" (updated 13 Oct 2026), a lender article, not GSTN or CBIC: Category Y states named on the page: Uttar Pradesh, Rajasthan, Punjab, West Bengal (the page says 'among others' and gives no full list)"
+  last_checked: 2026-11-13
   status: provisional
-  note: "GST state codes, comma-separated (team/gst/refdata-lld4.md §3). 97 is in neither group."
+  note: "Only the states the page names; any other state has no date until the official list is read (a null date, never a guess). GST state codes, comma-separated."
 
 - key: iff.max_taxable_value
   value: "5000000.00"

@@ -107,7 +107,7 @@ def test_monthly_filer_instances_and_due_dates(biz):  # October 2026: GSTR-1 on 
     "gstin, due",
     [
         ("27AAPFU0939F1ZV", date(2027, 1, 22)),
-        ("07AAPFU0939F1ZZ", date(2027, 1, 24)),
+        ("09AAPFU0939F1ZZ", date(2027, 1, 24)),
     ],  # synthetic; the check digit isn't read
 )
 def test_quarterly_3b_day_follows_the_gstin_state_group(biz, gstin, due):
@@ -126,18 +126,19 @@ def test_quarterly_3b_day_follows_the_gstin_state_group(biz, gstin, due):
     assert [i.due_date for i in got if i.form == "GSTR3B"] == [due]
 
 
-def test_a_state_in_neither_3b_group_has_no_due_date_never_a_guess(biz):
+@pytest.mark.parametrize("gstin", ["97AAPFU0939F1Z1", "07AAPFU0939F1ZZ"])  # Other Territory; Delhi (not on the source page)
+def test_a_state_in_neither_3b_group_has_no_due_date_never_a_guess(biz, gstin):
     pg, b, alice = biz
     choose(pg, b, "quarterly")
     with pg.owner.begin() as c:
         c.execute(
             text(
                 "insert into business.filing_frequency_history (id, business_id, gstin, frequency, effective_from,"
-                " chosen_at, warnings, chosen_by) values (:i, :b, '97AAPFU0939F1Z1', 'quarterly', '2026-10-01', now(), '{}', :u)"
+                " chosen_at, warnings, chosen_by) values (:i, :b, :g, 'quarterly', '2026-10-01', now(), '{}', :u)"
             ),
-            {"i": uuid.uuid4(), "b": b, "u": alice},
+            {"i": uuid.uuid4(), "b": b, "g": gstin, "u": alice},
         )
-    got = tx_for(pg, b, alice, lambda tx: ensure_instances(tx, "97AAPFU0939F1Z1", date(2026, 11, 20)))
+    got = tx_for(pg, b, alice, lambda tx: ensure_instances(tx, gstin, date(2026, 11, 20)))
     assert [i.due_date for i in got if i.form == "GSTR3B"] == [None]
     assert [i.due_date for i in got if i.form == "GSTR1"] == [date(2027, 1, 13)]
 
