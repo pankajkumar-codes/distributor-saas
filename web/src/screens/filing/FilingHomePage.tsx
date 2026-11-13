@@ -1,7 +1,7 @@
 import { Link, useParams } from "react-router-dom";
 
 import { errorText } from "../../api/errors";
-import { fyIst, formatDate, previousFy } from "../../format/dates";
+import { formatDate, previousFy } from "../../format/dates";
 import { useMyBusinesses } from "../../auth/useMyBusinesses";
 import { Banner } from "../../kit/Banner";
 import { NotFound } from "../../kit/NotFound";
@@ -17,28 +17,28 @@ const STATUS: Record<string, string> = {
   skipped: "Not required",
 };
 
-/** One due date as the server sent it. Nothing here is worked out in the browser. */
+/**
+ * One due date as the server sent it (GF-12: never show a date we can't stand behind). A date
+ * the server hasn't confirmed is not shown at all; the row says to check the GST portal, with
+ * the source the server cites when it is an https link.
+ */
 function DueDate({ row }: { row: ReturnRow }) {
-  if (!row.due_date) return <span className="hint">No date available. Check on the GST portal.</span>;
+  if (row.due_date && row.due_date_confirmed) {
+    return (
+      <>
+        {formatDate(row.due_date)} <span className="chip">Confirmed on GST portal</span>
+      </>
+    );
+  }
   return (
     <>
-      {formatDate(row.due_date)}
-      {!row.due_date_confirmed && (
-        <>
-          {" "}
-          <span className="tag">To be confirmed</span>
-          <div className="hint">
-            Check on the GST portal.
-            {row.due_date_source_url && /^https:\/\//.test(row.due_date_source_url) && (
-              <>
-                {" "}
-                <a href={row.due_date_source_url} target="_blank" rel="noreferrer noopener">
-                  Where this date comes from
-                </a>
-              </>
-            )}
-          </div>
-        </>
+      <span className="hint">{row.due_date ? "Check on the GST portal" : "No date available. Check on the GST portal."}</span>
+      {row.due_date_source_url && /^https:\/\//.test(row.due_date_source_url) && (
+        <div className="hint">
+          <a href={row.due_date_source_url} target="_blank" rel="noreferrer noopener">
+            Where this date comes from
+          </a>
+        </div>
       )}
     </>
   );
@@ -53,10 +53,13 @@ export function FilingHomePage() {
   const { businessId = "" } = useParams();
   const businesses = useMyBusinesses();
   const business = businesses.data?.find((b) => b.business_id === businessId);
-  const fy = fyIst();
-  const last = previousFy(fy);
-  const now = useReturns(businessId, fy, Boolean(business));
-  const before = useReturns(businessId, last, Boolean(business) && now.isSuccess && now.data.filing_frequency !== null);
+  // No `fy`: the server picks the current year, so "today" comes from it alone. Last year's is named from the one it answers with.
+  const now = useReturns(businessId, undefined, Boolean(business));
+  const before = useReturns(
+    businessId,
+    now.data ? previousFy(now.data.fy) : undefined,
+    Boolean(business) && now.isSuccess && now.data.filing_frequency !== null,
+  );
 
   if (businesses.isPending) {
     return (
@@ -84,7 +87,7 @@ export function FilingHomePage() {
         </p>
         <h1>Your GST filing</h1>
         {frequency && <p className="hint">{frequency === "quarterly" ? "Quarterly (QRMP)" : "Monthly"} filer.</p>}
-        <Banner>We prepare your files and a guide. You file on the GST portal yourself.</Banner>
+        <Banner>R1 prepares your files and a guide. You file on the GST portal yourself.</Banner>
         {now.isPending && business && <p aria-busy="true">Loading…</p>}
         {notSet && (
           <section className="card">

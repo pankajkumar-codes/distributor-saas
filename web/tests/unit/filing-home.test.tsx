@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../../src/App";
 import { resetSessionForTests } from "../../src/auth/session";
-import { fyIst, previousFy } from "../../src/format/dates";
+import { previousFy } from "../../src/format/dates";
 import { fakeApi } from "./fakeApi";
 
 const REFRESH = "/api/v1/auth/refresh";
@@ -26,8 +26,8 @@ const row = (over: Record<string, unknown>) => ({
   status: "open",
   ...over,
 });
-const ok = (returns: unknown[], filing_frequency = "quarterly") => ({ status: 200, body: { fy: "x", filing_frequency, returns } });
-const NOT_SET = { status: 200, body: { fy: "x", filing_frequency: null, returns: [] } };
+const ok = (returns: unknown[], filing_frequency = "quarterly") => ({ status: 200, body: { fy: "2026-27", filing_frequency, returns } });
+const NOT_SET = { status: 200, body: { fy: "2026-27", filing_frequency: null, returns: [] } };
 
 let server: ReturnType<typeof fakeApi>;
 beforeEach(() => {
@@ -67,10 +67,10 @@ describe("Filing home", () => {
     expect(rows[1]).toHaveTextContent("24-Jan-2027");
     expect(screen.getByText("Quarterly (QRMP) filer.")).toBeInTheDocument();
     expect(within(table).queryByRole("button")).toBeNull(); // no filing action until the upload screens exist
-    expect(screen.queryByText("To be confirmed")).toBeNull();
+    expect(within(table).getAllByText("Confirmed on GST portal")).toHaveLength(2);
   });
 
-  it("marks an unconfirmed date as to be confirmed, with the source link only when it is https", async () => {
+  it("shows no date at all when the server hasn't confirmed it, with the source link only when it is https", async () => {
     server.reply(
       NOW,
       ok([
@@ -82,7 +82,8 @@ describe("Filing home", () => {
     );
     open();
     await screen.findByRole("table");
-    expect(screen.getAllByText("To be confirmed")).toHaveLength(2);
+    expect(screen.getAllByText("Check on the GST portal")).toHaveLength(2);
+    expect(screen.queryByText(/13-Jan-2027|24-Jan-2027/)).toBeNull(); // the provisional dates are not shown
     const link = screen.getByRole("link", { name: "Where this date comes from" });
     expect(link).toHaveAttribute("href", "https://example.gov/notice");
     expect(screen.getAllByRole("link", { name: "Where this date comes from" })).toHaveLength(1);
@@ -120,7 +121,7 @@ describe("Filing home", () => {
     expect(await screen.findByText("Jan–Mar 2026")).toBeInTheDocument();
     expect(screen.queryByText("Oct–Dec 2025")).toBeNull();
     const asked = server.sent.filter((s) => s.path === NOW).map((s) => new URL(s.url).searchParams.get("fy"));
-    expect(asked).toEqual([fyIst(), previousFy(fyIst())]);
+    expect(asked).toEqual([null, previousFy("2026-27")]); // the server picks this year; last year is named from its answer
   });
 
   it("sends the user to Settings when no frequency is set, and doesn't ask for last year", async () => {

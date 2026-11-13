@@ -7,8 +7,8 @@ import type { components } from "../../api/schema";
 export type ReturnRow = components["schemas"]["ReturnOut"];
 export type ReturnsOut = components["schemas"]["ReturnsOut"];
 
-/** GET /b/{id}/returns?fy= (S-2): the server's periods, due dates and statuses. */
-export function useReturns(businessId: string, fy: string, enabled: boolean) {
+/** GET /b/{id}/returns?fy= (S-2): the server's periods, due dates and statuses. No `fy` means the server's current financial year. */
+export function useReturns(businessId: string, fy: string | undefined, enabled: boolean) {
   return useQuery<ReturnsOut, ApiError>({
     queryKey: ["b", businessId, "returns", fy],
     queryFn: () => call(() => api.GET("/api/v1/b/{business_id}/returns", { params: { path: { business_id: businessId }, query: { fy } } })),
