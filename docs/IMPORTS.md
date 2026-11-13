@@ -144,7 +144,7 @@ do not count as uploaded. The two own-invoice sections are `enabled: false` unti
 
 On the upload path a record that another live staged file of the same report type already holds is shown as a
 `duplicate` (error code `duplicate_in_other_file`) so the preview never promises a count that confirming both files would
-double; the first file keeps it and discarding that file frees it. The older flow (catalog, confirm) leaves this off and
+double; the first file keeps it and discarding that file frees it for files uploaded afterwards. Rows already staged as `duplicate` in a later file stay so (rows are insert-only): the user discards that file and uploads it again, and the page says so. The rule covers only rows that would be `new`; a `changed` row present in two live files is not flagged and is settled at confirm (StaleRun). The older flow (catalog, confirm) leaves this off and
 settles overlap at confirm (StaleRun).
 
 ### Deciding held rows (R1-M3 slice 4, `runs.resolve`, `imports.row_resolutions`)
