@@ -14,7 +14,9 @@ description = "refdata row names (refdata/values/*.yaml `key:` lines, and code t
 regexTarget = "line"
 regexes = [
     '''^\+?\s*-?\s*key: [a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+\s*$''',
-    # Python that names a refdata key: `key = "due.gstr3b.quarterly"`, `key == '...'` or `key = spec.due_key`.
-    '''\bkey ={1,2} ['"][a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+['"]''',
-    '''\bkey = spec\.due_key\b''',
+    # Python that names a refdata key, whole line only (a secret on the same line would not be skipped).
+    '''^\+?\s*(if )?key ={1,2} ['"][a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+['"]( if kind == "credit_note" else ['"][a-z][a-z0-9_.]*['"])?:?\s*$''',
+    '''^\+?\s*key = spec\.due_key\s*$''',
+    # The one test that flips a refdata row's status.
+    '''^\+?\s*"update refdata\.values set status = 'expert_confirmed', confirmed_by = 'test', confirmed_on = '[0-9-]+' where key = '[a-z][a-z0-9_.]*'"\s*$''',
 ]

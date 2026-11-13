@@ -20,6 +20,7 @@ from app.modules.identity.api_support import router as support_router
 from app.modules.identity.api_team import router as team_router
 from app.modules.identity.interface import resolve_principal
 from app.modules.identity.providers import auth_provider
+from app.modules.filing.api import router as filing_router
 from app.modules.refdata.api import router as refdata_router
 from platform_common.auth import debug_env
 from platform_common.errors import install_error_handlers
@@ -53,6 +54,7 @@ app.include_router(product_imports_router, prefix=API_PREFIX)  # before products
 app.include_router(products_router, prefix=API_PREFIX)
 app.include_router(customers_router, prefix=API_PREFIX)
 app.include_router(drafts_router, prefix=API_PREFIX)
+app.include_router(filing_router, prefix=API_PREFIX)
 app.include_router(refdata_router, prefix=API_PREFIX)
 app.include_router(jobs_router, prefix=API_PREFIX)  # platform routes (LLD-0 §3.7)
 if debug_env():

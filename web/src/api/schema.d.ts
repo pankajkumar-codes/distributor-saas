@@ -904,6 +904,23 @@ export interface paths {
         patch: operations["patch_profile_api_v1_b__business_id__profile_patch"];
         trace?: never;
     };
+    "/api/v1/b/{business_id}/returns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Returns */
+        get: operations["list_returns_api_v1_b__business_id__returns_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/support-grants": {
         parameters: {
             query?: never;
@@ -2665,6 +2682,52 @@ export interface components {
             email: string;
             /** New Password */
             new_password: string;
+        };
+        /** ReturnOut */
+        ReturnOut: {
+            /** Due Date */
+            due_date: string | null;
+            /** Due Date Confirmed */
+            due_date_confirmed: boolean;
+            /** Due Date Source Url */
+            due_date_source_url: string | null;
+            /**
+             * Form
+             * @enum {string}
+             */
+            form: "GSTR1" | "IFF" | "GSTR3B" | "PMT06";
+            /** Instance Id */
+            instance_id: string;
+            /** Period */
+            period: string;
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /** Period Label */
+            period_label: string;
+            /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "open" | "filed_locked" | "unlocked" | "skipped";
+        };
+        /** ReturnsOut */
+        ReturnsOut: {
+            /** Filing Frequency */
+            filing_frequency: ("monthly" | "quarterly") | null;
+            /** Fy */
+            fy: string;
+            /** Gstin */
+            gstin: string | null;
+            /** Returns */
+            returns: components["schemas"]["ReturnOut"][];
         };
         /**
          * Role
@@ -5084,6 +5147,39 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_returns_api_v1_b__business_id__returns_get: {
+        parameters: {
+            query?: {
+                fy?: string | null;
+            };
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReturnsOut"];
+                };
             };
             /** @description Validation Error */
             422: {

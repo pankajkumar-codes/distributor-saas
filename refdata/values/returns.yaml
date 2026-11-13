@@ -1,0 +1,131 @@
+# Return due dates and the IFF cap (LLD-5 §2.5, §4, §8). Values and citations from the GST
+# expert's team/gst/refdata-lld4.md §3 (2026-10-24) and review-RS-1 item 1; every row is
+# provisional until the expert confirms it (D-038).
+#
+# A due date is "day N of the month after the period": after the month for monthly returns,
+# the IFF and PMT-06, and after the quarter's last month for quarterly returns
+# (refdata-lld4.md §3). A holiday does not move it; extensions are separate rows (GC-24).
+# The quarterly GSTR-3B day depends on the GSTIN's state: two state lists, no overlap, and
+# a state in neither (97, Other Territory) has no due date (RefdataMissing, never a guess).
+
+- key: due.gstr1.monthly.day
+  value: "11"
+  type: integer
+  kind: tax
+  valid_from: 2021-01-01
+  source_url: https://gstcouncil.gov.in/sites/default/files/2024-05/notfctn-83-central-tax-english-2020.pdf
+  source_title: "Notf 83/2020-CT (10-11-2020) w.e.f. 01-01-2021: 'till the eleventh day of the month succeeding such tax period'"
+  last_checked: 2026-10-24
+  status: provisional
+  note: "team/gst/refdata-lld4.md §3; review-RS-1 item 1."
+
+- key: due.gstr1.quarterly.day
+  value: "13"
+  type: integer
+  kind: tax
+  valid_from: 2021-01-01
+  source_url: https://gstcouncil.gov.in/sites/default/files/2024-05/notfctn-83-central-tax-english-2020.pdf
+  source_title: "Notf 83/2020-CT: quarterly filers 'till the thirteenth day of the month succeeding such tax period'"
+  last_checked: 2026-10-24
+  status: provisional
+  note: "team/gst/refdata-lld4.md §3; review-RS-1 item 1."
+
+- key: due.iff.day
+  value: "13"
+  type: integer
+  kind: tax
+  valid_from: 2021-01-01
+  source_url: https://taxinformation.cbic.gov.in/content/html/tax_repository/gst/rules/cgst_rules/active/chapter8/rule59_v1.00.html
+  source_title: "CGST Rule 59(2) (subst. by Notf 82/2020-CT w.e.f. 01-01-2021): 'from the 1st day of the month succeeding such month till the 13th day'"
+  last_checked: 2026-10-24
+  status: provisional
+  note: "Months 1 and 2 of a QRMP quarter. Optional; no filing after the 13th (team/gst/refdata-lld4.md §3)."
+
+- key: due.pmt06.day
+  value: "25"
+  type: integer
+  kind: tax
+  valid_from: 2021-01-01
+  source_url: https://taxinformation.cbic.gov.in/content/html/tax_repository/gst/rules/cgst_rules/active/chapter8/rule61_v1.00.html
+  source_title: "CGST Rule 61(3): deposit in FORM GST PMT-06 'by the twenty fifth day of the month succeeding such month'"
+  last_checked: 2026-10-24
+  status: provisional
+  note: "Months 1 and 2 of a QRMP quarter (team/gst/refdata-lld4.md §3)."
+
+- key: due.gstr3b.monthly.day
+  value: "20"
+  type: integer
+  kind: tax
+  valid_from: 2021-01-01
+  source_url: https://taxinformation.cbic.gov.in/content/html/tax_repository/gst/rules/cgst_rules/active/chapter8/rule61_v1.00.html
+  source_title: "CGST Rule 61(1)(i) (subst. by Notf 82/2020-CT w.e.f. 01-01-2021): 'on or before the twentieth day of the month succeeding such month'"
+  last_checked: 2026-10-24
+  status: provisional
+  note: "team/gst/refdata-lld4.md §3; review-RS-1 item 1 asks for rule 61 to be cited when fetched."
+
+- key: due.gstr3b.quarterly.group_a.day
+  value: "22"
+  type: integer
+  kind: tax
+  valid_from: 2021-01-01
+  source_url: https://taxinformation.cbic.gov.in/content/html/tax_repository/gst/rules/cgst_rules/active/chapter8/rule61_v1.00.html
+  source_title: "CGST Rule 61(1)(ii), 'twenty-second day' group"
+  last_checked: 2026-10-24
+  status: provisional
+  note: "For the states in due.gstr3b.quarterly.group_a.states (team/gst/refdata-lld4.md §3)."
+
+- key: due.gstr3b.quarterly.group_a.states
+  value: "22,23,24,27,29,30,32,33,36,37,25,26,34,35,31"
+  type: text
+  kind: tax
+  valid_from: 2021-01-01
+  source_url: https://taxinformation.cbic.gov.in/content/html/tax_repository/gst/rules/cgst_rules/active/chapter8/rule61_v1.00.html
+  source_title: "CGST Rule 61(1)(ii), 'twenty-second day' group: Chhattisgarh, MP, Gujarat, Maharashtra, Karnataka, Goa, Kerala, Tamil Nadu, Telangana, Andhra Pradesh, UTs of Daman and Diu and Dadra and Nagar Haveli, Puducherry, A&N Islands, Lakshadweep"
+  last_checked: 2026-10-24
+  status: provisional
+  note: "GST state codes, comma-separated (team/gst/refdata-lld4.md §3)."
+
+- key: due.gstr3b.quarterly.group_b.day
+  value: "24"
+  type: integer
+  kind: tax
+  valid_from: 2021-01-01
+  source_url: https://taxinformation.cbic.gov.in/content/html/tax_repository/gst/rules/cgst_rules/active/chapter8/rule61_v1.00.html
+  source_title: "CGST Rule 61(1)(ii), 'twenty-fourth day' group"
+  last_checked: 2026-10-24
+  status: provisional
+  note: "For the states in due.gstr3b.quarterly.group_b.states (team/gst/refdata-lld4.md §3)."
+
+- key: due.gstr3b.quarterly.group_b.states
+  value: "02,03,05,06,08,09,10,11,12,13,14,15,16,17,18,19,20,21,01,38,04,07"
+  type: text
+  kind: tax
+  valid_from: 2021-01-01
+  source_url: https://taxinformation.cbic.gov.in/content/html/tax_repository/gst/rules/cgst_rules/active/chapter8/rule61_v1.00.html
+  source_title: "CGST Rule 61(1)(ii), 'twenty-fourth day' group: HP, Punjab, Uttarakhand, Haryana, Rajasthan, UP, Bihar, Sikkim, Arunachal, Nagaland, Manipur, Mizoram, Tripura, Meghalaya, Assam, West Bengal, Jharkhand, Odisha, UTs of J&K, Ladakh, Chandigarh, Delhi"
+  last_checked: 2026-10-24
+  status: provisional
+  note: "GST state codes, comma-separated (team/gst/refdata-lld4.md §3). 97 is in neither group."
+
+- key: iff.max_taxable_value
+  value: "5000000.00"
+  type: decimal
+  kind: tax
+  valid_from: 2021-01-01
+  source_url: https://taxinformation.cbic.gov.in/content/html/tax_repository/gst/rules/cgst_rules/active/chapter8/rule59_v1.00.html
+  source_title: "CGST Rule 59(2): IFF details of outward supplies to registered persons, value not exceeding fifty lakh rupees in each month"
+  last_checked: 2026-10-24
+  status: provisional
+  note: "Taxable value of B2B invoices in one IFF month; credit notes don't count until the GST expert cites how they do (LLD-5 L5-3, [RM45-6]). Source: gstr1-examples Part B, refdata-lld4.md §3 note."
+
+- key: filing.credit_note_locked_treatment
+  value: "roll_forward"
+  type: enum
+  allowed: [refuse, roll_forward]
+  kind: tax
+  valid_from: 2017-07-01
+  source_url: team/docs/lld-5.md
+  source_title: "LLD-5 L5-4 (GF-8: a credit note for a locked period goes into the current open period); CEO interim, CA question CA-1 (c)"
+  last_checked: 2026-11-09
+  status: provisional
+  note: "A credit note whose own date's return is not open rolls forward to the return covering today if that is open; otherwise it is refused (PeriodLocked)."

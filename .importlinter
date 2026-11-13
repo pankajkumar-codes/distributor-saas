@@ -38,6 +38,8 @@ ignore_imports =
     app.modules.sales.** -> app.modules.identity.interface
 ; sales publishes a finalized document's supply lines in filing's shape (LLD-4 §10, LLD-5 §3).
     app.modules.sales.** -> app.modules.filing.interface
+; filing reads the filing profile, GSTIN and fiscal calendar through business (LLD-5 §4, §8).
+    app.modules.filing.** -> app.modules.business.interface
 ; Module tests drive the mounted app and may call other modules' interfaces, the
 ; same surface any module may use.
     app.modules.*.tests.** -> app.api
