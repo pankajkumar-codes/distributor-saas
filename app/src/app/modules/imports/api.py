@@ -179,6 +179,7 @@ class RowsOut(BaseModel):
     has_more: bool
 
 
+EMPTY = {"code": "no_rows", "message": "This report had no rows."}
 UNVERIFIED = {"code": "layout_unchecked",
               "message": "We can read this report but haven't checked its layout yet."}
 
@@ -188,7 +189,7 @@ def _run_out(run: runs.Run) -> RunOut:
         id=str(run.id), upload_id=None if run.upload_id is None else str(run.upload_id), section=run.section,
         reader=run.profile_id, profile_verified=run.profile_verified, gstin=run.gstin, status=run.status,
         counts=runs.counts(run), held_by_reason=run.held_by_reason,
-        warnings=[] if run.profile_verified else [UNVERIFIED],
+        warnings=([] if run.profile_verified else [UNVERIFIED]) + ([] if run.summary.get("total", 1) else [EMPTY]),
         columns_not_stored=list(run.summary.get("columns_not_stored", [])),
     )
 

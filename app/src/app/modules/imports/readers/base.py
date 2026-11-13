@@ -45,6 +45,11 @@ class HeaderReader:
     def detect(self, table: SourceTable) -> bool:
         return self._header(table) is not None
 
+    def has_rows(self, table: SourceTable) -> bool:
+        """Is there any data below the header row? A month with no cash-back has a header and nothing else."""
+        found = self._header(table)
+        return found is not None and any(any(c.strip() for c in r) for r in table.rows[found[0] + 1 :])
+
     def gstin(self, table: SourceTable) -> str | None:
         found = self._header(table)
         if found is None or self._gstin not in found[1]:
@@ -52,8 +57,9 @@ class HeaderReader:
         col = found[1].index(self._gstin)
         seen = []
         for row in table.rows[found[0] + 1 :]:
-            if len(row) > col and row[col].strip() and row[col].strip() not in seen:
-                seen.append(row[col].strip())
+            value = row[col].strip().upper() if len(row) > col else ""
+            if value and value not in seen:
+                seen.append(value)
         if len(seen) > 1:
             return MIXED_GSTINS  # one file, several sellers: refused whole as another business's file
         return seen[0] if seen else None
