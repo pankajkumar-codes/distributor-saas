@@ -351,3 +351,103 @@
   source_title: "R1-M4 S1: Amazon MTR B2B layout built from the spec; stays false until a real report is checked on the owner's machine"
   last_checked: 2026-11-13
   status: provisional
+
+- key: imports.held.cashback_adjustment.label
+  value: "Flipkart cash-back note"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/platform-reader-spec.md
+  source_title: "R1-M4 S2: what a seller reads for a row held as cashback_adjustment (wording to be settled)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.cashback_adjustment.effect_note
+  value: "This note is kept but left out of the return until your CA says how it is reported."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/platform-reader-spec.md
+  source_title: "R1-M4 S2: what leaving a cashback_adjustment row alone does"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.cashback_adjustment.accept_allowed
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/platform-reader-spec.md
+  source_title: "R1-M4 S2: may a cashback_adjustment row be accepted as the file states it? No: the CA decides first (spec section 5, item 2)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.cashback_adjustment.needs_ca_check
+  value: "true"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/platform-reader-spec.md
+  source_title: "R1-M4 S2: a cashback_adjustment row is shown to the CA (spec section 5, item 2)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.price_adjustment.label
+  value: "Meesho price adjustment"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/platform-reader-spec.md
+  source_title: "R1-M4 S2: what a seller reads for a row held as price_adjustment (wording to be settled)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.price_adjustment.effect_note
+  value: "This row is kept but left out of the return until your CA says how it is reported."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/platform-reader-spec.md
+  source_title: "R1-M4 S2: what leaving a price_adjustment row alone does"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.price_adjustment.accept_allowed
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/platform-reader-spec.md
+  source_title: "R1-M4 S2: may a price_adjustment row be accepted as the file states it? No: the CA decides first (spec section 5, item 2)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.price_adjustment.needs_ca_check
+  value: "true"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/platform-reader-spec.md
+  source_title: "R1-M4 S2: a price_adjustment row is shown to the CA (spec section 5, item 2)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.profile.flipkart_sales_v1.verified
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/platform-reader-spec.md
+  source_title: "R1-M4 S2: Flipkart layout built from the spec; stays false until a real report is checked on the owner's machine"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.profile.flipkart_cashback_v1.verified
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/platform-reader-spec.md
+  source_title: "R1-M4 S2: Flipkart layout built from the spec; stays false until a real report is checked on the owner's machine"
+  last_checked: 2026-11-13
+  status: provisional

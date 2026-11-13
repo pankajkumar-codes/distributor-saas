@@ -141,3 +141,6 @@
 - path: app/src/app/modules/imports/readers/base.py
   value: "10"
   reason: "how many rows down a report's title lines the header row may sit; input hygiene"
+- path: app/src/app/modules/imports/readers/flipkart.py
+  value: "100"
+  reason: "upper bound of a percent rate: a row whose rate is outside 0 to 100 is held, no rate is invented"

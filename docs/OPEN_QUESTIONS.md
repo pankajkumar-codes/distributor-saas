@@ -32,6 +32,8 @@ Resolve these before the affected functionality is used for live financial trans
 - **CA items still open, not guessed (spec section 5, items 1 to 4):** which date decides the period, how adjustments are treated, shipping basis, cancellation treatment. The Amazon reader keeps every candidate date and holds what is unclear; nothing in M4 decides tax treatment.
 - **Amazon `Transaction Type` values:** only Shipment, Cancel, Refund and FreeReplacement are read; anything else is held `unknown_txn_type`. The full list and whether `Shipment Item Id` is unique per sale line need a real report. Treating zero-value Cancel and FreeReplacement rows as `skipped_zero` is provisional.
 - **Amazon shipping, gift-wrap tax and TCS columns** are not mapped until their exact header names are seen in a real file.
+- **CA sheet additions (R1-M4):** how Flipkart cash-back credit and debit notes (`cashback_adjustment`) and Meesho quantity-0 price-adjustment rows (`price_adjustment`) enter GSTR-1; how Flipkart Cancellation and Return Cancellation count. Rows stay held with the CA check on until answered.
+- **Flipkart column names** not in the spec (tax rate and amount pairs, Cash Back sheet headers, its seller GSTIN column) are guesses until a real workbook is checked.
 - **Real-sample check:** reader profiles stay unverified until a real report is run through the local check script (R1-M4 slice 4) by the owner. The EM batches that ask.
 
 ## Tax questions for the CA (open; they gate go-live, not the build)

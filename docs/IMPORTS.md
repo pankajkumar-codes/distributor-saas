@@ -193,6 +193,30 @@ column; a blank or different one rejects the file whole (`wrong_gstin`).
 - **Unchecked layout:** both profiles ship with refdata `imports.profile.<id>.verified` false, so every run shows
   the "layout unchecked" warning until a real report has been checked on the owner's machine.
 
+## Flipkart readers (R1-M4 slice 2, `readers/flipkart.py`)
+
+`flipkart_sales_v1` (sheet `Sales Report`, report type `orders`) and `flipkart_cashback_v1` (sheet `Cash Back Report`,
+report type `cashback`) read one `Sales Report - <range>.xlsx`, alone or in a zip. A workbook with several sheets is
+read sheet by sheet: each sheet a reader of the section names becomes its own table and run (the `Help` sheet is not
+read; a sheet with a header and no rows is skipped, since a month may have no cash-back). A reader declares its sheet
+(`Reader.sheet`); a workbook none of whose sheets any reader names is read as before and refused if it has several.
+The whole sheet is read whatever size it declares (the declared-size bug).
+
+- **Rates** are kept as written (percent numbers like 18.0); a rate outside 0 to 100 holds the row `sanity`.
+- **Sales rows** are held for: an event type or sub type outside Sale/Return and Sale/Cancellation/Return/Return
+  Cancellation (`unknown_txn_type`), blank HSN, quantity or delivery state, IGST with CGST/SGST on one row, and a
+  Cancellation or Return Cancellation carrying value (`sanity`). A zero-value one is `skipped_zero`. How Cancellation and
+  Return Cancellation count is a CA question (spec section 5, item 4) and nothing here decides it.
+- **Dedupe keys:** sales `(seller GSTIN, order item id, event type, event sub type)`; cash-back `(seller GSTIN, note
+  id, order item id)`, a blank item id allowed.
+- **Cash Back rows** are all held as `cashback_adjustment` (new hold reason; accept is off and the CA check is on). Migration
+  `202611131400` widens the `hold_reason` check; no row changes.
+- **The same all-sellers rule as Amazon:** a sheet naming more than one seller GSTIN is refused whole.
+- **Personal columns** (customer name, address, pincodes) are not mapped, so never stored.
+- **To check on the first real report:** the exact names of the tax rate and amount columns, the shipped-from and
+  delivery state columns, and the Cash Back sheet's header names (the spec lists only some; its seller GSTIN column is assumed
+  to be `Seller GSTIN`). Both profiles ship unverified.
+
 ## Retention of uploads (R1-M3, TD-18)
 
 `retention.purge_uploads()` (the third rule of the retention Lambda, after `purge_drafts`) does two things in the

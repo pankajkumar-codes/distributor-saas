@@ -58,6 +58,29 @@ def read_table(content: bytes, filename: str, *, sheet: str | None = None) -> So
     return SourceTable(filename=filename, checksum_sha256=checksum(content), sheet=used_sheet, rows=rows)
 
 
+def sheet_names(content: bytes) -> list[str]:
+    """The sheet names of an .xlsx workbook, so a reader can choose its own sheet (a Flipkart workbook
+    holds a Help sheet, the sales sheet and the cash-back sheet)."""
+    if len(content) == 0 or len(content) > MAX_FILE_BYTES:
+        raise FileRejected("file is empty or too large")
+    try:
+        with zipfile.ZipFile(io.BytesIO(content)) as archive:
+            if sum(info.file_size for info in archive.infolist()) > MAX_XLSX_UNCOMPRESSED_BYTES:
+                raise FileRejected("workbook expands to more than the allowed size")
+    except zipfile.BadZipFile as exc:
+        raise FileRejected("file is not a valid .xlsx workbook") from exc
+    import openpyxl
+
+    try:
+        workbook = openpyxl.load_workbook(io.BytesIO(content), read_only=True, data_only=False)
+    except Exception as exc:
+        raise FileRejected("file is not a readable .xlsx workbook") from exc
+    try:
+        return list(workbook.sheetnames)
+    finally:
+        workbook.close()
+
+
 def _read_csv(content: bytes) -> list[list[str]]:
     try:
         # utf-8-sig drops the byte-order mark Excel adds when saving "CSV UTF-8".

@@ -18,7 +18,7 @@ from decimal import Decimal
 
 MARKETPLACES = {"amazon", "flipkart", "meesho"}
 # mtr_b2c and mtr_b2b are Amazon's Merchant Tax Report files (R1-M4).
-REPORT_TYPES = {"orders", "invoices", "returns", "settlements", "fees", "mtr_b2c", "mtr_b2b"}
+REPORT_TYPES = {"orders", "invoices", "returns", "settlements", "fees", "mtr_b2c", "mtr_b2b", "cashback"}
 _NAME = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
 
 
