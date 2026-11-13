@@ -137,6 +137,9 @@ class AmazonReader(HeaderReader):
             return StagedRowStatus.held, "blank_qty"
         if not n.get("ship_to_state"):
             return StagedRowStatus.held, "unknown_state"
+        rates = [n.get(k) for k in ("cgst_rate", "sgst_rate", "utgst_rate", "igst_rate", "cess_rate")]
+        if any(r is not None and (r > PERCENT or r < 0) for r in rates):
+            return StagedRowStatus.held, "sanity"  # a rate over 100% or below 0: the scaling guess was wrong
         igst = not _zero(n.get("igst_rate"), n.get("igst_tax"))
         local = not _zero(n.get("cgst_rate"), n.get("sgst_rate"), n.get("utgst_rate"), n.get("cgst_tax"),
                           n.get("sgst_tax"), n.get("utgst_tax"))

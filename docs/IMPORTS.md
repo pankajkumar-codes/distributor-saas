@@ -184,6 +184,11 @@ column; a blank or different one rejects the file whole (`wrong_gstin`).
   value are `skipped_zero` (provisional, see OPEN_QUESTIONS); a Cancel carrying value is held `sanity`; any other type is held
   `unknown_txn_type`. Blank HSN, quantity or ship-to state hold the row (`blank_hsn`, `blank_qty`, `unknown_state`);
   IGST together with CGST/SGST on one row is held `sanity`.
+- **Guards against a wrong guess:** a rate above 100 or below 0 after scaling is held `sanity`, so a file that already
+  writes `18` shows as held rows, not as 1800. A file naming more than one seller GSTIN is refused whole (`wrong_gstin`).
+  `unknown_state` is held only for a blank state; an unrecognised state name is not yet checked against the state list.
+- **To check on the first real report:** whether a real B2C file carries a `Customer Bill To Gstid` column (even empty),
+  which would make the B2C reader refuse it and the B2B reader claim it; whether rates are fractions or percents.
 - **Not mapped yet:** shipping, gift-wrap tax and TCS columns (exact header names unknown until a real file is checked).
 - **Unchecked layout:** both profiles ship with refdata `imports.profile.<id>.verified` false, so every run shows
   the "layout unchecked" warning until a real report has been checked on the owner's machine.

@@ -146,3 +146,14 @@ def test_the_reader_registers_once_and_is_listed_for_amazon_only():
 
 def test_the_profiles_are_unverified_until_a_real_file_confirms_them():
     assert B2C.profile().verified is False and B2B.profile().verified is False
+
+
+def test_a_rate_over_one_hundred_percent_is_held_not_stored_as_a_rate():
+    rows = [{**fx.sale("30"), "Cgst Rate": "9", "Sgst Rate": "9"}]  # already percent: scaled to 900
+    v = verdicts(B2C, fx.csv_bytes(fx.B2C_HEADERS, rows))
+    assert v["ITEM-30"][1] == (StagedRowStatus.held, "sanity")
+
+
+def test_a_file_naming_two_sellers_has_no_single_gstin():
+    content = fx.csv_bytes(fx.B2C_HEADERS, [fx.sale("1"), fx.sale("2", gstin=fx.OTHER)])
+    assert B2C.gstin(table(content)) == "MIXED"

@@ -8,6 +8,7 @@ import re
 from ..parsing import MappingProfile, SourceTable
 from ..parsing.profiles import header_key
 
+MIXED_GSTINS = "MIXED"  # never a valid GSTIN, so a file naming several sellers is refused as wrong_gstin
 HEADER_ROWS = 10  # how far down a report's title lines the header row may sit
 
 
@@ -46,7 +47,10 @@ class HeaderReader:
         if found is None or self._gstin not in found[1]:
             return None
         col = found[1].index(self._gstin)
+        seen = []
         for row in table.rows[found[0] + 1 :]:
-            if len(row) > col and row[col].strip():
-                return row[col].strip()
-        return None
+            if len(row) > col and row[col].strip() and row[col].strip() not in seen:
+                seen.append(row[col].strip())
+        if len(seen) > 1:
+            return MIXED_GSTINS  # one file, several sellers: refused whole as another business's file
+        return seen[0] if seen else None
