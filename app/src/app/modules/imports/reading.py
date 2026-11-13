@@ -54,6 +54,10 @@ def read_upload(uow: UnitOfWork, *, upload_id: uuid.UUID, section: str, file_nam
             # Every file is checked before any is staged, so a refusal never leaves a run behind.
             file_gstin = reader.gstin(table)
             if not file_gstin:
+                has_rows = getattr(reader, "has_rows", None)
+                if has_rows is not None and not has_rows(table):
+                    parsed.append((table, reader))  # a header and no rows: an empty run, nothing to check
+                    continue
                 raise Refused("gstin_missing")
             if own_gstin is None or file_gstin.strip().upper() != own_gstin:
                 raise Refused("wrong_gstin")
@@ -96,7 +100,7 @@ def _tables(name: str, data: bytes, readers: list[Reader]) -> list:
             wanted = [s for s in sheet_names(data) if any(_same_sheet(getattr(r, "sheet", None), s) for r in readers)]
             if wanted:
                 tables = [read_table(data, name, sheet=s) for s in wanted]
-                return [t for t in tables if len(t.rows) > 1] or tables  # a sheet with a header and no rows has nothing to stage
+                return [t for t in tables if t.rows] or tables  # a sheet with nothing at all is not a layout
         return [read_table(data, name)]
     except FileRejected:
         raise Refused("unreadable_file") from None

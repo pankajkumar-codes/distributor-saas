@@ -140,7 +140,7 @@ def test_the_reader_registers_once_and_is_listed_by_section():
         readers.register_platform_readers()
         assert sorted(r.id for r in readers.readers_for("amazon")) == ["amazon_mtr_b2b_v1", "amazon_mtr_b2c_v1"]
         assert sorted(r.id for r in readers.readers_for("flipkart")) == ["flipkart_cashback_v1", "flipkart_sales_v1"]
-        assert readers.readers_for("meesho") == []
+        assert sorted(r.id for r in readers.readers_for("meesho")) == ["meesho_returns_v1", "meesho_sales_v1"]
     finally:
         readers.clear_for_tests()
 
