@@ -14,6 +14,7 @@ import datetime as dt
 import hashlib
 import json
 import uuid
+from collections.abc import Callable
 from decimal import Decimal
 
 from sqlalchemy import select, text
@@ -24,7 +25,7 @@ from platform_common.clock import Clock
 from platform_common.ids import uuid7
 
 from .models import ImportRow, ImportRun, RunStatus, StagedRowStatus
-from .parsing import MappingProfile, RowStatus, SourceTable, parse
+from .parsing import MappingProfile, ParsedRow, RowStatus, SourceTable, parse
 
 _LOOKUP_BATCH = 500
 
@@ -37,10 +38,25 @@ class StaleRun(RunStateError):
     """Another file confirmed since staging changed what this run's rows would be."""
 
 
+Classify = Callable[[ParsedRow], "tuple[StagedRowStatus, str | None] | None"]
+
+
 def stage(
-    session: Session, *, business_id: uuid.UUID, user_id: uuid.UUID, table: SourceTable, profile: MappingProfile
+    session: Session,
+    *,
+    business_id: uuid.UUID,
+    user_id: uuid.UUID,
+    table: SourceTable,
+    profile: MappingProfile,
+    upload_id: uuid.UUID | None = None,
+    gstin: str | None = None,
+    classify: Classify | None = None,
 ) -> tuple[ImportRun, bool]:
-    """Returns (run, created). created is False when this file was already staged."""
+    """Returns (run, created). created is False when this file was already staged.
+
+    `classify` is the reader's hold rule. It sees only rows that parsed as valid and may
+    return (held, reason) or (skipped_zero, None); a held or skipped row is kept with that
+    status and is not counted as new, already imported or changed."""
     existing = _find_run(session, business_id, profile, table.checksum_sha256)
     if existing is not None:
         return existing, False
@@ -64,12 +80,19 @@ def stage(
         header_row_number=result.header_row_number,
         status=RunStatus.staged,
         uploaded_by=user_id,
+        upload_id=upload_id,
+        gstin=gstin,
     )
     rows = []
     counts = {s.value: 0 for s in StagedRowStatus}
     for parsed in result.rows:
         key = keys.get(parsed.row_number)
         status = _staged_status(parsed.status, previous.get(key), parsed.content_hash)
+        hold_reason = None
+        if classify is not None and parsed.status == RowStatus.valid:
+            verdict = classify(parsed)
+            if verdict is not None:
+                status, hold_reason = verdict
         counts[status.value] += 1
         rows.append(
             ImportRow(
@@ -84,6 +107,7 @@ def stage(
                 dedup_values=list(parsed.dedup_key) if parsed.dedup_key is not None else None,
                 dedup_key=key,
                 content_hash=parsed.content_hash,
+                hold_reason=hold_reason,
             )
         )
     counts["total"] = len(rows)

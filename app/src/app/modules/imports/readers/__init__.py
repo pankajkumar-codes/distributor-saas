@@ -13,7 +13,8 @@ A reader never touches the database or the object store. It reads by header name
 
 from typing import Protocol
 
-from ..parsing import MappingProfile, SourceTable
+from ..models import StagedRowStatus
+from ..parsing import MappingProfile, ParsedRow, SourceTable
 
 # The sections a user uploads into. Every one is optional.
 SECTIONS = ("amazon", "flipkart", "meesho", "own_invoices_excel", "own_invoices_pdf")
@@ -35,6 +36,13 @@ class Reader(Protocol):
         """Does this file carry the headers this reader requires?"""
 
     def profile(self) -> MappingProfile: ...
+
+    def gstin(self, table: SourceTable) -> str | None:
+        """The seller GSTIN the file states (its own header block or column), or None."""
+
+    def classify(self, row: ParsedRow) -> "tuple[StagedRowStatus, str | None] | None":
+        """The hold rule, for a row that parsed as valid: (held, reason) with a reason from
+        HOLD_REASONS, (skipped_zero, None) for a zero-value cancel or replacement, or None."""
 
 
 _registry: dict[str, Reader] = {}

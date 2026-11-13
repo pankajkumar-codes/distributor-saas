@@ -22,7 +22,7 @@ from platform_common.permissions import Permission, require
 from platform_common.uow import BusinessUoW, parse_id
 
 from . import jobs as import_jobs
-from . import uploads
+from . import runs, uploads
 
 router = APIRouter(tags=["imports"])
 CREATE = [Depends(require(Permission.UPLOADS_CREATE))]
@@ -126,3 +126,66 @@ def list_uploads(uow: BusinessUoW, page: Annotated[PageParams, Depends(page_para
 @router.get("/b/{business_id}/uploads/{upload_id}", response_model=UploadOut, dependencies=VIEW)
 def get_upload(upload_id: str, uow: BusinessUoW):
     return _out(uploads.get(uow, parse_id(upload_id)))
+
+
+class RunOut(BaseModel):
+    id: str
+    upload_id: str | None
+    section: Section | None
+    reader: str  # the profile id the file was read with
+    profile_verified: bool
+    gstin: str | None
+    status: Literal["staged", "confirmed", "discarded"]
+    counts: dict[str, int]  # new, already_imported, changed, duplicate, conflict, invalid, held, skipped_zero
+    held_by_reason: dict[str, int]
+    warnings: list[dict[str, str]]
+    columns_not_stored: list[str]
+
+
+class RowOut(BaseModel):
+    row_id: str
+    run_id: str
+    file_name: str
+    row_number: int
+    status: Literal["new", "already_imported", "changed", "duplicate", "conflict", "invalid", "held", "skipped_zero"]
+    hold_reason: str | None  # a code, for tests and logs
+    reason_label: str | None  # plain words for the screen
+    values: dict[str, str]  # the cells as read: non-personal mapped cells only
+    errors: list[dict[str, str | None]]
+    needs_ca_check: bool
+    ca_check_note: str | None
+
+
+class RowsOut(BaseModel):
+    rows: list[RowOut]
+    has_more: bool
+
+
+UNVERIFIED = {"code": "layout_unchecked",
+              "message": "We can read this report but haven't checked its layout yet."}
+
+
+def _run_out(run: runs.Run) -> RunOut:
+    return RunOut(
+        id=str(run.id), upload_id=None if run.upload_id is None else str(run.upload_id), section=run.section,
+        reader=run.profile_id, profile_verified=run.profile_verified, gstin=run.gstin, status=run.status,
+        counts=runs.counts(run), held_by_reason=run.held_by_reason,
+        warnings=[] if run.profile_verified else [UNVERIFIED],
+        columns_not_stored=list(run.summary.get("columns_not_stored", [])),
+    )
+
+
+@router.get("/b/{business_id}/runs/{run_id}", response_model=RunOut, dependencies=VIEW)
+def get_run(run_id: str, uow: BusinessUoW):
+    return _run_out(runs.get_run(uow, parse_id(run_id)))
+
+
+@router.get("/b/{business_id}/runs/{run_id}/rows", response_model=RowsOut, dependencies=VIEW)
+def list_rows(run_id: str, uow: BusinessUoW, page: Annotated[PageParams, Depends(page_params)],
+              clock: Annotated[Clock, Depends(get_clock)], status: str | None = None):
+    found, more = runs.list_rows(uow, parse_id(run_id), status, page.limit, page.offset, clock.today())
+    return RowsOut(has_more=more, rows=[
+        RowOut(row_id=str(r.id), run_id=str(r.run_id), file_name=r.file_name, row_number=r.row_number,
+               status=r.status, hold_reason=r.hold_reason, reason_label=r.reason_label, values=r.values,
+               errors=r.errors, needs_ca_check=r.needs_ca_check, ca_check_note=r.ca_check_note)
+        for r in found])

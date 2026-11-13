@@ -19,11 +19,13 @@ from sqlalchemy import text
 
 from app.modules.refdata import value_on
 from platform_common import audit, storage
+from platform_common.clock import get_clock
 from platform_common.errors import Conflict, Deny, Invalid
 from platform_common.ids import uuid7
 from platform_common.uow import UnitOfWork
 
 from .readers import SECTIONS
+from .reading import Refused, read_upload
 
 MAX_FILE_NAME = 255
 CONTENT_TYPES = {
@@ -47,6 +49,12 @@ REJECT_MESSAGES = {
     "not_a_pdf": "This file isn't a PDF.",
     "upload_changed": "The file in storage isn't the one you chose. Upload it again.",
     "read_failed": "We couldn't read this file. Try uploading it again, or contact support.",
+    "unreadable_file": "We couldn't open this file. Save it as .xlsx or CSV (UTF-8) and upload it again.",
+    "bad_zip": "This zip can't be read. It should hold only the platform's own report files.",
+    "unknown_layout": "We can't read this file's columns. Check it is the right report.",
+    "needs_choice": "This file fits more than one kind of report. We'll ask you to choose soon; for now it can't be read.",
+    "gstin_missing": "We couldn't find the seller's GSTIN in this file.",
+    "wrong_gstin": "This file is for a different GSTIN than your business.",
     "not_allowed": "Whoever started this upload can no longer upload files.",
 }
 PDF_MAGIC = b"%PDF-"
@@ -195,5 +203,11 @@ def process(uow: UnitOfWork, upload_id: uuid.UUID) -> Upload:
     if not readers_for(up.section):
         reject(uow, upload_id, "no_reader")
         return get(uow, upload_id)
-    # A reader exists: the next slice stages its rows here.
-    raise NotImplementedError("staging an upload through a reader comes in the next slice")
+    try:
+        runs = read_upload(uow, upload_id=upload_id, section=up.section, file_name=up.file_name, content=content,
+                           today=get_clock().today())
+    except Refused as refused:
+        reject(uow, upload_id, refused.code)
+        return get(uow, upload_id)
+    _set(uow, upload_id, status="parsed", run_id=runs[0].id)  # a zip may hold several runs; the first is linked
+    return get(uow, upload_id)

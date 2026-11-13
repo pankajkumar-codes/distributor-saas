@@ -112,4 +112,27 @@ Roles: owner and admin upload; owner, admin and CA read (`uploads.view`); billin
 **Readers** (`readers/`) are the plug-in point: `register(reader)` with an id, a section, a report type, `accepts`
 (zip entry names), `detect` (required headers) and a `MappingProfile`. A reader is used in production only when
 refdata `imports.profile.<id>.verified` is true. This slice ships no readers, so a platform file is rejected with
-"We can't read this kind of report yet", and a PDF in the own-invoice section is stored and marked read with no rows.
+"We can't read this kind of report yet", and a PDF in the own-invoice section is stored (status `stored`) with no rows.
+
+### Reading and staging (R1-M3 slice 2, `reading.py`, `runs.py`, `parsing/zipguard.py`)
+
+For a section with readers the parse job (1) opens a `.zip` through the guard, which refuses a folder or odd name,
+a password, a duplicate name, a file no reader of the section accepts, more than `imports.zip.max_entries` files,
+or more than `imports.zip.max_inflate_bytes` once inflated (counted as it is read); (2) reads each file into a table;
+(3) asks every reader of the section to `detect` it: none rejects with `unknown_layout`, more than one with
+`needs_choice` (the choose endpoint comes with a second reader of one layout); (4) requires the reader's `gstin(table)`
+to equal the business's own GSTIN (`gstin_missing`, `wrong_gstin`; the whole file is refused); (5) stages through
+`staging.stage` with the reader's hold rule `classify`. Every file in the upload is read before any is staged, and
+staging runs in the job's transaction, so a crash leaves no run and the retry starts again. A zip yields one run per
+file; `uploads.run_id` points at the first.
+
+A row that parsed as valid is `held` (with a `hold_reason` from `HOLD_REASONS`) or `skipped_zero` when the reader says
+so. Held rows are kept and counted separately, never dropped or guessed, and are not counted as new, already imported
+or changed. Their wording (`imports.held.<reason>.label`, `.effect_note`) and flags (`.accept_allowed`,
+`.needs_ca_check`) are refdata, all provisional. `GET /runs/{id}` and `GET /runs/{id}/rows` (owner, admin, CA) return
+the preview: counts, held-by-reason, a "layout unchecked" warning while the profile is not verified (by the reader and
+by refdata), and each row's cells as read (non-personal mapped columns only), errors and plain reason.
+
+Not in this slice: `months` and `already_uploaded_of` on the run, row resolutions (`set_aside`) and `allowed_actions`,
+discard, `GET /upload-sections`, `GET /marketplace-coverage`, and the duplicate rule against other live staged runs
+(next slice); raw-file retention (the slice after).
