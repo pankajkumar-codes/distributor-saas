@@ -53,15 +53,17 @@ def read_upload(uow: UnitOfWork, *, upload_id: uuid.UUID, section: str, file_nam
             raise Refused("unknown_layout")
         if len(matches) > 1:
             raise Refused("needs_choice")  # the choose endpoint arrives with a second reader of one layout
-        parsed.append((table, matches[0]))
-
-    runs: list[ImportRun] = []
-    for table, reader in parsed:
+        reader = matches[0]
+        # Every file is checked before any is staged, so a refusal never leaves a run behind.
         file_gstin = reader.gstin(table)
         if not file_gstin:
             raise Refused("gstin_missing")
         if own_gstin is None or file_gstin.strip().upper() != own_gstin:
             raise Refused("wrong_gstin")
+        parsed.append((table, reader))
+
+    runs: list[ImportRun] = []
+    for table, reader in parsed:
         run, created = staging.stage(
             uow.tx,
             business_id=business_id,

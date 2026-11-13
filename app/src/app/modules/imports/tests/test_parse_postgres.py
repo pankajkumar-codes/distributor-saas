@@ -203,3 +203,16 @@ def test_another_business_cannot_read_a_run_by_its_id(shop):  # noqa: F811
     other = new_business(pg, "olivia")
     for path in (f"/runs/{run_id}", f"/runs/{run_id}/rows"):
         assert get(pg, f"/api/v1/b/{other}{path}", sub="olivia").status_code == 404
+
+
+@pytest.mark.parametrize("second", [csv("B-1,Shipment,1,6109,2.00", gstin="29AAAAA0000A1Z5"),
+                                    (HEAD + ",B-1,Shipment,1,6109,2.00\n").encode()])  # wrong GSTIN, then none
+def test_a_zip_with_one_bad_gstin_stages_nothing(shop, second):  # noqa: F811
+    pg, _, _ = shop
+    z = zipped(**{"orders-a.csv": csv("A-1,Shipment,1,6109,1.00"), "orders-b.csv": second})
+    upload_id, _ = upload(shop, "amazon", "month.zip", z, "application/zip")
+    run_jobs(shop)
+    out = state(shop, upload_id)
+    assert out["status"] == "rejected" and out["reject_reason"] in ("wrong_gstin", "gstin_missing")
+    assert scalar(pg.owner, "select count(*) from imports.import_runs") == 0
+    assert scalar(pg.owner, "select count(*) from imports.import_rows") == 0
