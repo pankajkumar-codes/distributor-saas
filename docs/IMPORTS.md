@@ -165,6 +165,29 @@ is flagged.
 Not yet: `months` and `already_uploaded_of` on the run, the `from`/`to` filters and `GET /marketplace-coverage` (all need
 the months a real reader reads from its file, R1-M4); value fixes (`enter_hsn`, `pick_state`, R1-M4).
 
+## Amazon readers (R1-M4 slice 1, `readers/amazon.py`, `readers/base.py`)
+
+Two readers, `amazon_mtr_b2c_v1` and `amazon_mtr_b2b_v1`, registered by `register_platform_readers()` at start-up.
+A report is a CSV named `MTR_B2C-*.csv` or `MTR_B2B-*.csv`, alone or inside a zip (UTF-8 BOM allowed). A reader
+claims a file by its header names, not by position or file name alone: six marker headers must be present and the
+B2C reader refuses a file that has `Customer Bill To Gstid`. The business GSTIN is read from the `Seller Gstin`
+column; a blank or different one rejects the file whole (`wrong_gstin`).
+
+- **Fields kept:** GSTIN, order/shipment ids, invoice and credit note numbers, the candidate dates (order, shipment,
+  invoice, credit note), quantity, HSN, ship-to and ship-from state, taxable value, tax by head and rate, and for B2B
+  the buyer GSTIN. Buyer names and addresses are never mapped, so never stored.
+- **Rates** arrive as fractions (0.18) and are stored as percent through `FieldSpec.scale` (exact `Decimal`, never inferred).
+- **Dedupe key:** `(seller GSTIN, shipment item id, transaction type, credit note no)`. An invoice number is *not*
+  part of it: two units of one order share one, and a refund repeats its sale's. A blank credit note number is
+  allowed in the key (`key_blank_ok`) because only refunds carry one.
+- **Rows by type:** `Shipment` is a sale; `Refund` needs a credit note number; `Cancel` and `FreeReplacement` at zero
+  value are `skipped_zero` (provisional, see OPEN_QUESTIONS); a Cancel carrying value is held `sanity`; any other type is held
+  `unknown_txn_type`. Blank HSN, quantity or ship-to state hold the row (`blank_hsn`, `blank_qty`, `unknown_state`);
+  IGST together with CGST/SGST on one row is held `sanity`.
+- **Not mapped yet:** shipping, gift-wrap tax and TCS columns (exact header names unknown until a real file is checked).
+- **Unchecked layout:** both profiles ship with refdata `imports.profile.<id>.verified` false, so every run shows
+  the "layout unchecked" warning until a real report has been checked on the owner's machine.
+
 ## Retention of uploads (R1-M3, TD-18)
 
 `retention.purge_uploads()` (the third rule of the retention Lambda, after `purge_drafts`) does two things in the

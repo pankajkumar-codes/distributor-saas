@@ -28,6 +28,12 @@ Resolve these before the affected functionality is used for live financial trans
 19. Subscription plans and usage limits?
 20. Direct marketplace APIs, GST e-invoicing, e-way bills, or filing integrations and their priority?
 
+## Platform readers (R1-M4)
+- **CA items still open, not guessed (spec section 5, items 1 to 4):** which date decides the period, how adjustments are treated, shipping basis, cancellation treatment. The Amazon reader keeps every candidate date and holds what is unclear; nothing in M4 decides tax treatment.
+- **Amazon `Transaction Type` values:** only Shipment, Cancel, Refund and FreeReplacement are read; anything else is held `unknown_txn_type`. The full list and whether `Shipment Item Id` is unique per sale line need a real report. Treating zero-value Cancel and FreeReplacement rows as `skipped_zero` is provisional.
+- **Amazon shipping, gift-wrap tax and TCS columns** are not mapped until their exact header names are seen in a real file.
+- **Real-sample check:** reader profiles stay unverified until a real report is run through the local check script (R1-M4 slice 4) by the owner. The EM batches that ask.
+
 ## Tax questions for the CA (open; they gate go-live, not the build)
 The full text, interim answers and owners are in `team/product/ca-questions.md` in the project files. The interim answer is what the app does until the CA replies. Each one is a dated refdata row, so a different answer is a reviewed refdata change, not a code change.
 

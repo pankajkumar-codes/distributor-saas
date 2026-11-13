@@ -273,7 +273,8 @@ def _convert(spec: FieldSpec, value: str):
         if not _DECIMAL.match(number):
             raise _FieldInvalid("not_decimal", f"{value!r} is not a plain decimal number")
         try:
-            return Decimal(number.replace(",", ""))
+            amount = Decimal(number.replace(",", ""))
+            return amount if spec.scale is None else amount * spec.scale
         except InvalidOperation:  # pragma: no cover - the regex already guarantees validity
             raise _FieldInvalid("not_decimal", f"{value!r} is not a plain decimal number")
 

@@ -113,3 +113,13 @@ def seed_member(pg, business_id, sub: str, role: str) -> uuid.UUID:
             {"i": uuid.uuid4(), "b": business_id, "u": uid, "s": sub, "r": role},
         )
     return uid
+
+
+@pytest.fixture(autouse=True)
+def _no_platform_readers():
+    """The API registers the real readers when it is imported; a test registers the readers it wants."""
+    from app.modules.imports import readers
+
+    readers.clear_for_tests()
+    yield
+    readers.clear_for_tests()
