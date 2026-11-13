@@ -94,7 +94,7 @@ business. Step 13 is where you sign up as yourself.
 | 1 | Sign in. On Home, click **Upload your reports**. | A page "Upload your reports" with four cards: Amazon, Flipkart, Meesho, Your own sales invoices (Excel). The page says every section is optional. |
 | 2 | Amazon card: choose `demo-orders-good.csv`, click **Upload**. | "Reading your file..." and then **Read.** |
 | 3 | Flipkart card: choose `demo-orders-held-rows.csv`, **Upload**. | **Read.** The page shows only the status; the next step shows what the server made of it. |
-| 4 | In PowerShell: `.\demo.ps1 status` | The Flipkart file made one preview with 2 new rows, 1 skipped (a zero-value cancel) and **2 held rows**: DEMO-2002 "HSN missing" and DEMO-2003 "Quantity missing". The Flipkart section says "rows held". |
+| 4 | Open a **second** PowerShell window (the first one is busy showing the sign-in codes) and run `.\demo.ps1 status` | The Flipkart file made one preview with 2 new rows, 1 skipped (a zero-value cancel) and **2 held rows**: DEMO-2002 "HSN missing" and DEMO-2003 "Quantity missing". The Flipkart section says "rows held". |
 | 5 | Amazon card: choose `demo-orders-wrong-gstin.csv`, **Upload**. | A red message: **This file is for a different GSTIN than your business.** Nothing is kept. |
 | 6 | Amazon card: choose `not-a-report.csv`. | A red message: **We can't read this file's columns. Check it is the right report.** |
 | 7 | Meesho card: choose `demo-orders-bundle.zip` (a zip of two files). | **Read.** `.\demo.ps1 status` shows two previews from it (3 rows and 2 rows). |
@@ -111,6 +111,8 @@ owner and the CA decide), and real marketplace layouts (R1-M4).
 
 Other helper commands: `.\demo.ps1 upload amazon demo\samples\demo-orders-good.csv` (the same upload without the
 browser), `.\demo.ps1 tool status`. On Mac and Linux use `./demo.sh` in place of `.\demo.ps1`.
+
+The helper commands read the sample files from inside the demo image, so `upload` and `tool` work only for files in the repo's `demo\samples` folder. A file of your own, kept anywhere else, is not found until it is in that folder and the image is rebuilt.
 
 ## 5. If it does not open
 
