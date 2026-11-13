@@ -149,16 +149,20 @@ class RunOut(BaseModel):
     columns_not_stored: list[str]
 
 
+ACTIONS = Literal["set_aside", "accept", "enter_hsn", "pick_state"]
+
+
 class ActionOut(BaseModel):
-    action: Literal["set_aside", "accept"]
+    action: ACTIONS
     label: str
     effect_note: str
 
 
 class ResolutionOut(BaseModel):
-    action: Literal["set_aside", "accept"]
+    action: ACTIONS
     note: str
     at: datetime
+    value: str | None = None  # what the user entered or picked, for a fix
 
 
 class RowOut(BaseModel):
@@ -221,8 +225,9 @@ def _row_out(r: runs.Row) -> RowOut:
 class ResolveIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    action: Literal["set_aside", "accept"]
+    action: ACTIONS
     note: str
+    value: str | None = None  # the HSN or the state code, for `enter_hsn` and `pick_state`
 
 
 @router.post("/b/{business_id}/rows/{row_id}/resolve", response_model=RowOut, dependencies=CREATE)
@@ -235,7 +240,7 @@ def resolve_row(row_id: str, body: ResolveIn, request: Request, uow: BusinessUoW
     rid = parse_id(row_id)
 
     def decide():
-        return _row_out(runs.resolve(uow, rid, body.action, body.note, today)).model_dump(mode="json")
+        return _row_out(runs.resolve(uow, rid, body.action, body.note, today, body.value)).model_dump(mode="json")
 
     return run_once(uow.tx, uow.principal.business_id, idempotency_key, method=request.method,
                     route=request.scope["route"].path, payload={"row": row_id, **body.model_dump(mode="json")},

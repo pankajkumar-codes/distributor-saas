@@ -38,7 +38,9 @@
           "action": {
             "enum": [
               "set_aside",
-              "accept"
+              "accept",
+              "enter_hsn",
+              "pick_state"
             ],
             "title": "Action",
             "type": "string"
@@ -4498,7 +4500,9 @@
           "action": {
             "enum": [
               "set_aside",
-              "accept"
+              "accept",
+              "enter_hsn",
+              "pick_state"
             ],
             "title": "Action",
             "type": "string"
@@ -4511,6 +4515,17 @@
           "note": {
             "title": "Note",
             "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
           }
         },
         "required": [
@@ -4527,7 +4542,9 @@
           "action": {
             "enum": [
               "set_aside",
-              "accept"
+              "accept",
+              "enter_hsn",
+              "pick_state"
             ],
             "title": "Action",
             "type": "string"
@@ -4535,6 +4552,17 @@
           "note": {
             "title": "Note",
             "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
           }
         },
         "required": [

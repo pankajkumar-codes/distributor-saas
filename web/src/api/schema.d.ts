@@ -1531,7 +1531,7 @@ export interface components {
              * Action
              * @enum {string}
              */
-            action: "set_aside" | "accept";
+            action: "set_aside" | "accept" | "enter_hsn" | "pick_state";
             /** Effect Note */
             effect_note: string;
             /** Label */
@@ -2914,7 +2914,7 @@ export interface components {
              * Action
              * @enum {string}
              */
-            action: "set_aside" | "accept";
+            action: "set_aside" | "accept" | "enter_hsn" | "pick_state";
             /**
              * At
              * Format: date-time
@@ -2922,6 +2922,8 @@ export interface components {
             at: string;
             /** Note */
             note: string;
+            /** Value */
+            value?: string | null;
         };
         /** ResolveIn */
         ResolveIn: {
@@ -2929,9 +2931,11 @@ export interface components {
              * Action
              * @enum {string}
              */
-            action: "set_aside" | "accept";
+            action: "set_aside" | "accept" | "enter_hsn" | "pick_state";
             /** Note */
             note: string;
+            /** Value */
+            value?: string | null;
         };
         /** ReturnOut */
         ReturnOut: {

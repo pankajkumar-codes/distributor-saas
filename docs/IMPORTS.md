@@ -259,6 +259,21 @@ blank (`FieldSpec.blank_tokens`, applied to the mapped fields of this profile). 
 - **To check on the first real report:** the zip entry names (taken as exact from the spec), the date formats, and
   whether the sales file really lacks `cancel_return_date`. A sheet naming more than one seller GSTIN is refused whole.
 
+## Value fixes and the local checker (R1-M4 slice 4b)
+
+- **`enter_hsn` and `pick_state`** are new `resolve` actions with a `value`. `enter_hsn` is offered only on a `blank_hsn` row
+  and takes an HSN in the shape refdata `hsn.pattern` allows (a typo check, never which HSN fits); `pick_state` only on an
+  `unknown_state` row and takes a code from the refdata state list. Both need a note, like every decision. They are stored in
+  `row_resolutions` (`kind = 'fixed'`, `fix_field`, `fix_value`; migration `202611131500`, additive): insert-only, one
+  decision per row, the same fix twice is one decision, a different value or another action is refused. **The row as the
+  file said it is never changed**; the build (R1-M7) reads the decision to use the value. Runs count them as `counts.fixed`.
+  The audit event `imports.row_fixed` names the field, never the value.
+- **`scripts/check_reader.py <file>`** (local only): prints which reader claims each file or sheet, which headers were found
+  or missing, and row counts (new, held by reason, skipped, invalid by code). Never a cell value, GSTIN, order number, path or
+  a sheet name a reader does not name. Writes nothing and uses no database or network. The reader `verified` flags stay false
+  until someone has run it on a real report and the headers all matched; flipping a flag is then a reviewed refdata change.
+- **Not built: the choose-reader endpoint.** No two real readers claim one layout, so `needs_choice` cannot happen (EM, 2026-11-13).
+
 ## Retention of uploads (R1-M3, TD-18)
 
 `retention.purge_uploads()` (the third rule of the retention Lambda, after `purge_drafts`) does two things in the
