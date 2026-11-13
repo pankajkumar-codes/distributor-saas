@@ -36,6 +36,14 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   const setup = page.getByRole("region", { name: "Set up your business" });
   await expect(setup.getByText("3 of 6 done")).toBeVisible();
   await expect(setup.getByText("Coming soon").first()).toBeVisible();
+  // Filing home (R1-M2): the server's deadlines, every one still marked to be confirmed.
+  await page.getByRole("link", { name: "Your GST filing and deadlines" }).click();
+  await expect(page.getByRole("heading", { name: "Your GST filing" })).toBeVisible();
+  await expect(page.getByRole("table").getByText("GSTR-1").first()).toBeVisible();
+  await expect(page.getByText("To be confirmed").first()).toBeVisible();
+  await noSeriousAxeFindings(page);
+  await page.getByRole("link", { name: "Home" }).first().click();
+  await expect(page.getByRole("region", { name: "Set up your business" })).toBeVisible();
 
   // The customer step opens the (still empty) customers list; add one, find it, go back Home.
   const homeUrl = page.url();
