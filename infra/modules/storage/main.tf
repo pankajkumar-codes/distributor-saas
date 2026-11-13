@@ -23,7 +23,7 @@ variable "noncurrent_version_days" {
   default     = 30
 }
 variable "upload_retention_days" {
-  description = "TD-18: raw uploads are deleted this many days after upload (90, a setting the CA may change)"
+  description = "TD-18: raw uploads are deleted this many days after upload (90, a setting the CA may change). Must equal refdata imports.upload.keep_days, which marks the file gone in the database; tests/tools/test_infra_retention.py checks it."
   type        = number
   default     = 90
 }

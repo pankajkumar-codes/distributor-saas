@@ -2,7 +2,16 @@
 PY ?= python3
 LOCAL_DB := postgresql://postgres:local-only@localhost:5432/saas
 
-.PHONY: setup openapi test isolation-local e2e-local db-up db-down db-migrate run-api smoke-local build renderer-zip
+.PHONY: demo demo-stop demo-status setup openapi test isolation-local e2e-local db-up db-down db-migrate run-api smoke-local build renderer-zip
+
+demo:             ## the whole product in Docker on this computer, for trying a milestone by hand (docs/LOCAL_DEMO.md)
+	./demo.sh
+
+demo-stop:        ## stop the demo and forget its data
+	./demo.sh stop
+
+demo-status:      ## what the demo server made of the files you uploaded
+	./demo.sh status
 
 setup:            ## install the app, platform_common and the migrator with dev dependencies
 	$(PY) -m pip install -e libs/platform_common -e "app[dev]" -r migrator/requirements.txt

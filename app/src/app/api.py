@@ -63,6 +63,10 @@ if debug_env():
     from app.dev_routes import router as dev_router
 
     app.include_router(dev_router, prefix=API_PREFIX)
+
+    from app.demo_readers import register_demo_readers
+
+    register_demo_readers()  # only when DEMO_READERS=1: the local demo's invented layout
 # business_uow and me_uow check every caller through identity (LLD-1 §6).
 set_principal_resolver(resolve_principal)
 runtime.configure()  # the jobs queue and object store for this environment

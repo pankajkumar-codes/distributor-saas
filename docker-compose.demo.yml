@@ -1,0 +1,97 @@
+# The whole product on your own computer, for trying a milestone by hand (docs/LOCAL_DEMO.md).
+# Start it with demo.ps1 (Windows) or ./demo.sh (Mac, Linux); do not run this file by hand.
+#
+# Local only: made-up data, sign-in codes printed to the terminal instead of emailed, a
+# throwaway database. Sign-in is kept in the API's memory, so the demo forgets everything
+# whenever it stops, and that is why every start begins from an empty database.
+name: gstdemo
+
+x-api: &api
+  build: { context: ., dockerfile: demo/Dockerfile, target: api }
+  image: gstdemo-api
+  environment: &api-env
+    PLATFORM_ENV: local
+    DEMO_READERS: "1"
+    DATABASE_URL: postgresql+psycopg://app_rw:local-only@db:5432/saas
+    LOCAL_OBJECTS_DIR: /srv/build/objects
+    DEMO_API: http://api:8000
+    DEMO_TOKEN_FILE: /srv/build/demo-token.json
+  volumes:
+    - build:/srv/build
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: local-only
+      POSTGRES_DB: saas
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d saas"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  migrate:
+    <<: *api
+    working_dir: /srv/migrator
+    command: ["python", "-m", "migrator.local", "postgresql://postgres:local-only@db:5432/saas"]
+    depends_on:
+      db: { condition: service_healthy }
+    restart: "no"
+
+  api:
+    <<: *api
+    command: ["python", "-m", "uvicorn", "app.api:app", "--app-dir", "app/src", "--host", "0.0.0.0", "--port", "8000"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8000/api/v1/health', timeout=3)"]
+      interval: 2s
+      timeout: 4s
+      retries: 60
+
+  web:
+    build: { context: ., dockerfile: demo/Dockerfile, target: web }
+    image: gstdemo-web
+    environment:
+      API_URL: http://api:8000
+    ports:
+      - "127.0.0.1:5173:5173"  # this computer only, so Windows has no firewall question to ask
+    depends_on:
+      api: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:5173/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 2s
+      timeout: 4s
+      retries: 60
+
+  codes:
+    <<: *api
+    command: ["python", "-u", "demo/watch_codes.py", "/srv/build/mail/outbox.jsonl"]
+    environment:
+      <<: *api-env
+      HIDE_EMAIL: demo@example.com
+    depends_on:
+      api: { condition: service_healthy }
+
+  seed:
+    <<: *api
+    command: ["python", "demo/seed.py", "http://api:8000"]
+    environment:
+      <<: *api-env
+      MAIL_OUTBOX: /srv/build/mail/outbox.jsonl
+    depends_on:
+      api: { condition: service_healthy }
+    restart: "no"
+
+  tool:
+    <<: *api
+    entrypoint: ["python", "demo/tool.py"]
+    command: ["status"]
+    depends_on:
+      api: { condition: service_healthy }
+    restart: "no"
+
+volumes:
+  build:
