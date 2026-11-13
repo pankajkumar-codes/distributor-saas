@@ -8,7 +8,7 @@ You need **only Docker**. You do not need Node, Python, Git bash, `make` or WSL 
 
 Quick start on Windows: install Docker Desktop (section 1), open PowerShell in this folder, run
 `.\demo.ps1`, open `http://localhost:5173`. (`demo.ps1` has not yet been run on a real Windows computer; if it fails,
-use the WSL way in section 2, which has.)
+use the WSL way in section 2, which is verified only up to the database steps.)
 
 ## 1. One-time setup on Windows
 
@@ -67,13 +67,15 @@ Install Docker Desktop (Mac) or Docker Engine with the Compose plugin (Linux), s
 
 It does the same things and prints the same box.
 
-### Windows with WSL (the path that has been run on a real Windows computer)
+### Windows with WSL (an alternative that is partly verified)
 
 **Status, so you know what to trust:** `.\demo.ps1` is the simplest way and needs none of the steps below, but it has
-**not yet been run on a real Windows computer** (it was read line by line and checked on Linux only). The WSL way below
-is the one that has actually been run on Windows, using the project's normal development setup (no `demo.ps1`). Use it if
-`.\demo.ps1` does not work for you. It shows the product's real pages with your own database; it does not include the demo's
-made-up business and sample files, so you create a business through the sign-up page.
+**not yet been run on a real Windows computer** (it was read line by line and checked on Linux only). The WSL way below uses
+the project's normal development setup instead of `demo.ps1`. It has been run on a real Windows computer **only through
+`make db-up` and `make db-migrate`** (steps 1 to 5). **Steps 6 to 8 (starting the API and the web app and opening the page)
+have not yet been confirmed by anyone**, so treat them as the expected steps, not as proven ones, and tell us what happens.
+It shows the product's real pages with your own database; it does not include the demo's made-up business and sample files,
+so you create a business through the sign-up page.
 
 **First time (about 30 minutes)**
 
@@ -89,9 +91,9 @@ made-up business and sample files, so you create a business through the sign-up 
 4. Create the Python environment and install: `python3.12 -m venv .venv && source .venv/bin/activate && make setup PY=python`.
 5. Start the database and prepare it: `make db-up`, then `make db-migrate PY=python`. (A Postgres container you already run
    on another port, such as 5332, does not clash: this one uses 5432.)
-6. Start the API in that terminal: `PYTHON=python make run-api`. Leave it running.
-7. Open a **second** Ubuntu terminal and start the web app: `cd ~/distributor-saas/web && npm ci && npm run dev`.
-8. Open <http://localhost:5173> in your Windows browser. Sign-up codes are written to `build/mail/outbox.jsonl` in the project folder (the same
+6. *(Not yet confirmed.)* Start the API in that terminal: `PYTHON=python make run-api`. Leave it running.
+7. *(Not yet confirmed.)* Open a **second** Ubuntu terminal and start the web app: `cd ~/distributor-saas/web && npm ci && npm run dev`.
+8. *(Not yet confirmed.)* Open <http://localhost:5173> in your Windows browser. Sign-up codes are written to `build/mail/outbox.jsonl` in the project folder (the same
    local mail file as the demo); open that file to read the code.
 
 **Coming back later**
