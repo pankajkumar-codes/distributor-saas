@@ -100,3 +100,52 @@ def test_a_bad_fy_is_refused(api):
     pg, b = api
     assert get(pg, b, fy="2026-29").status_code == 422
     assert get(pg, b, fy="x").status_code == 422
+
+
+def test_only_quarters_that_have_started_are_listed(api):
+    pg, b = api  # today is 15 Nov 2026: Q3 has started, Q4 (Jan-Mar) has not
+    choose(pg, b, "monthly")
+    periods = {x["period"] for x in get(pg, b).json()["returns"]}
+    assert periods == {"2026-10", "2026-11", "2026-12"}
+
+
+def test_a_frequency_change_for_next_quarter_is_not_blocked_by_early_rows(api):
+    """Review of #118: monthly now, quarterly from 1 Jan. Q4 must hold the quarterly
+    GSTR-1 and GSTR-3B and no monthly rows, which an early read would have left behind."""
+    from app import api as app_api
+    from platform_common.clock import IST, FrozenClock, get_clock
+
+    pg, b = api
+    choose(pg, b, "monthly")
+    get(pg, b)
+    choose(pg, b, "quarterly", effective_from="2027-01-01")
+    app_api.app.dependency_overrides[get_clock] = lambda: FrozenClock(datetime(2027, 1, 15, 12, 0, tzinfo=IST))
+    q4 = [x for x in get(pg, b).json()["returns"] if x["period_start"] >= "2027-01-01"]
+    assert [(x["form"], x["period"]) for x in q4 if x["form"] in ("GSTR1", "GSTR3B")] == [
+        ("GSTR1", "2026-Q4"),
+        ("GSTR3B", "2026-Q4"),
+    ]
+    assert {x["form"] for x in q4} == {"IFF", "PMT06", "GSTR1", "GSTR3B"}
+
+
+def test_a_support_grant_read_before_any_instance_exists_is_empty_not_a_500(api):
+    pg, b = api
+    choose(pg, b, "monthly")
+    with pg.owner.connect() as c:
+        uid = c.execute(text("select identity.dev_ensure_user('sam-support')")).scalar()
+        c.execute(text("update identity.users set is_support = true, totp_enabled_at = now() where id = :u"), {"u": uid})
+        c.execute(
+            text("insert into identity.support_grants (id, business_id, granted_by, starts_at, expires_at)"
+                 " values (:g, :b, :u, now() - interval '1 hour', now() + interval '23 hours')"),
+            {"g": uuid.uuid4(), "b": b, "u": scalar_user(pg)},
+        )
+    r = get(pg, b, "sam-support")
+    assert r.status_code == 200 and r.json()["returns"] == []
+    assert len(get(pg, b).json()["returns"]) == 6  # the owner's read creates them; support then sees them
+    assert len(get(pg, b, "sam-support").json()["returns"]) == 6
+
+
+def scalar_user(pg):
+    from .conftest import user_id
+
+    return user_id(pg.owner, "alice")
