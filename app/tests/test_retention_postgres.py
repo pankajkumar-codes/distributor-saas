@@ -64,6 +64,7 @@ def test_shipped_disabled_keeps_everything(owner_and_login):
     assert retention.handler({"task": "retention"}, None) == {
         "purge_operational": {"skipped": "disabled"},
         "purge_drafts": {"skipped": "disabled"},
+        "purge_uploads": {"skipped": "disabled"},
     }
     assert _jobs(owner_and_login) == 1
 
