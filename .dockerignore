@@ -12,6 +12,6 @@ infra
 renderer
 docs
 tests
-.env*
-*.pem
+**/.env*
+**/*.pem
 **/build
