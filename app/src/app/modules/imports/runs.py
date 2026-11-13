@@ -118,3 +118,35 @@ def list_rows(uow: UnitOfWork, run_id: uuid.UUID, status: str | None, limit: int
 def _errors(value) -> list[dict]:
     items = json.loads(value) if isinstance(value, str) else (value or [])
     return [{"field": e.get("field"), "code": e.get("code"), "message": e.get("message")} for e in items]
+
+
+def run_ids_for(uow: UnitOfWork, upload_ids: list[uuid.UUID]) -> dict[uuid.UUID, list[uuid.UUID]]:
+    """The runs of each upload, in the order they were staged (a zip makes one per file)."""
+    out: dict[uuid.UUID, list[uuid.UUID]] = {u: [] for u in upload_ids}
+    if upload_ids:
+        for upload_id, run_id in uow.tx.execute(
+            text("select upload_id, id from imports.import_runs where business_id = :b and upload_id = any(:u)"
+                 " order by uploaded_at, id"),
+            {"b": _business(uow), "u": upload_ids},
+        ):
+            out[upload_id].append(run_id)
+    return out
+
+
+def discard_run(uow: UnitOfWork, run_id: uuid.UUID) -> Run:
+    """A staged run is set aside and its file may be uploaded again. Repeating it is a no-op;
+    a confirmed run cannot be discarded."""
+    from platform_common import audit
+    from platform_common.errors import Conflict
+
+    from . import staging
+
+    before = get_run(uow, run_id)
+    try:
+        staging.discard(uow.tx, business_id=_business(uow), run_id=run_id)
+    except staging.RunStateError:
+        raise Conflict("run_not_staged", "This file has already been used, so it can't be discarded.") from None
+    if before.status == "staged":
+        audit.record(uow, "imports.run_discarded", "import_run", run_id,
+                     data={"run_id": str(run_id), "section": before.section})
+    return get_run(uow, run_id)

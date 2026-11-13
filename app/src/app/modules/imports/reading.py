@@ -73,6 +73,7 @@ def read_upload(uow: UnitOfWork, *, upload_id: uuid.UUID, section: str, file_nam
             upload_id=upload_id,
             gstin=own_gstin,
             classify=_classifier(reader),
+            flag_live_overlap=True,
         )
         log.info("upload %s staged run %s (created=%s)", upload_id, run.id, created)
         runs.append(run)

@@ -22,7 +22,7 @@ from platform_common.permissions import Permission, require
 from platform_common.uow import BusinessUoW, parse_id
 
 from . import jobs as import_jobs
-from . import runs, uploads
+from . import runs, sections, uploads
 
 router = APIRouter(tags=["imports"])
 CREATE = [Depends(require(Permission.UPLOADS_CREATE))]
@@ -61,7 +61,8 @@ class UploadOut(BaseModel):
     status: Literal["pending", "received", "parsing", "parsed", "stored", "rejected", "expired"]
     reject_reason: str | None  # a code, for tests and logs
     reject_message: str | None  # plain words for the screen
-    run_id: str | None
+    run_id: str | None  # the first run (a zip makes one per file)
+    run_ids: list[str]  # every run this upload made, in file order
     created_at: datetime
     raw_available: bool  # false once the raw file has been purged
 
@@ -71,8 +72,9 @@ class UploadsOut(BaseModel):
     has_more: bool
 
 
-def _out(up: uploads.Upload) -> UploadOut:
+def _out(up: uploads.Upload, run_ids: list | None = None) -> UploadOut:
     return UploadOut(
+        run_ids=[str(r) for r in run_ids or []],
         id=str(up.id), section=up.section, file_name=up.file_name, size_bytes=up.size_bytes, status=up.status,
         reject_reason=up.reject_reason, reject_message=up.reject_message,
         run_id=None if up.run_id is None else str(up.run_id), created_at=up.created_at,
@@ -120,12 +122,14 @@ def complete_upload(upload_id: str, uow: BusinessUoW, clock: Annotated[Clock, De
 @router.get("/b/{business_id}/uploads", response_model=UploadsOut, dependencies=VIEW)
 def list_uploads(uow: BusinessUoW, page: Annotated[PageParams, Depends(page_params)], section: Section | None = None):
     found, more = uploads.list_uploads(uow, section, page.limit, page.offset)
-    return UploadsOut(uploads=[_out(u) for u in found], has_more=more)
+    ids = runs.run_ids_for(uow, [u.id for u in found])
+    return UploadsOut(uploads=[_out(u, ids[u.id]) for u in found], has_more=more)
 
 
 @router.get("/b/{business_id}/uploads/{upload_id}", response_model=UploadOut, dependencies=VIEW)
 def get_upload(upload_id: str, uow: BusinessUoW):
-    return _out(uploads.get(uow, parse_id(upload_id)))
+    up = uploads.get(uow, parse_id(upload_id))
+    return _out(up, runs.run_ids_for(uow, [up.id])[up.id])
 
 
 class RunOut(BaseModel):
@@ -189,3 +193,34 @@ def list_rows(run_id: str, uow: BusinessUoW, page: Annotated[PageParams, Depends
                status=r.status, hold_reason=r.hold_reason, reason_label=r.reason_label, values=r.values,
                errors=r.errors, needs_ca_check=r.needs_ca_check, ca_check_note=r.ca_check_note)
         for r in found])
+
+
+@router.post("/b/{business_id}/runs/{run_id}/discard", response_model=RunOut, dependencies=CREATE)
+def discard_run(run_id: str, uow: BusinessUoW):
+    """Set a staged preview aside. The same file can be uploaded again."""
+    return _run_out(runs.discard_run(uow, parse_id(run_id)))
+
+
+class SectionOut(BaseModel):
+    section: Section
+    enabled: bool
+    status: Literal["not uploaded", "processing", "ready", "rows held"]
+    uploads: list[UploadOut]
+    held_rows: int
+    needs_ca_check: bool
+    requirement_note: str | None
+
+
+class SectionsOut(BaseModel):
+    sections: list[SectionOut]
+
+
+@router.get("/b/{business_id}/upload-sections", response_model=SectionsOut, dependencies=VIEW)
+def list_sections(uow: BusinessUoW, clock: Annotated[Clock, Depends(get_clock)]):
+    found = sections.sections(uow, clock.today())
+    ids = runs.run_ids_for(uow, [u.id for s in found for u in s.uploads])
+    return SectionsOut(sections=[
+        SectionOut(section=s.section, enabled=s.enabled, status=s.status, held_rows=s.held_rows,
+                   needs_ca_check=s.needs_ca_check, requirement_note=s.requirement_note,
+                   uploads=[_out(u, ids[u.id]) for u in s.uploads])
+        for s in found])

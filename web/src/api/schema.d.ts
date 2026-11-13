@@ -938,6 +938,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/runs/{run_id}/discard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Discard Run
+         * @description Set a staged preview aside. The same file can be uploaded again.
+         */
+        post: operations["discard_run_api_v1_b__business_id__runs__run_id__discard_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/runs/{run_id}/rows": {
         parameters: {
             query?: never;
@@ -1035,6 +1055,23 @@ export interface paths {
          * @description The UQC picker (refdata.uqc_codes).
          */
         get: operations["list_units_api_v1_b__business_id__units_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/upload-sections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Sections */
+        get: operations["list_sections_api_v1_b__business_id__upload_sections_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2918,6 +2955,34 @@ export interface components {
                 [key: string]: string;
             }[];
         };
+        /** SectionOut */
+        SectionOut: {
+            /** Enabled */
+            enabled: boolean;
+            /** Held Rows */
+            held_rows: number;
+            /** Needs Ca Check */
+            needs_ca_check: boolean;
+            /** Requirement Note */
+            requirement_note: string | null;
+            /**
+             * Section
+             * @enum {string}
+             */
+            section: "amazon" | "flipkart" | "meesho" | "own_invoices_excel" | "own_invoices_pdf";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "not uploaded" | "processing" | "ready" | "rows held";
+            /** Uploads */
+            uploads: components["schemas"]["app__modules__imports__api__UploadOut"][];
+        };
+        /** SectionsOut */
+        SectionsOut: {
+            /** Sections */
+            sections: components["schemas"]["SectionOut"][];
+        };
         /**
          * ShipToIn
          * @description Where the goods go, when it isn't the customer's own delivery address (LLD-4 §3.1).
@@ -3221,6 +3286,8 @@ export interface components {
             reject_reason: string | null;
             /** Run Id */
             run_id: string | null;
+            /** Run Ids */
+            run_ids: string[];
             /**
              * Section
              * @enum {string}
@@ -5461,6 +5528,38 @@ export interface operations {
             };
         };
     };
+    discard_run_api_v1_b__business_id__runs__run_id__discard_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_rows_api_v1_b__business_id__runs__run_id__rows_get: {
         parameters: {
             query?: {
@@ -5651,6 +5750,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UnitOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_sections_api_v1_b__business_id__upload_sections_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SectionsOut"];
                 };
             };
             /** @description Validation Error */

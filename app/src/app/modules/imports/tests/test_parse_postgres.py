@@ -13,7 +13,7 @@ from platform_common import jobs
 
 from .conftest import PG_ADMIN_URL, scalar
 from .fake_reader import TestReader
-from .test_uploads_postgres import get, run_jobs, shop, upload  # noqa: F401  (the shop fixture)
+from .test_uploads_postgres import get, post, run_jobs, shop, upload  # noqa: F401  (the shop fixture)
 
 pytestmark = pytest.mark.skipif(not PG_ADMIN_URL, reason="PG_ADMIN_URL not set")
 
@@ -226,3 +226,105 @@ def test_a_damaged_file_inside_a_zip_is_rejected_at_once(shop):  # noqa: F811
     run_jobs(shop)
     assert state(shop, upload_id)["reject_reason"] in ("bad_zip", "unreadable_file")
     assert scalar(pg.owner, "select count(*) from imports.import_runs") == 0
+
+
+# --- discard, sections, run ids, overlap between live files (R1-M3 slice 3) ---------------------
+
+CLEAN = csv("C-1,Shipment,1,6109,10.00", "C-2,Shipment,2,6109,20.00")
+
+
+def sections_of(shop, sub="alice"):  # noqa: F811
+    pg, biz, _ = shop
+    r = get(pg, f"/api/v1/b/{biz}/upload-sections", sub=sub)
+    assert r.status_code == 200, r.text
+    return {s["section"]: s for s in r.json()["sections"]}
+
+
+def test_sections_always_list_all_five_with_one_of_four_statuses(shop):  # noqa: F811
+    pg, biz, _ = shop
+    s = sections_of(shop)
+    assert list(s) == ["amazon", "flipkart", "meesho", "own_invoices_excel", "own_invoices_pdf"]
+    assert {v["status"] for v in s.values()} == {"not uploaded"}
+    assert [s[k]["enabled"] for k in s] == [True, True, True, False, False]
+    upload(shop, "amazon", "orders-1.csv", CLEAN)
+    assert sections_of(shop)["amazon"]["status"] == "processing"  # received, the job has not run
+    run_jobs(shop)
+    assert sections_of(shop)["amazon"]["status"] == "ready"
+    upload(shop, "flipkart", "orders-2.csv", GOOD)
+    run_jobs(shop)
+    s = sections_of(shop)
+    assert (s["flipkart"]["status"], s["flipkart"]["held_rows"], s["flipkart"]["needs_ca_check"]) == ("not uploaded", 0, False)
+    # the test reader is registered for amazon only, so the flipkart file is rejected and doesn't count
+    upload(shop, "amazon", "orders-3.csv", GOOD)
+    run_jobs(shop)
+    a = sections_of(shop)["amazon"]
+    assert (a["status"], a["held_rows"]) == ("rows held", 2) and len(a["uploads"]) == 2
+    assert a["uploads"][0]["run_ids"]
+
+
+def test_sections_visible_to_the_ca_not_to_billing_or_strangers(shop):  # noqa: F811
+    pg, biz, _ = shop
+    assert sections_of(shop, "cathy")
+    for sub in ("bill", "stranger"):
+        assert get(pg, f"/api/v1/b/{biz}/upload-sections", sub=sub).status_code == 404
+
+
+def test_discarding_a_run_frees_the_file_and_the_section(shop):  # noqa: F811
+    pg, biz, _ = shop
+    upload_id, _ = upload(shop, "amazon", "orders-1.csv", GOOD)
+    run_jobs(shop)
+    run_id = run_of(shop, upload_id)
+    assert post(pg, f"/api/v1/b/{biz}/runs/{run_id}/discard", sub="cathy").status_code == 404
+    assert post(pg, f"/api/v1/b/{biz}/runs/{run_id}/discard", sub="bill").status_code == 404
+    done = post(pg, f"/api/v1/b/{biz}/runs/{run_id}/discard")
+    assert done.status_code == 200 and done.json()["status"] == "discarded"
+    assert post(pg, f"/api/v1/b/{biz}/runs/{run_id}/discard").json()["status"] == "discarded"  # repeating is fine
+    assert scalar(pg.owner, "select count(*) from platform.audit_log where action = 'imports.run_discarded'") == 1
+    assert sections_of(shop)["amazon"]["status"] == "not uploaded"
+    again, _ = upload(shop, "amazon", "orders-1.csv", GOOD)  # the same file can come back
+    run_jobs(shop)
+    assert run_of(shop, again) != run_id and sections_of(shop)["amazon"]["status"] == "rows held"
+
+
+def test_a_used_run_cannot_be_discarded_and_another_business_cannot_try(shop):  # noqa: F811
+    from .conftest import new_business
+
+    pg, biz, _ = shop
+    upload_id, _ = upload(shop, "amazon", "orders-1.csv", CLEAN)
+    run_jobs(shop)
+    run_id = run_of(shop, upload_id)
+    other = new_business(pg, "olivia")
+    assert post(pg, f"/api/v1/b/{other}/runs/{run_id}/discard", sub="olivia").status_code == 404
+    with pg.owner.connect() as c:
+        c.execute(text("update imports.import_runs set status = 'confirmed', confirmed_by = uploaded_by,"
+                       " confirmed_at = now()"))
+    r = post(pg, f"/api/v1/b/{biz}/runs/{run_id}/discard")
+    assert r.status_code == 409 and r.json()["error"]["code"] == "run_not_staged"
+
+
+def test_a_second_file_with_the_same_records_shows_them_as_duplicates(shop):  # noqa: F811
+    pg, biz, _ = shop
+    first, _ = upload(shop, "amazon", "orders-1.csv", csv("D-1,Shipment,1,6109,10.00", "D-2,Shipment,1,6109,20.00"))
+    second, _ = upload(shop, "amazon", "orders-2.csv", csv("D-2,Shipment,1,6109,20.00", "D-3,Shipment,1,6109,30.00"))
+    run_jobs(shop)
+    run = get(pg, f"/api/v1/b/{biz}/runs/{run_of(shop, second)}").json()
+    assert (run["counts"]["new"], run["counts"]["duplicate"]) == (1, 1)
+    rows = get(pg, f"/api/v1/b/{biz}/runs/{run_of(shop, second)}/rows?status=duplicate").json()["rows"]
+    assert rows[0]["values"]["Order Id"] == "D-2" and rows[0]["errors"][0]["code"] == "duplicate_in_other_file"
+    # the first file is untouched, and discarding it frees the records for the second to be staged again
+    assert get(pg, f"/api/v1/b/{biz}/runs/{run_of(shop, first)}").json()["counts"]["new"] == 2
+    post(pg, f"/api/v1/b/{biz}/runs/{run_of(shop, first)}/discard")
+    post(pg, f"/api/v1/b/{biz}/runs/{run_of(shop, second)}/discard")
+    third, _ = upload(shop, "amazon", "orders-2.csv", csv("D-2,Shipment,1,6109,20.00", "D-3,Shipment,1,6109,30.00"))
+    run_jobs(shop)
+    assert get(pg, f"/api/v1/b/{biz}/runs/{run_of(shop, third)}").json()["counts"]["new"] == 2
+
+
+def test_a_zip_lists_every_run_it_made(shop):  # noqa: F811
+    pg, biz, _ = shop
+    z = zipped(**{"orders-a.csv": csv("A-1,Shipment,1,6109,1.00"), "orders-b.csv": csv("B-1,Shipment,1,6109,2.00")})
+    upload_id, _ = upload(shop, "amazon", "month.zip", z, "application/zip")
+    run_jobs(shop)
+    out = state(shop, upload_id)
+    assert len(out["run_ids"]) == 2 and out["run_id"] == out["run_ids"][0]
+    assert {get(pg, f"/api/v1/b/{biz}/runs/{r}").json()["upload_id"] for r in out["run_ids"]} == {upload_id}
