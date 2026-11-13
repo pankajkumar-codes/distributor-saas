@@ -47,10 +47,10 @@ def sale(item, *, gstin=OWN, event="Sale", sub="Sale", qty="1.0", hsn="6109", st
             "Customer Name": "Made Up Buyer", "Customer's Delivery Address": "1 Made Up Lane", **tax_cols}
 
 
-def note(no, *, gstin=OWN, doc="Credit Note", sub="Sale", item="1"):
+def note(no, *, gstin=OWN, doc="Credit Note", sub="Sale", item="1", date="2026-07-10 00:00:00"):
     return {"Seller GSTIN": gstin, "Document Type": doc, "Document Sub Type": sub,
             "Credit Note ID/ Debit Note ID": no, "Order Item ID": f"OI-{item}", "Invoice Amount": "10.0",
-            "Invoice Date": "2026-07-10 00:00:00", "Taxable Value": "8.47", "IGST Rate": "0.0", "IGST Amount": "0.0",
+            "Invoice Date": date, "Taxable Value": "8.47", "IGST Rate": "0.0", "IGST Amount": "0.0",
             "CGST Rate": "9.0", "CGST Amount": "0.76", "SGST (or UTGST) Rate": "9.0", "SGST (or UTGST) Amount": "0.76"}
 
 

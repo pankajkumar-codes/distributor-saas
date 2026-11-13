@@ -19,7 +19,7 @@ from platform_common.uow import UnitOfWork
 
 from . import staging
 from .models import ImportRun, StagedRowStatus
-from .parsing import FileRejected, open_zip, read_table, sheet_names
+from .parsing import FileRejected, open_zip, parse, read_table, sheet_names
 from .readers import HOLD_REASONS, Reader, readers_for
 
 log = logging.getLogger(__name__)
@@ -63,18 +63,28 @@ def read_upload(uow: UnitOfWork, *, upload_id: uuid.UUID, section: str, file_nam
                 raise Refused("wrong_gstin")
             parsed.append((table, reader))
 
+    # Parse every table first, so a sheet with no rows (a month with no cash-back) can take the months of the
+    # other sheets of its file when its run is inserted: the app role cannot update a run afterwards.
+    profiles = [_profile(uow, reader, today) for _, reader in parsed]
+    results = [parse(table, profile) for (table, _), profile in zip(parsed, profiles, strict=True)]
+    own = [staging.coverage_months(res, getattr(reader, "coverage_field", None))
+           for res, (_, reader) in zip(results, parsed, strict=True)]
+    shared = sorted({m for months in own for m in months})
+
     runs: list[ImportRun] = []
-    for table, reader in parsed:
+    for (table, reader), profile, result, months in zip(parsed, profiles, results, own, strict=True):
         run, created = staging.stage(
             uow.tx,
             business_id=business_id,
             user_id=uow.principal.user_id,
             table=table,
-            profile=_profile(uow, reader, today),
+            profile=profile,
             upload_id=upload_id,
             gstin=own_gstin,
             classify=_classifier(reader),
             flag_live_overlap=True,
+            result=result,
+            months=months or shared,
         )
         log.info("upload %s staged run %s (created=%s)", upload_id, run.id, created)
         runs.append(run)

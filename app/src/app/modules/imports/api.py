@@ -6,10 +6,10 @@ admin upload (`uploads.create`); owner, admin and the CA read (`uploads.view`). 
 are 404 (LLD-0). Nothing here reaches a return.
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Header, Request
+from fastapi import APIRouter, Depends, Header, Query, Request
 from fastapi import status as http
 from pydantic import BaseModel, ConfigDict, Field, StrictInt
 
@@ -22,7 +22,7 @@ from platform_common.permissions import Permission, require
 from platform_common.uow import BusinessUoW, parse_id
 
 from . import jobs as import_jobs
-from . import runs, sections, uploads
+from . import coverage, runs, sections, uploads
 
 router = APIRouter(tags=["imports"])
 CREATE = [Depends(require(Permission.UPLOADS_CREATE))]
@@ -120,8 +120,9 @@ def complete_upload(upload_id: str, uow: BusinessUoW, clock: Annotated[Clock, De
 
 
 @router.get("/b/{business_id}/uploads", response_model=UploadsOut, dependencies=VIEW)
-def list_uploads(uow: BusinessUoW, page: Annotated[PageParams, Depends(page_params)], section: Section | None = None):
-    found, more = uploads.list_uploads(uow, section, page.limit, page.offset)
+def list_uploads(uow: BusinessUoW, page: Annotated[PageParams, Depends(page_params)], section: Section | None = None,
+                 from_: Annotated[date | None, Query(alias="from")] = None, to: date | None = None):
+    found, more = uploads.list_uploads(uow, section, page.limit, page.offset, uploads.month_range(from_, to))
     ids = runs.run_ids_for(uow, [u.id for u in found])
     return UploadsOut(uploads=[_out(u, ids[u.id]) for u in found], has_more=more)
 
@@ -133,6 +134,8 @@ def get_upload(upload_id: str, uow: BusinessUoW):
 
 
 class RunOut(BaseModel):
+    months: list[str]
+    already_uploaded_of: str | None
     id: str
     upload_id: str | None
     section: Section | None
@@ -189,6 +192,7 @@ def _run_out(run: runs.Run) -> RunOut:
         id=str(run.id), upload_id=None if run.upload_id is None else str(run.upload_id), section=run.section,
         reader=run.profile_id, profile_verified=run.profile_verified, gstin=run.gstin, status=run.status,
         counts=runs.counts(run), held_by_reason=run.held_by_reason,
+        months=list(run.summary.get("months", [])), already_uploaded_of=run.summary.get("already_uploaded_of"),
         warnings=([] if run.profile_verified else [UNVERIFIED]) + ([] if run.summary.get("total", 1) else [EMPTY]),
         columns_not_stored=list(run.summary.get("columns_not_stored", [])),
     )
@@ -259,11 +263,39 @@ class SectionsOut(BaseModel):
 
 
 @router.get("/b/{business_id}/upload-sections", response_model=SectionsOut, dependencies=VIEW)
-def list_sections(uow: BusinessUoW, clock: Annotated[Clock, Depends(get_clock)]):
-    found = sections.sections(uow, clock.today())
+def list_sections(uow: BusinessUoW, clock: Annotated[Clock, Depends(get_clock)],
+                  from_: Annotated[date | None, Query(alias="from")] = None, to: date | None = None):
+    found = sections.sections(uow, clock.today(), uploads.month_range(from_, to))
     ids = runs.run_ids_for(uow, [u.id for s in found for u in s.uploads])
     return SectionsOut(sections=[
         SectionOut(section=s.section, enabled=s.enabled, status=s.status, held_rows=s.held_rows,
                    needs_ca_check=s.needs_ca_check, requirement_note=s.requirement_note,
                    uploads=[_out(u, ids[u.id]) for u in s.uploads])
         for s in found])
+
+
+
+class PlatformMonthOut(BaseModel):
+    marketplace: Literal["amazon", "flipkart", "meesho"]
+    required: list[str]
+    received: list[str]
+    complete: bool
+    held_rows: int
+
+
+class MonthCoverageOut(BaseModel):
+    month: str
+    marketplaces: list[PlatformMonthOut]
+
+
+class CoverageOut(BaseModel):
+    months: list[MonthCoverageOut]
+
+
+@router.get("/b/{business_id}/marketplace-coverage", response_model=CoverageOut, dependencies=VIEW)
+def marketplace_coverage(uow: BusinessUoW, from_: Annotated[date | None, Query(alias="from")] = None,
+                         to: date | None = None):
+    """Which marketplace files are in, per month any live preview covers. Read-only."""
+    return CoverageOut(months=[
+        MonthCoverageOut(month=m.month, marketplaces=[PlatformMonthOut(**vars(p)) for p in m.marketplaces])
+        for m in coverage.coverage(uow, from_, to)])

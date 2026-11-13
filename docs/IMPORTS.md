@@ -217,6 +217,23 @@ The whole sheet is read whatever size it declares (the declared-size bug).
   delivery state columns, and the Cash Back sheet's header names (the spec lists only some; its seller GSTIN column is assumed
   to be `Seller GSTIN`). Both profiles ship unverified.
 
+## Months, coverage and filters (R1-M4 slice 4)
+
+- **`summary.months` on a run** (`RunOut.months`, `["2026-07"]`): the calendar months of one date field each reader names
+  (`coverage_field`: Amazon shipment date, Flipkart order approval date for sales and invoice date for cash-back, Meesho
+  order date for sales and return date for returns). It is **for the coverage view only**: it is not the return period.
+  Which date places a row in a return is a CA question (spec section 5, item 1) and the build decides it (R1-M7). A sheet
+  with no rows takes the months of the other sheets of its file. No migration: it lives in the run's `summary`.
+- **`already_uploaded_of`** (`RunOut`): the id of an earlier preview of the same file that was discarded, so the page can
+  say "you uploaded this before". A file that is still live is not a new run at all (the existing run is returned).
+- **`GET /marketplace-coverage?from=&to=`**: months with any live preview, and for each of the three platforms the report
+  types it needs (from its readers), the ones received, `complete` (all needed ones received) and `held_rows` (open held
+  rows in those previews; a preview covering two months counts in both). Read-only; CA and members read it, another
+  business gets nothing.
+- **`from` / `to` on `GET /uploads` and `GET /upload-sections`**: an upload is listed when any month its live previews
+  cover falls in the range (compared by calendar month). An upload with no month known (turned away, still being
+  read, or no dated rows) is always listed in `/uploads`, since hiding it would hide a problem. `to` before `from` is 422.
+- **`requirement_note`** on a section comes from refdata `imports.requirement.<section>.note` (wording to be settled).
 ## Meesho readers (R1-M4 slice 3, `readers/meesho.py`)
 
 `meesho_sales_v1` (`tcs_sales.xlsx`, report type `orders`) and `meesho_returns_v1` (`tcs_sales_return.xlsx`, report

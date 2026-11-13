@@ -79,6 +79,7 @@ class MeeshoReader(HeaderReader):
 
     def __init__(self, kind: str):
         self.kind = kind  # "sales" or "returns"
+        self.coverage_field = "cancel_return_date" if kind == "returns" else "order_date"  # coverage view only
         self.id = f"meesho_{kind}_v1"
         self.report_type = "orders" if kind == "sales" else "returns"
         is_return = kind == "returns"
