@@ -16,7 +16,7 @@ create table imports.row_resolutions (
     created_at timestamptz not null default now(),
     foreign key (row_id, business_id) references imports.import_rows (id, business_id)
 );
-create index row_resolutions_by_row on imports.row_resolutions (row_id, created_at desc);
+create unique index row_resolutions_one_per_row on imports.row_resolutions (row_id);
 
 alter table imports.row_resolutions enable row level security;
 alter table imports.row_resolutions force row level security;

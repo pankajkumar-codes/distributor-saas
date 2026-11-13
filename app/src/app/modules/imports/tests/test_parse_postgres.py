@@ -2,6 +2,7 @@
 reader standing in for the platform readers. Made-up files; skipped unless PG_ADMIN_URL is set."""
 
 import io
+import itertools
 import uuid
 import zipfile
 
@@ -433,6 +434,100 @@ def test_deciding_twice_is_safe_and_a_decision_cannot_be_swapped(shop):  # noqa:
     assert resolve(shop, row["row_id"], "set_aside", "Once again").status_code == 200  # same decision, no new row
     assert scalar(pg.owner, "select count(*) from imports.row_resolutions") == 1
     assert resolve(shop, row["row_id"], "accept", "Changed my mind").status_code == 422
+
+
+def _decided_meanwhile(shop, row_id, kind, monkeypatch):  # noqa: F811
+    """Another request decides the row after this one read it as undecided and before it inserts:
+    on the first allowed_actions call (made while reading the row) a second session commits the
+    competing decision. (The app's engine holds one connection, so two in-process requests
+    cannot overlap; the other request is played by the owner's connection.)"""
+    from app.modules.imports import runs
+
+    pg, biz, _ = shop
+    real, calls = runs.allowed_actions, itertools.count()
+
+    def waiting(*a, **k):
+        result = real(*a, **k)
+        if next(calls) == 0:
+            with pg.owner.begin() as c:
+                c.execute(text("insert into imports.row_resolutions (id, business_id, row_id, kind, note, created_by)"
+                               " values (:i, :b, :r, :k, 'Other request', :u)"),
+                          {"i": uuid.uuid4(), "b": biz, "r": row_id, "k": kind, "u": uuid.uuid4()})
+        return result
+
+    monkeypatch.setattr(runs, "allowed_actions", waiting)
+
+
+def test_a_decision_that_lands_between_the_read_and_the_insert_is_not_doubled(shop, monkeypatch):  # noqa: F811
+    from app.modules.refdata.reader import _reset_cache
+
+    pg, _, _ = shop
+    run_id = staged(shop)
+    with pg.owner.connect() as c:
+        c.execute(text("update refdata.values set value = 'true' where key like 'imports.held.blank\\_%.accept_allowed'"))
+    _reset_cache()
+    try:
+        rows = {r["hold_reason"]: r for r in held_rows(shop, run_id)}
+        # The same decision twice is one decision: this request answers as the code path does for a decided row.
+        _decided_meanwhile(shop, rows["blank_hsn"]["row_id"], "set_aside", monkeypatch)
+        done = resolve(shop, rows["blank_hsn"]["row_id"], "set_aside", "Mine")
+        assert done.status_code == 200 and done.json()["resolution"]["action"] == "set_aside"
+        assert scalar(pg.owner, "select count(*) from imports.row_resolutions") == 1
+        assert scalar(pg.owner, "select count(*) from platform.audit_log where action = 'imports.row_set_aside'") == 0
+        # A different decision loses, with the same 422 as the code path.
+        monkeypatch.undo()
+        _decided_meanwhile(shop, rows["blank_qty"]["row_id"], "accepted", monkeypatch)
+        lost = resolve(shop, rows["blank_qty"]["row_id"], "set_aside", "Mine")
+        assert lost.status_code == 422 and lost.json()["error"]["code"] == "action_not_allowed"
+        assert scalar(pg.owner, "select count(*) from imports.row_resolutions") == 2
+        assert scalar(pg.owner, "select kind from imports.row_resolutions where row_id = :r",
+                      r=rows["blank_qty"]["row_id"]) == "accepted"
+    finally:
+        _reset_cache()
+
+
+def test_two_sessions_inserting_a_decision_at_once_leave_one(shop):  # noqa: F811
+    """The second insert waits for the first to commit, then inserts nothing."""
+    import threading
+
+    pg, biz, _ = shop
+    row = held_rows(shop, staged(shop))[0]
+    sql = text("insert into imports.row_resolutions (id, business_id, row_id, kind, note, created_by)"
+               " values (:i, :b, :r, 'set_aside', 'x', :u) on conflict (row_id) do nothing returning id")
+
+    def args():
+        return {"i": uuid.uuid4(), "b": biz, "r": row["row_id"], "u": uuid.uuid4()}
+
+    out = []
+    with pg.owner.connect().execution_options(isolation_level="READ COMMITTED") as first:  # the engine autocommits
+        first.execute(sql, args())  # not committed yet
+        other = threading.Thread(target=lambda: out.append(_second(pg, sql, args())))
+        other.start()
+        other.join(timeout=1)
+        assert other.is_alive()  # waiting on the first session's row
+        first.commit()
+    other.join(timeout=10)
+    assert out == [None]
+    assert scalar(pg.owner, "select count(*) from imports.row_resolutions") == 1
+
+
+def _second(pg, sql, params):
+    with pg.owner.connect().execution_options(isolation_level="READ COMMITTED") as c:
+        found = c.execute(sql, params).first()
+        c.commit()
+        return found
+
+
+def test_the_database_itself_refuses_a_second_decision_on_a_row(shop):  # noqa: F811
+    pg, biz, _ = shop
+    row = held_rows(shop, staged(shop))[0]
+    resolve(shop, row["row_id"], "set_aside", "Once")
+    with pg.owner.connect() as c:
+        with pytest.raises(Exception, match="row_resolutions_one_per_row"):
+            c.execute(text(
+                "insert into imports.row_resolutions (id, business_id, row_id, kind, note, created_by)"
+                " select gen_random_uuid(), business_id, row_id, 'accepted', 'again', created_by"
+                " from imports.row_resolutions"))
 
 
 def test_accept_is_offered_only_when_refdata_allows_it(shop):  # noqa: F811

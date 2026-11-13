@@ -150,7 +150,7 @@ settles overlap at confirm (StaleRun).
 ### Deciding held rows (R1-M3 slice 4, `runs.resolve`, `imports.row_resolutions`)
 
 `POST /rows/{row_id}/resolve` (owner, admin; Idempotency-Key) takes `{action: "set_aside" | "accept", note}`. A decision
-is a new insert-only `imports.row_resolutions` row (the latest per import row wins; nothing is updated or deleted, and the
+is a new insert-only `imports.row_resolutions` row (one per import row, held by a unique index so two simultaneous decisions cannot both land; the second is answered like a decided row; nothing is updated or deleted, and the
 import row itself is never edited); it is audited as `imports.row_set_aside` or `imports.row_accepted` with the note as the
 reason and no cell values. `set_aside` leaves the row out of the return and counts it as set aside; `accept` uses the row
 as the file states it and exists only where refdata `imports.held.<reason>.accept_allowed` is true, shipped `false`

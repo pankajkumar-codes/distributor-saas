@@ -237,11 +237,21 @@ def resolve(uow: UnitOfWork, row_id: uuid.UUID, action: str, note: str, today: d
         raise Invalid("action_not_allowed", "This row has already been decided.", field="action")
     if action not in [a["action"] for a in allowed_actions(uow, row.status, row.hold_reason, run.status, today)]:
         raise Invalid("action_not_allowed", "That isn't something you can do with this row.", field="action")
-    uow.tx.execute(
+    # One decision per row is held by the unique index; of two simultaneous decisions the second
+    # inserts nothing (ON CONFLICT waits for the first to commit) and is answered as the code path
+    # answers a row that is already decided.
+    inserted = uow.tx.execute(
         text("insert into imports.row_resolutions (id, business_id, row_id, kind, note, created_by)"
-             " values (:i, :b, :r, :k, :n, :u)"),
+             " values (:i, :b, :r, :k, :n, :u) on conflict (row_id) do nothing returning id"),
         {"i": uuid7(), "b": _business(uow), "r": row_id, "k": kind, "n": note, "u": uow.principal.user_id},
-    )
+    ).first()
+    if inserted is None:
+        won = uow.tx.execute(
+            text("select kind from imports.row_resolutions where row_id = :r"), {"r": row_id}
+        ).scalar_one()
+        if won == kind:
+            return get_row(uow, row_id, today)
+        raise Invalid("action_not_allowed", "This row has already been decided.", field="action")
     audit.record(uow, "imports.row_accepted" if kind == "accepted" else "imports.row_set_aside", "import_row", row_id,
                  reason=note, data={"run_id": str(row.run_id), "row_id": str(row_id), "hold_reason": row.hold_reason})
     return get_row(uow, row_id, today)
