@@ -2,10 +2,10 @@
 
 A reader is data (a mapping profile) plus small per-report transforms. The upload
 pipeline finds the readers of a section, asks each whether a file is theirs, and hands
-the winner's profile to the existing parser. M3 ships the interface and the registry with
-no readers; Amazon, Flipkart and Meesho (M4) and the own-invoice Excel sheet (M5) register
-theirs, and a reader is used in production only when refdata `imports.profile.<id>.verified`
-is true (LLD-7 L7-13).
+the winner's profile to the existing parser. M3 shipped the interface and the registry with
+no readers; Amazon, Flipkart and Meesho (M4, `register_platform_readers`) and the own-invoice
+Excel sheet (M5) register theirs. A reader whose refdata `imports.profile.<id>.verified` is not true is still used,
+but every run it makes carries the "layout unchecked" warning (LLD-7 L7-13); nothing is confirmed into documents in M4.
 
 A reader never touches the database or the object store. It reads by header name, uses
 `Decimal` only, and drops personal columns before a row is returned (parsing's rule).
@@ -58,6 +58,15 @@ def register(reader: Reader) -> None:
 
 def readers_for(section: str) -> list[Reader]:
     return [r for r in _registry.values() if r.section == section]
+
+
+def register_platform_readers() -> None:
+    """The real readers (R1-M4). Safe to call twice; the API calls it once at start-up."""
+    from .amazon import AmazonReader
+
+    for reader in (AmazonReader("b2c"), AmazonReader("b2b")):
+        if reader.id not in _registry:
+            register(reader)
 
 
 def clear_for_tests() -> None:

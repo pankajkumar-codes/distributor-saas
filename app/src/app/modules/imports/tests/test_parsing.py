@@ -437,3 +437,36 @@ def test_from_dict_reads_the_personal_flag():
         }
     )
     assert profile.by_name["name"].personal and not profile.by_name["id"].personal
+
+
+# --- scale and key_blank_ok (R1-M4) ---------------------------------------------
+
+
+def _scaled_profile(**extra):
+    return MappingProfile.from_dict({
+        "marketplace": "amazon", "report_type": "orders", "version": "s",
+        "fields": [
+            {"name": "id", "headers": ["ID"]},
+            {"name": "rate", "headers": ["Rate"], "kind": "decimal", "scale": "100"},
+            {"name": "cn", "headers": ["CN"], "required": False, "key_blank_ok": True},
+        ],
+        "dedup_key": ["id", "cn"], **extra})
+
+
+def test_a_scaled_decimal_turns_a_fraction_into_percent_exactly():
+    result = parse(read_table(b"ID,Rate,CN\nA,0.18,\nB,0.095,\n", "r.csv"), _scaled_profile())
+    assert [r.normalized["rate"] for r in result.rows] == [Decimal("18.00"), Decimal("9.500")]
+    assert all(isinstance(r.normalized["rate"], Decimal) for r in result.rows)
+
+
+def test_a_blank_key_part_is_allowed_only_when_the_profile_says_so():
+    result = parse(read_table(b"ID,Rate,CN\nA,0.18,\nA,0.18,\nA,0.18,C1\n", "r.csv"), _scaled_profile())
+    assert [r.status for r in result.rows] == [RowStatus.valid, RowStatus.duplicate, RowStatus.valid]
+
+
+def test_scale_on_a_text_field_or_a_non_positive_scale_is_refused():
+    base = {"marketplace": "amazon", "report_type": "orders", "version": "1", "dedup_key": ["id"]}
+    with pytest.raises(ProfileError, match="not a decimal"):
+        MappingProfile.from_dict({**base, "fields": [{"name": "id", "headers": ["ID"], "scale": "100"}]})
+    with pytest.raises(ProfileError, match="positive scale"):
+        MappingProfile.from_dict({**base, "fields": [{"name": "id", "headers": ["ID"], "kind": "decimal", "scale": "0"}]})

@@ -12,6 +12,7 @@ from app.modules.catalog.api_customers import router as customers_router
 from app.modules.catalog.api_imports import router as product_imports_router
 from app.modules.catalog.api_products import router as products_router
 from app.modules.imports.api import router as uploads_router
+from app.modules.imports.readers import register_platform_readers
 from app.modules.sales.api import router as drafts_router
 from app.modules.identity.api import router as identity_router
 from app.modules.identity.api_auth import router as auth_router
@@ -69,6 +70,7 @@ if debug_env():
     register_demo_readers()  # only when DEMO_READERS=1: the local demo's invented layout
 # business_uow and me_uow check every caller through identity (LLD-1 §6).
 set_principal_resolver(resolve_principal)
+register_platform_readers()  # Amazon now; Flipkart and Meesho follow (R1-M4)
 runtime.configure()  # the jobs queue and object store for this environment
 
 
