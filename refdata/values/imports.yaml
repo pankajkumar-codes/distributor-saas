@@ -451,3 +451,33 @@
   source_title: "R1-M4 S2: Flipkart layout built from the spec; stays false until a real report is checked on the owner's machine"
   last_checked: 2026-11-13
   status: provisional
+
+- key: imports.requirement.amazon.note
+  value: "Amazon: the monthly Merchant Tax Report files, B2C and B2B. A zip of both is fine."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/platform-reader-spec.md
+  source_title: "R1-M4 S4: plain words on which files the amazon section needs (wording to be settled)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.requirement.flipkart.note
+  value: "Flipkart: the monthly Sales Report workbook. It holds the Sales Report and Cash Back Report sheets, and both are read."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/platform-reader-spec.md
+  source_title: "R1-M4 S4: plain words on which files the flipkart section needs (wording to be settled)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.requirement.meesho.note
+  value: "Meesho: the month's zip with its two files, tcs_sales.xlsx and tcs_sales_return.xlsx."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/platform-reader-spec.md
+  source_title: "R1-M4 S4: plain words on which files the meesho section needs (wording to be settled)"
+  last_checked: 2026-11-13
+  status: provisional

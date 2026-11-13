@@ -966,6 +966,22 @@
         "title": "Confirmation",
         "type": "object"
       },
+      "CoverageOut": {
+        "properties": {
+          "months": {
+            "items": {
+              "$ref": "#/components/schemas/MonthCoverageOut"
+            },
+            "title": "Months",
+            "type": "array"
+          }
+        },
+        "required": [
+          "months"
+        ],
+        "title": "CoverageOut",
+        "type": "object"
+      },
       "CurrentFrequencyOut": {
         "properties": {
           "effective_from": {
@@ -3147,6 +3163,27 @@
         "title": "MembershipOut",
         "type": "object"
       },
+      "MonthCoverageOut": {
+        "properties": {
+          "marketplaces": {
+            "items": {
+              "$ref": "#/components/schemas/PlatformMonthOut"
+            },
+            "title": "Marketplaces",
+            "type": "array"
+          },
+          "month": {
+            "title": "Month",
+            "type": "string"
+          }
+        },
+        "required": [
+          "month",
+          "marketplaces"
+        ],
+        "title": "MonthCoverageOut",
+        "type": "object"
+      },
       "MyBusiness": {
         "properties": {
           "business_id": {
@@ -3385,6 +3422,50 @@
           "name"
         ],
         "title": "Person",
+        "type": "object"
+      },
+      "PlatformMonthOut": {
+        "properties": {
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "held_rows": {
+            "title": "Held Rows",
+            "type": "integer"
+          },
+          "marketplace": {
+            "enum": [
+              "amazon",
+              "flipkart",
+              "meesho"
+            ],
+            "title": "Marketplace",
+            "type": "string"
+          },
+          "received": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Received",
+            "type": "array"
+          },
+          "required": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Required",
+            "type": "array"
+          }
+        },
+        "required": [
+          "marketplace",
+          "required",
+          "received",
+          "complete",
+          "held_rows"
+        ],
+        "title": "PlatformMonthOut",
         "type": "object"
       },
       "PresignedPostOut": {
@@ -4773,6 +4854,17 @@
       },
       "RunOut": {
         "properties": {
+          "already_uploaded_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Already Uploaded Of"
+          },
           "columns_not_stored": {
             "items": {
               "type": "string"
@@ -4808,6 +4900,13 @@
           "id": {
             "title": "Id",
             "type": "string"
+          },
+          "months": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Months",
+            "type": "array"
           },
           "profile_verified": {
             "title": "Profile Verified",
@@ -4867,6 +4966,8 @@
           }
         },
         "required": [
+          "months",
+          "already_uploaded_of",
           "id",
           "upload_id",
           "section",
@@ -8133,6 +8234,83 @@
         ]
       }
     },
+    "/api/v1/b/{business_id}/marketplace-coverage": {
+      "get": {
+        "description": "Which marketplace files are in, per month any live preview covers. Read-only.",
+        "operationId": "marketplace_coverage_api_v1_b__business_id__marketplace_coverage_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CoverageOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Marketplace Coverage",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
     "/api/v1/b/{business_id}/members": {
       "get": {
         "operationId": "list_members_api_v1_b__business_id__members_get",
@@ -10274,6 +10452,40 @@
               "title": "Business Id",
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
           }
         ],
         "responses": {
@@ -10338,6 +10550,40 @@
                 }
               ],
               "title": "Section"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
             }
           },
           {

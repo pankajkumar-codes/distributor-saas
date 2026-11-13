@@ -102,13 +102,36 @@ def get(uow: UnitOfWork, upload_id: uuid.UUID, *, lock: bool = False) -> Upload:
     return Upload(*row)
 
 
-def list_uploads(uow: UnitOfWork, section: str | None, limit: int, offset: int) -> tuple[list[Upload], bool]:
+def month_range(frm: date | None, to: date | None) -> tuple[str, str] | None:
+    """The `YYYY-MM` bounds of a from/to filter, or None when neither is given."""
+    if frm is None and to is None:
+        return None
+    if frm is not None and to is not None and to < frm:
+        raise Invalid("range_invalid", "The end date is before the start date.", field="to")
+    return (frm.strftime("%Y-%m") if frm else "0000-01", to.strftime("%Y-%m") if to else "9999-12")
+
+
+def in_range_sql(alias: str = "u") -> str:
+    """An upload is in range when any month its live previews cover falls inside it. An upload with no
+    month known (turned away, still reading, or a preview with no dated rows) is always listed: it can't
+    be placed, and hiding it would hide a problem."""
+    return (f" and (not exists (select 1 from imports.import_runs rr, jsonb_array_elements_text(rr.summary -> 'months') m"
+            f"   where rr.upload_id = {alias}.id and rr.business_id = {alias}.business_id and rr.status <> 'discarded')"
+            f" or exists (select 1 from imports.import_runs rr, jsonb_array_elements_text(rr.summary -> 'months') m"
+            f"   where rr.upload_id = {alias}.id and rr.business_id = {alias}.business_id and rr.status <> 'discarded'"
+            f"   and m between :fm and :tm))")
+
+
+def list_uploads(uow: UnitOfWork, section: str | None, limit: int, offset: int,
+                 months: tuple[str, str] | None = None) -> tuple[list[Upload], bool]:
     if section is not None and section not in SECTIONS:
         raise Invalid("unknown_section", "That isn't an upload section.", field="section")
     rows = uow.tx.execute(
-        text(f"select {_COLUMNS} from imports.uploads where business_id = :b and (cast(:s as text) is null or section = :s)"
-             " order by created_at desc, id desc limit :n offset :o"),
-        {"b": _business(uow), "s": section, "n": limit + 1, "o": offset},
+        text(f"select {_COLUMNS} from imports.uploads u where business_id = :b and (cast(:s as text) is null or section = :s)"
+             + (in_range_sql("u") if months else "")
+             + " order by created_at desc, id desc limit :n offset :o"),
+        {"b": _business(uow), "s": section, "n": limit + 1, "o": offset,
+         **({"fm": months[0], "tm": months[1]} if months else {})},
     ).all()
     return [Upload(*r) for r in rows[:limit]], len(rows) > limit
 

@@ -60,6 +60,7 @@ def read_upload(uow: UnitOfWork, *, upload_id: uuid.UUID, section: str, file_nam
             parsed.append((table, reader))
 
     runs: list[ImportRun] = []
+    created_runs: list[ImportRun] = []
     for table, reader in parsed:
         run, created = staging.stage(
             uow.tx,
@@ -71,9 +72,18 @@ def read_upload(uow: UnitOfWork, *, upload_id: uuid.UUID, section: str, file_nam
             gstin=own_gstin,
             classify=_classifier(reader),
             flag_live_overlap=True,
+            coverage_field=getattr(reader, "coverage_field", None),
         )
         log.info("upload %s staged run %s (created=%s)", upload_id, run.id, created)
         runs.append(run)
+        if created:
+            created_runs.append(run)
+    # A sheet with no rows (a month with no cash-back) has no dates of its own: it covers the months of
+    # the other sheets of the same file.
+    shared = sorted({m for r in created_runs for m in r.summary.get("months", [])})
+    for r in created_runs:
+        if not r.summary.get("months") and shared:
+            r.summary = {**r.summary, "months": shared}
     return runs
 
 

@@ -104,6 +104,7 @@ class FlipkartSalesReader(HeaderReader):
     id = "flipkart_sales_v1"
     section = "flipkart"
     report_type = "orders"
+    coverage_field = "order_approval_date"  # for the coverage view only; not the return period (CA item 1)
 
     def __init__(self):
         super().__init__(
@@ -152,6 +153,7 @@ class FlipkartCashbackReader(HeaderReader):
     id = "flipkart_cashback_v1"
     section = "flipkart"
     report_type = "cashback"
+    coverage_field = "invoice_date"
 
     def __init__(self):
         super().__init__(

@@ -52,6 +52,7 @@ def stage(
     gstin: str | None = None,
     classify: Classify | None = None,
     flag_live_overlap: bool = False,
+    coverage_field: str | None = None,
 ) -> tuple[ImportRun, bool]:
     """Returns (run, created). created is False when this file was already staged.
 
@@ -63,7 +64,12 @@ def stage(
     of the same report type is shown as a duplicate, so the preview never promises a count that
     confirming both files would double. The first file staged keeps the record; discarding it frees
     it. Off by default: the older flow compares only against confirmed runs and settles overlap at
-    confirm (StaleRun)."""
+    confirm (StaleRun).
+
+    `coverage_field` names the parsed date field whose calendar months say which months of the
+    marketplace this file covers (`summary.months`). That is for the coverage view only: it is not the
+    return period, which the build decides once the CA has answered (spec section 5, item 1).
+    `summary.already_uploaded_of` is the id of an earlier preview of this same file that was discarded."""
     existing = _find_run(session, business_id, profile, table.checksum_sha256)
     if existing is not None:
         return existing, False
@@ -133,8 +139,17 @@ def stage(
         )
     counts["total"] = len(rows)
     counts["skipped_blank"] = result.skipped_blank_rows
+    months = sorted({f"{r.normalized[coverage_field]:%Y-%m}" for r in result.rows
+                     if coverage_field and r.normalized and r.normalized.get(coverage_field) is not None})
+    earlier = session.scalar(
+        select(ImportRun.id).where(
+            ImportRun.business_id == business_id, ImportRun.marketplace == profile.marketplace,
+            ImportRun.report_type == profile.report_type, ImportRun.checksum_sha256 == table.checksum_sha256,
+            ImportRun.status == RunStatus.discarded).order_by(ImportRun.uploaded_at.desc()).limit(1))
     run.summary = {
         **counts,
+        "months": months,
+        **({"already_uploaded_of": str(earlier)} if earlier is not None else {}),
         # Header names only: personal and unmapped columns are read but never stored.
         "columns_not_stored": result.personal_headers + result.unmapped_headers,
     }

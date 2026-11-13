@@ -12,11 +12,11 @@ from datetime import date
 
 from sqlalchemy import text
 
-from app.modules.refdata import value_on
+from app.modules.refdata import first_valid_from, value_on
 from platform_common.uow import UnitOfWork
 
 from . import uploads
-from .readers import HOLD_REASONS, SECTIONS, readers_for
+from .readers import HOLD_REASONS, SECTIONS
 
 # The two own-invoice sections arrive with their readers (R1-M5, R1-M6).
 ENABLED = {"amazon": True, "flipkart": True, "meesho": True, "own_invoices_excel": False, "own_invoices_pdf": False}
@@ -34,15 +34,16 @@ class Section:
     requirement_note: str | None
 
 
-def sections(uow: UnitOfWork, today: date) -> list[Section]:
+def sections(uow: UnitOfWork, today: date, months: tuple[str, str] | None = None) -> list[Section]:
     b = uow.principal.business_id
     ups = uow.tx.execute(
         text(f"select {uploads._COLUMNS} from imports.uploads u where business_id = :b"
              " and status in ('received', 'parsing', 'parsed', 'stored')"
              " and not (run_id is not null and not exists (select 1 from imports.import_runs r where"
              "   r.upload_id = u.id and r.business_id = u.business_id and r.status <> 'discarded'))"
-             " order by created_at desc, id desc"),
-        {"b": b},
+             + (uploads.in_range_sql("u") if months else "")
+             + " order by created_at desc, id desc"),
+        {"b": b, **({"fm": months[0], "tm": months[1]} if months else {})},
     ).all()
     held: dict[tuple[str, str], int] = {}
     flagged: set[tuple[str, str]] = set()  # unresolved or accepted rows by (section, reason)
@@ -54,8 +55,9 @@ def sections(uow: UnitOfWork, today: date) -> list[Section]:
              " join imports.uploads u on u.id = r.upload_id and u.business_id = r.business_id"
              " left join latest l on l.row_id = w.id"
              " where w.business_id = :b and w.status = 'held' and r.status = 'staged'"
-             " group by u.section, w.hold_reason, l.kind"),
-        {"b": b},
+             + (uploads.in_range_sql("u") if months else "")
+             + " group by u.section, w.hold_reason, l.kind"),
+        {"b": b, **({"fm": months[0], "tm": months[1]} if months else {})},
     ):
         if kind is None:
             held[(section, reason)] = held.get((section, reason), 0) + n
@@ -76,8 +78,9 @@ def sections(uow: UnitOfWork, today: date) -> list[Section]:
             status = "ready"
         else:
             status = "not uploaded"
-        notes = [getattr(r, "requirement_note", None) for r in readers_for(section)]
+        key = f"imports.requirement.{section}.note"
+        note = str(value_on(uow.tx, key, today)) if first_valid_from(uow.tx, key) is not None else None
         out.append(Section(section, ENABLED[section], status, mine[:LIVE_LIMIT], count,
                            any(ca_flag.get(reason, False) for s, reason in flagged if s == section),
-                           next((n for n in notes if n), None)))
+                           note))
     return out
