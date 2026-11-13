@@ -551,6 +551,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/marketplace-coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Marketplace Coverage
+         * @description Which marketplace files are in, per month any live preview covers. Read-only.
+         */
+        get: operations["marketplace_coverage_api_v1_b__business_id__marketplace_coverage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/members": {
         parameters: {
             query?: never;
@@ -1511,7 +1531,7 @@ export interface components {
              * Action
              * @enum {string}
              */
-            action: "set_aside" | "accept";
+            action: "set_aside" | "accept" | "enter_hsn" | "pick_state";
             /** Effect Note */
             effect_note: string;
             /** Label */
@@ -1790,6 +1810,11 @@ export interface components {
              * @enum {string}
              */
             state: "confirmed" | "unconfirmed";
+        };
+        /** CoverageOut */
+        CoverageOut: {
+            /** Months */
+            months: components["schemas"]["MonthCoverageOut"][];
         };
         /** CurrentFrequencyOut */
         CurrentFrequencyOut: {
@@ -2475,6 +2500,13 @@ export interface components {
             /** Role */
             role: string;
         };
+        /** MonthCoverageOut */
+        MonthCoverageOut: {
+            /** Marketplaces */
+            marketplaces: components["schemas"]["PlatformMonthOut"][];
+            /** Month */
+            month: string;
+        };
         /** MyBusiness */
         MyBusiness: {
             /** Business Id */
@@ -2563,6 +2595,22 @@ export interface components {
              * Format: uuid
              */
             user_id: string;
+        };
+        /** PlatformMonthOut */
+        PlatformMonthOut: {
+            /** Complete */
+            complete: boolean;
+            /** Held Rows */
+            held_rows: number;
+            /**
+             * Marketplace
+             * @enum {string}
+             */
+            marketplace: "amazon" | "flipkart" | "meesho";
+            /** Received */
+            received: string[];
+            /** Required */
+            required: string[];
         };
         /** PresignedPostOut */
         PresignedPostOut: {
@@ -2866,7 +2914,7 @@ export interface components {
              * Action
              * @enum {string}
              */
-            action: "set_aside" | "accept";
+            action: "set_aside" | "accept" | "enter_hsn" | "pick_state";
             /**
              * At
              * Format: date-time
@@ -2874,6 +2922,8 @@ export interface components {
             at: string;
             /** Note */
             note: string;
+            /** Value */
+            value?: string | null;
         };
         /** ResolveIn */
         ResolveIn: {
@@ -2881,9 +2931,11 @@ export interface components {
              * Action
              * @enum {string}
              */
-            action: "set_aside" | "accept";
+            action: "set_aside" | "accept" | "enter_hsn" | "pick_state";
             /** Note */
             note: string;
+            /** Value */
+            value?: string | null;
         };
         /** ReturnOut */
         ReturnOut: {
@@ -2984,6 +3036,8 @@ export interface components {
         };
         /** RunOut */
         RunOut: {
+            /** Already Uploaded Of */
+            already_uploaded_of: string | null;
             /** Columns Not Stored */
             columns_not_stored: string[];
             /** Counts */
@@ -2998,6 +3052,8 @@ export interface components {
             };
             /** Id */
             id: string;
+            /** Months */
+            months: string[];
             /** Profile Verified */
             profile_verified: boolean;
             /** Reader */
@@ -4711,6 +4767,40 @@ export interface operations {
             };
         };
     };
+    marketplace_coverage_api_v1_b__business_id__marketplace_coverage_get: {
+        parameters: {
+            query?: {
+                from?: string | null;
+                to?: string | null;
+            };
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoverageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_members_api_v1_b__business_id__members_get: {
         parameters: {
             query?: {
@@ -5864,7 +5954,10 @@ export interface operations {
     };
     list_sections_api_v1_b__business_id__upload_sections_get: {
         parameters: {
-            query?: never;
+            query?: {
+                from?: string | null;
+                to?: string | null;
+            };
             header?: never;
             path: {
                 business_id: string;
@@ -5897,6 +5990,8 @@ export interface operations {
         parameters: {
             query?: {
                 section?: ("amazon" | "flipkart" | "meesho" | "own_invoices_excel" | "own_invoices_pdf") | null;
+                from?: string | null;
+                to?: string | null;
                 limit?: number;
                 offset?: number;
             };

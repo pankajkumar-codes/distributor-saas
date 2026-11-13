@@ -98,6 +98,7 @@ def _zero(*values) -> bool:
 
 class AmazonReader(HeaderReader):
     section = "amazon"
+    coverage_field = "shipment_date"  # the month this file covers, for the coverage view only
 
     def __init__(self, kind: str):
         self.kind = kind  # "b2c" or "b2b"

@@ -171,7 +171,7 @@ Two readers, `amazon_mtr_b2c_v1` and `amazon_mtr_b2b_v1`, registered by `registe
 A report is a CSV named `MTR_B2C-*.csv` or `MTR_B2B-*.csv`, alone or inside a zip (UTF-8 BOM allowed). A reader
 claims a file by its header names, not by position or file name alone: six marker headers must be present and the
 B2C reader refuses a file that has `Customer Bill To Gstid`. The business GSTIN is read from the `Seller Gstin`
-column; a blank or different one rejects the file whole (`wrong_gstin`).
+column (compared in upper case); a blank or different one rejects the file whole (`wrong_gstin`).
 
 - **Fields kept:** GSTIN, order/shipment ids, invoice and credit note numbers, the candidate dates (order, shipment,
   invoice, credit note), quantity, HSN, ship-to and ship-from state, taxable value, tax by head and rate, and for B2B
@@ -198,7 +198,7 @@ column; a blank or different one rejects the file whole (`wrong_gstin`).
 `flipkart_sales_v1` (sheet `Sales Report`, report type `orders`) and `flipkart_cashback_v1` (sheet `Cash Back Report`,
 report type `cashback`) read one `Sales Report - <range>.xlsx`, alone or in a zip. A workbook with several sheets is
 read sheet by sheet: each sheet a reader of the section names becomes its own table and run (the `Help` sheet is not
-read; a sheet with a header and no rows is skipped, since a month may have no cash-back). A reader declares its sheet
+read; a sheet with a header and no rows makes an empty run with a "This report had no rows" warning, since a month may have no cash-back; a sheet with nothing at all is skipped). A reader declares its sheet
 (`Reader.sheet`); a workbook none of whose sheets any reader names is read as before and refused if it has several.
 The whole sheet is read whatever size it declares (the declared-size bug).
 
@@ -216,6 +216,63 @@ The whole sheet is read whatever size it declares (the declared-size bug).
 - **To check on the first real report:** the exact names of the tax rate and amount columns, the shipped-from and
   delivery state columns, and the Cash Back sheet's header names (the spec lists only some; its seller GSTIN column is assumed
   to be `Seller GSTIN`). Both profiles ship unverified.
+
+## Months, coverage and filters (R1-M4 slice 4)
+
+- **`summary.months` on a run** (`RunOut.months`, `["2026-07"]`): the calendar months of one date field each reader names
+  (`coverage_field`: Amazon shipment date, Flipkart order approval date for sales and invoice date for cash-back, Meesho
+  order date for sales and return date for returns). It is **for the coverage view only**: it is not the return period.
+  Which date places a row in a return is a CA question (spec section 5, item 1) and the build decides it (R1-M7). A sheet
+  with no rows takes the months of the other sheets of its file. No migration: it lives in the run's `summary`.
+- **`already_uploaded_of`** (`RunOut`): the id of an earlier preview of the same file that was discarded, so the page can
+  say "you uploaded this before". A file that is still live is not a new run at all (the existing run is returned).
+- **`GET /marketplace-coverage?from=&to=`**: months with any live preview, and for each of the three platforms the report
+  types it needs (from its readers), the ones received, `complete` (all needed ones received) and `held_rows` (open held
+  rows in those previews; a preview covering two months counts in both). Read-only; CA and members read it, another
+  business gets nothing.
+- **`from` / `to` on `GET /uploads` and `GET /upload-sections`**: an upload is listed when any month its live previews
+  cover falls in the range (compared by calendar month). An upload with no month known (turned away, still being
+  read, or no dated rows) is always listed in `/uploads`, since hiding it would hide a problem. `to` before `from` is 422.
+- **`requirement_note`** on a section comes from refdata `imports.requirement.<section>.note` (wording to be settled).
+## Meesho readers (R1-M4 slice 3, `readers/meesho.py`)
+
+`meesho_sales_v1` (`tcs_sales.xlsx`, report type `orders`) and `meesho_returns_v1` (`tcs_sales_return.xlsx`, report
+type `returns`) read the two workbooks of a month's zip (one sheet each, named after the supplier id). The return file
+is the one with `cancel_return_date`; `transaction_type` is empty in the samples and is not used. The text `null` is a
+blank (`FieldSpec.blank_tokens`, applied to the mapped fields of this profile). The supplier name and enrolment number are not mapped, so never stored.
+
+- **Dedupe key and why (D-051).** Meesho's files carry no stable row id, and `sub_order_num` is not unique (a month had
+  57 sales rows for 55 orders: the extra two were price adjustments). The key is the spec's composite
+  `(gstin, sub_order_num, order_date, quantity, total_taxable_sale_value, total_invoice_value)` plus the file kind (the
+  run's report type) plus an occurrence counter (`MappingProfile.occurrence_field`). Rows with the same key and the
+  same content in one file are separate records counted 1, 2, ... in file order. Rows with the same key and
+  different other values (state, rate, tax, shipping, HSN, dates) are never merged or dropped: **all of them are flagged
+  `conflict`** (an ambiguous duplicate) for the user to look at. Cost: a re-issued file with a corrected taxable or invoice
+  value looks like new rows, which the "changed" logic cannot see; the live-file overlap rule and the file checksum
+  still stop the same file being staged twice.
+- **Adjustments:** a row with quantity 0 and any value is held `price_adjustment` (a new reason, accept off, CA check on).
+  A quantity-0 row with no value is `skipped_zero`. A blank quantity is `blank_qty`.
+- **Other holds:** blank HSN, blank customer state (`unknown_state`), a rate outside 0 to 100, a negative taxable or
+  invoice value on a row that has units, and a return with no `cancel_return_date` (`sanity`).
+  `taxable + tax = invoice` is not checked: the values are long fractions and no tolerance is invented.
+- **No tax split:** the file has one `tax_amount`; the build derives CGST/SGST/IGST from the place of supply (a CA item).
+- **To check on the first real report:** the zip entry names (taken as exact from the spec), the date formats, and
+  whether the sales file really lacks `cancel_return_date`. A sheet naming more than one seller GSTIN is refused whole.
+
+## Value fixes and the local checker (R1-M4 slice 4b)
+
+- **`enter_hsn` and `pick_state`** are new `resolve` actions with a `value`. `enter_hsn` is offered only on a `blank_hsn` row
+  and takes an HSN in the shape refdata `hsn.pattern` allows (a typo check, never which HSN fits); `pick_state` only on an
+  `unknown_state` row and takes a code from the refdata state list. Both need a note, like every decision. They are stored in
+  `row_resolutions` (`kind = 'fixed'`, `fix_field`, `fix_value`; migration `202611131500`, additive): insert-only, one
+  decision per row, the same fix twice is one decision, a different value or another action is refused. **The row as the
+  file said it is never changed**; the build (R1-M7) reads the decision to use the value. Runs count them as `counts.fixed`.
+  The audit event `imports.row_fixed` names the field, never the value.
+- **`scripts/check_reader.py <file>`** (local only): prints which reader claims each file or sheet, which headers were found
+  or missing, and row counts (new, held by reason, skipped, invalid by code). Never a cell value, GSTIN, order number, path or
+  a sheet name a reader does not name. Writes nothing and uses no database or network. The reader `verified` flags stay false
+  until someone has run it on a real report and the headers all matched; flipping a flag is then a reviewed refdata change.
+- **Not built: the choose-reader endpoint.** No two real readers claim one layout, so `needs_choice` cannot happen (EM, 2026-11-13).
 
 ## Retention of uploads (R1-M3, TD-18)
 

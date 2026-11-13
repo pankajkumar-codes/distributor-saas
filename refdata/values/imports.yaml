@@ -451,3 +451,93 @@
   source_title: "R1-M4 S2: Flipkart layout built from the spec; stays false until a real report is checked on the owner's machine"
   last_checked: 2026-11-13
   status: provisional
+
+- key: imports.requirement.amazon.note
+  value: "Amazon: the monthly Merchant Tax Report files, B2C and B2B. A zip of both is fine."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/platform-reader-spec.md
+  source_title: "R1-M4 S4: plain words on which files the amazon section needs (wording to be settled)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.requirement.flipkart.note
+  value: "Flipkart: the monthly Sales Report workbook. It holds the Sales Report and Cash Back Report sheets, and both are read."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/platform-reader-spec.md
+  source_title: "R1-M4 S4: plain words on which files the flipkart section needs (wording to be settled)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.requirement.meesho.note
+  value: "Meesho: the month's zip with its two files, tcs_sales.xlsx and tcs_sales_return.xlsx."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/platform-reader-spec.md
+  source_title: "R1-M4 S4: plain words on which files the meesho section needs (wording to be settled)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.profile.meesho_sales_v1.verified
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/platform-reader-spec.md
+  source_title: "R1-M4 S3: Meesho layout built from the spec; stays false until a real report is checked on the owner's machine"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.profile.meesho_returns_v1.verified
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/platform-reader-spec.md
+  source_title: "R1-M4 S3: Meesho layout built from the spec; stays false until a real report is checked on the owner's machine"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.action.enter_hsn.label
+  value: "Enter the HSN"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m4-readers.md
+  source_title: "R1-M4 S4b: wording of the enter_hsn action on a held row (to be settled)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.action.enter_hsn.effect_note
+  value: "The HSN you enter is used for this row. Your note is kept."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m4-readers.md
+  source_title: "R1-M4 S4b: wording of the enter_hsn action on a held row (to be settled)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.action.pick_state.label
+  value: "Pick the state"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m4-readers.md
+  source_title: "R1-M4 S4b: wording of the pick_state action on a held row (to be settled)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.action.pick_state.effect_note
+  value: "The state you pick is used for this row. Your note is kept."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m4-readers.md
+  source_title: "R1-M4 S4b: wording of the pick_state action on a held row (to be settled)"
+  last_checked: 2026-11-13
+  status: provisional

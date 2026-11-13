@@ -66,8 +66,10 @@ def register_platform_readers() -> None:
     """The real readers (R1-M4). Safe to call twice; the API calls it once at start-up."""
     from .amazon import AmazonReader
     from .flipkart import FlipkartCashbackReader, FlipkartSalesReader
+    from .meesho import MeeshoReader
 
-    for reader in (AmazonReader("b2c"), AmazonReader("b2b"), FlipkartSalesReader(), FlipkartCashbackReader()):
+    for reader in (AmazonReader("b2c"), AmazonReader("b2b"), FlipkartSalesReader(), FlipkartCashbackReader(),
+                   MeeshoReader("sales"), MeeshoReader("returns")):
         if reader.id not in _registry:
             register(reader)
 

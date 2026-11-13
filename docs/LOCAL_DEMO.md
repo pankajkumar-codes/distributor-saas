@@ -7,7 +7,8 @@ touches AWS, never sends email, and never holds real tax data.
 You need **only Docker**. You do not need Node, Python, Git bash, `make` or WSL on Windows.
 
 Quick start on Windows: install Docker Desktop (section 1), open PowerShell in this folder, run
-`.\demo.ps1`, open `http://localhost:5173`.
+`.\demo.ps1`, open `http://localhost:5173`. (`demo.ps1` has not yet been run on a real Windows computer; if it fails,
+use the WSL way in section 2, which is verified only up to the database steps.)
 
 ## 1. One-time setup on Windows
 
@@ -66,32 +67,45 @@ Install Docker Desktop (Mac) or Docker Engine with the Compose plugin (Linux), s
 
 It does the same things and prints the same box.
 
-### Windows with WSL (only if the PowerShell way does not work for you)
+### Windows with WSL (an alternative that is partly verified)
 
-First time:
+**Status, so you know what to trust:** `.\demo.ps1` is the simplest way and needs none of the steps below, but it has
+**not yet been run on a real Windows computer** (it was read line by line and checked on Linux only). The WSL way below uses
+the project's normal development setup instead of `demo.ps1`. It has been run on a real Windows computer **only through
+`make db-up` and `make db-migrate`** (steps 1 to 5). **Steps 6 to 8 (starting the API and the web app and opening the page)
+have not yet been confirmed by anyone**, so treat them as the expected steps, not as proven ones, and tell us what happens.
+It shows the product's real pages with your own database; it does not include the demo's made-up business and sample files,
+so you create a business through the sign-up page.
 
-1. In PowerShell: `wsl --install -d Ubuntu`. Restart Windows if asked, open the **Ubuntu** app and make a
-   username and password. (A `docker-desktop` entry in `wsl --status` is Docker's own and is not usable for this.)
-2. Docker Desktop > Settings > Resources > WSL integration: switch on **Ubuntu**, Apply & restart. In Ubuntu,
-   `docker ps` must print a table, not "permission denied". If it still fails: `sudo usermod -aG docker $USER`,
-   close and reopen Ubuntu.
-3. In Ubuntu: `sudo apt update && sudo apt install -y make git curl`.
-4. The repository is private, so sign in to GitHub first. Install the GitHub CLI
-   (<https://github.com/cli/cli/blob/trunk/docs/install_linux.md>), then `gh auth login`: GitHub.com, HTTPS,
-   authenticate Git: Yes, log in with a web browser. Never type a GitHub password at a `git clone` prompt and
-   never paste a token into a chat.
-5. Clone **inside the Linux home folder**, not under `/mnt/c` (slow, and file-permission problems):
-   `cd ~ && git clone https://github.com/pankajkumar-codes/distributor-saas && cd distributor-saas`
-6. `./demo.sh` (the same as `make demo`). Open `http://localhost:5173`.
+**First time (about 30 minutes)**
 
-Every later time (for example after `wsl --shutdown` or a restart):
+1. Install **Docker Desktop**, and in Settings > Resources > WSL integration turn on your Ubuntu distro. Install Ubuntu from
+   the Microsoft Store if you do not have it, then in PowerShell run `wsl --shutdown` and reopen Ubuntu so the setting takes effect.
+   A `docker-desktop` entry in `wsl --status` or `wsl -l -v` is Docker's own and cannot be used for these steps: you need Ubuntu.
+2. In Ubuntu, check `docker ps` works: it must print a table. If it says "permission denied ... docker.sock", turn the WSL
+   integration on as in step 1; if it still fails, run `sudo usermod -aG docker $USER`, then close and reopen Ubuntu. The project needs **Python 3.12**. Ubuntu's own Python may be newer (3.14 at the
+   time of writing) and is too new, so install 3.12 from the deadsnakes archive:
+   `sudo add-apt-repository ppa:deadsnakes/ppa && sudo apt update && sudo apt install python3.12 python3.12-venv`.
+   The web app needs **Node.js 22 or newer** (`node -v`).
+3. Get the code **inside the Linux home folder** (`cd ~`, not under `/mnt/c`, which is slow). The repository is private, so
+   sign in with GitHub's own tool: install `gh` (`sudo apt install gh`), run `gh auth login`, follow its browser steps, then
+   `gh repo clone pankajkumar-codes/distributor-saas && cd distributor-saas`. Never paste a password or token into a chat or a file.
+4. Create the Python environment and install: `python3.12 -m venv .venv && source .venv/bin/activate && make setup PY=python`.
+5. Start the database and prepare it: `make db-up`, then `make db-migrate PY=python`. (A Postgres container you already run
+   on another port, such as 5332, does not clash: this one uses 5432.)
+6. *(Not yet confirmed.)* Start the API in that terminal: `PYTHON=python make run-api`. Leave it running.
+7. *(Not yet confirmed.)* Open a **second** Ubuntu terminal and start the web app: `cd ~/distributor-saas/web && npm ci && npm run dev`.
+8. *(Not yet confirmed.)* Open <http://localhost:5173> in your Windows browser. Sign-up codes are written to `build/mail/outbox.jsonl` in the project folder (the same
+   local mail file as the demo); open that file to read the code.
 
-1. Start Docker Desktop and wait for **Engine running**.
-2. Open Ubuntu: the **Ubuntu** Start menu app, or `wsl -d Ubuntu` in PowerShell (`wsl -l -v` lists the names).
-3. `cd ~/distributor-saas && git pull && ./demo.sh`. `git pull` brings the newest milestone. Run
-   `./demo.sh stop` first if an older demo is still running. Each start begins empty.
+**Coming back later**
 
-If you cloned under `/mnt/c/...` already, it works but is slow; move to the home folder when convenient.
+1. Start **Docker Desktop** and wait for "Engine running".
+2. Open Ubuntu: the **Ubuntu** Start menu app, or `wsl -d Ubuntu` in PowerShell (`wsl -l -v` lists the exact name; this is
+   also how you get back in after `wsl --shutdown`). Then `cd ~/distributor-saas && source .venv/bin/activate`.
+3. `make db-up` (your database and data are kept between runs).
+4. Start the API again (`PYTHON=python make run-api`) and, in a second Ubuntu terminal, the web app (`cd ~/distributor-saas/web && npm run dev`).
+   The API keeps sign-ins in memory, so after a restart you sign in again.
 
 ## 3. What is, and is not, real in this demo
 
@@ -116,7 +130,7 @@ business. Step 13 is where you sign up as yourself.
 | 1 | Sign in. On Home, click **Upload your reports**. | A page "Upload your reports" with four cards: Amazon, Flipkart, Meesho, Your own sales invoices (Excel). The page says every section is optional. |
 | 2 | Amazon card: choose `demo-orders-good.csv`, click **Upload**. | "Reading your file..." and then **Read.** |
 | 3 | Flipkart card: choose `demo-orders-held-rows.csv`, **Upload**. | **Read.** The page shows only the status; the next step shows what the server made of it. |
-| 4 | In PowerShell: `.\demo.ps1 status` | The Flipkart file made one preview with 2 new rows, 1 skipped (a zero-value cancel) and **2 held rows**: DEMO-2002 "HSN missing" and DEMO-2003 "Quantity missing". The Flipkart section says "rows held". |
+| 4 | Open a **second** PowerShell window (the first one is busy showing the sign-in codes) and run `.\demo.ps1 status` | The Flipkart file made one preview with 2 new rows, 1 skipped (a zero-value cancel) and **2 held rows**: DEMO-2002 "HSN missing" and DEMO-2003 "Quantity missing". The Flipkart section says "rows held". |
 | 5 | Amazon card: choose `demo-orders-wrong-gstin.csv`, **Upload**. | A red message: **This file is for a different GSTIN than your business.** Nothing is kept. |
 | 6 | Amazon card: choose `not-a-report.csv`. | A red message: **We can't read this file's columns. Check it is the right report.** |
 | 7 | Meesho card: choose `demo-orders-bundle.zip` (a zip of two files). | **Read.** `.\demo.ps1 status` shows two previews from it (3 rows and 2 rows). |
@@ -133,6 +147,8 @@ owner and the CA decide), and real marketplace layouts (R1-M4).
 
 Other helper commands: `.\demo.ps1 upload amazon demo\samples\demo-orders-good.csv` (the same upload without the
 browser), `.\demo.ps1 tool status`. On Mac and Linux use `./demo.sh` in place of `.\demo.ps1`.
+
+The helper commands read the sample files from inside the demo image, so `upload` and `tool` work only for files in the repo's `demo\samples` folder. A file of your own, kept anywhere else, is not found until it is in that folder and the image is rebuilt.
 
 ## 5. If it does not open
 

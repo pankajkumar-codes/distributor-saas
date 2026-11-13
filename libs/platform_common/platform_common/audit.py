@@ -81,6 +81,7 @@ ALLOWED_DATA: dict[str, frozenset[str]] = {
     # A user's decision on a held row; the note is the audit reason. No cell values.
     "imports.row_set_aside": frozenset({"run_id", "row_id", "hold_reason"}),
     "imports.row_accepted": frozenset({"run_id", "row_id", "hold_reason"}),
+    "imports.row_fixed": frozenset({"run_id", "row_id", "hold_reason", "field"}),  # the field only, not the value
 }
 
 _INSERT = text(
