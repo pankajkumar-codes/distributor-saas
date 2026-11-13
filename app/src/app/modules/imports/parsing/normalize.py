@@ -103,6 +103,8 @@ def parse(table: SourceTable, profile: MappingProfile) -> ParseResult:
             continue
         rows.append(_parse_row(offset, cells, labels, columns, profile))
 
+    if profile.occurrence_field:
+        _number_occurrences(rows, profile.occurrence_field)
     _flag_duplicates(rows)
 
     mapped = set(columns.values())
@@ -188,7 +190,7 @@ def _parse_row(row_number, cells, labels, columns, profile) -> ParsedRow:
         return row
 
     row.normalized = normalized
-    row.dedup_key = tuple(_canonical(normalized[name]) for name in profile.dedup_key)
+    row.dedup_key = tuple(_canonical(normalized[name]) for name in profile.dedup_key if name != profile.occurrence_field)
     row.content_hash = hashlib.sha256(
         json.dumps({k: _canonical(v) for k, v in normalized.items()}, sort_keys=True).encode()
     ).hexdigest()
@@ -202,6 +204,22 @@ def _raw_labels(headers: list[str]) -> list[str]:
         # Two source columns can share a header; keep both values under distinct keys.
         labels.append(label if label not in labels else f"{label} (column {i + 1})")
     return labels
+
+
+def _number_occurrences(rows: list[ParsedRow], field_name: str) -> None:
+    """For a file with no row id: rows with the same key and the same content are separate records and are
+    counted 1, 2, ... in file order. Rows with the same key but different content all keep counter 1, so
+    `_flag_duplicates` marks every one of them a conflict."""
+    groups: dict[tuple[str, ...], list[ParsedRow]] = {}
+    for row in rows:
+        if row.dedup_key is not None:
+            groups.setdefault(row.dedup_key, []).append(row)
+    for members in groups.values():
+        same = len({m.content_hash for m in members}) == 1
+        for n, m in enumerate(members, start=1):
+            count = n if same else 1
+            m.dedup_key = m.dedup_key + (str(count),)
+            m.normalized[field_name] = count
 
 
 def _flag_duplicates(rows: list[ParsedRow]) -> None:
@@ -253,6 +271,8 @@ def _convert(spec: FieldSpec, value: str):
         raise _FieldInvalid("formula", f"{value[:40]!r} looks like a spreadsheet formula")
 
     text = value.strip()
+    if text and spec.blank_tokens and text.casefold() in {t.casefold() for t in spec.blank_tokens}:
+        text = ""
     if not text:
         if spec.required:
             raise _FieldInvalid("required", "value is required")
