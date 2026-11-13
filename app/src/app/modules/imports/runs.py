@@ -228,6 +228,7 @@ def _checked_value(uow: UnitOfWork, action: str, value: str | None, today: date)
         raise Invalid("value_required", "Enter a value.", field="value")
     if action == "enter_hsn":
         if not value_on(uow.tx, "hsn.pattern", today).fullmatch(text_value):
+            # Wording mirrors refdata `hsn.pattern` (4, 6 or 8 digits); update it if that pattern changes.
             raise Invalid("hsn_invalid", "That isn't a valid HSN. Use 4, 6 or 8 digits, with no spaces.", field="value")
         return text_value
     codes = {code for code, _ in state_codes(uow.tx, today)}
