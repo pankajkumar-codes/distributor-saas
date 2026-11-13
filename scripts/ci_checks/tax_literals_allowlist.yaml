@@ -72,6 +72,9 @@
 - path: app/src/app/modules/imports/uploads.py
   value: "1024"
   reason: "bytes per KB and MB in the file-size message"
+- path: app/src/app/modules/imports/sections.py
+  value: "50"
+  reason: "most uploads listed per section on the page (a page size, not a tax value)"
 - path: app/src/app/modules/sales/api.py
   value: "20"
   reason: "maximum length of a vehicle or e-way bill number field; input hygiene, not a tax rule"

@@ -4785,6 +4785,88 @@
         "title": "RunOut",
         "type": "object"
       },
+      "SectionOut": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "held_rows": {
+            "title": "Held Rows",
+            "type": "integer"
+          },
+          "needs_ca_check": {
+            "title": "Needs Ca Check",
+            "type": "boolean"
+          },
+          "requirement_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requirement Note"
+          },
+          "section": {
+            "enum": [
+              "amazon",
+              "flipkart",
+              "meesho",
+              "own_invoices_excel",
+              "own_invoices_pdf"
+            ],
+            "title": "Section",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "not uploaded",
+              "processing",
+              "ready",
+              "rows held"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "uploads": {
+            "items": {
+              "$ref": "#/components/schemas/app__modules__imports__api__UploadOut"
+            },
+            "title": "Uploads",
+            "type": "array"
+          }
+        },
+        "required": [
+          "section",
+          "enabled",
+          "status",
+          "uploads",
+          "held_rows",
+          "needs_ca_check",
+          "requirement_note"
+        ],
+        "title": "SectionOut",
+        "type": "object"
+      },
+      "SectionsOut": {
+        "properties": {
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/SectionOut"
+            },
+            "title": "Sections",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sections"
+        ],
+        "title": "SectionsOut",
+        "type": "object"
+      },
       "ShipToIn": {
         "additionalProperties": false,
         "description": "Where the goods go, when it isn't the customer's own delivery address (LLD-4 \u00a73.1).",
@@ -5622,6 +5704,13 @@
             ],
             "title": "Run Id"
           },
+          "run_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Run Ids",
+            "type": "array"
+          },
           "section": {
             "enum": [
               "amazon",
@@ -5660,6 +5749,7 @@
           "reject_reason",
           "reject_message",
           "run_id",
+          "run_ids",
           "created_at",
           "raw_available"
         ],
@@ -9582,6 +9672,58 @@
         ]
       }
     },
+    "/api/v1/b/{business_id}/runs/{run_id}/discard": {
+      "post": {
+        "description": "Set a staged preview aside. The same file can be uploaded again.",
+        "operationId": "discard_run_api_v1_b__business_id__runs__run_id__discard_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Discard Run",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
     "/api/v1/b/{business_id}/runs/{run_id}/rows": {
       "get": {
         "operationId": "list_rows_api_v1_b__business_id__runs__run_id__rows_get",
@@ -9942,6 +10084,48 @@
         "summary": "List Units",
         "tags": [
           "catalog"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/upload-sections": {
+      "get": {
+        "operationId": "list_sections_api_v1_b__business_id__upload_sections_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SectionsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Sections",
+        "tags": [
+          "imports"
         ]
       }
     },

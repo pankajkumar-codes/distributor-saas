@@ -133,6 +133,20 @@ or changed. Their wording (`imports.held.<reason>.label`, `.effect_note`) and fl
 the preview: counts, held-by-reason, a "layout unchecked" warning while the profile is not verified (by the reader and
 by refdata), and each row's cells as read (non-personal mapped columns only), errors and plain reason.
 
-Not in this slice: `months` and `already_uploaded_of` on the run, row resolutions (`set_aside`) and `allowed_actions`,
-discard, `GET /upload-sections`, `GET /marketplace-coverage`, and the duplicate rule against other live staged runs
-(next slice); raw-file retention (the slice after).
+### Discard, sections and overlap (R1-M3 slice 3)
+
+`POST /runs/{id}/discard` (owner, admin; audited as `imports.run_discarded`) sets a staged run aside and frees its file
+to be uploaded again; repeating it is a no-op and a confirmed run answers 409 `run_not_staged`. `GET /upload-sections`
+(owner, admin, CA) always returns the five sections with `status` exactly one of "not uploaded", "processing" (a file is
+received or parsing), "rows held" (a live staged run has held rows) or "ready"; rejected, expired and discarded uploads
+do not count as uploaded. The two own-invoice sections are `enabled: false` until their readers exist (R1-M5, R1-M6).
+`UploadOut.run_ids` lists every run of an upload (a zip makes one per file; `run_id` is the first).
+
+On the upload path a record that another live staged file of the same report type already holds is shown as a
+`duplicate` (error code `duplicate_in_other_file`) so the preview never promises a count that confirming both files would
+double; the first file keeps it and discarding that file frees it. The older flow (catalog, confirm) leaves this off and
+settles overlap at confirm (StaleRun).
+
+Not yet: `months` and `already_uploaded_of` on the run, the `from`/`to` filters and `GET /marketplace-coverage` (all need
+the months a real reader reads from its file, R1-M4), row resolutions (`set_aside`) and `allowed_actions` (next slice),
+and raw-file retention (the slice after).

@@ -292,3 +292,27 @@ def test_a_support_user_with_a_live_grant_reads_but_cannot_write(svc):
                 ),
                 {"r": run_id, "b": business},
             )
+
+
+def test_overlapping_files_staged_at_once_are_serialised_so_the_overlap_is_seen(svc):
+    """Two parse jobs for overlapping files of one report type: the second must see the first's
+    rows (the report-type lock), so the shared record is `new` once and `duplicate` once."""
+    business = uuid.uuid4()
+    barrier = threading.Barrier(2)
+
+    def stage_one(body):
+        with business_session(svc, business) as s:
+            barrier.wait()
+            staging.stage(s, business_id=business, user_id=USER, table=read_table(body, "m.csv"), profile=PROFILE,
+                          flag_live_overlap=True)
+            s.commit()
+
+    bodies = (b"Sub Order No,Status\nS1,shipped\nS2,shipped\n", b"Sub Order No,Status\nS2,shipped\nS3,shipped\n")
+    threads = [threading.Thread(target=stage_one, args=(b,)) for b in bodies]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    with business_session(svc, business) as s:
+        statuses = [r.status.value for r in s.scalars(select(ImportRow).where(ImportRow.business_id == business))]
+    assert statuses.count("duplicate") == 1 and statuses.count("new") == 3

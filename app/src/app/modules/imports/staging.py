@@ -51,12 +51,19 @@ def stage(
     upload_id: uuid.UUID | None = None,
     gstin: str | None = None,
     classify: Classify | None = None,
+    flag_live_overlap: bool = False,
 ) -> tuple[ImportRun, bool]:
     """Returns (run, created). created is False when this file was already staged.
 
     `classify` is the reader's hold rule. It sees only rows that parsed as valid and may
     return (held, reason) or (skipped_zero, None); a held or skipped row is kept with that
-    status and is not counted as new, already imported or changed."""
+    status and is not counted as new, already imported or changed.
+
+    With `flag_live_overlap` (the upload path), a record already held by another live staged file
+    of the same report type is shown as a duplicate, so the preview never promises a count that
+    confirming both files would double. The first file staged keeps the record; discarding it frees
+    it. Off by default: the older flow compares only against confirmed runs and settles overlap at
+    confirm (StaleRun)."""
     existing = _find_run(session, business_id, profile, table.checksum_sha256)
     if existing is not None:
         return existing, False
@@ -66,6 +73,13 @@ def stage(
     previous = _latest_confirmed_hashes(
         session, business_id, profile.marketplace, profile.report_type, set(keys.values())
     )
+
+    elsewhere: set[str] = set()
+    if flag_live_overlap:
+        # Same lock as confirm, held until this transaction ends: two jobs staging overlapping
+        # files of one report type are serialised, so the second sees the first's rows.
+        _lock_report_type(session, business_id, profile.marketplace, profile.report_type)
+        elsewhere = _live_staged_keys(session, business_id, profile, set(keys.values()))
 
     run = ImportRun(
         id=uuid7(),
@@ -89,7 +103,14 @@ def stage(
         key = keys.get(parsed.row_number)
         status = _staged_status(parsed.status, previous.get(key), parsed.content_hash)
         hold_reason = None
-        if classify is not None and parsed.status == RowStatus.valid:
+        extra_errors: list[dict] = []
+        if status == StagedRowStatus.new and key in elsewhere:
+            # Another live, unconfirmed file of this report type already has this record: show it as
+            # a duplicate so the preview never promises a count that confirming both would double.
+            status = StagedRowStatus.duplicate
+            extra_errors = [{"field": None, "code": "duplicate_in_other_file",
+                             "message": "already in another uploaded file", "related_rows": []}]
+        elif classify is not None and parsed.status == RowStatus.valid:
             verdict = classify(parsed)
             if verdict is not None:
                 status, hold_reason = verdict
@@ -103,7 +124,7 @@ def stage(
                 status=status,
                 raw=parsed.raw,
                 normalized=_jsonable(parsed.normalized),
-                errors=_errors(parsed),
+                errors=_errors(parsed) + extra_errors,
                 dedup_values=list(parsed.dedup_key) if parsed.dedup_key is not None else None,
                 dedup_key=key,
                 content_hash=parsed.content_hash,
@@ -156,7 +177,7 @@ def confirm(
     stale = _stale_rows(session, run)
     if stale:
         raise StaleRun(
-            f"{stale} row(s) changed status because another file was confirmed after this one was "
+            f"{stale} row(s) changed status because another file was confirmed or discarded after this one was "
             "staged; discard this run and stage the file again"
         )
     run.status = RunStatus.confirmed
@@ -184,6 +205,32 @@ def _get_run(session: Session, business_id: uuid.UUID, run_id: uuid.UUID) -> Imp
     if run is None:
         raise LookupError("import run not found")
     return run
+
+
+def _live_staged_keys(session, business_id, profile, keys: set[str]) -> set[str]:
+    """Record keys that a live staged run of the same report type already holds as real rows
+    (not invalid or duplicate there). The first file staged keeps them; discarding it frees them."""
+    found: set[str] = set()
+    ordered = sorted(keys)
+    for start in range(0, len(ordered), _LOOKUP_BATCH):
+        batch = ordered[start : start + _LOOKUP_BATCH]
+        found.update(
+            session.scalars(
+                select(ImportRow.dedup_key)
+                .join(ImportRun, ImportRun.id == ImportRow.run_id)
+                .where(
+                    ImportRow.business_id == business_id,
+                    ImportRun.business_id == business_id,
+                    ImportRun.marketplace == profile.marketplace,
+                    ImportRun.report_type == profile.report_type,
+                    ImportRun.status == RunStatus.staged,
+                    ImportRow.status.in_([StagedRowStatus.new, StagedRowStatus.changed, StagedRowStatus.held,
+                                          StagedRowStatus.skipped_zero]),
+                    ImportRow.dedup_key.in_(batch),
+                )
+            )
+        )
+    return found
 
 
 def _find_run(session, business_id, profile, checksum) -> ImportRun | None:
@@ -216,9 +263,49 @@ def _stale_rows(session: Session, run: ImportRun) -> int:
     previous = _latest_confirmed_hashes(
         session, run.business_id, run.marketplace, run.report_type, {r.dedup_key for r in rows if r.dedup_key}
     )
-    return sum(
+    stale = sum(
         1 for r in rows if _staged_status(RowStatus.valid, previous.get(r.dedup_key), r.content_hash) != r.status
     )
+    return stale + _orphaned_overlaps(session, run)
+
+
+def _orphaned_overlaps(session: Session, run: ImportRun) -> int:
+    """Rows staged as `duplicate_in_other_file` whose record no other live or confirmed run holds
+    any more (the file that had it was discarded). Rows are insert-only, so they cannot be
+    re-evaluated; the run is stale instead and its file is staged again."""
+    marked = [
+        (r.dedup_key, r.errors)
+        for r in session.execute(
+            select(ImportRow.dedup_key, ImportRow.errors).where(
+                ImportRow.run_id == run.id, ImportRow.business_id == run.business_id,
+                ImportRow.status == StagedRowStatus.duplicate, ImportRow.dedup_key.is_not(None),
+            )
+        )
+    ]
+    keys = {k for k, errors in marked if any(e.get("code") == "duplicate_in_other_file" for e in (errors or []))}
+    if not keys:
+        return 0
+    held: set[str] = set()
+    ordered = sorted(keys)
+    for start in range(0, len(ordered), _LOOKUP_BATCH):
+        held.update(
+            session.scalars(
+                select(ImportRow.dedup_key)
+                .join(ImportRun, ImportRun.id == ImportRow.run_id)
+                .where(
+                    ImportRow.business_id == run.business_id,
+                    ImportRun.business_id == run.business_id,
+                    ImportRun.id != run.id,
+                    ImportRun.marketplace == run.marketplace,
+                    ImportRun.report_type == run.report_type,
+                    ImportRun.status.in_([RunStatus.staged, RunStatus.confirmed]),
+                    ImportRow.status.in_([StagedRowStatus.new, StagedRowStatus.changed, StagedRowStatus.held,
+                                          StagedRowStatus.skipped_zero]),
+                    ImportRow.dedup_key.in_(ordered[start : start + _LOOKUP_BATCH]),
+                )
+            )
+        )
+    return len(keys - held)
 
 
 def _latest_confirmed_hashes(session, business_id, marketplace, report_type, keys: set[str]) -> dict[str, str]:
