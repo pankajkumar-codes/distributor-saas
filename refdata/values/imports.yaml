@@ -1,0 +1,33 @@
+# Upload limits for marketplace and own-invoice files (LLD-7 §2.4, §3; R1-M3). Product
+# rows, provisional until a real seller's largest file is checked (BRD open list). The
+# parser's own row and column caps stay constants in imports/parsing/files.py for now.
+
+- key: imports.max_file_bytes
+  value: "20971520"
+  type: integer
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/docs/lld-7.md
+  source_title: "LLD-7 §2.4: the most bytes in one uploaded file (20 MB, the parser's own limit)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.zip.max_entries
+  value: "10"
+  type: integer
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/docs/lld-7.md
+  source_title: "LLD-7 §3 step 3: the most files in one zip (Meesho's report zip holds two; a month of Amazon holds one or two)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.zip.max_inflate_bytes
+  value: "209715200"
+  type: integer
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/docs/lld-7.md
+  source_title: "LLD-7 §3 step 3: the most bytes a zip may expand to (200 MB, the parser's own limit)"
+  last_checked: 2026-11-13
+  status: provisional

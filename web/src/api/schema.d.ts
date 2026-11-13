@@ -1009,6 +1009,65 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Uploads */
+        get: operations["list_uploads_api_v1_b__business_id__uploads_get"];
+        put?: never;
+        /**
+         * Start Upload
+         * @description An upload and a presigned POST for exactly its key, type and declared size.
+         */
+        post: operations["start_upload_api_v1_b__business_id__uploads_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/uploads/{upload_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Upload */
+        get: operations["get_upload_api_v1_b__business_id__uploads__upload_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/uploads/{upload_id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete Upload
+         * @description The upload finished: check it is there, then queue the parse. Calling it again
+         *     returns the same job.
+         */
+        post: operations["complete_upload_api_v1_b__business_id__uploads__upload_id__complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/health": {
         parameters: {
             query?: never;
@@ -2103,7 +2162,7 @@ export interface components {
         ImportStartOut: {
             /** Import Id */
             import_id: string;
-            upload: components["schemas"]["UploadOut"];
+            upload: components["schemas"]["app__modules__catalog__api_imports__UploadOut"];
         };
         /** InviteIn */
         InviteIn: {
@@ -2400,6 +2459,20 @@ export interface components {
              * Format: uuid
              */
             user_id: string;
+        };
+        /** PresignedPostOut */
+        PresignedPostOut: {
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Fields */
+            fields: {
+                [key: string]: string;
+            };
+            /** Url */
+            url: string;
         };
         /** PreviewOut */
         PreviewOut: {
@@ -2918,19 +2991,30 @@ export interface components {
             /** Name */
             name: string;
         };
-        /** UploadOut */
-        UploadOut: {
+        /** UploadStartIn */
+        UploadStartIn: {
+            /** File Name */
+            file_name: string;
             /**
-             * Expires At
-             * Format: date-time
+             * Section
+             * @enum {string}
              */
-            expires_at: string;
-            /** Fields */
-            fields: {
-                [key: string]: string;
-            };
-            /** Url */
-            url: string;
+            section: "amazon" | "flipkart" | "meesho" | "own_invoices_excel" | "own_invoices_pdf";
+            /** Size Bytes */
+            size_bytes: number;
+        };
+        /** UploadStartOut */
+        UploadStartOut: {
+            upload: components["schemas"]["PresignedPostOut"];
+            /** Upload Id */
+            upload_id: string;
+        };
+        /** UploadsOut */
+        UploadsOut: {
+            /** Has More */
+            has_more: boolean;
+            /** Uploads */
+            uploads: components["schemas"]["app__modules__imports__api__UploadOut"][];
         };
         /** UserOut */
         UserOut: {
@@ -2987,6 +3071,20 @@ export interface components {
             /** Opens */
             opens: string | null;
         };
+        /** UploadOut */
+        app__modules__catalog__api_imports__UploadOut: {
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Fields */
+            fields: {
+                [key: string]: string;
+            };
+            /** Url */
+            url: string;
+        };
         /** ReasonIn */
         app__modules__catalog__api_products__ReasonIn: {
             /** Reason */
@@ -2996,6 +3094,38 @@ export interface components {
         app__modules__identity__api_team__ReasonIn: {
             /** Reason */
             reason?: string | null;
+        };
+        /** UploadOut */
+        app__modules__imports__api__UploadOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** File Name */
+            file_name: string;
+            /** Id */
+            id: string;
+            /** Raw Available */
+            raw_available: boolean;
+            /** Reject Message */
+            reject_message: string | null;
+            /** Reject Reason */
+            reject_reason: string | null;
+            /** Run Id */
+            run_id: string | null;
+            /**
+             * Section
+             * @enum {string}
+             */
+            section: "amazon" | "flipkart" | "meesho" | "own_invoices_excel" | "own_invoices_pdf";
+            /** Size Bytes */
+            size_bytes: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "received" | "parsing" | "parsed" | "stored" | "rejected" | "expired";
         };
     };
     responses: never;
@@ -5346,6 +5476,142 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UnitOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_uploads_api_v1_b__business_id__uploads_get: {
+        parameters: {
+            query?: {
+                section?: ("amazon" | "flipkart" | "meesho" | "own_invoices_excel" | "own_invoices_pdf") | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_upload_api_v1_b__business_id__uploads_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UploadStartIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadStartOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_upload_api_v1_b__business_id__uploads__upload_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upload_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__modules__imports__api__UploadOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    complete_upload_api_v1_b__business_id__uploads__upload_id__complete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upload_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobRef"];
                 };
             };
             /** @description Validation Error */

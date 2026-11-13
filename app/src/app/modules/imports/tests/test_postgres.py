@@ -189,12 +189,12 @@ def test_a_support_session_without_a_live_grant_sees_no_rows(svc):
         assert s.scalars(select(ImportRow)).all() == []
 
 
-def test_support_read_is_select_only_and_on_both_tables(svc):
+def test_support_read_is_select_only_and_on_every_table(svc):
     with Session(svc) as s:
         rows = s.execute(
             text("select tablename, cmd from pg_policies where schemaname = 'imports' and policyname = 'support_read'")
         ).all()
-    assert sorted(rows) == [("import_rows", "SELECT"), ("import_runs", "SELECT")]
+    assert sorted(rows) == [("import_rows", "SELECT"), ("import_runs", "SELECT"), ("uploads", "SELECT")]
 
 
 def test_columns_are_jsonb(svc):
