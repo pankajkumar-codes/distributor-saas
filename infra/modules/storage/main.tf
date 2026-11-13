@@ -12,6 +12,10 @@ variable "cors_origins" {
   description = "Origins the browser POSTs uploads from (the app domain)"
   type        = list(string)
   default     = []
+  validation {
+    condition     = alltrue([for o in var.cors_origins : can(regex("^https?://[^*/]+$", o))])
+    error_message = "cors_origins must be exact origins (scheme and host, no path), never a wildcard."
+  }
 }
 variable "noncurrent_version_days" {
   description = "How long an overwritten or deleted object's old version is kept"
