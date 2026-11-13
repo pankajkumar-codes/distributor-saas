@@ -7,9 +7,9 @@
 For each file in it (and each sheet a reader names), prints which reader claims it, which of the reader's
 headers were found and which were not, and the row counts: how many rows read, would be staged as new, held
 (by reason), skipped as zero value, invalid (by error code), and duplicate or conflicting. It prints header
-names and numbers only, never a cell value, a seller GSTIN or an order number. The only file name it shows is
-the file's own base name (a Flipkart report's name carries a date range). An unexpected error prints only its
-type. With --show-headers it also lists the names of the columns the reader does not use. It writes nothing
+names and numbers only, never a cell value, a seller GSTIN or an order number. It shows no
+file name (report names can carry an account number) and no sheet name unless a reader names the sheet. A file it
+cannot read gets a fixed sentence, and any other error prints only its type. With --show-headers it also lists the names of the columns the reader does not use. It writes nothing
 (no file, no database, no network) and keeps nothing: run it, read the screen, and report what it says.
 
 A reader's `verified` flag in refdata stays false until someone has run this on a real report and the headers
@@ -47,8 +47,13 @@ def _tables(path: Path, readers):
                 continue
         try:
             yield fname, read_table(data, fname)
-        except FileRejected as exc:
-            raise FileRejected(f"{fname}: {exc}") from None
+        except FileRejected:
+            raise FileRejected("unreadable") from None
+
+
+def _kind(fname: str) -> str:
+    """Only the kind of file, never its name: report names can carry an account number or a date range."""
+    return "file (" + (Path(fname).suffix.lower().lstrip(".") or "no extension") + ")"
 
 
 def check(path: Path, section: str | None, out, show_headers: bool = False) -> int:
@@ -63,14 +68,14 @@ def check(path: Path, section: str | None, out, show_headers: bool = False) -> i
     status = 0
     try:
         found = list(_tables(path, readers))
-    except FileRejected as exc:
-        print(f"Could not read the file: {exc}", file=out)
+    except FileRejected:  # its text can carry a sheet name (Meesho's is a supplier id), so say it in fixed words
+        print("The file could not be read (it may have several sheets, be damaged, or be too large).", file=out)
         return 2
     print(f"Files and sheets read: {len(found)}", file=out)
     for index, (fname, table) in enumerate(found, start=1):
         # A sheet's name is printed only when a reader names it ("Sales Report"); Meesho's is a supplier id.
         named = any((r.sheet or "").strip().lower() == (table.sheet or "").strip().lower() for r in readers)
-        label = f"[{index}] {Path(fname).name}" + (f" / sheet {table.sheet!r}" if table.sheet and named else "")
+        label = f"[{index}] {_kind(fname)}" + (f" / sheet {table.sheet!r}" if table.sheet and named else "")
         matches = [r for r in readers if (r.sheet is None or (table.sheet or "").strip().lower() == r.sheet.strip().lower())
                    and r.detect(table)]
         print(f"\n{label}: {len(table.rows)} rows read including the header", file=out)
@@ -139,6 +144,8 @@ def main(argv=None) -> int:
         return 2
     try:
         return check(args.file, args.section, sys.stdout, show_headers=args.show_headers)
+    except BrokenPipeError:  # output piped to head and closed early
+        return 0
     except Exception as exc:  # never let a traceback (which could carry a cell) reach the screen
         print(f"Could not check the file ({type(exc).__name__}).")
         return 2

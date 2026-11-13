@@ -67,3 +67,20 @@ def test_show_headers_lists_unused_column_names_only(tmp_path):
     assert "not used:" not in plain.stdout
     assert done.returncode == 0 and "Columns in the file that the reader does not use" in done.stdout
     assert_no_values(done.stdout)
+
+
+def test_a_workbook_with_several_sheets_never_shows_a_sheet_name_or_file_name(tmp_path):
+    import io
+
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    wb.active.title = "SUPPLIER-778899"
+    wb.create_sheet("OTHER-SHEET-X")
+    buf = io.BytesIO()
+    wb.save(buf)
+    done = run(tmp_path, "tcs_sales-ACCT-5551234.xlsx", buf.getvalue())
+    assert done.returncode == 2
+    assert "could not be read" in done.stdout
+    for name in ("SUPPLIER-778899", "OTHER-SHEET-X", "ACCT-5551234", "tcs_sales"):
+        assert name not in done.stdout + done.stderr
