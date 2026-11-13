@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictInt
 
 from platform_common import jobs, storage
 from platform_common.clock import Clock, get_clock
+from platform_common.errors import Conflict
 from platform_common.idempotency import run_once
 from platform_common.paging import PageParams, page_params
 from platform_common.permissions import Permission, require
@@ -93,13 +94,18 @@ def start_upload(
 
     def start():
         up = uploads.start(uow, body.section, body.file_name, body.size_bytes, today)
-        post = storage.get_store().presign_post(uow.principal.business_id, up.s3_key, max_bytes=body.size_bytes,
-                                               content_type=uploads.content_type_for(up.file_name))
-        return UploadStartOut(upload_id=str(up.id), upload=PresignedPostOut(
-            url=post.url, fields=post.fields, expires_at=post.expires_at)).model_dump(mode="json")
+        return {"upload_id": str(up.id)}  # the signed post is not stored: it would expire inside the replay
 
-    return run_once(uow.tx, uow.principal.business_id, idempotency_key, method=request.method,
+    done = run_once(uow.tx, uow.principal.business_id, idempotency_key, method=request.method,
                     route=request.scope["route"].path, payload=body.model_dump(mode="json"), operation=start)
+    # Signed afresh on every call, so a retry with the same key gets a live post for the same upload.
+    up = uploads.get(uow, parse_id(done["upload_id"]))
+    if up.status != "pending":
+        raise Conflict("upload_already_started", "This upload has already moved on. Start a new one")
+    post = storage.get_store().presign_post(uow.principal.business_id, up.s3_key, max_bytes=up.size_bytes,
+                                           content_type=uploads.content_type_for(up.file_name))
+    return UploadStartOut(upload_id=str(up.id), upload=PresignedPostOut(
+        url=post.url, fields=post.fields, expires_at=post.expires_at))
 
 
 @router.post("/b/{business_id}/uploads/{upload_id}/complete", status_code=http.HTTP_202_ACCEPTED,

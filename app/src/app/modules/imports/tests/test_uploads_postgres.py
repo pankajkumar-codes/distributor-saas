@@ -120,6 +120,26 @@ def test_start_is_idempotent_by_key(shop):
     assert scalar(pg.owner, "select count(*) from imports.uploads") == 1
 
 
+def test_a_replayed_start_returns_a_fresh_post_for_the_same_upload(shop, tmp_path):
+    from datetime import timedelta
+
+    pg, biz, _ = shop
+    clock = FrozenClock(datetime(2026, 11, 13, 12, tzinfo=IST))
+    set_store(LocalObjectStore(tmp_path, clock=clock))
+    body = {"section": "flipkart", "file_name": "s.xlsx", "size_bytes": 10}
+    one = post(pg, f"/api/v1/b/{biz}/uploads", body, key="k-2").json()
+    clock.advance(timedelta(minutes=10))  # past the post's expiry
+    two = post(pg, f"/api/v1/b/{biz}/uploads", body, key="k-2").json()
+    assert one["upload_id"] == two["upload_id"]
+    assert datetime.fromisoformat(two["upload"]["expires_at"]) > datetime.fromisoformat(one["upload"]["expires_at"])
+    assert two["upload"]["fields"]["key"] == one["upload"]["fields"]["key"]
+    assert scalar(pg.owner, "select count(*) from imports.uploads") == 1
+    # once the file has been sent and completed, a replay no longer hands out a post
+    assert pg.client.post(two["upload"]["url"], data=two["upload"]["fields"], files={"file": ("s.xlsx", b"x" * 10)}).status_code == 204
+    assert post(pg, f"/api/v1/b/{biz}/uploads/{one['upload_id']}/complete").status_code == 202
+    assert post(pg, f"/api/v1/b/{biz}/uploads", body, key="k-2").json()["error"]["code"] == "upload_already_started"
+
+
 @pytest.mark.parametrize(
     ("section", "name", "size", "code"),
     [
