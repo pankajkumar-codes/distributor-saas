@@ -271,3 +271,43 @@
   source_title: "R1-M3 §4: whether a sanity row should be shown to the CA (provisional; the CA sheet decides)"
   last_checked: 2026-11-13
   status: provisional
+
+- key: imports.action.set_aside.label
+  value: "Leave this row out"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: the button for set_aside on a held row (wording to be settled)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.action.set_aside.effect_note
+  value: "This row is counted as set aside and left out of the return. Your note is kept."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: what set_aside does to a held row"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.action.accept.label
+  value: "Use the row as the file states it"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: the button for accept on a held row (wording to be settled)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.action.accept.effect_note
+  value: "This row is used exactly as the file states it, and your note is kept."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: what accept does to a held row"
+  last_checked: 2026-11-13
+  status: provisional

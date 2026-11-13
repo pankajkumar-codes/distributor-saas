@@ -147,6 +147,21 @@ On the upload path a record that another live staged file of the same report typ
 double; the first file keeps it and discarding that file frees it. The older flow (catalog, confirm) leaves this off and
 settles overlap at confirm (StaleRun).
 
+### Deciding held rows (R1-M3 slice 4, `runs.resolve`, `imports.row_resolutions`)
+
+`POST /rows/{row_id}/resolve` (owner, admin; Idempotency-Key) takes `{action: "set_aside" | "accept", note}`. A decision
+is a new insert-only `imports.row_resolutions` row (the latest per import row wins; nothing is updated or deleted, and the
+import row itself is never edited); it is audited as `imports.row_set_aside` or `imports.row_accepted` with the note as the
+reason and no cell values. `set_aside` leaves the row out of the return and counts it as set aside; `accept` uses the row
+as the file states it and exists only where refdata `imports.held.<reason>.accept_allowed` is true, shipped `false`
+everywhere because whether an inconsistent row may be used is a PO and CA decision (CLAUDE.md rule 12). Only a held row
+of a staged run can be decided (409 `run_not_staged` after discard or confirm; 422 `action_not_allowed`, `note_required`);
+deciding the same way twice records nothing new, and a decided row cannot be switched. `RowOut.allowed_actions` (label and
+effect note from refdata `imports.action.<action>.*`) and `RowOut.resolution` carry the state, so the page needs no logic
+of its own. `RunOut.counts.held` and `held_by_reason` count unresolved rows only, with `set_aside` and `accepted` counted
+beside them; a section reads "rows held" until none remain, and `needs_ca_check` stays true for accepted rows whose reason
+is flagged.
+
 Not yet: `months` and `already_uploaded_of` on the run, the `from`/`to` filters and `GET /marketplace-coverage` (all need
-the months a real reader reads from its file, R1-M4), row resolutions (`set_aside`) and `allowed_actions` (next slice),
-and raw-file retention (the slice after).
+the months a real reader reads from its file, R1-M4); value fixes (`enter_hsn`, `pick_state`, R1-M4); raw-file retention
+(next).

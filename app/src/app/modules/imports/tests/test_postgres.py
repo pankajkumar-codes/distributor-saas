@@ -194,7 +194,8 @@ def test_support_read_is_select_only_and_on_every_table(svc):
         rows = s.execute(
             text("select tablename, cmd from pg_policies where schemaname = 'imports' and policyname = 'support_read'")
         ).all()
-    assert sorted(rows) == [("import_rows", "SELECT"), ("import_runs", "SELECT"), ("uploads", "SELECT")]
+    assert sorted(rows) == [("import_rows", "SELECT"), ("import_runs", "SELECT"), ("row_resolutions", "SELECT"),
+                           ("uploads", "SELECT")]
 
 
 def test_columns_are_jsonb(svc):

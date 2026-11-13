@@ -921,6 +921,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/rows/{row_id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolve Row
+         * @description Decide a held row: leave it out (with a note), or, where allowed, use it as the file
+         *     states it. The decision is kept and audited; the preview and the section update at once.
+         */
+        post: operations["resolve_row_api_v1_b__business_id__rows__row_id__resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/runs/{run_id}": {
         parameters: {
             query?: never;
@@ -1483,6 +1504,18 @@ export interface components {
             access_token: string;
             /** Expires In */
             expires_in: number;
+        };
+        /** ActionOut */
+        ActionOut: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "set_aside" | "accept";
+            /** Effect Note */
+            effect_note: string;
+            /** Label */
+            label: string;
         };
         /** Actor */
         Actor: {
@@ -2827,6 +2860,31 @@ export interface components {
             /** New Password */
             new_password: string;
         };
+        /** ResolutionOut */
+        ResolutionOut: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "set_aside" | "accept";
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Note */
+            note: string;
+        };
+        /** ResolveIn */
+        ResolveIn: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "set_aside" | "accept";
+            /** Note */
+            note: string;
+        };
         /** ReturnOut */
         ReturnOut: {
             /** Due Date */
@@ -2884,6 +2942,8 @@ export interface components {
         };
         /** RowOut */
         RowOut: {
+            /** Allowed Actions */
+            allowed_actions: components["schemas"]["ActionOut"][];
             /** Ca Check Note */
             ca_check_note: string | null;
             /** Errors */
@@ -2898,6 +2958,7 @@ export interface components {
             needs_ca_check: boolean;
             /** Reason Label */
             reason_label: string | null;
+            resolution: components["schemas"]["ResolutionOut"] | null;
             /** Row Id */
             row_id: string;
             /** Row Number */
@@ -5483,6 +5544,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReturnsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resolve_row_api_v1_b__business_id__rows__row_id__resolve_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                row_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RowOut"];
                 };
             };
             /** @description Validation Error */

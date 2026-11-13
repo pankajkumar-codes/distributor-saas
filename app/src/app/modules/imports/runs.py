@@ -35,7 +35,9 @@ class Run:
     gstin: str | None
     status: str
     summary: dict
-    held_by_reason: dict[str, int]
+    held_by_reason: dict[str, int]  # unresolved held rows only
+    set_aside: int = 0
+    accepted: int = 0
 
 
 @dataclass(frozen=True)
@@ -51,10 +53,16 @@ class Row:
     reason_label: str | None
     needs_ca_check: bool
     ca_check_note: str | None
+    allowed_actions: list[dict]
+    resolution: dict | None
 
 
 def _business(uow: UnitOfWork) -> uuid.UUID:
     return uow.principal.business_id
+
+
+LATEST = ("select distinct on (row_id) row_id, kind, note, created_at from imports.row_resolutions"
+          " where business_id = :b order by row_id, created_at desc, id desc")
 
 
 def get_run(uow: UnitOfWork, run_id: uuid.UUID) -> Run:
@@ -66,20 +74,29 @@ def get_run(uow: UnitOfWork, run_id: uuid.UUID) -> Run:
     ).one_or_none()
     if r is None:
         raise Deny("not_found")
-    held = {
-        reason: n
-        for reason, n in uow.tx.execute(
-            text("select hold_reason, count(*) from imports.import_rows where run_id = :r and business_id = :b"
-                 " and status = 'held' group by hold_reason"),
-            {"r": run_id, "b": _business(uow)},
-        )
-    }
+    held: dict[str, int] = {}
+    resolved = {"set_aside": 0, "accepted": 0}
+    for status, reason, kind, n in uow.tx.execute(
+        text(f"with latest as ({LATEST}) select w.status, w.hold_reason, l.kind, count(*)"
+             " from imports.import_rows w left join latest l on l.row_id = w.id"
+             " where w.run_id = :r and w.business_id = :b and w.status = 'held' group by 1, 2, 3"),
+        {"r": run_id, "b": _business(uow)},
+    ):
+        if kind is None:
+            held[reason] = held.get(reason, 0) + n
+        else:
+            resolved[kind] += n
     return Run(r.id, r.upload_id, r.section, r.marketplace, r.profile_id, r.profile_verified, r.gstin, r.status,
-               r.summary or {}, held)
+               r.summary or {}, held, resolved["set_aside"], resolved["accepted"])
 
 
 def counts(run: Run) -> dict[str, int]:
-    return {k: int(run.summary.get(k, 0)) for k in COUNT_KEYS}
+    """The staged counts, with `held` meaning unresolved held rows and the user's decisions
+    counted on their own."""
+    out = {k: int(run.summary.get(k, 0)) for k in COUNT_KEYS}
+    out["held"] = sum(run.held_by_reason.values())
+    out["set_aside"], out["accepted"] = run.set_aside, run.accepted
+    return out
 
 
 def list_rows(uow: UnitOfWork, run_id: uuid.UUID, status: str | None, limit: int, offset: int,
@@ -88,12 +105,48 @@ def list_rows(uow: UnitOfWork, run_id: uuid.UUID, status: str | None, limit: int
     if status is not None and status not in ROW_STATUSES:
         raise Invalid("unknown_status", "That isn't a row status.", field="status")
     found = uow.tx.execute(
-        text("select w.id, w.run_id, r.filename, w.row_number, w.status, w.hold_reason, w.raw, w.errors"
-             " from imports.import_rows w join imports.import_runs r on r.id = w.run_id and r.business_id = w.business_id"
+        text(f"with latest as ({LATEST}) {_ROW_SELECT}"
              " where w.run_id = :r and w.business_id = :b and (cast(:s as text) is null or w.status = :s)"
              " order by w.row_number limit :n offset :o"),
         {"r": run_id, "b": _business(uow), "s": status, "n": limit + 1, "o": offset},
     ).all()
+    return _build(uow, found[:limit], today), len(found) > limit
+
+
+_ROW_SELECT = ("select w.id, w.run_id, r.filename, w.row_number, w.status, w.hold_reason, w.raw, w.errors,"
+               " l.kind as res_kind, l.note as res_note, l.created_at as res_at, r.status as run_status"
+               " from imports.import_rows w join imports.import_runs r on r.id = w.run_id and r.business_id = w.business_id"
+               " left join latest l on l.row_id = w.id")
+
+
+def get_row(uow: UnitOfWork, row_id: uuid.UUID, today: date) -> Row:
+    found = uow.tx.execute(
+        text(f"with latest as ({LATEST}) {_ROW_SELECT} where w.id = :w and w.business_id = :b"),
+        {"w": row_id, "b": _business(uow)},
+    ).all()
+    if not found:
+        raise Deny("not_found")
+    return _build(uow, found, today)[0]
+
+
+def _words(uow: UnitOfWork, key: str, today: date) -> str:
+    return str(value_on(uow.tx, key, today))
+
+
+def allowed_actions(uow: UnitOfWork, status: str, reason: str | None, run_status: str, today: date) -> list[dict]:
+    """What the user may do with a row: only a held row of a staged run. `set_aside` is always
+    there; `accept` only where refdata `imports.held.<reason>.accept_allowed` is true (shipped
+    false: whether an inconsistent row may be used as the file states it is the PO's and the CA's)."""
+    if status != "held" or run_status != "staged" or reason not in HOLD_REASONS:
+        return []
+    actions = ["set_aside"]
+    if bool(value_on(uow.tx, f"imports.held.{reason}.accept_allowed", today)):
+        actions.append("accept")
+    return [{"action": a, "label": _words(uow, f"imports.action.{a}.label", today),
+             "effect_note": _words(uow, f"imports.action.{a}.effect_note", today)} for a in actions]
+
+
+def _build(uow: UnitOfWork, found, today: date) -> list[Row]:
     labels: dict[str, tuple[str, bool]] = {}
 
     def held_words(reason: str) -> tuple[str, bool]:
@@ -103,16 +156,22 @@ def list_rows(uow: UnitOfWork, run_id: uuid.UUID, status: str | None, limit: int
         return labels[reason]
 
     rows = []
-    for w in found[:limit]:
+    for w in found:
         label, ca = None, False
         if w.status == "held" and w.hold_reason in HOLD_REASONS:
             label, ca = held_words(w.hold_reason)
         elif w.status == "skipped_zero":
             label = SKIPPED_ZERO_LABEL
+        resolution = None
+        if w.res_kind is not None:
+            resolution = {"action": "accept" if w.res_kind == "accepted" else "set_aside", "note": w.res_note,
+                          "at": w.res_at}
+        # A resolved row has nothing more to decide.
+        actions = [] if resolution else allowed_actions(uow, w.status, w.hold_reason, w.run_status, today)
         rows.append(Row(w.id, w.run_id, w.filename, w.row_number, w.status, w.hold_reason,
                         {k: "" if v is None else str(v) for k, v in (w.raw or {}).items()},
-                        _errors(w.errors), label, ca, None))
-    return rows, len(found) > limit
+                        _errors(w.errors), label, ca, None, actions, resolution))
+    return rows
 
 
 def _errors(value) -> list[dict]:
@@ -150,3 +209,39 @@ def discard_run(uow: UnitOfWork, run_id: uuid.UUID) -> Run:
         audit.record(uow, "imports.run_discarded", "import_run", run_id,
                      data={"run_id": str(run_id), "section": before.section})
     return get_run(uow, run_id)
+
+
+def resolve(uow: UnitOfWork, row_id: uuid.UUID, action: str, note: str, today: date) -> Row:
+    """Record the user's decision on a held row (insert-only; the latest decision wins).
+    404 for another business's row; 409 once the run is no longer staged; 422 for an action
+    the row doesn't offer or a blank note. The same decision twice records nothing new."""
+    from platform_common import audit
+    from platform_common.errors import Conflict
+    from platform_common.ids import uuid7
+
+    note = (note or "").strip()
+    row = get_row(uow, row_id, today)
+    run = get_run(uow, row.run_id)
+    if run.status != "staged":
+        raise Conflict("run_not_staged", "This file's preview has been closed, so its rows can't be changed.")
+    if action not in ("set_aside", "accept"):
+        raise Invalid("action_not_allowed", "That isn't something you can do with this row.", field="action")
+    if not note:
+        raise Invalid("note_required", "Add a note saying why.", field="note")
+    if len(note) > 500:
+        raise Invalid("note_too_long", "Keep the note to 500 characters.", field="note")
+    kind = "accepted" if action == "accept" else "set_aside"
+    if row.resolution is not None:
+        if row.resolution["action"] == action:
+            return row  # already decided this way
+        raise Invalid("action_not_allowed", "This row has already been decided.", field="action")
+    if action not in [a["action"] for a in allowed_actions(uow, row.status, row.hold_reason, run.status, today)]:
+        raise Invalid("action_not_allowed", "That isn't something you can do with this row.", field="action")
+    uow.tx.execute(
+        text("insert into imports.row_resolutions (id, business_id, row_id, kind, note, created_by)"
+             " values (:i, :b, :r, :k, :n, :u)"),
+        {"i": uuid7(), "b": _business(uow), "r": row_id, "k": kind, "n": note, "u": uow.principal.user_id},
+    )
+    audit.record(uow, "imports.row_accepted" if kind == "accepted" else "imports.row_set_aside", "import_row", row_id,
+                 reason=note, data={"run_id": str(row.run_id), "row_id": str(row_id), "hold_reason": row.hold_reason})
+    return get_row(uow, row_id, today)

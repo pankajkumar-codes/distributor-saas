@@ -166,7 +166,7 @@ def test_the_run_and_its_rows_read_back_in_plain_words(shop):  # noqa: F811
     run_id = run_of(shop, upload_id)
     run = get(pg, f"/api/v1/b/{biz}/runs/{run_id}").json()
     assert run["counts"] == {"new": 1, "already_imported": 0, "changed": 0, "duplicate": 0, "conflict": 0,
-                             "invalid": 0, "held": 2, "skipped_zero": 1}
+                             "invalid": 0, "held": 2, "skipped_zero": 1, "set_aside": 0, "accepted": 0}
     assert run["held_by_reason"] == {"blank_hsn": 1, "blank_qty": 1}
     assert (run["section"], run["upload_id"], run["gstin"], run["status"]) == ("amazon", upload_id, GSTIN, "staged")
     assert run["profile_verified"] is False and run["warnings"][0]["code"] == "layout_unchecked"
@@ -361,3 +361,132 @@ def test_an_overlap_with_a_file_that_is_still_live_is_not_stale(shop):  # noqa: 
         run = staging.confirm(s, business_id=biz, run_id=uuid.UUID(run_of(shop, second)), user_id=uuid.uuid4())
         assert run.status.value == "confirmed"
         s.rollback()
+# --- resolving held rows (R1-M3 slice 4) -------------------------------------------------------
+
+
+def held_rows(shop, run_id, sub="alice"):  # noqa: F811
+    pg, biz, _ = shop
+    return get(pg, f"/api/v1/b/{biz}/runs/{run_id}/rows?status=held", sub=sub).json()["rows"]
+
+
+def resolve(shop, row_id, action, note, sub="alice", key=None):  # noqa: F811
+    pg, biz, _ = shop
+    return post(pg, f"/api/v1/b/{biz}/rows/{row_id}/resolve", {"action": action, "note": note}, sub=sub,
+                key=key or uuid.uuid4().hex)
+
+
+def staged(shop):  # noqa: F811
+    upload_id, _ = upload(shop, "amazon", "orders-1.csv", GOOD)
+    run_jobs(shop)
+    return run_of(shop, upload_id)
+
+
+def test_a_held_row_offers_set_aside_with_wording_from_refdata(shop):  # noqa: F811
+    run_id = staged(shop)
+    row = held_rows(shop, run_id)[0]
+    assert [(a["action"], a["label"]) for a in row["allowed_actions"]] == [("set_aside", "Leave this row out")]
+    assert "left out of the return" in row["allowed_actions"][0]["effect_note"] and row["resolution"] is None
+
+
+def test_setting_a_row_aside_keeps_the_note_clears_the_hold_and_is_audited(shop):  # noqa: F811
+    pg, biz, _ = shop
+    run_id = staged(shop)
+    row = held_rows(shop, run_id)[0]
+    done = resolve(shop, row["row_id"], "set_aside", "  Not our sale  ")
+    assert done.status_code == 200, done.text
+    out = done.json()
+    assert out["resolution"]["action"] == "set_aside" and out["resolution"]["note"] == "Not our sale"
+    assert out["allowed_actions"] == [] and out["status"] == "held"  # the row itself is never edited
+    run = get(pg, f"/api/v1/b/{biz}/runs/{run_id}").json()
+    assert run["counts"]["held"] == 1 and run["counts"]["set_aside"] == 1 and sum(run["held_by_reason"].values()) == 1
+    s = sections_of(shop)["amazon"]
+    assert (s["status"], s["held_rows"]) == ("rows held", 1)
+    other = [r for r in held_rows(shop, run_id) if r["row_id"] != row["row_id"]][0]
+    resolve(shop, other["row_id"], "set_aside", "Also not ours")
+    assert sections_of(shop)["amazon"]["status"] == "ready"
+    audit = pg.owner.connect().execute(text(
+        "select reason, data from platform.audit_log where action = 'imports.row_set_aside' order by id")).all()
+    assert [a.reason for a in audit] == ["Not our sale", "Also not ours"]
+    assert set(audit[0].data) == {"run_id", "row_id", "hold_reason"}
+    assert scalar(pg.owner, "select count(*) from imports.import_rows") == 4  # rows untouched
+
+
+def test_a_decision_needs_a_note_and_a_row_the_user_can_act_on(shop):  # noqa: F811
+    pg, biz, _ = shop
+    run_id = staged(shop)
+    rows = get(pg, f"/api/v1/b/{biz}/runs/{run_id}/rows").json()["rows"]
+    held = next(r for r in rows if r["status"] == "held")
+    new = next(r for r in rows if r["status"] == "new")
+    assert resolve(shop, held["row_id"], "set_aside", "   ").json()["error"]["code"] == "note_required"
+    assert resolve(shop, held["row_id"], "set_aside", "x" * 501).status_code == 422
+    assert resolve(shop, held["row_id"], "accept", "Fine").json()["error"]["code"] == "action_not_allowed"  # switch is off
+    assert resolve(shop, held["row_id"], "bogus", "Fine").status_code == 422
+    assert resolve(shop, new["row_id"], "set_aside", "Fine").json()["error"]["code"] == "action_not_allowed"
+    assert scalar(pg.owner, "select count(*) from imports.row_resolutions") == 0
+
+
+def test_deciding_twice_is_safe_and_a_decision_cannot_be_swapped(shop):  # noqa: F811
+    pg, _, _ = shop
+    row = held_rows(shop, staged(shop))[0]
+    assert resolve(shop, row["row_id"], "set_aside", "Once", key="k-1").status_code == 200
+    assert resolve(shop, row["row_id"], "set_aside", "Once", key="k-1").status_code == 200  # same key
+    assert resolve(shop, row["row_id"], "set_aside", "Once again").status_code == 200  # same decision, no new row
+    assert scalar(pg.owner, "select count(*) from imports.row_resolutions") == 1
+    assert resolve(shop, row["row_id"], "accept", "Changed my mind").status_code == 422
+
+
+def test_accept_is_offered_only_when_refdata_allows_it(shop):  # noqa: F811
+    from app.modules.refdata.reader import _reset_cache
+
+    pg, _, _ = shop
+    run_id = staged(shop)
+    with pg.owner.connect() as c:
+        c.execute(text("update refdata.values set value = 'true' where key = 'imports.held.blank_qty.accept_allowed'"))
+    _reset_cache()
+    try:
+        rows = {r["hold_reason"]: r for r in held_rows(shop, run_id)}
+        assert [a["action"] for a in rows["blank_qty"]["allowed_actions"]] == ["set_aside", "accept"]
+        assert [a["action"] for a in rows["blank_hsn"]["allowed_actions"]] == ["set_aside"]
+        done = resolve(shop, rows["blank_qty"]["row_id"], "accept", "Quantity is one, I checked the invoice")
+        assert done.json()["resolution"]["action"] == "accept"
+        assert scalar(pg.owner, "select count(*) from platform.audit_log where action = 'imports.row_accepted'") == 1
+        run = get(pg, f"/api/v1/b/{shop[1]}/runs/{run_id}").json()
+        assert run["counts"]["accepted"] == 1 and run["counts"]["held"] == 1
+    finally:
+        _reset_cache()
+
+
+def test_only_owner_and_admin_decide_and_only_in_their_own_business(shop):  # noqa: F811
+    from .conftest import new_business
+
+    pg, biz, _ = shop
+    row = held_rows(shop, staged(shop))[0]
+    for sub in ("cathy", "bill", "stranger"):
+        assert resolve(shop, row["row_id"], "set_aside", "Nope", sub=sub).status_code == 404
+    other = new_business(pg, "olivia")
+    r = post(pg, f"/api/v1/b/{other}/rows/{row['row_id']}/resolve", {"action": "set_aside", "note": "Nope"}, sub="olivia",
+             key="k-o")
+    assert r.status_code == 404
+    assert resolve(shop, row["row_id"], "set_aside", "Mine", sub="adam").status_code == 200  # an admin may
+    assert {r["resolution"]["action"] for r in held_rows(shop, row["run_id"], sub="cathy") if r["resolution"]} == {"set_aside"}
+    assert scalar(pg.owner, "select count(*) from imports.row_resolutions") == 1
+
+
+def test_a_discarded_runs_rows_cannot_be_decided(shop):  # noqa: F811
+    pg, biz, _ = shop
+    run_id = staged(shop)
+    row = held_rows(shop, run_id)[0]
+    post(pg, f"/api/v1/b/{biz}/runs/{run_id}/discard")
+    r = resolve(shop, row["row_id"], "set_aside", "Late")
+    assert r.status_code == 409 and r.json()["error"]["code"] == "run_not_staged"
+
+
+def test_resolutions_cannot_be_changed_or_deleted_by_the_app_role(shop):  # noqa: F811
+    pg, _, _ = shop
+    row = held_rows(shop, staged(shop))[0]
+    resolve(shop, row["row_id"], "set_aside", "Once")
+    with pg.app_rw.connect() as c:
+        for sql in ("update imports.row_resolutions set note = 'x'", "delete from imports.row_resolutions"):
+            with pytest.raises(Exception, match="permission denied"):
+                c.execute(text(sql))
+            c.rollback()
