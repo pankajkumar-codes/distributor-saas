@@ -45,6 +45,7 @@ class _Row:
     status: str
     valid_from: dt.date
     valid_to: dt.date | None
+    source_url: str = ""
 
     def covers(self, on: dt.date) -> bool:
         return self.valid_from <= on and (self.valid_to is None or on < self.valid_to)
@@ -75,10 +76,10 @@ def _current(tx: Session) -> _Snapshot:
     if snap is not None and snap.load_id == load_id:
         return snap
     values: dict[str, list[_Row]] = {}
-    for key, value, type_, kind, status, valid_from, valid_to in tx.execute(
-        text("select key, value, type, kind, status, valid_from, valid_to from refdata.values")
+    for key, value, type_, kind, status, valid_from, valid_to, source_url in tx.execute(
+        text("select key, value, type, kind, status, valid_from, valid_to, source_url from refdata.values")
     ):
-        values.setdefault(key, []).append(_Row(value, type_, kind, status, valid_from, valid_to))
+        values.setdefault(key, []).append(_Row(value, type_, kind, status, valid_from, valid_to, source_url))
     states: dict[str, list] = {}
     for code, name, valid_from, valid_to in tx.execute(
         text("select code, name, valid_from, valid_to from refdata.state_codes")
@@ -132,6 +133,13 @@ def first_valid_from(tx: Session, key: str) -> dt.date | None:
     gap, an overlap or a missing key (a refdata defect: 500)."""
     rows = _current(tx).values.get(key, ())
     return min((r.valid_from for r in rows), default=None)
+
+
+def provenance_on(tx: Session, key: str, on: dt.date) -> tuple[bool, str]:
+    """(confirmed, source_url) of the row in force: confirmed as `require_confirmed` means
+    it, without raising. For showing a "not confirmed" marker beside a value."""
+    row = _row(tx, key, on)
+    return row.status in CONFIRMED[row.kind], row.source_url
 
 
 def require_confirmed(tx: Session, key: str, on: dt.date) -> None:

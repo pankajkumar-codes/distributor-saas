@@ -4358,6 +4358,142 @@
         "title": "ResetVerifyBody",
         "type": "object"
       },
+      "ReturnOut": {
+        "properties": {
+          "due_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due Date"
+          },
+          "due_date_confirmed": {
+            "title": "Due Date Confirmed",
+            "type": "boolean"
+          },
+          "due_date_source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due Date Source Url"
+          },
+          "form": {
+            "enum": [
+              "GSTR1",
+              "IFF",
+              "GSTR3B",
+              "PMT06"
+            ],
+            "title": "Form",
+            "type": "string"
+          },
+          "instance_id": {
+            "title": "Instance Id",
+            "type": "string"
+          },
+          "period": {
+            "title": "Period",
+            "type": "string"
+          },
+          "period_end": {
+            "format": "date",
+            "title": "Period End",
+            "type": "string"
+          },
+          "period_label": {
+            "title": "Period Label",
+            "type": "string"
+          },
+          "period_start": {
+            "format": "date",
+            "title": "Period Start",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "open",
+              "filed_locked",
+              "unlocked",
+              "skipped"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance_id",
+          "form",
+          "period",
+          "period_label",
+          "period_start",
+          "period_end",
+          "due_date",
+          "due_date_confirmed",
+          "due_date_source_url",
+          "status"
+        ],
+        "title": "ReturnOut",
+        "type": "object"
+      },
+      "ReturnsOut": {
+        "properties": {
+          "filing_frequency": {
+            "anyOf": [
+              {
+                "enum": [
+                  "monthly",
+                  "quarterly"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filing Frequency"
+          },
+          "fy": {
+            "title": "Fy",
+            "type": "string"
+          },
+          "gstin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gstin"
+          },
+          "returns": {
+            "items": {
+              "$ref": "#/components/schemas/ReturnOut"
+            },
+            "title": "Returns",
+            "type": "array"
+          }
+        },
+        "required": [
+          "fy",
+          "gstin",
+          "filing_frequency",
+          "returns"
+        ],
+        "title": "ReturnsOut",
+        "type": "object"
+      },
       "Role": {
         "enum": [
           "owner",
@@ -8898,6 +9034,65 @@
         "summary": "Patch Profile",
         "tags": [
           "business"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/returns": {
+      "get": {
+        "operationId": "list_returns_api_v1_b__business_id__returns_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "fy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[0-9]{4}-[0-9]{2}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Fy"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReturnsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Returns",
+        "tags": [
+          "filing"
         ]
       }
     },
