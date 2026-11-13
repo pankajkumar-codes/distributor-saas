@@ -20,6 +20,7 @@ ALLOWED = {
     "identity.sessions": {"SELECT", "DELETE"},
     "identity.verification_codes": {"SELECT", "DELETE"},
     "platform.idempotency_keys": {"SELECT", "DELETE"},
+    "imports.uploads": {"COLUMN SELECT", "COLUMN UPDATE"},  # expire pending, mark raw gone (purge_uploads)
     "platform.jobs": {"SELECT", "DELETE"},
     "platform.outbox": {"SELECT", "DELETE"},
     "platform.rate_counters": {"SELECT", "DELETE"},
@@ -31,6 +32,7 @@ ALLOWED = {
 # The only columns retention_owner may read where it has no table-wide SELECT: enough to
 # pick a row, never a buyer's name, address or an amount (Staff on #107).
 ALLOWED_COLUMNS = {
+    "imports.uploads": {"id", "business_id", "status", "created_at", "raw_deleted_at"},
     "sales.draft_lines": {"business_id", "draft_id"},
     "sales.drafts": {"business_id", "id", "status", "updated_at"},
 }
@@ -70,10 +72,10 @@ def test_definer_reaches_only_operational_tables(migrated_db):
     assert _privileges(migrated_db, "retention_owner") == ALLOWED
 
 
-def test_definer_reads_only_the_columns_that_pick_a_draft(migrated_db):
+def test_definer_reads_only_the_columns_that_pick_a_row(migrated_db):
     rows = migrated_db.execute(
         "select table_schema || '.' || table_name, column_name from information_schema.column_privileges"
-        " where grantee = 'retention_owner' and privilege_type = 'SELECT' and table_schema = 'sales'"
+        " where grantee = 'retention_owner' and privilege_type = 'SELECT' and table_schema in ('sales', 'imports')"
     ).fetchall()
     got: dict[str, set[str]] = {}
     for table, column in rows:
@@ -85,7 +87,7 @@ def test_audit_and_business_tables_are_out_of_reach(migrated_db):
     held = _privileges(migrated_db, "retention_owner")
     for name in held:
         assert "audit" not in name, name
-        assert name.split(".")[0] in ("platform", "identity", "refdata") or name in DRAFTS, name
+        assert name.split(".")[0] in ("platform", "identity", "refdata") or name in (*DRAFTS, "imports.uploads"), name
 
 
 @pytest.mark.parametrize("role, login", [("retention_owner", False), ("app_retention", True)])
@@ -107,8 +109,9 @@ def test_login_role_only_executes(migrated_db):
     assert sorted(f for (f,) in fns) == [
         "retention.purge_drafts(boolean,integer)",
         "retention.purge_operational(boolean,integer)",
+        "retention.purge_uploads(boolean,integer)",
     ]
-    for fn in ("purge_operational", "purge_drafts"):
+    for fn in ("purge_operational", "purge_drafts", "purge_uploads"):
         for role, can in (("app_retention", True), ("app_rw", False), ("app_ro", False)):
             assert (
                 migrated_db.execute(
@@ -421,3 +424,114 @@ def test_drafts_limit_reports_more_and_the_next_call_continues(tx):
     second = _run_drafts(tx, max_rows=3)
     assert second["more"] is False and second["counts"] == {"drafts": 1, "draft_lines": 2}
     assert [tag for tag, _, _ in _draft_counts(tx)] == ["stay-final", "stay-recent", "stay-saved"]
+
+
+def test_definer_changes_only_the_upload_status_and_raw_marker(migrated_db):
+    rows = migrated_db.execute(
+        "select column_name from information_schema.column_privileges where grantee = 'retention_owner'"
+        " and privilege_type = 'UPDATE' and table_schema = 'imports' and table_name = 'uploads'"
+    ).fetchall()
+    assert {c for (c,) in rows} == {"status", "raw_deleted_at", "updated_at"}
+
+
+# purge_uploads (R1-M3, TD-18): pending uploads past imports.upload.pending_minutes expire;
+# uploads past imports.upload.keep_days get raw_deleted_at. Rows, runs and decisions stay.
+
+
+def _enable_uploads(c):
+    c.execute("update refdata.values set value = 'true' where key = 'retention.purge_uploads.enabled'")
+
+
+def _run_uploads(c, dry_run=False, max_rows=5000):
+    c.execute("set local role app_retention")
+    out = c.execute("select retention.purge_uploads(%s, %s)", (dry_run, max_rows)).fetchone()[0]
+    c.execute("reset role")
+    return out
+
+
+def _plant_uploads(c):
+    """Per business: a stale pending (expires), a fresh pending, a 100-day-old parsed and a
+    10-day-old parsed. The stale pending is 2 hours old, so only it expires; the 100-day one
+    gets its raw marker."""
+    for _ in range(2):
+        biz, u = uuid.uuid4(), uuid.uuid4()
+        for tag, status, age in (
+            ("stale-pending", "pending", "2 hours"),
+            ("fresh-pending", "pending", "5 minutes"),
+            ("old-parsed", "parsed", "100 days"),
+            ("recent-parsed", "parsed", "10 days"),
+        ):
+            c.execute(
+                "insert into imports.uploads (id, business_id, section, s3_key, file_name, size_bytes, status,"
+                " created_by, created_at, updated_at) values (%s, %s, 'amazon', %s, %s, 10, %s, %s,"
+                " now() - %s::interval, now() - %s::interval)",
+                (uuid.uuid4(), biz, f"k/{uuid.uuid4()}", tag, status, u, age, age),
+            )
+
+
+def _upload_state(c):
+    return c.execute(
+        "select file_name, status, raw_deleted_at is not null from imports.uploads order by 1, 2, 3"
+    ).fetchall()
+
+
+def test_uploads_disabled_rule_changes_nothing(tx):
+    _plant_uploads(tx)
+    before = _upload_state(tx)
+    assert _run_uploads(tx) == {"rule": "purge_uploads", "skipped": "disabled"}
+    assert _upload_state(tx) == before
+    assert tx.execute("select count(*) from platform.retention_runs").fetchone()[0] == 0
+
+
+def test_uploads_dry_run_counts_without_changing(tx):
+    _plant_uploads(tx)
+    before = _upload_state(tx)
+    out = _run_uploads(tx, dry_run=True)
+    assert out["counts"] == {"uploads_expired": 2, "raw_marked": 2}
+    assert _upload_state(tx) == before
+    assert tx.execute("select rule, dry_run from platform.retention_runs").fetchall() == [("purge_uploads", True)]
+
+
+def test_uploads_expire_stale_pending_and_mark_old_raw(tx):
+    _plant_uploads(tx)
+    _enable_uploads(tx)
+    out = _run_uploads(tx)
+    assert out["counts"] == {"uploads_expired": 2, "raw_marked": 2} and out["more"] is False
+    assert _upload_state(tx) == [
+        ("fresh-pending", "pending", False),
+        ("fresh-pending", "pending", False),
+        ("old-parsed", "parsed", True),
+        ("old-parsed", "parsed", True),
+        ("recent-parsed", "parsed", False),
+        ("recent-parsed", "parsed", False),
+        ("stale-pending", "expired", False),
+        ("stale-pending", "expired", False),
+    ]
+    # Nothing is deleted: the rows stay.
+    assert tx.execute("select count(*) from imports.uploads").fetchone()[0] == 8
+    assert tx.execute("select current_setting('retention.active', true)").fetchone()[0] == "off"
+    run = tx.execute("select rule, dry_run, counts from platform.retention_runs").fetchall()
+    assert run == [("purge_uploads", False, out["counts"])]
+    # A second call finds nothing more to do.
+    assert _run_uploads(tx)["counts"] == {"uploads_expired": 0, "raw_marked": 0}
+
+
+def test_uploads_without_a_period_are_kept(tx):
+    _plant_uploads(tx)
+    _enable_uploads(tx)
+    tx.execute("delete from refdata.values where key in ('imports.upload.pending_minutes', 'imports.upload.keep_days')")
+    before = _upload_state(tx)
+    out = _run_uploads(tx)
+    assert out["counts"] == {"uploads_expired": None, "raw_marked": None}
+    assert _upload_state(tx) == before
+
+
+def test_uploads_limit_reports_more_and_the_next_call_continues(tx):
+    _plant_uploads(tx)
+    _enable_uploads(tx)
+    first = _run_uploads(tx, max_rows=1)
+    assert first["more"] is True and first["counts"] == {"uploads_expired": 1, "raw_marked": 1}
+    second = _run_uploads(tx, max_rows=1)
+    assert second["counts"] == {"uploads_expired": 1, "raw_marked": 1}
+    third = _run_uploads(tx, max_rows=1)
+    assert third["more"] is False and third["counts"] == {"uploads_expired": 0, "raw_marked": 0}

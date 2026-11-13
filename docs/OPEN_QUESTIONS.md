@@ -189,6 +189,9 @@ Every row in `refdata/` is `provisional`. Before go-live:
   - **Period (PO):** `sales.draft_keep_days` = 180 is LLD-4's proposal, provisional.
   - **Which clock (PO):** "open longer than N days" is built as N days since the draft's **last save** (`updated_at`), so a draft still being worked on is never deleted; counting from creation would delete drafts edited last week. Opening or previewing a draft is not a save and does not reset the clock. Drafts are not GST records, so there is no statutory floor.
   - **Telling the user:** nothing warns before a draft goes. A "drafts older than N days are deleted" note on the drafts list is the designer's call.
+- `retention.purge_uploads()` is built (R1-M3, TD-18) and ships **disabled** (`retention.purge_uploads.enabled`); the daily run calls it after `purge_drafts`. It expires stale pending uploads (`imports.upload.pending_minutes`, 60) and marks raw files gone after `imports.upload.keep_days` (90); the object is deleted by the bucket lifecycle (Terraform `upload_retention_days`, 90). Still open:
+  - **Period (PO/CA):** 90 days is TD-18's figure and the CA may change it; if so change the refdata row and the Terraform variable together.
+  - **Records vs raw files:** import rows and decisions are kept after the raw file goes (they are not statutory GST records; whether they need their own limit is for the CA sheet).
 - A job whose last SQS message is lost while `failed_retryable` stays there; the outbox sweep only resends unsent rows. The DLQ alarm covers exhausted messages, not this. A "stuck jobs" sweep can come with the alarms (TD-24).
 - The real-S3 policy checks (limit + 1 byte, other key, after 5 minutes, other KMS key) are QA's staging checks (HLD §6.5); the local store only mirrors them.
 
