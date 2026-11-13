@@ -1,5 +1,7 @@
 # Testing: locally, then on AWS
 
+To try the product by hand on your own computer (Windows first, Docker only), see **docs/LOCAL_DEMO.md**: `.\demo.ps1` on Windows, `./demo.sh` or `make demo` on Mac and Linux.
+
 Only the **identity** module has real endpoints so far, so these steps test sign-in,
 tenants, members, invitations, audit and tenant isolation.
 

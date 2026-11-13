@@ -5,7 +5,8 @@ import { defineConfig } from "vite";
 // The API answers the refresh-cookie routes only for its own origin; locally that is
 // http://localhost:5173 (`_LOCAL_ORIGIN` in api_auth.py), so dev and preview both serve
 // here and proxy /api to `make run-api` on :8000.
-const api = { "/api": "http://localhost:8000" };
+// The demo containers set API_URL (http://api:8000); everyone else uses the local API.
+const api = { "/api": process.env.API_URL ?? "http://localhost:8000" };
 
 export default defineConfig({
   plugins: [react()],
