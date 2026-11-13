@@ -156,7 +156,7 @@ reason and no cell values. `set_aside` leaves the row out of the return and coun
 as the file states it and exists only where refdata `imports.held.<reason>.accept_allowed` is true, shipped `false`
 everywhere because whether an inconsistent row may be used is a PO and CA decision (CLAUDE.md rule 12). Only a held row
 of a staged run can be decided (409 `run_not_staged` after discard or confirm; 422 `action_not_allowed`, `note_required`);
-deciding the same way twice records nothing new, and a decided row cannot be switched. `RowOut.allowed_actions` (label and
+deciding the same way twice records nothing new, and a decided row cannot be switched. **For the slice that confirms a run (R1-M4/M5):** a row's own status stays `held` after a decision; confirm must read the row's resolution, must not import an unresolved or `set_aside` row, and may import an `accepted` row only as the file states it. `RowOut.allowed_actions` (label and
 effect note from refdata `imports.action.<action>.*`) and `RowOut.resolution` carry the state, so the page needs no logic
 of its own. `RunOut.counts.held` and `held_by_reason` count unresolved rows only, with `set_aside` and `accepted` counted
 beside them; a section reads "rows held" until none remain, and `needs_ca_check` stays true for accepted rows whose reason
