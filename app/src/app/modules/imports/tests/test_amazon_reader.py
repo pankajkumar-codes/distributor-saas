@@ -133,13 +133,14 @@ def test_a_b2b_file_through_the_b2c_profile_is_not_confused_with_it():
     assert not B2C.detect(table(fx.b2b_good(), "MTR_B2B-JULY-2026-9.csv"))
 
 
-def test_the_reader_registers_once_and_is_listed_for_amazon_only():
+def test_the_reader_registers_once_and_is_listed_by_section():
     readers.clear_for_tests()
     try:
         readers.register_platform_readers()
         readers.register_platform_readers()
         assert sorted(r.id for r in readers.readers_for("amazon")) == ["amazon_mtr_b2b_v1", "amazon_mtr_b2c_v1"]
-        assert readers.readers_for("flipkart") == [] and readers.readers_for("meesho") == []
+        assert sorted(r.id for r in readers.readers_for("flipkart")) == ["flipkart_cashback_v1", "flipkart_sales_v1"]
+        assert readers.readers_for("meesho") == []
     finally:
         readers.clear_for_tests()
 

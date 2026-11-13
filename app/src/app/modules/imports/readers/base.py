@@ -16,8 +16,10 @@ class HeaderReader:
     id: str
     section: str
     report_type: str
+    sheet: str | None = None
 
-    def __init__(self, *, entry: str, markers: tuple[str, ...], excluded: tuple[str, ...] = (), gstin_header: str):
+    def __init__(self, *, entry: str, markers: tuple[str, ...], excluded: tuple[str, ...] = (), gstin_header: str,
+                 sheet: str | None = None):
         """`entry`: regex a zip entry's whole name must match. `markers`: headers that must all be
         present for a file to be this reader's. `excluded`: headers that, if present, make it another
         reader's (so two readers of one family never both claim a file)."""
@@ -25,6 +27,7 @@ class HeaderReader:
         self._markers = tuple(header_key(h) for h in markers)
         self._excluded = tuple(header_key(h) for h in excluded)
         self._gstin = header_key(gstin_header)
+        self.sheet = sheet
 
     def profile(self) -> MappingProfile:  # pragma: no cover - the readers define it
         raise NotImplementedError

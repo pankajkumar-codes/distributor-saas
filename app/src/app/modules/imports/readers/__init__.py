@@ -21,13 +21,15 @@ SECTIONS = ("amazon", "flipkart", "meesho", "own_invoices_excel", "own_invoices_
 PLATFORM_SECTIONS = ("amazon", "flipkart", "meesho")
 
 # Why a row is held (LLD-7 §3 step 5). A reader may only choose from these.
-HOLD_REASONS = ("blank_hsn", "blank_uqc", "unknown_state", "unknown_txn_type", "blank_qty", "sanity")
+HOLD_REASONS = ("blank_hsn", "blank_uqc", "unknown_state", "unknown_txn_type", "blank_qty", "sanity",
+                "cashback_adjustment", "price_adjustment")
 
 
 class Reader(Protocol):
     id: str  # e.g. "amazon_mtr_b2c_v1"; also the refdata key stem imports.profile.<id>
     section: str
     report_type: str  # coverage: which report this file is (e.g. "mtr_b2c")
+    sheet: str | None  # an Excel reader's own sheet name (whole-name, case-insensitive); None for a file with one table
 
     def accepts(self, name: str) -> bool:
         """For a zip: is this entry one of this reader's files, by exact file name pattern."""
@@ -63,8 +65,9 @@ def readers_for(section: str) -> list[Reader]:
 def register_platform_readers() -> None:
     """The real readers (R1-M4). Safe to call twice; the API calls it once at start-up."""
     from .amazon import AmazonReader
+    from .flipkart import FlipkartCashbackReader, FlipkartSalesReader
 
-    for reader in (AmazonReader("b2c"), AmazonReader("b2b")):
+    for reader in (AmazonReader("b2c"), AmazonReader("b2b"), FlipkartSalesReader(), FlipkartCashbackReader()):
         if reader.id not in _registry:
             register(reader)
 

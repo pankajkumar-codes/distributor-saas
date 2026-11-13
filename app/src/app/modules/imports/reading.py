@@ -19,7 +19,7 @@ from platform_common.uow import UnitOfWork
 
 from . import staging
 from .models import ImportRun, StagedRowStatus
-from .parsing import FileRejected, open_zip, read_table
+from .parsing import FileRejected, open_zip, read_table, sheet_names
 from .readers import HOLD_REASONS, Reader, readers_for
 
 log = logging.getLogger(__name__)
@@ -44,23 +44,20 @@ def read_upload(uow: UnitOfWork, *, upload_id: uuid.UUID, section: str, file_nam
 
     parsed = []
     for name, data in files:
-        try:
-            table = read_table(data, name)
-        except FileRejected:
-            raise Refused("unreadable_file") from None
-        matches = [r for r in readers if r.detect(table)]
-        if not matches:
-            raise Refused("unknown_layout")
-        if len(matches) > 1:
-            raise Refused("needs_choice")  # the choose endpoint arrives with a second reader of one layout
-        reader = matches[0]
-        # Every file is checked before any is staged, so a refusal never leaves a run behind.
-        file_gstin = reader.gstin(table)
-        if not file_gstin:
-            raise Refused("gstin_missing")
-        if own_gstin is None or file_gstin.strip().upper() != own_gstin:
-            raise Refused("wrong_gstin")
-        parsed.append((table, reader))
+        for table in _tables(name, data, readers):
+            matches = [r for r in readers if _sheet_ok(r, table) and r.detect(table)]
+            if not matches:
+                raise Refused("unknown_layout")
+            if len(matches) > 1:
+                raise Refused("needs_choice")  # the choose endpoint arrives with a second reader of one layout
+            reader = matches[0]
+            # Every file is checked before any is staged, so a refusal never leaves a run behind.
+            file_gstin = reader.gstin(table)
+            if not file_gstin:
+                raise Refused("gstin_missing")
+            if own_gstin is None or file_gstin.strip().upper() != own_gstin:
+                raise Refused("wrong_gstin")
+            parsed.append((table, reader))
 
     runs: list[ImportRun] = []
     for table, reader in parsed:
@@ -78,6 +75,31 @@ def read_upload(uow: UnitOfWork, *, upload_id: uuid.UUID, section: str, file_nam
         log.info("upload %s staged run %s (created=%s)", upload_id, run.id, created)
         runs.append(run)
     return runs
+
+
+def _same_sheet(a: str | None, b: str | None) -> bool:
+    return a is not None and b is not None and a.strip().lower() == b.strip().lower()
+
+
+def _sheet_ok(reader: Reader, table) -> bool:
+    wanted = getattr(reader, "sheet", None)
+    return wanted is None or _same_sheet(wanted, table.sheet)
+
+
+def _tables(name: str, data: bytes, readers: list[Reader]) -> list:
+    """The tables to read from one file. A workbook with several sheets is read sheet by sheet: each
+    sheet a reader of the section names becomes a table; other sheets (a Help sheet) are not read.
+    A workbook none of whose sheets any reader names is read as before, which refuses it if it
+    has several."""
+    try:
+        if name.lower().endswith(".xlsx"):
+            wanted = [s for s in sheet_names(data) if any(_same_sheet(getattr(r, "sheet", None), s) for r in readers)]
+            if wanted:
+                tables = [read_table(data, name, sheet=s) for s in wanted]
+                return [t for t in tables if len(t.rows) > 1] or tables  # a sheet with a header and no rows has nothing to stage
+        return [read_table(data, name)]
+    except FileRejected:
+        raise Refused("unreadable_file") from None
 
 
 def _files(uow, file_name, content, readers: list[Reader], today) -> list[tuple[str, bytes]]:
