@@ -68,8 +68,30 @@ It does the same things and prints the same box.
 
 ### Windows with WSL (only if the PowerShell way does not work for you)
 
-Turn on Docker Desktop's WSL integration (Settings > Resources > WSL integration), open your Linux distro,
-clone the project **inside the Linux home folder** (not under `/mnt/c`, which is slow), and run `./demo.sh`.
+First time:
+
+1. In PowerShell: `wsl --install -d Ubuntu`. Restart Windows if asked, open the **Ubuntu** app and make a
+   username and password. (A `docker-desktop` entry in `wsl --status` is Docker's own and is not usable for this.)
+2. Docker Desktop > Settings > Resources > WSL integration: switch on **Ubuntu**, Apply & restart. In Ubuntu,
+   `docker ps` must print a table, not "permission denied". If it still fails: `sudo usermod -aG docker $USER`,
+   close and reopen Ubuntu.
+3. In Ubuntu: `sudo apt update && sudo apt install -y make git curl`.
+4. The repository is private, so sign in to GitHub first. Install the GitHub CLI
+   (<https://github.com/cli/cli/blob/trunk/docs/install_linux.md>), then `gh auth login`: GitHub.com, HTTPS,
+   authenticate Git: Yes, log in with a web browser. Never type a GitHub password at a `git clone` prompt and
+   never paste a token into a chat.
+5. Clone **inside the Linux home folder**, not under `/mnt/c` (slow, and file-permission problems):
+   `cd ~ && git clone https://github.com/pankajkumar-codes/distributor-saas && cd distributor-saas`
+6. `./demo.sh` (the same as `make demo`). Open `http://localhost:5173`.
+
+Every later time (for example after `wsl --shutdown` or a restart):
+
+1. Start Docker Desktop and wait for **Engine running**.
+2. Open Ubuntu: the **Ubuntu** Start menu app, or `wsl -d Ubuntu` in PowerShell (`wsl -l -v` lists the names).
+3. `cd ~/distributor-saas && git pull && ./demo.sh`. `git pull` brings the newest milestone. Run
+   `./demo.sh stop` first if an older demo is still running. Each start begins empty.
+
+If you cloned under `/mnt/c/...` already, it works but is slow; move to the home folder when convenient.
 
 ## 3. What is, and is not, real in this demo
 
