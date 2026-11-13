@@ -37,7 +37,11 @@ class S3ObjectStore:
 
     def __init__(self, bucket: str, client=None, clock: Clock | None = None):
         self.bucket = bucket
-        self.client = client or boto3.client("s3", config=client_config())
+        # Virtual-hosted addressing puts the region in the host (bucket.s3.<region>.amazonaws.com).
+        # boto3's default for a presigned POST is the global bucket.s3.amazonaws.com, which a
+        # browser cannot follow across the redirect S3 sends for a bucket outside us-east-1,
+        # and which the CSP (connect-src, form-action) does not name.
+        self.client = client or boto3.client("s3", config=client_config(s3={"addressing_style": "virtual"}))
         self.clock = clock or Clock()
 
     def presign_post(self, business_id, key, *, max_bytes, content_type=None) -> PresignedPost:
@@ -103,7 +107,7 @@ class SesSender:
         return r["MessageId"]
 
 
-def client_config():
+def client_config(**extra):
     """The one botocore Config for every client this module builds (Cognito, SQS, S3,
     SES and Parameter Store). API requests wait on these calls, so a slow one fails fast
     instead of holding the request until API Gateway's 29 s limit: 2 s to connect, 5 s
@@ -115,7 +119,7 @@ def client_config():
     platform_common tests replace boto3 with a stand-in)."""
     from botocore.config import Config
 
-    return Config(connect_timeout=2, read_timeout=5, retries={"mode": "standard", "total_max_attempts": 3})
+    return Config(connect_timeout=2, read_timeout=5, retries={"mode": "standard", "total_max_attempts": 3}, **extra)
 
 
 def cognito_client():

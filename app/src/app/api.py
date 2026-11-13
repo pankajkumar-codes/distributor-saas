@@ -11,6 +11,7 @@ from app.modules.business.api import router as business_router
 from app.modules.catalog.api_customers import router as customers_router
 from app.modules.catalog.api_imports import router as product_imports_router
 from app.modules.catalog.api_products import router as products_router
+from app.modules.imports.api import router as uploads_router
 from app.modules.sales.api import router as drafts_router
 from app.modules.identity.api import router as identity_router
 from app.modules.identity.api_auth import router as auth_router
@@ -55,6 +56,7 @@ app.include_router(products_router, prefix=API_PREFIX)
 app.include_router(customers_router, prefix=API_PREFIX)
 app.include_router(drafts_router, prefix=API_PREFIX)
 app.include_router(filing_router, prefix=API_PREFIX)
+app.include_router(uploads_router, prefix=API_PREFIX)
 app.include_router(refdata_router, prefix=API_PREFIX)
 app.include_router(jobs_router, prefix=API_PREFIX)  # platform routes (LLD-0 §3.7)
 if debug_env():

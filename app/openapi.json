@@ -2466,7 +2466,7 @@
             "type": "string"
           },
           "upload": {
-            "$ref": "#/components/schemas/UploadOut"
+            "$ref": "#/components/schemas/app__modules__catalog__api_imports__UploadOut"
           }
         },
         "required": [
@@ -3358,6 +3358,33 @@
           "name"
         ],
         "title": "Person",
+        "type": "object"
+      },
+      "PresignedPostOut": {
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "fields": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Fields",
+            "type": "object"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "fields",
+          "expires_at"
+        ],
+        "title": "PresignedPostOut",
         "type": "object"
       },
       "PreviewOut": {
@@ -5008,31 +5035,74 @@
         "title": "UnitOut",
         "type": "object"
       },
-      "UploadOut": {
+      "UploadStartIn": {
+        "additionalProperties": false,
         "properties": {
-          "expires_at": {
-            "format": "date-time",
-            "title": "Expires At",
+          "file_name": {
+            "maxLength": 255,
+            "title": "File Name",
             "type": "string"
           },
-          "fields": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "title": "Fields",
-            "type": "object"
+          "section": {
+            "enum": [
+              "amazon",
+              "flipkart",
+              "meesho",
+              "own_invoices_excel",
+              "own_invoices_pdf"
+            ],
+            "title": "Section",
+            "type": "string"
           },
-          "url": {
-            "title": "Url",
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "section",
+          "file_name",
+          "size_bytes"
+        ],
+        "title": "UploadStartIn",
+        "type": "object"
+      },
+      "UploadStartOut": {
+        "properties": {
+          "upload": {
+            "$ref": "#/components/schemas/PresignedPostOut"
+          },
+          "upload_id": {
+            "title": "Upload Id",
             "type": "string"
           }
         },
         "required": [
-          "url",
-          "fields",
-          "expires_at"
+          "upload_id",
+          "upload"
         ],
-        "title": "UploadOut",
+        "title": "UploadStartOut",
+        "type": "object"
+      },
+      "UploadsOut": {
+        "properties": {
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "uploads": {
+            "items": {
+              "$ref": "#/components/schemas/app__modules__imports__api__UploadOut"
+            },
+            "title": "Uploads",
+            "type": "array"
+          }
+        },
+        "required": [
+          "uploads",
+          "has_more"
+        ],
+        "title": "UploadsOut",
         "type": "object"
       },
       "UserOut": {
@@ -5194,6 +5264,33 @@
         "title": "WindowOut",
         "type": "object"
       },
+      "app__modules__catalog__api_imports__UploadOut": {
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "fields": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Fields",
+            "type": "object"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "fields",
+          "expires_at"
+        ],
+        "title": "UploadOut",
+        "type": "object"
+      },
       "app__modules__catalog__api_products__ReasonIn": {
         "additionalProperties": false,
         "properties": {
@@ -5229,6 +5326,102 @@
           }
         },
         "title": "ReasonIn",
+        "type": "object"
+      },
+      "app__modules__imports__api__UploadOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "file_name": {
+            "title": "File Name",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "raw_available": {
+            "title": "Raw Available",
+            "type": "boolean"
+          },
+          "reject_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reject Message"
+          },
+          "reject_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reject Reason"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "section": {
+            "enum": [
+              "amazon",
+              "flipkart",
+              "meesho",
+              "own_invoices_excel",
+              "own_invoices_pdf"
+            ],
+            "title": "Section",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "received",
+              "parsing",
+              "parsed",
+              "stored",
+              "rejected",
+              "expired"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "section",
+          "file_name",
+          "size_bytes",
+          "status",
+          "reject_reason",
+          "reject_message",
+          "run_id",
+          "created_at",
+          "raw_available"
+        ],
+        "title": "UploadOut",
         "type": "object"
       }
     }
@@ -9365,6 +9558,265 @@
         "summary": "List Units",
         "tags": [
           "catalog"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/uploads": {
+      "get": {
+        "operationId": "list_uploads_api_v1_b__business_id__uploads_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "section",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "amazon",
+                    "flipkart",
+                    "meesho",
+                    "own_invoices_excel",
+                    "own_invoices_pdf"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Section"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 1000000,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Uploads",
+        "tags": [
+          "imports"
+        ]
+      },
+      "post": {
+        "description": "An upload and a presigned POST for exactly its key, type and declared size.",
+        "operationId": "start_upload_api_v1_b__business_id__uploads_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadStartIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadStartOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Upload",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/uploads/{upload_id}": {
+      "get": {
+        "operationId": "get_upload_api_v1_b__business_id__uploads__upload_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "title": "Upload Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app__modules__imports__api__UploadOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Upload",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/uploads/{upload_id}/complete": {
+      "post": {
+        "description": "The upload finished: check it is there, then queue the parse. Calling it again\nreturns the same job.",
+        "operationId": "complete_upload_api_v1_b__business_id__uploads__upload_id__complete_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "title": "Upload Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobRef"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Complete Upload",
+        "tags": [
+          "imports"
         ]
       }
     },

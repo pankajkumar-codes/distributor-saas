@@ -18,7 +18,8 @@ file is the only copy in code. Every business route declares one permission with
 | `documents.view` | View invoices and credit notes | Yes | Yes | Yes | Yes |
 | `documents.create` | Create and finalize invoices and credit notes | Yes | Yes | Yes | No |
 | `documents.mark_paid` | Mark an invoice paid | Yes | Yes | Yes | No |
-| `uploads.create` | Upload marketplace reports | Yes | Yes | No | Yes |
+| `uploads.create` | Upload marketplace reports and own sales invoices | Yes | Yes | No | No |
+| `uploads.view` | See uploaded files and what was read from them | Yes | Yes | No | Yes |
 | `returns.prepare` | Prepare and export returns, TCS check | Yes | Yes | No | Yes |
 | `returns.lock` | Mark a period filed and lock it | Yes | Yes | No | Yes |
 | `returns.unlock` | Unlock a period (reason required) | Yes | No | No | No |
