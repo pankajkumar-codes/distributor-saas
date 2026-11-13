@@ -69,12 +69,16 @@ def test_another_gstin_on_a_later_row_in_either_sheet_rejects_the_workbook(shop)
     assert scalar(pg.owner, "select count(*) from imports.import_runs") == 0
 
 
-def test_a_workbook_with_an_empty_cash_back_sheet_stages_the_sales(shop):  # noqa: F811
-    pg, _, _ = shop
+def test_a_workbook_with_a_header_only_cash_back_sheet_stages_the_sales_and_an_empty_run(shop):  # noqa: F811
+    from .test_uploads_postgres import get
+    pg, biz, _ = shop
     upload_id, _ = upload(shop, "flipkart", NAME, fx.workbook([fx.sale("1", gstin=GSTIN)], []), XLSX)
     run_jobs(shop)
     assert state(shop, upload_id)["status"] == "parsed"
     assert scalar(pg.owner, "select count(*) from imports.import_rows") == 1
+    empty = scalar(pg.owner, "select id from imports.import_runs where profile_id = 'flipkart/cashback@1'")
+    body = get(pg, f"/api/v1/b/{biz}/runs/{empty}").json()
+    assert body["counts"]["new"] == 0 and "no_rows" in [w["code"] for w in body["warnings"]]
 
 
 def test_a_workbook_with_no_sheet_a_reader_names_is_an_unknown_layout(shop):  # noqa: F811

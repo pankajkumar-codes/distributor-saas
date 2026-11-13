@@ -171,7 +171,7 @@ Two readers, `amazon_mtr_b2c_v1` and `amazon_mtr_b2b_v1`, registered by `registe
 A report is a CSV named `MTR_B2C-*.csv` or `MTR_B2B-*.csv`, alone or inside a zip (UTF-8 BOM allowed). A reader
 claims a file by its header names, not by position or file name alone: six marker headers must be present and the
 B2C reader refuses a file that has `Customer Bill To Gstid`. The business GSTIN is read from the `Seller Gstin`
-column; a blank or different one rejects the file whole (`wrong_gstin`).
+column (compared in upper case); a blank or different one rejects the file whole (`wrong_gstin`).
 
 - **Fields kept:** GSTIN, order/shipment ids, invoice and credit note numbers, the candidate dates (order, shipment,
   invoice, credit note), quantity, HSN, ship-to and ship-from state, taxable value, tax by head and rate, and for B2B
@@ -198,7 +198,7 @@ column; a blank or different one rejects the file whole (`wrong_gstin`).
 `flipkart_sales_v1` (sheet `Sales Report`, report type `orders`) and `flipkart_cashback_v1` (sheet `Cash Back Report`,
 report type `cashback`) read one `Sales Report - <range>.xlsx`, alone or in a zip. A workbook with several sheets is
 read sheet by sheet: each sheet a reader of the section names becomes its own table and run (the `Help` sheet is not
-read; a sheet with a header and no rows is skipped, since a month may have no cash-back). A reader declares its sheet
+read; a sheet with a header and no rows makes an empty run with a "This report had no rows" warning, since a month may have no cash-back; a sheet with nothing at all is skipped). A reader declares its sheet
 (`Reader.sheet`); a workbook none of whose sheets any reader names is read as before and refused if it has several.
 The whole sheet is read whatever size it declares (the declared-size bug).
 
