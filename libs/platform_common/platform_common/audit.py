@@ -74,6 +74,9 @@ ALLOWED_DATA: dict[str, frozenset[str]] = {
     "document.pos_override": frozenset({"computed_pos", "chosen_pos"}),  # reason required (G16)
     "catalog.import_applied": frozenset({"counts"}),  # row counts only
     "catalog.import_superseded": frozenset({"superseded_by"}),
+    # Uploads (LLD-7 §11): the section and ids only, never a file's contents or name.
+    "imports.upload_received": frozenset({"section", "upload_id"}),
+    "imports.rejected": frozenset({"section", "upload_id", "reason"}),
 }
 
 _INSERT = text(

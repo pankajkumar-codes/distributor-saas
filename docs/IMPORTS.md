@@ -95,3 +95,21 @@ Migration: `app/src/app/modules/imports/migrations/202610261000_imports_staging.
 - `.xlsx` files are read in openpyxl's read-only mode after `reset_dimensions()`, because
   some marketplace workbooks store no or a wrong sheet dimension and would otherwise
   read as the header row only.
+
+
+## Uploads (R1-M3, `imports/uploads.py`, `api.py`, `jobs.py`, `readers/`)
+
+A file is uploaded into a **section** (`amazon`, `flipkart`, `meesho`, `own_invoices_excel`, `own_invoices_pdf`).
+`POST /uploads` checks the section, extension and size (refdata `imports.max_file_bytes`) and returns a presigned
+POST for the exact key; `POST /uploads/{id}/complete` asks the store whether the file arrived at the declared size and
+queues the `imports.parse` job (the upload is the job's natural key, so a second complete is the same job). The job
+re-checks that the queuing user still has `uploads.create`, reads the object from this business's key, records the
+SHA-256, and moves the upload to `parsed` or `rejected` with a reason and plain message. `imports.uploads` holds no
+cell values; `raw_deleted_at` is set when the retention rule purges the raw file (a later slice).
+
+Roles: owner and admin upload; owner, admin and CA read (`uploads.view`); billing gets 404 (D-046).
+
+**Readers** (`readers/`) are the plug-in point: `register(reader)` with an id, a section, a report type, `accepts`
+(zip entry names), `detect` (required headers) and a `MappingProfile`. A reader is used in production only when
+refdata `imports.profile.<id>.verified` is true. This slice ships no readers, so a platform file is rejected with
+"We can't read this kind of report yet", and a PDF in the own-invoice section is stored and marked read with no rows.

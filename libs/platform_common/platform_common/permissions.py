@@ -45,6 +45,7 @@ class Permission(str, enum.Enum):
     DOCUMENTS_CREATE = "documents.create"
     DOCUMENTS_MARK_PAID = "documents.mark_paid"
     UPLOADS_CREATE = "uploads.create"
+    UPLOADS_VIEW = "uploads.view"
     RETURNS_PREPARE = "returns.prepare"
     RETURNS_LOCK = "returns.lock"
     RETURNS_UNLOCK = "returns.unlock"
