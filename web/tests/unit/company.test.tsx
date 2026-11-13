@@ -284,7 +284,7 @@ describe("where you sell", () => {
     expect(save).toBeDisabled();
     fireEvent.click(screen.getByRole("checkbox", { name: "Own sales invoices" }));
     fireEvent.click(save);
-    expect(await screen.findByText(/Saved\. Your deadlines/)).toBeInTheDocument();
+    expect(await screen.findByText("Saved. Deadlines updated.")).toBeInTheDocument();
     const put = server.sent.find((s) => s.path === CH && s.method === "PUT");
     expect(put?.body).toEqual({ amazon: true, flipkart: false, meesho: false, own_invoices: true });
   });

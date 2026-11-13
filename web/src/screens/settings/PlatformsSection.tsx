@@ -57,7 +57,7 @@ export function PlatformsSection({ businessId, canEdit }: { businessId: string; 
             disabled={!canEdit}
           />
           {save.isError && <Banner tone="error">{errorText(save.error)}</Banner>}
-          {save.isSuccess && <Banner>Saved. Your deadlines and upload sections follow this.</Banner>}
+          {save.isSuccess && <Banner>Saved. Deadlines updated.</Banner>}
           {canEdit && (
             <div className="actions">
               <Button type="submit" busy={save.isPending} disabled={!dirty || none}>

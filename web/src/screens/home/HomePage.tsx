@@ -175,6 +175,14 @@ export function HomePage() {
             </ul>
           </nav>
         )}
+        <nav className="card" aria-labelledby="filing">
+          <h2 id="filing">GST filing</h2>
+          <ul className="list">
+            <li>
+              <Link to={`/b/${businessId}/filing`}>Your GST filing and deadlines</Link>
+            </li>
+          </ul>
+        </nav>
         <nav className="card" aria-labelledby="settings">
           <h2 id="settings">Settings</h2>
           <ul className="list">
