@@ -86,3 +86,13 @@ def test_the_run_warns_that_the_layout_is_unchecked(shop):  # noqa: F811
     run_id = state(shop, upload_id)["run_id"]
     body = get(pg, f"/api/v1/b/{biz}/runs/{run_id}").json()
     assert body["profile_verified"] is False and body["warnings"]
+
+
+def test_a_report_with_a_second_seller_gstin_on_a_later_row_is_rejected_whole(shop):  # noqa: F811
+    pg, _, _ = shop
+    content = fxa.csv_bytes(fxa.B2C_HEADERS, [fxa.sale("1", gstin=GSTIN), fxa.sale("2", gstin=fxa.OTHER)])
+    upload_id, _ = upload(shop, "amazon", "july.zip", mtr(content), "application/zip")
+    run_jobs(shop)
+    out = state(shop, upload_id)
+    assert (out["status"], out["reject_reason"]) == ("rejected", "wrong_gstin")
+    assert scalar(pg.owner, "select count(*) from imports.import_rows") == 0

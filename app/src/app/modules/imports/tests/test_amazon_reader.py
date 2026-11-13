@@ -157,3 +157,9 @@ def test_a_rate_over_one_hundred_percent_is_held_not_stored_as_a_rate():
 def test_a_file_naming_two_sellers_has_no_single_gstin():
     content = fx.csv_bytes(fx.B2C_HEADERS, [fx.sale("1"), fx.sale("2", gstin=fx.OTHER)])
     assert B2C.gstin(table(content)) == "MIXED"
+
+
+def test_a_b2b_file_naming_two_sellers_has_no_single_gstin():
+    headers = fx.B2C_HEADERS + fx.B2B_EXTRA
+    content = fx.csv_bytes(headers, [fx.sale("1"), fx.sale("2", gstin=fx.OTHER)])
+    assert B2B.gstin(table(content, "MTR_B2B-JULY.csv")) == "MIXED"
