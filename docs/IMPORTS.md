@@ -105,7 +105,7 @@ POST for the exact key; `POST /uploads/{id}/complete` asks the store whether the
 queues the `imports.parse` job (the upload is the job's natural key, so a second complete is the same job). The job
 re-checks that the queuing user still has `uploads.create`, reads the object from this business's key, records the
 SHA-256, and moves the upload to `parsed`, `stored` (a PDF, kept for later; nothing is read until R1-M6) or `rejected` with a reason and plain message. A read error, or an unexpected error on the last retry, settles the upload as `rejected` with `read_failed`, so the screen needs only the upload status. `imports.uploads` holds no
-cell values; `raw_deleted_at` is set when the retention rule purges the raw file (a later slice).
+cell values; `raw_deleted_at` is set by the retention rule `purge_uploads` (see Retention below).
 
 Roles: owner and admin upload; owner, admin and CA read (`uploads.view`); billing gets 404 (D-046).
 
@@ -163,5 +163,16 @@ beside them; a section reads "rows held" until none remain, and `needs_ca_check`
 is flagged.
 
 Not yet: `months` and `already_uploaded_of` on the run, the `from`/`to` filters and `GET /marketplace-coverage` (all need
-the months a real reader reads from its file, R1-M4); value fixes (`enter_hsn`, `pick_state`, R1-M4); raw-file retention
-(next).
+the months a real reader reads from its file, R1-M4); value fixes (`enter_hsn`, `pick_state`, R1-M4).
+
+## Retention of uploads (R1-M3, TD-18)
+
+`retention.purge_uploads()` (the third rule of the retention Lambda, after `purge_drafts`) does two things in the
+database and neither touches S3: a `pending` upload older than refdata `imports.upload.pending_minutes` (60) becomes
+`expired`, and an upload older than `imports.upload.keep_days` (90) gets `raw_deleted_at`, so the page stops offering the
+raw file. The object itself is removed by the bucket's own lifecycle rule for the `uploads/` area (`upload_retention_days`
+in `infra/modules/storage`, 90); the Lambda has no S3 rights. **The two 90s must move together.** Rows, runs, rows' held
+reasons and decisions stay; nothing is deleted. The rule ships off (`retention.purge_uploads.enabled` false, like the others;
+a dry run still counts) and a missing period row means keep. The definer may read only `id, business_id, status, created_at,
+raw_deleted_at` and change only `status, raw_deleted_at, updated_at` on `imports.uploads`; never a file name or checksum.
+
