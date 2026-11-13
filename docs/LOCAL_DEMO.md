@@ -7,7 +7,8 @@ touches AWS, never sends email, and never holds real tax data.
 You need **only Docker**. You do not need Node, Python, Git bash, `make` or WSL on Windows.
 
 Quick start on Windows: install Docker Desktop (section 1), open PowerShell in this folder, run
-`.\demo.ps1`, open `http://localhost:5173`.
+`.\demo.ps1`, open `http://localhost:5173`. (`demo.ps1` has not yet been run on a real Windows computer; if it fails,
+use the WSL way in section 2, which has.)
 
 ## 1. One-time setup on Windows
 
@@ -66,10 +67,40 @@ Install Docker Desktop (Mac) or Docker Engine with the Compose plugin (Linux), s
 
 It does the same things and prints the same box.
 
-### Windows with WSL (only if the PowerShell way does not work for you)
+### Windows with WSL (the path that has been run on a real Windows computer)
 
-Turn on Docker Desktop's WSL integration (Settings > Resources > WSL integration), open your Linux distro,
-clone the project **inside the Linux home folder** (not under `/mnt/c`, which is slow), and run `./demo.sh`.
+**Status, so you know what to trust:** `.\demo.ps1` is the simplest way and needs none of the steps below, but it has
+**not yet been run on a real Windows computer** (it was read line by line and checked on Linux only). The WSL way below
+is the one that has actually been run on Windows, using the project's normal development setup (no `demo.ps1`). Use it if
+`.\demo.ps1` does not work for you. It shows the product's real pages with your own database; it does not include the demo's
+made-up business and sample files, so you create a business through the sign-up page.
+
+**First time (about 30 minutes)**
+
+1. Install **Docker Desktop**, and in Settings > Resources > WSL integration turn on your Ubuntu distro. Install Ubuntu from
+   the Microsoft Store if you do not have it, then in PowerShell run `wsl --shutdown` and reopen Ubuntu so the setting takes effect.
+2. In Ubuntu, check `docker ps` works. The project needs **Python 3.12**. Ubuntu's own Python may be newer (3.14 at the
+   time of writing) and is too new, so install 3.12 from the deadsnakes archive:
+   `sudo add-apt-repository ppa:deadsnakes/ppa && sudo apt update && sudo apt install python3.12 python3.12-venv`.
+   The web app needs **Node.js 22 or newer** (`node -v`).
+3. Get the code **inside the Linux home folder** (`cd ~`, not under `/mnt/c`, which is slow). The repository is private, so
+   sign in with GitHub's own tool: install `gh` (`sudo apt install gh`), run `gh auth login`, follow its browser steps, then
+   `gh repo clone pankajkumar-codes/distributor-saas && cd distributor-saas`. Never paste a password or token into a chat or a file.
+4. Create the Python environment and install: `python3.12 -m venv .venv && source .venv/bin/activate && make setup PY=python`.
+5. Start the database and prepare it: `make db-up`, then `make db-migrate PY=python`. (A Postgres container you already run
+   on another port, such as 5332, does not clash: this one uses 5432.)
+6. Start the API in that terminal: `PYTHON=python make run-api`. Leave it running.
+7. Open a **second** Ubuntu terminal and start the web app: `cd ~/distributor-saas/web && npm ci && npm run dev`.
+8. Open <http://localhost:5173> in your Windows browser. Sign-up codes are written to `build/mail/outbox.jsonl` in the project folder (the same
+   local mail file as the demo); open that file to read the code.
+
+**Coming back later**
+
+1. Start **Docker Desktop** and wait for "Engine running".
+2. In PowerShell: `wsl -d Ubuntu`. Then `cd ~/distributor-saas && source .venv/bin/activate`.
+3. `make db-up` (your database and data are kept between runs).
+4. Start the API again (`PYTHON=python make run-api`) and, in a second Ubuntu terminal, the web app (`cd ~/distributor-saas/web && npm run dev`).
+   The API keeps sign-ins in memory, so after a restart you sign in again.
 
 ## 3. What is, and is not, real in this demo
 
