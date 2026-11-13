@@ -9,6 +9,7 @@ they are read, so a small archive that expands enormously is stopped part-way.
 
 import io
 import zipfile
+import zlib
 from collections.abc import Callable
 
 from .files import FileRejected
@@ -44,8 +45,12 @@ def open_zip(content: bytes, *, accepts: Callable[[str], bool], max_entries: int
             raise FileRejected("the zip has a file we don't expect in it")
         if info.file_size > max_inflate_bytes - total:
             raise FileRejected("the zip expands to more than we can read")
-        with archive.open(info) as handle:
-            data = handle.read(max_inflate_bytes - total + 1)  # one over the limit proves it is too big
+        try:
+            with archive.open(info) as handle:
+                data = handle.read(max_inflate_bytes - total + 1)  # one over the limit proves it is too big
+        except (zipfile.BadZipFile, zlib.error, EOFError, NotImplementedError, RuntimeError) as exc:
+            # A damaged entry, or a compression method we don't read, is a bad file, not a job error.
+            raise FileRejected("the zip has a damaged or unsupported file in it") from exc
         total += len(data)
         if total > max_inflate_bytes:
             raise FileRejected("the zip expands to more than we can read")

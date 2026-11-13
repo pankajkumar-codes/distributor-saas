@@ -216,3 +216,13 @@ def test_a_zip_with_one_bad_gstin_stages_nothing(shop, second):  # noqa: F811
     assert out["status"] == "rejected" and out["reject_reason"] in ("wrong_gstin", "gstin_missing")
     assert scalar(pg.owner, "select count(*) from imports.import_runs") == 0
     assert scalar(pg.owner, "select count(*) from imports.import_rows") == 0
+
+
+def test_a_damaged_file_inside_a_zip_is_rejected_at_once(shop):  # noqa: F811
+    pg, _, _ = shop
+    z = bytearray(zipped(**{"orders-a.csv": csv(*[f"A-{i},Shipment,1,6109,1.00" for i in range(50)])}))
+    z[45] ^= 0xFF  # a byte in the compressed data (stored uncompressed here, so the CRC no longer matches)
+    upload_id, _ = upload(shop, "amazon", "month.zip", bytes(z), "application/zip")
+    run_jobs(shop)
+    assert state(shop, upload_id)["reject_reason"] in ("bad_zip", "unreadable_file")
+    assert scalar(pg.owner, "select count(*) from imports.import_runs") == 0

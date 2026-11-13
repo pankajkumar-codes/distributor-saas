@@ -4,8 +4,11 @@
 -- at insert, so no new update grant.
 
 alter table imports.import_runs
-    add column upload_id uuid references imports.uploads (id),
-    add column gstin char(15);
+    add column upload_id uuid,
+    add column gstin char(15),
+    -- Composite, as the other tenant tables: a run can only point at its own business's upload.
+    add constraint import_runs_upload_fk foreign key (upload_id, business_id)
+        references imports.uploads (id, business_id);
 create index import_runs_upload on imports.import_runs (upload_id) where upload_id is not null;
 
 alter table imports.import_rows drop constraint import_rows_status_check;
