@@ -5,13 +5,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path[:0] = [str(ROOT / "app" / "src"), str(ROOT / "libs" / "platform_common")]
+from app.modules.imports.tests.fixtures import amazon as fxa
+from app.modules.imports.tests.fixtures import flipkart as fxf
+from app.modules.imports.tests.fixtures import meesho as fxm
 
-from app.modules.imports.tests.fixtures import amazon as fxa  # noqa: E402
-from app.modules.imports.tests.fixtures import flipkart as fxf  # noqa: E402
-from app.modules.imports.tests.fixtures import meesho as fxm  # noqa: E402
-
+ROOT = Path(__file__).resolve().parents[6]
 SCRIPT = ROOT / "scripts" / "check_reader.py"
 
 
