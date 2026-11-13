@@ -3125,7 +3125,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "pending" | "received" | "parsing" | "parsed" | "rejected" | "expired";
+            status: "pending" | "received" | "parsing" | "parsed" | "stored" | "rejected" | "expired";
         };
     };
     responses: never;

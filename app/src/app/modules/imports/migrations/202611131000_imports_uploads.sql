@@ -17,7 +17,7 @@ create table imports.uploads (
     file_name text not null check (file_name <> '' and length(file_name) <= 255),
     size_bytes bigint not null check (size_bytes > 0),
     status text not null default 'pending'
-        check (status in ('pending', 'received', 'parsing', 'parsed', 'rejected', 'expired')),
+        check (status in ('pending', 'received', 'parsing', 'parsed', 'stored', 'rejected', 'expired')),
     reject_reason text check (reject_reason is null or status = 'rejected'),
     checksum_sha256 char(64) check (checksum_sha256 ~ '^[0-9a-f]{64}$'),
     run_id uuid,

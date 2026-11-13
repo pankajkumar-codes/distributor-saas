@@ -5401,6 +5401,7 @@
               "received",
               "parsing",
               "parsed",
+              "stored",
               "rejected",
               "expired"
             ],

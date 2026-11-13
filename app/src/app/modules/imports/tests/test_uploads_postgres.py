@@ -93,7 +93,7 @@ def test_a_pdf_is_stored_and_marked_read_with_no_rows(shop):
     upload_id, _ = upload(shop, "own_invoices_pdf", "inv.pdf", PDF, "application/pdf")
     assert run_jobs(shop) == ["done"]
     out = get(pg, f"/api/v1/b/{biz}/uploads/{upload_id}").json()
-    assert (out["status"], out["run_id"]) == ("parsed", None)
+    assert (out["status"], out["run_id"]) == ("stored", None)
 
 
 def test_a_file_that_is_not_a_pdf_is_rejected(shop):
@@ -220,6 +220,41 @@ def test_the_job_refuses_when_the_user_lost_the_permission(shop):
     assert run_jobs(shop) == ["done"]
     out = get(pg, f"/api/v1/b/{biz}/uploads/{upload_id}").json()
     assert (out["status"], out["reject_reason"]) == ("rejected", "not_allowed")
+
+
+def test_a_read_error_settles_the_upload_as_rejected(shop, monkeypatch):
+    from app.modules.imports import uploads as up_mod
+    from platform_common.errors import AppError
+
+    pg, biz, _ = shop
+    upload_id, job_id = upload(shop, "amazon", "a.csv", CSV)
+
+    def boom(uow, upload_id):
+        raise AppError("storage_error", "cannot read the object")
+
+    monkeypatch.setattr(up_mod, "process", boom)
+    assert run_jobs(shop) == ["done"]
+    out = get(pg, f"/api/v1/b/{biz}/uploads/{upload_id}").json()
+    assert (out["status"], out["reject_reason"]) == ("rejected", "read_failed")
+    assert "couldn't read" in out["reject_message"]
+
+
+def test_an_unexpected_error_retries_then_settles_on_the_last_attempt(shop, monkeypatch):
+    from app.modules.imports import uploads as up_mod
+
+    pg, biz, _ = shop
+    upload_id, job_id = upload(shop, "amazon", "a.csv", CSV)
+
+    def boom(uow, upload_id):
+        raise RuntimeError("bug")
+
+    monkeypatch.setattr(up_mod, "process", boom)
+    assert run_jobs(shop) == ["retry"]  # attempt 1 of MAX_ATTEMPTS: rolled back, still received
+    assert get(pg, f"/api/v1/b/{biz}/uploads/{upload_id}").json()["status"] == "received"
+    monkeypatch.setattr(jobs, "MAX_ATTEMPTS", 2)
+    assert jobs.run(uuid.UUID(str(job_id))) == "done"  # the redelivery is the last attempt
+    out = get(pg, f"/api/v1/b/{biz}/uploads/{upload_id}").json()
+    assert (out["status"], out["reject_reason"]) == ("rejected", "read_failed")
 
 
 def test_uploads_cannot_be_deleted_or_widened_by_the_app_role(shop):

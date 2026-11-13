@@ -57,7 +57,7 @@ class UploadOut(BaseModel):
     section: Section
     file_name: str
     size_bytes: int
-    status: Literal["pending", "received", "parsing", "parsed", "rejected", "expired"]
+    status: Literal["pending", "received", "parsing", "parsed", "stored", "rejected", "expired"]
     reject_reason: str | None  # a code, for tests and logs
     reject_message: str | None  # plain words for the screen
     run_id: str | None

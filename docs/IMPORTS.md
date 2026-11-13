@@ -104,7 +104,7 @@ A file is uploaded into a **section** (`amazon`, `flipkart`, `meesho`, `own_invo
 POST for the exact key; `POST /uploads/{id}/complete` asks the store whether the file arrived at the declared size and
 queues the `imports.parse` job (the upload is the job's natural key, so a second complete is the same job). The job
 re-checks that the queuing user still has `uploads.create`, reads the object from this business's key, records the
-SHA-256, and moves the upload to `parsed` or `rejected` with a reason and plain message. `imports.uploads` holds no
+SHA-256, and moves the upload to `parsed`, `stored` (a PDF, kept for later; nothing is read until R1-M6) or `rejected` with a reason and plain message. A read error, or an unexpected error on the last retry, settles the upload as `rejected` with `read_failed`, so the screen needs only the upload status. `imports.uploads` holds no
 cell values; `raw_deleted_at` is set when the retention rule purges the raw file (a later slice).
 
 Roles: owner and admin upload; owner, admin and CA read (`uploads.view`); billing gets 404 (D-046).

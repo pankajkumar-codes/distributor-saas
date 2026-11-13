@@ -46,6 +46,7 @@ REJECT_MESSAGES = {
     "no_reader": "We can't read this kind of report yet.",
     "not_a_pdf": "This file isn't a PDF.",
     "upload_changed": "The file in storage isn't the one you chose. Upload it again.",
+    "read_failed": "We couldn't read this file. Try uploading it again, or contact support.",
     "not_allowed": "Whoever started this upload can no longer upload files.",
 }
 PDF_MAGIC = b"%PDF-"
@@ -171,12 +172,12 @@ def read_object(uow: UnitOfWork, up: Upload) -> bytes:
 
 
 def process(uow: UnitOfWork, upload_id: uuid.UUID) -> Upload:
-    """The parse job's body. Moves a received upload to parsed or rejected, in the job's
+    """The parse job's body. Moves a received upload to parsed (or stored, for a PDF), or rejected, in the job's
     transaction, so a crash leaves it received and the retry starts again."""
     from .readers import readers_for
 
     up = get(uow, upload_id, lock=True)
-    if up.status in ("parsed", "rejected", "expired"):
+    if up.status in ("parsed", "stored", "rejected", "expired"):
         return up  # a redelivery
     content = read_object(uow, up)
     if len(content) != up.size_bytes:
@@ -189,7 +190,7 @@ def process(uow: UnitOfWork, upload_id: uuid.UUID) -> Upload:
         if not content.startswith(PDF_MAGIC):
             reject(uow, upload_id, "not_a_pdf")
         else:
-            _set(uow, upload_id, status="parsed")
+            _set(uow, upload_id, status="stored")
         return get(uow, upload_id)
     if not readers_for(up.section):
         reject(uow, upload_id, "no_reader")

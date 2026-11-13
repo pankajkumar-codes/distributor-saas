@@ -38,7 +38,25 @@ def parse(ctx: jobs.JobContext) -> dict:
             pass
         return {"upload_id": str(upload_id), "status": "rejected"}
     try:
-        done = uploads.process(ctx.uow, upload_id)
+        with ctx.uow.tx.begin_nested():
+            done = uploads.process(ctx.uow, upload_id)
     except (AppError, Deny) as exc:
-        raise jobs.JobFailed(getattr(exc, "code", None) or str(exc)) from None
+        # A file we cannot use is settled here, so the screen sees one status. A JobFailed
+        # would roll this transaction back and leave the upload "received".
+        code = getattr(exc, "code", None) or "read_failed"
+        _settle(ctx, upload_id, "read_failed")
+        return {"upload_id": str(upload_id), "status": "rejected", "error": str(code)}
+    except Exception:
+        if ctx.attempt >= jobs.MAX_ATTEMPTS:
+            _settle(ctx, upload_id, "read_failed")
+            return {"upload_id": str(upload_id), "status": "rejected", "error": "read_failed"}
+        raise  # rolled back, retried
     return {"upload_id": str(upload_id), "status": done.status}
+
+
+def _settle(ctx: jobs.JobContext, upload_id: uuid.UUID, reason: str) -> None:
+    try:
+        if uploads.get(ctx.uow, upload_id).status == "received":
+            uploads.reject(ctx.uow, upload_id, reason)
+    except (AppError, Deny):
+        pass
