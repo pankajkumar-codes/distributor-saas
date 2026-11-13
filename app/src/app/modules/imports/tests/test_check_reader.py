@@ -58,3 +58,12 @@ def test_a_meesho_zip_and_a_missing_header_is_named(tmp_path):
 def test_a_file_no_reader_claims_exits_with_one_and_a_bad_file_with_two(tmp_path):
     assert run(tmp_path, "x.csv", b"a,b\n1,2\n").returncode == 1
     assert run(tmp_path, "y.csv", b"\xff\xfe\x00").returncode == 2
+
+
+def test_show_headers_lists_unused_column_names_only(tmp_path):
+    z = fxa.zipped({"MTR_B2C-JUL-2026.csv": fxa.b2c_held()})
+    plain = run(tmp_path, "a.zip", z)
+    done = run(tmp_path, "b.zip", z, "--show-headers")
+    assert "not used:" not in plain.stdout
+    assert done.returncode == 0 and "Columns in the file that the reader does not use" in done.stdout
+    assert_no_values(done.stdout)

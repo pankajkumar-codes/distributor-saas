@@ -35,6 +35,7 @@ Resolve these before the affected functionality is used for live financial trans
 - **CA sheet additions (R1-M4):** how Flipkart cash-back credit and debit notes (`cashback_adjustment`) and Meesho quantity-0 price-adjustment rows (`price_adjustment`) enter GSTR-1; how Flipkart Cancellation and Return Cancellation count. Rows stay held with the CA check on until answered.
 - **Flipkart column names** not in the spec (tax rate and amount pairs, Cash Back sheet headers, its seller GSTIN column) are guesses until a real workbook is checked.
 - **Meesho (R1-M4):** whether a second month shows a stable row id (then the composite key and counter can go); whether `total_taxable_sale_value` includes shipping; the zip entry names (assumed exactly `tcs_sales.xlsx` and `tcs_sales_return.xlsx`); the date formats.
+- **HSN length gate before filing (R1-M4 4b review):** the `enter_hsn` fix checks shape only (4, 6 or 8 digits). A 4-digit HSN passes where the seller's turnover may need 6 or 8, and the minimum-digits rule is not built yet. It must be a gate before GSTR-1 build (R1-M7), so a short HSN is not taken as valid for filing.
 - **Real-sample check:** reader profiles stay unverified until a real report is run through the local check script (R1-M4 slice 4) by the owner. The EM batches that ask.
 
 ## Tax questions for the CA (open; they gate go-live, not the build)

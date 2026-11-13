@@ -7,7 +7,9 @@
 For each file in it (and each sheet a reader names), prints which reader claims it, which of the reader's
 headers were found and which were not, and the row counts: how many rows read, would be staged as new, held
 (by reason), skipped as zero value, invalid (by error code), and duplicate or conflicting. It prints header
-names and numbers only, never a cell value, a seller GSTIN, an order number or a file path. It writes nothing
+names and numbers only, never a cell value, a seller GSTIN or an order number. The only file name it shows is
+the file's own base name (a Flipkart report's name carries a date range). An unexpected error prints only its
+type. With --show-headers it also lists the names of the columns the reader does not use. It writes nothing
 (no file, no database, no network) and keeps nothing: run it, read the screen, and report what it says.
 
 A reader's `verified` flag in refdata stays false until someone has run this on a real report and the headers
@@ -49,7 +51,7 @@ def _tables(path: Path, readers):
             raise FileRejected(f"{fname}: {exc}") from None
 
 
-def check(path: Path, section: str | None, out) -> int:
+def check(path: Path, section: str | None, out, show_headers: bool = False) -> int:
     from app.modules.imports.parsing import FileRejected, RowStatus, parse
     from app.modules.imports.readers import clear_for_tests, readers_for, register_platform_readers
     from app.modules.imports.parsing.profiles import header_key
@@ -106,6 +108,9 @@ def check(path: Path, section: str | None, out) -> int:
                                     else "found" if gstin else "not found"), file=out)
         if result.unmapped_headers:
             print(f"  Columns in the file that the reader does not use: {len(result.unmapped_headers)}", file=out)
+            if show_headers:  # header names only, the file's own column titles, never a cell
+                for name in result.unmapped_headers:
+                    print(f"    not used: {name!r}", file=out)
     return status
 
 
@@ -126,11 +131,17 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("file", type=Path)
     parser.add_argument("--section", choices=["amazon", "flipkart", "meesho"])
+    parser.add_argument("--show-headers", action="store_true",
+                        help="also list the names of the columns the reader does not use (header names only)")
     args = parser.parse_args(argv)
     if not args.file.is_file():
         print("No such file.")
         return 2
-    return check(args.file, args.section, sys.stdout)
+    try:
+        return check(args.file, args.section, sys.stdout, show_headers=args.show_headers)
+    except Exception as exc:  # never let a traceback (which could carry a cell) reach the screen
+        print(f"Could not check the file ({type(exc).__name__}).")
+        return 2
 
 
 if __name__ == "__main__":
