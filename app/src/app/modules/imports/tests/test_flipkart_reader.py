@@ -89,3 +89,13 @@ def test_personal_columns_are_not_stored():
 
 def test_the_profiles_are_unverified_until_a_real_file_confirms_them():
     assert not SALES.profile().verified and not CASH.profile().verified
+
+
+def test_a_lower_case_gstin_is_the_same_seller_as_its_upper_case_form():
+    content = fx.workbook([fx.sale("1"), fx.sale("2", gstin=fx.OWN.lower())])
+    assert SALES.gstin(sheet(content, "Sales Report")) == fx.OWN
+
+
+def test_a_header_only_sheet_has_no_rows():
+    content = fx.workbook([fx.sale("1")], [])
+    assert SALES.has_rows(sheet(content, "Sales Report")) and not CASH.has_rows(sheet(content, "Cash Back Report"))

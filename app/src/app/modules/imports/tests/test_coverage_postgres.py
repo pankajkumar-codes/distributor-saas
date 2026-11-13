@@ -105,3 +105,41 @@ def test_another_business_sees_no_coverage_and_cannot_read_ours(shop):  # noqa: 
     other = new_business(pg, "bob")
     assert get(pg, f"/api/v1/b/{other}/marketplace-coverage", sub="bob").json()["months"] == []
     assert get(pg, f"/api/v1/b/{biz}/marketplace-coverage", sub="bob").status_code == 404
+
+
+XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
+def test_a_workbook_with_a_header_only_sheet_covers_the_months_of_its_sheets(shop):  # noqa: F811
+    from .fixtures import flipkart as fxf
+    pg, biz, _ = shop
+    upload(shop, "flipkart", "Sales Report - Jul 2026.xlsx", fxf.workbook([fxf.sale("1", gstin=GSTIN)], []), XLSX)
+    run_jobs(shop)
+    (month,) = get(pg, f"/api/v1/b/{biz}/marketplace-coverage").json()["months"]
+    flipkart = next(p for p in month["marketplaces"] if p["marketplace"] == "flipkart")
+    assert flipkart["received"] == ["cashback", "orders"] and flipkart["complete"] is True
+
+
+def test_a_meesho_month_covers_the_months_of_its_dates(shop):  # noqa: F811
+    from .fixtures import meesho as fxm
+    pg, biz, _ = shop
+    sales = fxm.workbook([fxm.sale("1", gstin=GSTIN)])
+    returns = fxm.workbook([fxm.sale("1", gstin=GSTIN, cancel_return_date="2026-08-02 00:00:00")],
+                           headers=fxm.RETURN_HEADERS)
+    upload(shop, "meesho", "m.zip", fxa.zipped({"tcs_sales.xlsx": sales, "tcs_sales_return.xlsx": returns}), "application/zip")
+    run_jobs(shop)
+    months = get(pg, f"/api/v1/b/{biz}/marketplace-coverage").json()["months"]
+    got = {m["month"]: next(p for p in m["marketplaces"] if p["marketplace"] == "meesho")["received"] for m in months}
+    assert got == {"2026-07": ["orders"], "2026-08": ["returns"]}
+
+
+def test_cash_back_rows_with_no_date_take_the_months_of_the_sales_sheet_and_the_job_finishes(shop):  # noqa: F811
+    from .fixtures import flipkart as fxf
+    pg, biz, _ = shop
+    content = fxf.workbook([fxf.sale("1", gstin=GSTIN)], [fxf.note("CN-1", gstin=GSTIN, date="")])
+    upload_id, _ = upload(shop, "flipkart", "Sales Report - Jul 2026.xlsx", content, XLSX)
+    assert run_jobs(shop) == ["done"]
+    assert state(shop, upload_id)["status"] == "parsed"
+    (month,) = get(pg, f"/api/v1/b/{biz}/marketplace-coverage").json()["months"]
+    flipkart = next(p for p in month["marketplaces"] if p["marketplace"] == "flipkart")
+    assert flipkart["received"] == ["cashback", "orders"]

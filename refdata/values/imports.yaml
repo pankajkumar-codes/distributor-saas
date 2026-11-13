@@ -481,3 +481,23 @@
   source_title: "R1-M4 S4: plain words on which files the meesho section needs (wording to be settled)"
   last_checked: 2026-11-13
   status: provisional
+
+- key: imports.profile.meesho_sales_v1.verified
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/platform-reader-spec.md
+  source_title: "R1-M4 S3: Meesho layout built from the spec; stays false until a real report is checked on the owner's machine"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.profile.meesho_returns_v1.verified
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/platform-reader-spec.md
+  source_title: "R1-M4 S3: Meesho layout built from the spec; stays false until a real report is checked on the owner's machine"
+  last_checked: 2026-11-13
+  status: provisional

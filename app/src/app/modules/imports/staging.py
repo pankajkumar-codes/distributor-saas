@@ -25,7 +25,7 @@ from platform_common.clock import Clock
 from platform_common.ids import uuid7
 
 from .models import ImportRow, ImportRun, RunStatus, StagedRowStatus
-from .parsing import MappingProfile, ParsedRow, RowStatus, SourceTable, parse
+from .parsing import MappingProfile, ParsedRow, ParseResult, RowStatus, SourceTable, parse
 
 _LOOKUP_BATCH = 500
 
@@ -52,7 +52,8 @@ def stage(
     gstin: str | None = None,
     classify: Classify | None = None,
     flag_live_overlap: bool = False,
-    coverage_field: str | None = None,
+    result: ParseResult | None = None,
+    months: list[str] | None = None,
 ) -> tuple[ImportRun, bool]:
     """Returns (run, created). created is False when this file was already staged.
 
@@ -66,15 +67,16 @@ def stage(
     it. Off by default: the older flow compares only against confirmed runs and settles overlap at
     confirm (StaleRun).
 
-    `coverage_field` names the parsed date field whose calendar months say which months of the
-    marketplace this file covers (`summary.months`). That is for the coverage view only: it is not the
-    return period, which the build decides once the CA has answered (spec section 5, item 1).
+    `months` (from `coverage_months`) are the calendar months this file covers, stored in `summary.months`
+    when the run is inserted (the app role cannot update a run afterwards). That is for the coverage view
+    only: it is not the return period, which the build decides once the CA has answered (spec section 5,
+    item 1). `result` is the file already parsed with this profile, so the caller can read its months first.
     `summary.already_uploaded_of` is the id of an earlier preview of this same file that was discarded."""
     existing = _find_run(session, business_id, profile, table.checksum_sha256)
     if existing is not None:
         return existing, False
 
-    result = parse(table, profile)
+    result = result if result is not None else parse(table, profile)
     keys = {r.row_number: _key_digest(r.dedup_key) for r in result.rows if r.dedup_key is not None}
     previous = _latest_confirmed_hashes(
         session, business_id, profile.marketplace, profile.report_type, set(keys.values())
@@ -139,8 +141,6 @@ def stage(
         )
     counts["total"] = len(rows)
     counts["skipped_blank"] = result.skipped_blank_rows
-    months = sorted({f"{r.normalized[coverage_field]:%Y-%m}" for r in result.rows
-                     if coverage_field and r.normalized and r.normalized.get(coverage_field) is not None})
     earlier = session.scalar(
         select(ImportRun.id).where(
             ImportRun.business_id == business_id, ImportRun.marketplace == profile.marketplace,
@@ -148,7 +148,7 @@ def stage(
             ImportRun.status == RunStatus.discarded).order_by(ImportRun.uploaded_at.desc()).limit(1))
     run.summary = {
         **counts,
-        "months": months,
+        "months": list(months or []),
         **({"already_uploaded_of": str(earlier)} if earlier is not None else {}),
         # Header names only: personal and unmapped columns are read but never stored.
         "columns_not_stored": result.personal_headers + result.unmapped_headers,
@@ -246,6 +246,12 @@ def _live_staged_keys(session, business_id, profile, keys: set[str]) -> set[str]
             )
         )
     return found
+
+
+def coverage_months(result: ParseResult, field: str | None) -> list[str]:
+    """The calendar months of one parsed date field, for the coverage view."""
+    return sorted({f"{r.normalized[field]:%Y-%m}" for r in result.rows
+                   if field and r.normalized and r.normalized.get(field) is not None})
 
 
 def _find_run(session, business_id, profile, checksum) -> ImportRun | None:
