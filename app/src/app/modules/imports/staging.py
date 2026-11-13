@@ -74,7 +74,12 @@ def stage(
         session, business_id, profile.marketplace, profile.report_type, set(keys.values())
     )
 
-    elsewhere = _live_staged_keys(session, business_id, profile, set(keys.values())) if flag_live_overlap else set()
+    elsewhere: set[str] = set()
+    if flag_live_overlap:
+        # Same lock as confirm, held until this transaction ends: two jobs staging overlapping
+        # files of one report type are serialised, so the second sees the first's rows.
+        _lock_report_type(session, business_id, profile.marketplace, profile.report_type)
+        elsewhere = _live_staged_keys(session, business_id, profile, set(keys.values()))
 
     run = ImportRun(
         id=uuid7(),
@@ -172,7 +177,7 @@ def confirm(
     stale = _stale_rows(session, run)
     if stale:
         raise StaleRun(
-            f"{stale} row(s) changed status because another file was confirmed after this one was "
+            f"{stale} row(s) changed status because another file was confirmed or discarded after this one was "
             "staged; discard this run and stage the file again"
         )
     run.status = RunStatus.confirmed
@@ -258,9 +263,49 @@ def _stale_rows(session: Session, run: ImportRun) -> int:
     previous = _latest_confirmed_hashes(
         session, run.business_id, run.marketplace, run.report_type, {r.dedup_key for r in rows if r.dedup_key}
     )
-    return sum(
+    stale = sum(
         1 for r in rows if _staged_status(RowStatus.valid, previous.get(r.dedup_key), r.content_hash) != r.status
     )
+    return stale + _orphaned_overlaps(session, run)
+
+
+def _orphaned_overlaps(session: Session, run: ImportRun) -> int:
+    """Rows staged as `duplicate_in_other_file` whose record no other live or confirmed run holds
+    any more (the file that had it was discarded). Rows are insert-only, so they cannot be
+    re-evaluated; the run is stale instead and its file is staged again."""
+    marked = [
+        (r.dedup_key, r.errors)
+        for r in session.execute(
+            select(ImportRow.dedup_key, ImportRow.errors).where(
+                ImportRow.run_id == run.id, ImportRow.business_id == run.business_id,
+                ImportRow.status == StagedRowStatus.duplicate, ImportRow.dedup_key.is_not(None),
+            )
+        )
+    ]
+    keys = {k for k, errors in marked if any(e.get("code") == "duplicate_in_other_file" for e in (errors or []))}
+    if not keys:
+        return 0
+    held: set[str] = set()
+    ordered = sorted(keys)
+    for start in range(0, len(ordered), _LOOKUP_BATCH):
+        held.update(
+            session.scalars(
+                select(ImportRow.dedup_key)
+                .join(ImportRun, ImportRun.id == ImportRow.run_id)
+                .where(
+                    ImportRow.business_id == run.business_id,
+                    ImportRun.business_id == run.business_id,
+                    ImportRun.id != run.id,
+                    ImportRun.marketplace == run.marketplace,
+                    ImportRun.report_type == run.report_type,
+                    ImportRun.status.in_([RunStatus.staged, RunStatus.confirmed]),
+                    ImportRow.status.in_([StagedRowStatus.new, StagedRowStatus.changed, StagedRowStatus.held,
+                                          StagedRowStatus.skipped_zero]),
+                    ImportRow.dedup_key.in_(ordered[start : start + _LOOKUP_BATCH]),
+                )
+            )
+        )
+    return len(keys - held)
 
 
 def _latest_confirmed_hashes(session, business_id, marketplace, report_type, keys: set[str]) -> dict[str, str]:

@@ -328,3 +328,36 @@ def test_a_zip_lists_every_run_it_made(shop):  # noqa: F811
     out = state(shop, upload_id)
     assert len(out["run_ids"]) == 2 and out["run_id"] == out["run_ids"][0]
     assert {get(pg, f"/api/v1/b/{biz}/runs/{r}").json()["upload_id"] for r in out["run_ids"]} == {upload_id}
+
+
+def test_discarding_only_the_first_file_makes_the_second_stale_at_confirm(shop):  # noqa: F811
+    from app.modules.imports import staging
+
+    pg, biz, _ = shop
+    first, _ = upload(shop, "amazon", "orders-1.csv", csv("D-1,Shipment,1,6109,10.00", "D-2,Shipment,1,6109,20.00"))
+    second, _ = upload(shop, "amazon", "orders-2.csv", csv("D-2,Shipment,1,6109,20.00", "D-3,Shipment,1,6109,30.00"))
+    run_jobs(shop)
+    first_run, second_run = run_of(shop, first), run_of(shop, second)
+    post(pg, f"/api/v1/b/{biz}/runs/{first_run}/discard")  # only the first
+    from sqlalchemy.orm import Session
+
+    with Session(pg.owner) as s:  # confirm is not exposed yet; call the service as the table owner would
+        s.execute(text("select set_config('app.tenant_id', :b, false)"), {"b": str(biz)})
+        with pytest.raises(staging.StaleRun):
+            staging.confirm(s, business_id=biz, run_id=uuid.UUID(second_run), user_id=uuid.uuid4())
+        s.rollback()
+
+
+def test_an_overlap_with_a_file_that_is_still_live_is_not_stale(shop):  # noqa: F811
+    from sqlalchemy.orm import Session
+
+    from app.modules.imports import staging
+
+    pg, biz, _ = shop
+    upload(shop, "amazon", "orders-1.csv", csv("D-1,Shipment,1,6109,10.00", "D-2,Shipment,1,6109,20.00"))
+    second, _ = upload(shop, "amazon", "orders-2.csv", csv("D-2,Shipment,1,6109,20.00", "D-3,Shipment,1,6109,30.00"))
+    run_jobs(shop)
+    with Session(pg.owner) as s:
+        run = staging.confirm(s, business_id=biz, run_id=uuid.UUID(run_of(shop, second)), user_id=uuid.uuid4())
+        assert run.status.value == "confirmed"
+        s.rollback()
