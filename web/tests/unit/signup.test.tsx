@@ -195,6 +195,23 @@ describe("sign-up", () => {
     expect(screen.queryByText(/couldn't reach the server/)).not.toBeInTheDocument();
   });
 
+  it("a refresh that hangs on load shows the plain message and a manual retry, and is not retried by itself", async () => {
+    window.history.replaceState(null, "", "/onboarding/business");
+    const real = AbortSignal.timeout.bind(AbortSignal);
+    const spy = vi.spyOn(AbortSignal, "timeout").mockImplementation(() => real(30));
+    onTestFinished(() => spy.mockRestore());
+    const fetchMock = vi.fn(
+      (_input: Request, init?: RequestInit) =>
+        new Promise<Response>((_, reject) => init?.signal?.addEventListener("abort", () => reject(init.signal?.reason))),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+    expect(await screen.findByText("We couldn't reach the server. Check your connection and try again.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeEnabled();
+    await new Promise((r) => setTimeout(r, 150)); // no automatic second attempt with the same cookie
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps a caller's own abort signal working alongside the time limit", async () => {
     const { withAuthTimeout } = await import("../../src/api/timeout");
     const own = new AbortController();
