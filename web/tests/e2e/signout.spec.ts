@@ -30,3 +30,21 @@ test("Sign out ends the session: protected pages go to sign-in, and a reload sta
   await expect(page).toHaveURL(/\/signin/);
   await expect(page.getByRole("button", { name: "Sign out" })).toHaveCount(0);
 });
+
+// Chrome user report: "nothing happened on clicking". Whatever the server does with the
+// request, the button signs this tab out and goes to sign-in.
+for (const [name, fulfil] of [
+  ["a 401 (Origin or session refused)", (route: import("@playwright/test").Route) => route.fulfill({ status: 401, contentType: "application/json", body: '{"error":{"code":"session_invalid"}}' })],
+  ["a 500", (route: import("@playwright/test").Route) => route.fulfill({ status: 500 })],
+  ["a dropped connection", (route: import("@playwright/test").Route) => route.abort("failed")],
+] as const) {
+  test(`Sign out still signs this tab out when the server answers with ${name}`, async ({ page }, info) => {
+    await signUp(page, `e2e-signout-fail-${info.project.name}-${Date.now()}@example.com`);
+    await createBusiness(page);
+    await page.route("**/api/v1/auth/signout", fulfil);
+    await page.getByRole("button", { name: "Sign out" }).click();
+    await expect(page).toHaveURL(/\/signin$/);
+    await expect(page.getByRole("heading", { name: /sign in/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Sign out" })).toHaveCount(0);
+  });
+}

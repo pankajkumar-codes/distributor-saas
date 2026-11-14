@@ -108,6 +108,68 @@ describe("signOut", () => {
     expect(heard).toContainEqual({ type: "signed_out" });
   });
 
+  // Whatever the server does, the button must sign this tab out (Pankaj: "nothing happened").
+  it.each([
+    ["a 401 (the server refused the session or the Origin)", { status: 401, body: { error: { code: "session_invalid" } } }],
+    ["a 403", { status: 403 }],
+    ["a 500", { status: 500 }],
+  ])("still signs this tab out on %s", async (_name, reply) => {
+    const seen: boolean[] = [];
+    onSessionChange((signedIn) => seen.push(signedIn));
+    startSession("t1", 3600);
+    server.reply("/api/v1/auth/signout", reply);
+    await signOut();
+    expect(tokenStore.get()).toBeNull();
+    expect(seen.at(-1)).toBe(false);
+    await tick();
+    expect(heard).toContainEqual({ type: "signed_out" });
+  });
+
+  it("still signs this tab out when the network is down", async () => {
+    const seen: boolean[] = [];
+    onSessionChange((signedIn) => seen.push(signedIn));
+    startSession("t1", 3600);
+    vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new TypeError("offline"))));
+    await signOut();
+    expect(tokenStore.get()).toBeNull();
+    expect(seen.at(-1)).toBe(false);
+  });
+
+  it("still signs this tab out when the server never answers", async () => {
+    const seen: boolean[] = [];
+    onSessionChange((signedIn) => seen.push(signedIn));
+    startSession("t1", 3600);
+    const real = globalThis.fetch;
+    globalThis.fetch = ((_url: unknown, init?: RequestInit) =>
+      new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(init.signal!.reason));
+      })) as typeof fetch;
+    vi.useFakeTimers();
+    try {
+      const done = signOut();
+      await vi.advanceTimersByTimeAsync(4_900);
+      expect(tokenStore.get()).toBe("t1"); // still waiting for the server
+      await vi.advanceTimersByTimeAsync(200);
+      await done;
+    } finally {
+      vi.useRealTimers();
+      globalThis.fetch = real;
+    }
+    expect(tokenStore.get()).toBeNull();
+    expect(seen.at(-1)).toBe(false);
+  });
+
+  it("does not throw when the broadcast channel is already closed", async () => {
+    startSession("t1", 3600);
+    server.reply("/api/v1/auth/signout", { status: 204 });
+    vi.spyOn(BroadcastChannel.prototype, "postMessage").mockImplementation(() => {
+      throw new DOMException("closed", "InvalidStateError");
+    });
+    await expect(signOut()).resolves.toBeUndefined();
+    expect(tokenStore.get()).toBeNull();
+    vi.restoreAllMocks();
+  });
+
   it("follows a sign-out from another tab", async () => {
     const seen: boolean[] = [];
     onSessionChange((signedIn) => seen.push(signedIn));

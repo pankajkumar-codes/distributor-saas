@@ -124,21 +124,37 @@ export function endSession() {
   emit(false);
 }
 
-/** Ends the session on the server, then in every tab. Never fails from the user's side. */
+// A sign-out that waits on a stalled server must still sign the user out of this tab.
+const SIGNOUT_TIMEOUT_MS = 5_000;
+
+/**
+ * Ends the session on the server, then in every tab. However the server answers (204, a
+ * refusal such as 401 or 403, a 5xx, a network error, or no answer within 5 s) this tab is
+ * signed out, and the call neither throws nor hangs: a Sign out button must never do nothing.
+ */
 export async function signOut({ rememberPage = true }: { rememberPage?: boolean } = {}) {
   leftOnPurpose = !rememberPage;
   const token = tokenStore.get();
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), SIGNOUT_TIMEOUT_MS);
   try {
     await globalThis.fetch(window.location.origin + SIGNOUT, {
       method: "POST",
       credentials: "same-origin",
       headers: token ? { Authorization: `Bearer ${token}` } : {},
+      signal: abort.signal,
     });
   } catch {
-    // Offline: the server session stays until it expires, but this tab still signs out.
+    // Offline or too slow: the server session stays until it expires, but this tab still signs out.
+  } finally {
+    clearTimeout(timer);
   }
   tokenStore.clear();
-  bus()?.postMessage({ type: "signed_out" } satisfies Message);
+  try {
+    bus()?.postMessage({ type: "signed_out" } satisfies Message);
+  } catch {
+    // A closed channel only means no other tab hears it; they find out on their next refresh.
+  }
   emit(false);
 }
 
