@@ -81,7 +81,9 @@ so you create a business through the sign-up page.
 
 1. Install **Docker Desktop**, and in Settings > Resources > WSL integration turn on your Ubuntu distro. Install Ubuntu from
    the Microsoft Store if you do not have it, then in PowerShell run `wsl --shutdown` and reopen Ubuntu so the setting takes effect.
-2. In Ubuntu, check `docker ps` works. The project needs **Python 3.12**. Ubuntu's own Python may be newer (3.14 at the
+   A `docker-desktop` entry in `wsl --status` or `wsl -l -v` is Docker's own and cannot be used for these steps: you need Ubuntu.
+2. In Ubuntu, check `docker ps` works: it must print a table. If it says "permission denied ... docker.sock", turn the WSL
+   integration on as in step 1; if it still fails, run `sudo usermod -aG docker $USER`, then close and reopen Ubuntu. The project needs **Python 3.12**. Ubuntu's own Python may be newer (3.14 at the
    time of writing) and is too new, so install 3.12 from the deadsnakes archive:
    `sudo add-apt-repository ppa:deadsnakes/ppa && sudo apt update && sudo apt install python3.12 python3.12-venv`.
    The web app needs **Node.js 22 or newer** (`node -v`).
@@ -99,7 +101,8 @@ so you create a business through the sign-up page.
 **Coming back later**
 
 1. Start **Docker Desktop** and wait for "Engine running".
-2. In PowerShell: `wsl -d Ubuntu`. Then `cd ~/distributor-saas && source .venv/bin/activate`.
+2. Open Ubuntu: the **Ubuntu** Start menu app, or `wsl -d Ubuntu` in PowerShell (`wsl -l -v` lists the exact name; this is
+   also how you get back in after `wsl --shutdown`). Then `cd ~/distributor-saas && source .venv/bin/activate`.
 3. `make db-up` (your database and data are kept between runs).
 4. Start the API again (`PYTHON=python make run-api`) and, in a second Ubuntu terminal, the web app (`cd ~/distributor-saas/web && npm run dev`).
    The API keeps sign-ins in memory, so after a restart you sign in again.
