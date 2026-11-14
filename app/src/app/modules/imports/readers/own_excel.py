@@ -82,7 +82,7 @@ COLUMNS = (
     Column("Taxable value", _money("taxable_value", "Taxable value", required=True),
            "The line's value before tax, after discount."),
     Column("GST rate %", _money("gst_rate", "GST rate %", required=True),
-           "The number only: type 18, not 18% and not 0.18."),
+           "The rate printed on your document, as a plain number without a % sign."),
     Column("IGST", _money("igst", "IGST"), "The tax amounts as on the document. Leave a column blank if not charged."),
     Column("CGST", _money("cgst", "CGST"), ""),
     Column("SGST/UTGST", _money("sgst", "SGST/UTGST"), ""),

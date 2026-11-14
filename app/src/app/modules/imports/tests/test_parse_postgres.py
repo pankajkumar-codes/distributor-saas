@@ -246,7 +246,7 @@ def test_sections_always_list_all_five_with_one_of_four_statuses(shop):  # noqa:
     s = sections_of(shop)
     assert list(s) == ["amazon", "flipkart", "meesho", "own_invoices_excel", "own_invoices_pdf"]
     assert {v["status"] for v in s.values()} == {"not uploaded"}
-    assert [s[k]["enabled"] for k in s] == [True, True, True, False, False]
+    assert [s[k]["enabled"] for k in s] == [True, True, True, True, False]
     upload(shop, "amazon", "orders-1.csv", CLEAN)
     assert sections_of(shop)["amazon"]["status"] == "processing"  # received, the job has not run
     run_jobs(shop)

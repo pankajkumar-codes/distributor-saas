@@ -1142,6 +1142,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/uploads/own-invoices-template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Own Invoices Template
+         * @description The Excel template for the own-invoices section: an `Invoices` sheet with the header row and a `How to
+         *     fill` sheet. No values. Declared before the upload id route so the name is not read as an id.
+         */
+        get: operations["own_invoices_template_api_v1_b__business_id__uploads_own_invoices_template_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/uploads/{upload_id}": {
         parameters: {
             query?: never;
@@ -6047,6 +6068,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UploadStartOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    own_invoices_template_api_v1_b__business_id__uploads_own_invoices_template_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": unknown;
                 };
             };
             /** @description Validation Error */
