@@ -154,6 +154,44 @@ describe("sign-up", () => {
     expect(sent.filter((s) => s.path === SIGNUP)).toHaveLength(2);
     expect(screen.getByText(/Code expires in (10:00|9:5\d)/)).toBeInTheDocument();
   });
+  it("gives up on a code request that gets no answer, says so, and lets the button be pressed again", async () => {
+    const real = AbortSignal.timeout.bind(AbortSignal);
+    vi.spyOn(AbortSignal, "timeout").mockImplementation(() => real(30));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: Request, init?: RequestInit) =>
+        new URL(input.url).pathname === REFRESH
+          ? Promise.resolve(new Response(null, { status: 401 }))
+          : new Promise<Response>((_, reject) => init?.signal?.addEventListener("abort", () => reject(init.signal?.reason))),
+      ),
+    );
+    render(<App />);
+    fireEvent.change(screen.getByLabelText("Work email"), { target: { value: EMAIL } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: PASSWORD } });
+    const button = screen.getByRole("button", { name: "Email me a code" });
+    fireEvent.click(button);
+    expect(button).toBeDisabled();
+    expect(await screen.findByText("We couldn't reach the server. Check your connection and try again.")).toBeInTheDocument();
+    expect(button).toBeEnabled();
+  });
+
+  it("says where the code is in the local demo build only", async () => {
+    vi.stubEnv("VITE_DEMO", "1");
+    const view = render(<App />);
+    expect(screen.getByText(/Local demo: no email is sent/)).toBeInTheDocument();
+    view.unmount();
+    vi.stubEnv("VITE_DEMO", "");
+    render(<App />);
+    expect(screen.queryByText(/Local demo/)).not.toBeInTheDocument();
+  });
+
+  it("explains a refused page address on the code step instead of a generic failure", async () => {
+    render(<App />);
+    await stepOne();
+    reply(VERIFY, { status: 401, body: { error: { code: "session_invalid", message: "x" } } });
+    await enterCode();
+    expect(await screen.findByText(/did not accept the address this page is open at/)).toBeInTheDocument();
+  });
 });
 
 it("shows the not-found page for an unknown path", async () => {

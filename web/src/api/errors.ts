@@ -36,6 +36,7 @@ const BY_CODE: Record<string, string> = {
   code_not_accepted: "That code didn't work. Check it, or send a new code.",
   email_invalid: "Enter a valid email address, like name@business.in.",
   password_weak: "Choose a stronger password.",
+  session_invalid: "The server did not accept the address this page is open at. Open the app from the link your setup printed and try again.",
   signin_not_accepted: "The email or password is wrong.",
   signin_expired: "That took too long. Sign in again.",
   totp_not_accepted: "That code didn't work. Enter the current code from your authenticator app.",

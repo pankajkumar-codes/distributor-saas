@@ -5,6 +5,7 @@ import { api, call } from "../../api/client";
 import { errorText, type ApiError } from "../../api/errors";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
+import { DemoNote } from "../../kit/DemoNote";
 import { Field } from "../../kit/Field";
 
 type Props = { initialEmail: string; initialPassword: string; onSent: (email: string, password: string) => void };
@@ -36,6 +37,7 @@ export function EmailStep({ initialEmail, initialPassword, onSent }: Props) {
       <p className="step">Step 1 of 4</p>
       <h1>Create your account</h1>
       <form onSubmit={submit} noValidate>
+        <DemoNote />
         {error && !error.field && <Banner tone="error">{errorText(error)}</Banner>}
         <Field
           label="Work email"

@@ -10,8 +10,17 @@ import type { paths } from "./schema";
 export const api = createClient<paths>({
   baseUrl: window.location.origin,
   // Looked up per call, so tests can stub the global fetch.
-  fetch: (request) => globalThis.fetch(request),
+  fetch: (request) => globalThis.fetch(request, signalFor(request)),
 });
+
+// The sign-in, sign-up and refresh calls are short. If one gets no answer in this time it is given up, so the
+// screen shows "we couldn't reach the server" and its button works again instead of staying greyed out. Uploads
+// and downloads are not under /auth and are left alone.
+export const AUTH_TIMEOUT_MS = 20_000;
+
+function signalFor(request: Request): RequestInit | undefined {
+  return new URL(request.url).pathname.startsWith("/api/v1/auth/") ? { signal: AbortSignal.timeout(AUTH_TIMEOUT_MS) } : undefined;
+}
 
 api.use({
   onRequest({ request }) {

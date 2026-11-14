@@ -8,6 +8,7 @@ import { errorText, type ApiError } from "../../api/errors";
 import { startSession } from "../../auth/session";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
+import { DemoNote } from "../../kit/DemoNote";
 import { Field } from "../../kit/Field";
 import { OtpInput } from "../../kit/OtpInput";
 
@@ -83,6 +84,7 @@ export function CodeStep({ email, sentAt, password, onResent, onBack, onPassword
       <p className="step">Step 2 of 4</p>
       <h1>Check your email</h1>
       <form onSubmit={submit} noValidate>
+        <DemoNote />
         {bannerError && <Banner tone="error">{bannerError}</Banner>}
         {resend.isSuccess && !error && <Banner>We sent a new code. Earlier codes no longer work.</Banner>}
         <p>

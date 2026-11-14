@@ -44,7 +44,8 @@ def _iam_engine() -> Engine:
 def engine() -> Engine:
     url = os.environ.get("DATABASE_URL")
     if url:
-        return create_engine(url)
+        # A database that cannot be reached fails in seconds, not after the operating system's own long wait.
+        return create_engine(url, connect_args={"connect_timeout": 5})
     return _iam_engine()
 
 
