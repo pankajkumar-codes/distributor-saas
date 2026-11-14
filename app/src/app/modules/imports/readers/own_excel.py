@@ -105,6 +105,9 @@ class OwnExcelReader(HeaderReader):
     coverage_field = "doc_date"  # the month label for the coverage view only (D-052)
     any_sheet = True  # a CSV, or a workbook whose one sheet was renamed, is still read by its headers
     refdata_keys = (NUMBER_PATTERN_KEY,)  # the upload pipeline reads these and the state list for `classify`
+    # Confirm checks that the lines of one document agree on these (R1-M7 gate, r1-m5 plan section 7).
+    document_key = ("seller_gstin", "doc_type", "doc_number")
+    document_agree = ("doc_date", "original_number", "original_date", "buyer_gstin", "invoice_total")
 
     def __init__(self):
         super().__init__(entry=r"(?!)", markers=MARKERS, gstin_header="Seller GSTIN", sheet=SHEET)  # no zip entries

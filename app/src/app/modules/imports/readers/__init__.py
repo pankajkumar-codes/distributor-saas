@@ -67,6 +67,11 @@ def readers_for(section: str) -> list[Reader]:
     return [r for r in _registry.values() if r.section == section]
 
 
+def reader_for_run(section: str | None, report_type: str) -> Reader | None:
+    """The registered reader that staged a run: a section's readers have distinct report types."""
+    return next((r for r in readers_for(section) if r.report_type == report_type), None) if section else None
+
+
 def register_platform_readers() -> None:
     """The real readers (R1-M4). Safe to call twice; the API calls it once at start-up."""
     from .amazon import AmazonReader

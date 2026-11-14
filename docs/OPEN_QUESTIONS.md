@@ -236,5 +236,12 @@ Every row in `refdata/` is `provisional`. Before go-live:
 - **Prod endpoints sit in one AZ**, like staging's. If that AZ fails, the Lambdas lose SQS, Parameter Store and Cognito until it recovers. A second AZ doubles the endpoint line (about USD 28.5 a month more). Decide with Multi-AZ RDS at public launch (TD-22).
 - The HTTP API's own `execute-api` URL also answers. It applies the same authorizer and app checks, but it bypasses CloudFront's response headers. Restricting it to CloudFront needs a shared-secret header or a WAF, and is not done.
 
+## R1-M7 (GSTR-1 build from uploaded rows)
+- **Period date for Flipkart and Meesho rows** (CA question sheet M-4): confirm of those two files is refused until a reviewed refdata row `imports.profile.<id>.period_field` names the date. The Amazon row (credit note date, else invoice date) is provisional and needs the CA's check.
+- **A number reused in another financial year:** treated as another document (identity includes the FY of the document date); rests on the "unique per financial year" reading in document-fields.md, Rule 46(b). Needs CA check; no user text states it as law.
+- **Check tolerances:** none chosen. Taxable value x rate against tax, intra/inter-state from the place of supply and the seller's state, and CGST against SGST are report-only findings with the difference shown; the CA decides any tolerance (including a paisa after rounding) and whether any becomes a block.
+- **Debit notes** have no GSTR-1 section in the builder yet: they are shown as "not in this return yet, needs CA check" and not summed. R1-M8 must refuse or clearly warn on export while any is unsummed.
+- **Operator GSTIN, Table 14 and TCS** are not in R1-M7; marketplace rows build under the own-sales (OE) assumption and the screen says so.
+
 ## Decision handling
 For each answer, update `docs/DECISIONS.md` with the decision, rationale, trade-offs, and approval status. Do not silently turn assumptions into requirements.
