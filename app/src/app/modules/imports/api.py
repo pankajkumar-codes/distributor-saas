@@ -9,7 +9,7 @@ are 404 (LLD-0). Nothing here reaches a return.
 from datetime import date, datetime
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Header, Query, Request
+from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi import status as http
 from pydantic import BaseModel, ConfigDict, Field, StrictInt
 
@@ -22,7 +22,7 @@ from platform_common.permissions import Permission, require
 from platform_common.uow import BusinessUoW, parse_id
 
 from . import jobs as import_jobs
-from . import coverage, runs, sections, uploads
+from . import coverage, runs, sections, template, uploads
 
 router = APIRouter(tags=["imports"])
 CREATE = [Depends(require(Permission.UPLOADS_CREATE))]
@@ -125,6 +125,15 @@ def list_uploads(uow: BusinessUoW, page: Annotated[PageParams, Depends(page_para
     found, more = uploads.list_uploads(uow, section, page.limit, page.offset, uploads.month_range(from_, to))
     ids = runs.run_ids_for(uow, [u.id for u in found])
     return UploadsOut(uploads=[_out(u, ids[u.id]) for u in found], has_more=more)
+
+
+@router.get("/b/{business_id}/uploads/own-invoices-template", dependencies=VIEW, response_class=Response,
+            responses={http.HTTP_200_OK: {"content": {template.CONTENT_TYPE: {}}}})
+def own_invoices_template():
+    """The Excel template for the own-invoices section: an `Invoices` sheet with the header row and a `How to
+    fill` sheet. No values. Declared before the upload id route so the name is not read as an id."""
+    return Response(template.build(), media_type=template.CONTENT_TYPE,
+                    headers={"Content-Disposition": f'attachment; filename="{template.FILE_NAME}"'})
 
 
 @router.get("/b/{business_id}/uploads/{upload_id}", response_model=UploadOut, dependencies=VIEW)
