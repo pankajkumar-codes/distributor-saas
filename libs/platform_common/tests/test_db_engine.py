@@ -1,5 +1,8 @@
 """Without DATABASE_URL, the engine signs IAM tokens, and only on Lambda (D-040)."""
 
+import sys
+import types
+
 import pytest
 
 from platform_common import db
@@ -37,7 +40,9 @@ def test_the_url_branch_passes_connect_timeout_and_the_iam_branch_does_not(monke
     seen = []
     real = db.create_engine
     monkeypatch.setattr(db, "create_engine", lambda url, **kw: (seen.append((str(url), kw)), real(url, **kw))[1])
-    monkeypatch.setenv("AWS_DEFAULT_REGION", "ap-south-1")
+    # boto3 is not installed in this package's own CI job: a stand-in is enough, nothing is signed or sent.
+    fake_boto3 = types.SimpleNamespace(client=lambda *_a, **_k: types.SimpleNamespace(generate_db_auth_token=lambda *a: "t"))
+    monkeypatch.setitem(sys.modules, "boto3", fake_boto3)
     monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://app_rw:x@localhost:5432/saas")
     db.engine.cache_clear()
     try:
