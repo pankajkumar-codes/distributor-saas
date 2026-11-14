@@ -157,6 +157,12 @@ def disagreeing_rows(rows: list[_Row], key: tuple[str, ...], agree: tuple[str, .
     return sorted(bad)
 
 
+def _kv(value) -> str:
+    """A cross-run key part as text. A blank part is a value like any other: a row with a blank
+    `order_date` must clash with another file's row with a blank one, not slip past the gate."""
+    return "" if value is None else str(value).strip()
+
+
 def _other_rows(uow: UnitOfWork, run, key: tuple[str, ...], mine: list[_Row]):
     for name in key:
         if not _NAME.fullmatch(name):
@@ -164,8 +170,8 @@ def _other_rows(uow: UnitOfWork, run, key: tuple[str, ...], mine: list[_Row]):
     params: dict = {"b": uow.principal.business_id, "m": run.marketplace, "t": run.report_type, "r": run.id}
     wheres = []
     for i, name in enumerate(key):
-        params[f"v{i}"] = sorted({str(r.values[name]) for r in mine if r.values.get(name) not in (None, "")})
-        wheres.append(f" and w.normalized ->> '{name}' = any(:v{i})")
+        params[f"v{i}"] = sorted({_kv(r.values.get(name)) for r in mine})
+        wheres.append(f" and coalesce(btrim(w.normalized ->> '{name}'), '') = any(:v{i})")
     return uow.tx.execute(
         text(f"with latest as ({runs.LATEST})"
              " select w.normalized, w.content_hash from imports.import_rows w"
@@ -188,9 +194,9 @@ def conflicting_rows(uow: UnitOfWork, run, reader, rows: list[_Row]) -> dict[uui
         return {}
     theirs: dict[tuple, set[str]] = {}
     for other in _other_rows(uow, run, key, mine):
-        theirs.setdefault(tuple(str(other.normalized.get(k)) for k in key), set()).add(other.content_hash)
+        theirs.setdefault(tuple(_kv(other.normalized.get(k)) for k in key), set()).add(other.content_hash)
     return {r.id: r.number for r in mine
-            if (hashes := theirs.get(tuple(str(r.values.get(k)) for k in key))) and not hashes <= {r.content_hash}}
+            if (hashes := theirs.get(tuple(_kv(r.values.get(k)) for k in key))) and not hashes <= {r.content_hash}}
 
 
 def conflicting_row_ids(uow: UnitOfWork, run_id: uuid.UUID) -> set[uuid.UUID]:

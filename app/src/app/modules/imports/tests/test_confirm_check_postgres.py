@@ -154,3 +154,19 @@ def test_a_new_row_with_no_clash_cannot_be_set_aside(shop):  # noqa: F811
     assert row["allowed_actions"] == []
     out = post(pg, f"/api/v1/b/{biz}/rows/{row['row_id']}/resolve", {"action": "set_aside", "note": "x"}, key="z")
     assert out.status_code == 422 and out.json()["error"]["code"] == "action_not_allowed"
+
+
+def test_a_blank_key_part_still_clashes_across_files(shop):  # noqa: F811
+    """Meesho's order date may be blank in the key; a blank is a value, so two files that both leave it blank
+    for the same sub-order but state different amounts still clash (the gate must not miss them)."""
+    ids = []
+    for name, taxable in (("one.zip", "170.33898305084747"), ("two.zip", "171.5")):
+        data = fxa.zipped({"tcs_sales.xlsx": fxm.workbook([fxm.sale("1", gstin=GSTIN, taxable=taxable, order_date="")])})
+        upload_id, _ = upload(shop, "meesho", name, data, "application/zip")
+        run_jobs(shop)
+        ids.append(state(shop, upload_id)["run_id"])
+    rows_two = rows(shop, ids[1])
+    assert [r["status"] for r in rows_two] == ["new"], rows_two
+    blockers = {b["code"]: b for b in check(shop, ids[1]).json()["blockers"]}
+    assert blockers["rows_conflict_across_runs"]["count"] == 1
+    assert [a["action"] for a in rows_two[0]["allowed_actions"]] == ["set_aside"]
