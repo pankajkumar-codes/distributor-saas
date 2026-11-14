@@ -147,3 +147,6 @@
 - path: app/src/app/modules/imports/readers/meesho.py
   value: "100"
   reason: "upper bound of a percent rate: a row whose rate is outside 0 to 100 is held, no rate is invented"
+- path: app/src/app/modules/imports/readers/own_excel.py
+  value: "100"
+  reason: "upper bound of a percent rate: a row whose rate is outside 0 to 100 is held, no rate is invented"
