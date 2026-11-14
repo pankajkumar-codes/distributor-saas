@@ -316,6 +316,35 @@ slice 2, which adds the template download.
   check that the rows of one document agree on date, original invoice, buyer GSTIN and total (the template repeats the
   total on every line).
 
+## Own sales invoices, PDF (R1-M6 slice 1, `imports/pdf/`)
+
+Not wired into uploads yet (slice 2): a PDF in the own-invoice section is still stored and not read. This slice adds the
+reader and its handoff. `InvoiceReader.read(pdf, limits)` returns `ReadResult(invoices, unreadable_pages)`; each
+`ExtractedInvoice` has the Excel template's fields, its lines, the pages it came from and `unclear`, the document fields
+not found or contradicting themselves. `to_table(...)` turns an extraction into a `SourceTable` with the template's
+headers, one row per line (an invoice with no readable line gets one row with its document fields only), so staging,
+hold rules and review are shared with the Excel reader.
+
+`TextLayerReader` (`pdf_text_v1`) reads the text layer with pdfminer.six (MIT, pinned). It groups characters into
+visual rows and cells, finds the line table by its headings (HSN, Taxable Value, GST %, CGST, SGST, IGST, Cess, Qty,
+Unit), and takes the document number, date, original invoice number, place of supply, GSTINs and grand total from
+printed labels. The seller's GSTIN is the one outside a Bill To / Buyer block; the buyer's is the one inside it (a
+B2C invoice has none, and that is not "unclear"). A credit or debit note is told by its title. Amounts are parsed as
+Decimal text, commas removed; dates become DD-MM-YYYY. No tax logic, no inference, no arithmetic check, and no buyer
+name, address or item description is read into a result.
+
+Several invoices in one PDF are split on the document number. A page naming a different number starts a document; a page
+with no number, no title and no date continues the one before; anything else (two numbers on one page, an unnumbered
+page that looks new) refuses the whole PDF with `ambiguous_split`. Refusals carry only a code: `not_a_pdf`,
+`encrypted`, `unreadable`, `too_many_pages`, `too_complex`, `too_slow`, `too_many_documents`, `ambiguous_split`.
+pdfminer follows no link, script or embedded file, and its debug logging, which prints raw tokens, is switched off. A
+page with no text is listed in `unreadable_pages`; the time cap is checked between pages, so the page and character
+caps are what bounds one page.
+
+Not read yet: tax split over two heading rows ("CGST" over "Rate" and "Amt"), labels above their values, scans and
+photos (OCR, slice 4, packaging to be proved first). Tested only on synthetic PDFs made in `tests/fixtures/pdf.py`;
+accuracy on real invoices is not known.
+
 ## Retention of uploads (R1-M3, TD-18)
 
 `retention.purge_uploads()` (the third rule of the retention Lambda, after `purge_drafts`) does two things in the
