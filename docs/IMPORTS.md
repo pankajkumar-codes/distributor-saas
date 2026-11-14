@@ -344,6 +344,18 @@ huge page can still use memory and time before a cap fires). The HSN shape is re
 reader never decides a minimum length. Numeric dates are read day first (DD/MM/YYYY); one that is not a real date that way is
 blank. The seller is the GSTIN outside a Bill To / Buyer block (the letterhead's), so a stray word like "from" cannot move one.
 
+**Sandbox (S2a, `pdf/sandbox.py`, `pdf/worker.py`).** The parse never runs in the worker: pdfminer decodes a page's
+streams before any cap of ours can look, so a small PDF can expand to hundreds of MB. `read_sandboxed(pdf, limits,
+hsn_pattern, max_memory_bytes=...)` runs the reader in a child process that sets its own address-space and CPU limits,
+has an empty environment apart from the code path, writes no files, and is killed when the wall clock runs out; any
+failure comes back as a refusal code. Verified here on Linux with a synthetic bomb (a 400 KB PDF that expands to 400 MB:
+refused in about 1 s under 512 MB, read in about 4 s under 1 GB, so the limit is what stops it). Not verified: the limit
+inside a real Lambda (RLIMIT_AS counts address space, not resident memory, so the refdata value needs checking there before
+the first deploy). Packaging, measured with `scripts/build_lambda.sh app` (aarch64 Python 3.12 wheels fetched by pip, nothing
+run on arm64): the app zip is 36.1 MB zipped and 96 MB unzipped without pdfminer.six and 42.9 MB and 105 MB with it, against
+Lambda's 50 MB limit for a zip uploaded directly (Terraform's `filename`) and 250 MB unzipped. The dependency audit in CI is
+the EM's separate change; the Lambda size margin is about 7 MB zipped before an OCR layer.
+
 Not read yet: tax split over two heading rows ("CGST" over "Rate" and "Amt"), labels above their values, scans and
 photos (OCR, slice 4, packaging to be proved first). Tested only on synthetic PDFs made in `tests/fixtures/pdf.py`;
 accuracy on real invoices is not known.

@@ -47,7 +47,7 @@ def read_rows(pdf: bytes, limits: Limits) -> list[list[Row] | None]:
         if doc.encryption is not None:
             raise PdfRefused("encrypted")
         rsrc = PDFResourceManager()
-        agg = PDFPageAggregator(rsrc, laparams=LAParams())
+        agg = PDFPageAggregator(rsrc, laparams=LAParams(boxes_flow=None))
         interp = PDFPageInterpreter(rsrc, agg)
         pages: list[list[Row] | None] = []
         for number, page in enumerate(PDFPage.create_pages(doc), start=1):

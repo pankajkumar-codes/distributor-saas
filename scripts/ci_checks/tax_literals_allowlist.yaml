@@ -186,3 +186,12 @@
 - path: app/src/app/modules/imports/pdf/layout.py
   value: "5"
   reason: "the length of the %PDF- file signature"
+- path: app/src/app/modules/imports/pdf/sandbox.py
+  value: "2"
+  reason: "seconds of grace beyond the child's own CPU limit before the parent kills it; a backstop, not a tax rule"
+- path: app/src/app/modules/imports/pdf/sandbox.py
+  value: "1024"
+  reason: "bytes per KB and MB in the size of the child's answer"
+- path: app/src/app/modules/imports/pdf/sandbox.py
+  value: "8"
+  reason: "MB: the most the child may answer; a backstop beside the refdata caps, not a tax rule"
