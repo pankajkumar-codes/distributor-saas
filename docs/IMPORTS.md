@@ -358,7 +358,13 @@ Lambda memory of the worker that calls the sandbox (the parent holds the PDF and
 up to the limit), and checked on the first deployed arm64 build: address-space limits count mapped libraries, and a CI runner
 passing the bomb test does not prove it. The child is not otherwise isolated: no network block, no syscall filter, no
 process-count limit; with no credentials in its environment and no network code in pdfminer that is accepted for R1. Its
-stdout is read in full before the 8 MB check, bounded by its own memory limit. The dependency audit in CI is
+stdout is read in full before the 8 MB check, bounded by its own memory limit. The child's answer is itself untrusted: the parent
+requires a JSON object, accepts a `refused` code only from the known set, and checks every field (a string of at most 100
+characters or null, integer pages within the page cap, at most `max_documents` invoices and a bounded number of lines,
+exactly the expected keys); anything else is `unreadable`. First-deployed-build checklist: (a) read a tiny PDF through
+`read_sandboxed` in the deployed runtime as a smoke check, because the child's empty environment drops `LD_LIBRARY_PATH`,
+which the Lambda Python runtime may need (pass it through if so; it is not a secret); (b) check the RLIMIT_AS value there;
+(c) the child has no network block. The dependency audit in CI is
 the EM's separate change; the Lambda size margin is about 7 MB zipped before an OCR layer.
 
 Not read yet: tax split over two heading rows ("CGST" over "Rate" and "Amt"), labels above their values, scans and

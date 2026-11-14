@@ -16,7 +16,7 @@ import os
 import subprocess
 import sys
 import tempfile
-from dataclasses import asdict
+from dataclasses import asdict, fields
 
 from .interface import ExtractedInvoice, ExtractedLine, Limits, PdfRefused, ReadResult
 
@@ -51,23 +51,70 @@ def read_sandboxed(pdf: bytes, limits: Limits, hsn_pattern: str, *, max_memory_b
     except ValueError:
         # No answer: the child died (killed for memory or CPU, or crashed). Never retry the same file blindly.
         raise PdfRefused("too_complex" if done.returncode else "unreadable") from None
+    if not isinstance(answer, dict):
+        raise PdfRefused("unreadable")
     if "refused" in answer:
-        raise PdfRefused(str(answer["refused"]))
+        code = answer["refused"]
+        raise PdfRefused(code if isinstance(code, str) and code in CODES else "unreadable")
     try:
-        return _result(answer)
+        return _result(answer, limits)
     except (KeyError, TypeError, ValueError, AttributeError):
         raise PdfRefused("unreadable") from None  # an answer of the wrong shape is not a result
 
 
-def _result(answer: dict) -> ReadResult:
+# The child's answer is untrusted (it ran on the file): every field is checked for type, length and count here.
+CODES = frozenset({"not_a_pdf", "encrypted", "unreadable", "too_many_pages", "too_complex", "too_slow",
+                   "too_many_documents", "ambiguous_split"})
+MAX_TEXT = 100  # no extracted field is longer than this
+MAX_UNCLEAR = 20
+
+
+def _text(value) -> str | None:
+    if value is not None and not (isinstance(value, str) and len(value) <= MAX_TEXT):
+        raise ValueError("field")
+    return value
+
+
+def _ints(values, most: int, upto: int) -> tuple[int, ...]:
+    if not isinstance(values, list) or len(values) > most:
+        raise ValueError("ints")
+    if any(isinstance(v, bool) or not isinstance(v, int) or not 1 <= v <= upto for v in values):
+        raise ValueError("ints")
+    return tuple(values)
+
+
+def _names(values) -> frozenset[str]:
+    if not isinstance(values, list) or len(values) > MAX_UNCLEAR:
+        raise ValueError("names")
+    return frozenset(_text(v) or "" for v in values)
+
+
+def _exact(d, cls) -> dict:
+    if not isinstance(d, dict) or set(d) != {f.name for f in fields(cls)}:
+        raise ValueError("keys")
+    return d
+
+
+def _result(answer: dict, limits: Limits) -> ReadResult:
     def line(d):
-        return ExtractedLine(**{**d, "unclear": frozenset(d["unclear"])})
+        d = _exact(d, ExtractedLine)
+        text = {k: _text(v) for k, v in d.items() if k not in ("page", "unclear")}
+        return ExtractedLine(page=_ints([d["page"]], 1, limits.max_pages)[0], unclear=_names(d["unclear"]), **text)
 
     def invoice(d):
-        return ExtractedInvoice(**{**d, "pages": tuple(d["pages"]), "lines": tuple(line(x) for x in d["lines"]),
-                                   "unclear": frozenset(d["unclear"])})
+        d = _exact(d, ExtractedInvoice)
+        if not isinstance(d["lines"], list) or len(d["lines"]) > limits.max_chars_per_page * limits.max_pages:
+            raise ValueError("lines")
+        text = {k: _text(v) for k, v in d.items() if k not in ("pages", "lines", "unclear")}
+        return ExtractedInvoice(pages=_ints(d["pages"], limits.max_pages, limits.max_pages),
+                                lines=tuple(line(x) for x in d["lines"]), unclear=_names(d["unclear"]), **text)
 
-    return ReadResult(tuple(invoice(d) for d in answer["invoices"]), tuple(answer["unreadable_pages"]))
+    if set(answer) != {"invoices", "unreadable_pages"} or not isinstance(answer["invoices"], list):
+        raise ValueError("keys")
+    if len(answer["invoices"]) > limits.max_documents:
+        raise ValueError("documents")
+    return ReadResult(tuple(invoice(d) for d in answer["invoices"]),
+                      _ints(answer["unreadable_pages"], limits.max_pages, limits.max_pages))
 
 
 def to_json(result: ReadResult) -> str:
