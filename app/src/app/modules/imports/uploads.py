@@ -25,7 +25,7 @@ from platform_common.ids import uuid7
 from platform_common.uow import UnitOfWork
 
 from .readers import SECTIONS
-from .reading import Refused, read_upload
+from .reading import Refused, read_pdf, read_upload
 
 MAX_FILE_NAME = 255
 CONTENT_TYPES = {
@@ -47,6 +47,10 @@ ALLOWED = {
 REJECT_MESSAGES = {
     "no_reader": "We can't read this kind of report yet.",
     "not_a_pdf": "This file isn't a PDF.",
+    "pdf_encrypted": "This PDF is password protected. Save an unprotected copy and upload it again.",
+    "pdf_ambiguous": "We couldn't tell where one invoice ends and the next begins. Upload each invoice as its own PDF.",
+    "pdf_too_big": "This PDF has more pages or invoices than we can read at once. Split it and upload the parts.",
+    "no_text_layer": "This looks like a scan or a photo, so we can't read it. Type the rows or upload the Excel.",
     "upload_changed": "The file in storage isn't the one you chose. Upload it again.",
     "read_failed": "We couldn't read this file. Try uploading it again, or contact support.",
     "unreadable_file": "We couldn't open this file. Save it as .xlsx or CSV (UTF-8) and upload it again.",
@@ -216,19 +220,18 @@ def process(uow: UnitOfWork, upload_id: uuid.UUID) -> Upload:
         return get(uow, upload_id)
     sha = hashlib.sha256(content).hexdigest()
     _set(uow, upload_id, checksum_sha256=sha)
-    if up.section == "own_invoices_pdf":
-        # Stored for later: reading a PDF invoice is R1-M6. No rows, no run.
-        if not content.startswith(PDF_MAGIC):
-            reject(uow, upload_id, "not_a_pdf")
-        else:
-            _set(uow, upload_id, status="stored")
+    if up.section == "own_invoices_pdf" and not content.startswith(PDF_MAGIC):
+        reject(uow, upload_id, "not_a_pdf")
         return get(uow, upload_id)
     if not readers_for(up.section):
         reject(uow, upload_id, "no_reader")
         return get(uow, upload_id)
     try:
-        runs = read_upload(uow, upload_id=upload_id, section=up.section, file_name=up.file_name, content=content,
-                           today=get_clock().today())
+        if up.section == "own_invoices_pdf":
+            runs = read_pdf(uow, upload_id=upload_id, file_name=up.file_name, content=content, today=get_clock().today())
+        else:
+            runs = read_upload(uow, upload_id=upload_id, section=up.section, file_name=up.file_name, content=content,
+                               today=get_clock().today())
     except Refused as refused:
         reject(uow, upload_id, refused.code)
         return get(uow, upload_id)

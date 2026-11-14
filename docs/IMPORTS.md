@@ -318,8 +318,7 @@ slice 2, which adds the template download.
 
 ## Own sales invoices, PDF (R1-M6 slice 1, `imports/pdf/`)
 
-Not wired into uploads yet (slice 2): a PDF in the own-invoice section is still stored and not read. This slice adds the
-reader and its handoff. `InvoiceReader.read(pdf, limits)` returns `ReadResult(invoices, unreadable_pages)`; each
+Wired into uploads in slice 2b (below). Slice 1 added the reader and its handoff. `InvoiceReader.read(pdf, limits)` returns `ReadResult(invoices, unreadable_pages)`; each
 `ExtractedInvoice` has the Excel template's fields, its lines, the pages it came from and `unclear`, the document fields
 not found or contradicting themselves. `to_table(...)` turns an extraction into a `SourceTable` with the template's
 headers, one row per line (an invoice with no readable line gets one row with its document fields only), so staging,
@@ -370,6 +369,23 @@ the EM's separate change; the Lambda size margin is about 7 MB zipped before an 
 Not read yet: tax split over two heading rows ("CGST" over "Rate" and "Amt"), labels above their values, scans and
 photos (OCR, slice 4, packaging to be proved first). Tested only on synthetic PDFs made in `tests/fixtures/pdf.py`;
 accuracy on real invoices is not known.
+
+### Own-invoice PDFs in uploads (R1-M6 slice 2b, `readers/own_pdf.py`, `reading.read_pdf`)
+
+A PDF in the `own_invoices_pdf` section is no longer stored: the parse job reads it in the sandbox (limits from refdata
+`imports.pdf.max_pages`, `max_chars_per_page`, `max_documents`, `max_seconds`, `max_memory_mb`; the HSN shape from
+`hsn.pattern`), makes a table with the Excel template's headers plus `Unclear fields` (names of the fields not read,
+never values) and stages it with `reading.stage_tables`, the same path as a spreadsheet: the seller's GSTIN check, hold
+rules, preview, set aside, coverage months from the invoice date. The reader `own_invoices_pdf_v1` is the Excel reader's
+profile with one hold first, `pdf_unclear`: a row with any unclear field is held, with the refdata wording, and is not
+acceptable as read. A row missing a required field (document number, date, taxable value, rate) is an invalid row with
+its errors, as in the Excel. Its report type is `invoices_pdf`, so the same document in an Excel and in a PDF are two
+runs, not one that "changed". Refusals shown on the upload: `not_a_pdf`, `pdf_encrypted`, `pdf_ambiguous`,
+`pdf_too_big`, `no_text_layer` ("This looks like a scan or a photo... type the rows or upload the Excel", also for a PDF
+with one scanned page among text pages), `wrong_gstin`, `gstin_missing`, `read_failed`. The sandbox runs while the parse
+job's transaction is open, for at most `max_seconds` plus a short grace. Limit: the value fixes (enter HSN, pick state)
+are keyed to their own hold reasons, so a `pdf_unclear` row offers only "set aside" for now. Verified here on Linux,
+PostgreSQL 16, Python 3.13, synthetic PDFs only; not in a Lambda.
 
 ## Retention of uploads (R1-M3, TD-18)
 

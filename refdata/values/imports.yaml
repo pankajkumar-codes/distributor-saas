@@ -651,3 +651,113 @@
   source_title: "R1-M5: our own layout; stays false until the owner has filled one real month and run the local checker"
   last_checked: 2026-11-14
   status: provisional
+
+- key: imports.pdf.max_pages
+  value: "100"
+  type: integer
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m6-own-pdf.md
+  source_title: "R1-M6 plan section 5 item 6: the most pages in one own-invoice PDF (abuse cap, not a tax rule)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.pdf.max_chars_per_page
+  value: "20000"
+  type: integer
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m6-own-pdf.md
+  source_title: "R1-M6: the most characters on one page before the PDF is refused as too complex (a 19k-character page read in 0.5 s in review)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.pdf.max_documents
+  value: "200"
+  type: integer
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m6-own-pdf.md
+  source_title: "R1-M6 plan section 5 item 6: the most invoices in one PDF"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.pdf.max_seconds
+  value: "20"
+  type: integer
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m6-own-pdf.md
+  source_title: "R1-M6: the wall-clock seconds the PDF parse child may run before it is killed"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.pdf.max_memory_mb
+  value: "512"
+  type: integer
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m6-own-pdf.md
+  source_title: "R1-M6: the child's address-space limit in MB (RLIMIT_AS). Verified on Linux only, not in a Lambda; check on the first deployed arm64 build (docs/IMPORTS.md)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.held.pdf_unclear.label
+  value: "Check this against your invoice"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m6-own-pdf.md
+  source_title: "R1-M6: what a seller reads for a row held as pdf_unclear (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.held.pdf_unclear.effect_note
+  value: "We could not read every detail of this invoice line from the PDF. This row is left out of the return until you have checked it against the invoice and fixed it."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m6-own-pdf.md
+  source_title: "R1-M6: what leaving a pdf_unclear row alone does"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.held.pdf_unclear.accept_allowed
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m6-own-pdf.md
+  source_title: "R1-M6: a pdf_unclear row is not accepted as read: its blanks must be fixed first"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.held.pdf_unclear.needs_ca_check
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m6-own-pdf.md
+  source_title: "R1-M6: a pdf_unclear row is a reading gap, not a tax question"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.requirement.own_invoices_pdf.note
+  value: "Own sales invoices as PDF files that you can select text in (not scans or photos). We read each invoice and you check what we found before anything is used."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m6-own-pdf.md
+  source_title: "R1-M6: plain words on what the own-invoice PDF section needs (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.profile.own_invoices_pdf_v1.verified
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m6-own-pdf.md
+  source_title: "R1-M6: stays false until the owner has run the local checker on his own PDFs"
+  last_checked: 2026-11-14
+  status: provisional
