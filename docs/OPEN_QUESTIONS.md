@@ -236,6 +236,8 @@ Every row in `refdata/` is `provisional`. Before go-live:
 - **Prod endpoints sit in one AZ**, like staging's. If that AZ fails, the Lambdas lose SQS, Parameter Store and Cognito until it recovers. A second AZ doubles the endpoint line (about USD 28.5 a month more). Decide with Multi-AZ RDS at public launch (TD-22).
 - The HTTP API's own `execute-api` URL also answers. It applies the same authorizer and app checks, but it bypasses CloudFront's response headers. Restricting it to CloudFront needs a shared-secret header or a WAF, and is not done.
 
+- **Cross-check rounding (R1-M6).** The Excel-versus-PDF cross-check (slice 3) compares money by exact Decimal equality with no tolerance. Whether a difference of a paisa from rounding is acceptable, and CGST and SGST differing by a paisa, is a question for the CA (same as the M5 plan's).
+- **PDF layouts the free reader cannot read yet (R1-M6).** Tax split over two heading rows, labels above their values, scans and photos. Real accuracy is unknown until the owner runs his own PDFs through the local checker.
 ## R1-M7 (GSTR-1 build from uploaded rows)
 - **Period date for Flipkart and Meesho rows** (CA question sheet M-4): confirm of those two files is refused until a reviewed refdata row `imports.profile.<id>.period_field` names the date. The Amazon row (credit note date, else invoice date) is provisional and needs the CA's check.
 - **A number reused in another financial year:** treated as another document (identity includes the FY of the document date); rests on the "unique per financial year" reading in document-fields.md, Rule 46(b). Needs CA check; no user text states it as law.

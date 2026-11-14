@@ -283,7 +283,7 @@
   status: provisional
 
 - key: imports.action.set_aside.effect_note
-  value: "This row is counted as set aside and left out of the return. Your note is kept."
+  value: "This row is counted as set aside and left out of the return. Your note is kept. This cannot be undone: to bring the row back, discard this file and upload it again."
   type: text
   kind: product
   valid_from: 2026-11-13

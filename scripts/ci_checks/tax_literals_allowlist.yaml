@@ -168,3 +168,24 @@
 - path: app/src/app/modules/imports/confirm.py
   value: "20"
   reason: "how many row numbers the confirm check lists per reason; a display limit, not a tax value"
+- path: app/src/app/modules/imports/pdf/extract.py
+  value: "6"
+  reason: "how many top rows of a page are searched for its title (Tax Invoice, Credit Note); layout, not a tax rule"
+- path: app/src/app/modules/imports/pdf/extract.py
+  value: "2"
+  reason: "regex group index and 'more than one candidate' tests; parsing, not a tax rule"
+- path: app/src/app/modules/imports/pdf/extract.py
+  value: "40"
+  reason: "most characters kept of a place-of-supply text, and the points a table cell may sit from its heading"
+- path: app/src/app/modules/imports/pdf/layout.py
+  value: "0.6"
+  reason: "page geometry: a gap of this many font sizes starts a new cell; not a tax rule"
+- path: app/src/app/modules/imports/pdf/layout.py
+  value: "0.45"
+  reason: "page geometry: vertical tolerance, in font sizes, for characters on one line"
+- path: app/src/app/modules/imports/pdf/layout.py
+  value: "2"
+  reason: "centre of a box is the sum of its two edges over two"
+- path: app/src/app/modules/imports/pdf/layout.py
+  value: "5"
+  reason: "the length of the %PDF- file signature"

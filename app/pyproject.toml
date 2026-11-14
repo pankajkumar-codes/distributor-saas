@@ -18,6 +18,9 @@ dependencies = [
     # SQS and S3 adapters (platform_common.aws), loaded only in AWS. Pinned exactly, so
     # the zip never runs whatever boto3 the Lambda runtime happens to bundle.
     "boto3==1.43.100",
+    # Reads the text layer of own-invoice PDFs (R1-M6). MIT licence. Pure Python; it needs cryptography and
+    # charset-normalizer, which are already installed or small. Pinned exactly: it parses untrusted files.
+    "pdfminer.six==20260107",
 ]
 
 [project.optional-dependencies]
