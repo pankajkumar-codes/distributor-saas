@@ -28,6 +28,16 @@ Resolve these before the affected functionality is used for live financial trans
 19. Subscription plans and usage limits?
 20. Direct marketplace APIs, GST e-invoicing, e-way bills, or filing integrations and their priority?
 
+## Platform readers (R1-M4)
+- **CA items still open, not guessed (spec section 5, items 1 to 4):** which date decides the period, how adjustments are treated, shipping basis, cancellation treatment. The Amazon reader keeps every candidate date and holds what is unclear; nothing in M4 decides tax treatment.
+- **Amazon `Transaction Type` values:** only Shipment, Cancel, Refund and FreeReplacement are read; anything else is held `unknown_txn_type`. The full list and whether `Shipment Item Id` is unique per sale line need a real report. Treating zero-value Cancel and FreeReplacement rows as `skipped_zero` is provisional.
+- **Amazon shipping, gift-wrap tax and TCS columns** are not mapped until their exact header names are seen in a real file.
+- **CA sheet additions (R1-M4):** how Flipkart cash-back credit and debit notes (`cashback_adjustment`) and Meesho quantity-0 price-adjustment rows (`price_adjustment`) enter GSTR-1; how Flipkart Cancellation and Return Cancellation count. Rows stay held with the CA check on until answered.
+- **Flipkart column names** not in the spec (tax rate and amount pairs, Cash Back sheet headers, its seller GSTIN column) are guesses until a real workbook is checked.
+- **Meesho (R1-M4):** whether a second month shows a stable row id (then the composite key and counter can go); whether `total_taxable_sale_value` includes shipping; the zip entry names (assumed exactly `tcs_sales.xlsx` and `tcs_sales_return.xlsx`); the date formats.
+- **HSN length gate before filing (R1-M4 4b review):** the `enter_hsn` fix checks shape only (4, 6 or 8 digits). A 4-digit HSN passes where the seller's turnover may need 6 or 8, and the minimum-digits rule is not built yet. It must be a gate before GSTR-1 build (R1-M7), so a short HSN is not taken as valid for filing.
+- **Real-sample check:** reader profiles stay unverified until a real report is run through the local check script (R1-M4 slice 4) by the owner. The EM batches that ask.
+
 ## Tax questions for the CA (open; they gate go-live, not the build)
 The full text, interim answers and owners are in `team/product/ca-questions.md` in the project files. The interim answer is what the app does until the CA replies. Each one is a dated refdata row, so a different answer is a reviewed refdata change, not a code change.
 
@@ -189,6 +199,9 @@ Every row in `refdata/` is `provisional`. Before go-live:
   - **Period (PO):** `sales.draft_keep_days` = 180 is LLD-4's proposal, provisional.
   - **Which clock (PO):** "open longer than N days" is built as N days since the draft's **last save** (`updated_at`), so a draft still being worked on is never deleted; counting from creation would delete drafts edited last week. Opening or previewing a draft is not a save and does not reset the clock. Drafts are not GST records, so there is no statutory floor.
   - **Telling the user:** nothing warns before a draft goes. A "drafts older than N days are deleted" note on the drafts list is the designer's call.
+- `retention.purge_uploads()` is built (R1-M3, TD-18) and ships **disabled** (`retention.purge_uploads.enabled`); the daily run calls it after `purge_drafts`. It expires stale pending uploads (`imports.upload.pending_minutes`, 60) and marks raw files gone after `imports.upload.keep_days` (90); the object is deleted by the bucket lifecycle (Terraform `upload_retention_days`, 90). Still open:
+  - **Period (PO/CA):** 90 days is TD-18's figure and the CA may change it; if so change the refdata row and the Terraform variable together.
+  - **Records vs raw files:** import rows and decisions are kept after the raw file goes (they are not statutory GST records; whether they need their own limit is for the CA sheet).
 - A job whose last SQS message is lost while `failed_retryable` stays there; the outbox sweep only resends unsent rows. The DLQ alarm covers exhausted messages, not this. A "stuck jobs" sweep can come with the alarms (TD-24).
 - The real-S3 policy checks (limit + 1 byte, other key, after 5 minutes, other KMS key) are QA's staging checks (HLD §6.5); the local store only mirrors them.
 

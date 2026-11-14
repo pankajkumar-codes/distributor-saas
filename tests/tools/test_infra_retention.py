@@ -31,3 +31,21 @@ def test_only_the_retention_function_connects_as_app_retention():
     module = re.search(r'module "retention" \{(.*?)\n\}', STACK, re.S).group(1)
     assert re.search(r'db_user\s*=\s*"app_retention"', module)
     assert re.search(r'handler\s*=\s*"app.retention.handler"', module)
+
+
+def test_raw_upload_keep_days_in_refdata_equals_the_bucket_lifecycle():
+    """The database marks an upload's raw file gone after imports.upload.keep_days; the bucket's
+    `uploads/` lifecycle rule really deletes it after upload_retention_days. If they drift, the page
+    offers a file that is gone, or says a file is gone while it is still kept (TD-18, R1-M3).
+    Change both together, and the CA's answer on the period moves both."""
+    refdata = (ROOT / "refdata" / "values" / "imports.yaml").read_text()
+    m = re.search(r'- key: imports\.upload\.keep_days\n\s+value: "(\d+)"', refdata)
+    assert m, "refdata imports.upload.keep_days not found"
+    storage = (ROOT / "infra" / "modules" / "storage" / "main.tf").read_text()
+    t = re.search(r'variable "upload_retention_days" \{.*?default\s*=\s*(\d+)', storage, re.S)
+    assert t, "upload_retention_days default not found"
+    assert m.group(1) == t.group(1), "refdata imports.upload.keep_days and Terraform upload_retention_days differ"
+    # A tfvars example or env that overrides the variable would let them drift without this test seeing it.
+    for tf in (ROOT / "infra").rglob("*"):
+        if tf.is_file() and tf.suffix in (".tf", ".example", ".tfvars") and tf != ROOT / "infra" / "modules" / "storage" / "main.tf":
+            assert "upload_retention_days" not in tf.read_text(), f"{tf} overrides upload_retention_days"

@@ -66,6 +66,10 @@ ACTIONS: dict[str, tuple[str, str]] = {
     "catalog.import_superseded": ("Replaced a product file preview with a new upload", "invoices"),
     "imports.upload_received": ("Uploaded a file", "gst_filing"),
     "imports.rejected": ("A file could not be read", "gst_filing"),
+    "imports.run_discarded": ("Discarded an uploaded file's preview", "gst_filing"),
+    "imports.row_set_aside": ("Set aside a row from an uploaded file", "gst_filing"),
+    "imports.row_accepted": ("Accepted a row from an uploaded file as it stands", "gst_filing"),
+    "imports.row_fixed": ("Filled in a missing value on a row from an uploaded file", "gst_filing"),
     # Rows copied from identity.audit_events (LLD-1 §3.6) keep their stock-era names.
     "tenant.created": ("Created the business", "team_settings"),
     "member.added": ("Added a member", "team_settings"),

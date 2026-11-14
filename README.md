@@ -31,6 +31,10 @@ See `docs/ARCHITECTURE.md` for the reasoning and costs.
 - The app connects with short-lived IAM tokens; no database password is stored in
   it. The identity module cannot update or delete audit rows.
 
+## Try it by hand
+
+`.\demo.ps1` (Windows, Docker Desktop only) or `./demo.sh` (Mac, Linux) runs the whole product with made-up data. Guide: **docs/LOCAL_DEMO.md**.
+
 ## Test it
 
 Step-by-step local and AWS testing: **docs/TESTING.md**. Quick version:

@@ -95,3 +95,14 @@
   last_checked: 2026-11-09
   status: provisional
   note: "Ships off (default keep), like purge_operational. The period itself is sales.draft_keep_days."
+
+- key: retention.purge_uploads.enabled
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 retention plan: uploads are expired and their raw files marked deleted by the retention rule, off until enabled"
+  last_checked: 2026-11-13
+  status: provisional
+  note: "Ships off (default keep). The periods are imports.upload.pending_minutes and imports.upload.keep_days."

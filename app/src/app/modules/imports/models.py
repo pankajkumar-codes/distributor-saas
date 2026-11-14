@@ -49,6 +49,10 @@ class StagedRowStatus(str, enum.Enum):
     duplicate = "duplicate"
     conflict = "conflict"
     invalid = "invalid"
+    # Valid but kept out of the counts with a reason, never dropped or guessed (LLD-7 §3).
+    held = "held"
+    # A zero-value cancel or replacement line: read, counted separately, nothing to file.
+    skipped_zero = "skipped_zero"
 
 
 class ImportRun(Base):
@@ -79,6 +83,8 @@ class ImportRun(Base):
         Enum(RunStatus, native_enum=False, length=20), default=RunStatus.staged
     )
     summary: Mapped[dict] = mapped_column(JSONType, default=dict)
+    upload_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    gstin: Mapped[str | None] = mapped_column(String(15))
     uploaded_by: Mapped[uuid.UUID] = mapped_column(Uuid)
     uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     confirmed_by: Mapped[uuid.UUID | None] = mapped_column(Uuid)
@@ -102,3 +108,4 @@ class ImportRow(Base):
     dedup_values: Mapped[list | None] = mapped_column(JSONType)
     dedup_key: Mapped[str | None] = mapped_column(String(64))
     content_hash: Mapped[str | None] = mapped_column(String(64))
+    hold_reason: Mapped[str | None] = mapped_column(String(20))

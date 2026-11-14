@@ -437,3 +437,73 @@ def test_from_dict_reads_the_personal_flag():
         }
     )
     assert profile.by_name["name"].personal and not profile.by_name["id"].personal
+
+
+# --- scale and key_blank_ok (R1-M4) ---------------------------------------------
+
+
+def _scaled_profile(**extra):
+    return MappingProfile.from_dict({
+        "marketplace": "amazon", "report_type": "orders", "version": "s",
+        "fields": [
+            {"name": "id", "headers": ["ID"]},
+            {"name": "rate", "headers": ["Rate"], "kind": "decimal", "scale": "100"},
+            {"name": "cn", "headers": ["CN"], "required": False, "key_blank_ok": True},
+        ],
+        "dedup_key": ["id", "cn"], **extra})
+
+
+def test_a_scaled_decimal_turns_a_fraction_into_percent_exactly():
+    result = parse(read_table(b"ID,Rate,CN\nA,0.18,\nB,0.095,\n", "r.csv"), _scaled_profile())
+    assert [r.normalized["rate"] for r in result.rows] == [Decimal("18.00"), Decimal("9.500")]
+    assert all(isinstance(r.normalized["rate"], Decimal) for r in result.rows)
+
+
+def test_a_blank_key_part_is_allowed_only_when_the_profile_says_so():
+    result = parse(read_table(b"ID,Rate,CN\nA,0.18,\nA,0.18,\nA,0.18,C1\n", "r.csv"), _scaled_profile())
+    assert [r.status for r in result.rows] == [RowStatus.valid, RowStatus.duplicate, RowStatus.valid]
+
+
+def test_scale_on_a_text_field_or_a_non_positive_scale_is_refused():
+    base = {"marketplace": "amazon", "report_type": "orders", "version": "1", "dedup_key": ["id"]}
+    with pytest.raises(ProfileError, match="not a decimal"):
+        MappingProfile.from_dict({**base, "fields": [{"name": "id", "headers": ["ID"], "scale": "100"}]})
+    with pytest.raises(ProfileError, match="positive scale"):
+        MappingProfile.from_dict({**base, "fields": [{"name": "id", "headers": ["ID"], "kind": "decimal", "scale": "0"}]})
+
+
+# --- blank_tokens and the occurrence counter (R1-M4 S3) ---------------------------
+
+
+def _counted_profile():
+    return MappingProfile.from_dict({
+        "marketplace": "meesho", "report_type": "orders", "version": "c",
+        "fields": [
+            {"name": "ref", "headers": ["Ref"]},
+            {"name": "amt", "headers": ["Amt"], "kind": "decimal", "required": False, "key_blank_ok": True, "blank_tokens": ["null"]},
+            {"name": "note", "headers": ["Note"], "required": False},
+        ],
+        "dedup_key": ["ref", "amt", "n"], "occurrence_field": "n"})
+
+
+def test_a_blank_token_reads_as_blank_for_that_field_only():
+    result = parse(read_table(b"Ref,Amt,Note\nA,null,null\n", "r.csv"), _counted_profile())
+    (row,) = result.rows
+    assert row.normalized["amt"] is None and row.normalized["note"] == "null"
+
+
+def test_identical_rows_are_counted_apart_and_differing_rows_with_one_key_conflict():
+    ok = parse(read_table(b"Ref,Amt,Note\nA,1,x\nA,1,x\n", "r.csv"), _counted_profile())
+    assert [r.status for r in ok.rows] == [RowStatus.valid, RowStatus.valid]
+    assert [r.dedup_key[-1] for r in ok.rows] == ["1", "2"]
+    bad = parse(read_table(b"Ref,Amt,Note\nA,1,x\nA,1,y\n", "r.csv"), _counted_profile())
+    assert [r.status for r in bad.rows] == [RowStatus.conflict, RowStatus.conflict]
+
+
+def test_the_counter_must_be_last_and_not_a_column():
+    base = {"marketplace": "meesho", "report_type": "orders", "version": "1",
+            "fields": [{"name": "ref", "headers": ["Ref"]}]}
+    with pytest.raises(ProfileError, match="occurrence counter"):
+        MappingProfile.from_dict({**base, "dedup_key": ["n", "ref"], "occurrence_field": "n"})
+    with pytest.raises(ProfileError, match="occurrence counter"):
+        MappingProfile.from_dict({**base, "dedup_key": ["ref"], "occurrence_field": "ref"})

@@ -14,9 +14,11 @@ import datetime as dt
 import enum
 import re
 from dataclasses import dataclass, field
+from decimal import Decimal
 
 MARKETPLACES = {"amazon", "flipkart", "meesho"}
-REPORT_TYPES = {"orders", "invoices", "returns", "settlements", "fees"}
+# mtr_b2c and mtr_b2b are Amazon's Merchant Tax Report files (R1-M4).
+REPORT_TYPES = {"orders", "invoices", "returns", "settlements", "fees", "mtr_b2c", "mtr_b2b", "cashback"}
 _NAME = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
 
 
@@ -46,8 +48,22 @@ class FieldSpec:
     # Buyer name, address, phone or email: recognised so the header row is found and
     # the column is accounted for, but never stored, raw or normalized (LLD-7 L7-2).
     personal: bool = False
+    # Decimal fields only: multiply the value by this after parsing (exact Decimal arithmetic), so a
+    # file that writes a rate as a fraction (0.18) is stored as a percent (18.00) (platform-reader-spec
+    # rule 3). The cell as written stays in the row's raw values.
+    scale: Decimal | None = None
+    # A de-duplication key field may be blank in some rows (a refund's credit note number is blank on a
+    # sale); blank counts as "" in the key. Without this a key field must be required.
+    key_blank_ok: bool = False
+    # Cell texts (compared case-insensitively) that mean "nothing here", such as Meesho's literal `null`
+    # in a date column; the field is then read as blank.
+    blank_tokens: tuple[str, ...] = ()
 
     def __post_init__(self):
+        if self.scale is not None and self.kind != FieldKind.decimal:
+            raise ProfileError(f"field {self.name!r} has a scale but is not a decimal")
+        if self.scale is not None and (not self.scale.is_finite() or self.scale <= 0):
+            raise ProfileError(f"field {self.name!r} needs a positive scale")
         if not _NAME.match(self.name):
             raise ProfileError(f"invalid field name {self.name!r}")
         if not self.headers or any(not h.strip() for h in self.headers):
@@ -78,6 +94,10 @@ class MappingProfile:
     # a title or date-range line).
     header_search_rows: int = 10
     notes: str = ""
+    # The name of a counter that is the last part of `dedup_key` and is not a column (Meesho has no row id,
+    # so identical rows in one file are counted 1, 2, ...). Rows with the same other key parts but different
+    # values are not numbered apart: they collide and are flagged `conflict`, never merged or dropped.
+    occurrence_field: str | None = None
     by_name: dict[str, FieldSpec] = field(init=False, repr=False, compare=False)
 
     def __post_init__(self):
@@ -106,10 +126,15 @@ class MappingProfile:
 
         if not self.dedup_key:
             raise ProfileError("profile needs a de-duplication key")
+        if self.occurrence_field is not None:
+            if self.occurrence_field in by_name or self.dedup_key[-1] != self.occurrence_field:
+                raise ProfileError("the occurrence counter must be the last part of the key and not a column")
         for name in self.dedup_key:
+            if name == self.occurrence_field:
+                continue
             if name not in by_name:
                 raise ProfileError(f"de-duplication key field {name!r} is not defined")
-            if not by_name[name].required:
+            if not by_name[name].required and not by_name[name].key_blank_ok:
                 raise ProfileError(f"de-duplication key field {name!r} must be required")
             if by_name[name].personal:
                 raise ProfileError(f"de-duplication key field {name!r} cannot be personal")
@@ -133,6 +158,9 @@ class MappingProfile:
                     formats=tuple(f.get("formats", ())),
                     max_length=int(f.get("max_length", 500)),
                     personal=bool(f.get("personal", False)),
+                    scale=Decimal(str(f["scale"])) if f.get("scale") is not None else None,
+                    key_blank_ok=bool(f.get("key_blank_ok", False)),
+                    blank_tokens=tuple(f.get("blank_tokens", ())),
                 )
                 for f in data["fields"]
             )
@@ -145,6 +173,7 @@ class MappingProfile:
                 verified=bool(data.get("verified", False)),
                 header_search_rows=int(data.get("header_search_rows", 10)),
                 notes=str(data.get("notes", "")),
+                occurrence_field=data.get("occurrence_field"),
             )
         except (KeyError, TypeError, ValueError) as exc:
             if isinstance(exc, ProfileError):

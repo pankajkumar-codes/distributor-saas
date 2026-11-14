@@ -9,7 +9,7 @@ decided in the database.
 Events, from the EventBridge schedules (both disabled until the staging decision):
     {"task": "purge_operational"}   hourly: that rule only
     {"task": "retention"}           daily: every rule, in RULES order
-    {"task": "purge_drafts"}        that rule only (ops, by hand)
+    {"task": "purge_drafts"}        that rule only (ops, by hand); likewise "purge_uploads"
 Either may add "dry_run": true, which counts without deleting (LLD-6 §6.4), so ops can
 check a rule before switching it on.
 
@@ -34,7 +34,7 @@ logger.setLevel(logging.INFO)
 
 # LLD-6 §6.2's order. Later rules are added here as their tables and functions land; the
 # GST purge, when it exists, stays last.
-RULES = ("purge_operational", "purge_drafts")
+RULES = ("purge_operational", "purge_drafts", "purge_uploads")
 MAX_ROWS = 5000
 BUDGET_SECONDS = 600
 

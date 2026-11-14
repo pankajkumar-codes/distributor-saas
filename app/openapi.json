@@ -33,6 +33,35 @@
         "title": "AccessTokenOut",
         "type": "object"
       },
+      "ActionOut": {
+        "properties": {
+          "action": {
+            "enum": [
+              "set_aside",
+              "accept",
+              "enter_hsn",
+              "pick_state"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "effect_note": {
+            "title": "Effect Note",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "label",
+          "effect_note"
+        ],
+        "title": "ActionOut",
+        "type": "object"
+      },
       "Actor": {
         "properties": {
           "kind": {
@@ -937,6 +966,22 @@
           "note"
         ],
         "title": "Confirmation",
+        "type": "object"
+      },
+      "CoverageOut": {
+        "properties": {
+          "months": {
+            "items": {
+              "$ref": "#/components/schemas/MonthCoverageOut"
+            },
+            "title": "Months",
+            "type": "array"
+          }
+        },
+        "required": [
+          "months"
+        ],
+        "title": "CoverageOut",
         "type": "object"
       },
       "CurrentFrequencyOut": {
@@ -3120,6 +3165,27 @@
         "title": "MembershipOut",
         "type": "object"
       },
+      "MonthCoverageOut": {
+        "properties": {
+          "marketplaces": {
+            "items": {
+              "$ref": "#/components/schemas/PlatformMonthOut"
+            },
+            "title": "Marketplaces",
+            "type": "array"
+          },
+          "month": {
+            "title": "Month",
+            "type": "string"
+          }
+        },
+        "required": [
+          "month",
+          "marketplaces"
+        ],
+        "title": "MonthCoverageOut",
+        "type": "object"
+      },
       "MyBusiness": {
         "properties": {
           "business_id": {
@@ -3358,6 +3424,50 @@
           "name"
         ],
         "title": "Person",
+        "type": "object"
+      },
+      "PlatformMonthOut": {
+        "properties": {
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "held_rows": {
+            "title": "Held Rows",
+            "type": "integer"
+          },
+          "marketplace": {
+            "enum": [
+              "amazon",
+              "flipkart",
+              "meesho"
+            ],
+            "title": "Marketplace",
+            "type": "string"
+          },
+          "received": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Received",
+            "type": "array"
+          },
+          "required": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Required",
+            "type": "array"
+          }
+        },
+        "required": [
+          "marketplace",
+          "required",
+          "received",
+          "complete",
+          "held_rows"
+        ],
+        "title": "PlatformMonthOut",
         "type": "object"
       },
       "PresignedPostOut": {
@@ -4385,6 +4495,83 @@
         "title": "ResetVerifyBody",
         "type": "object"
       },
+      "ResolutionOut": {
+        "properties": {
+          "action": {
+            "enum": [
+              "set_aside",
+              "accept",
+              "enter_hsn",
+              "pick_state"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "action",
+          "note",
+          "at"
+        ],
+        "title": "ResolutionOut",
+        "type": "object"
+      },
+      "ResolveIn": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "set_aside",
+              "accept",
+              "enter_hsn",
+              "pick_state"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "action",
+          "note"
+        ],
+        "title": "ResolveIn",
+        "type": "object"
+      },
       "ReturnOut": {
         "properties": {
           "due_date": {
@@ -4541,6 +4728,369 @@
           "role"
         ],
         "title": "RoleIn",
+        "type": "object"
+      },
+      "RowOut": {
+        "properties": {
+          "allowed_actions": {
+            "items": {
+              "$ref": "#/components/schemas/ActionOut"
+            },
+            "title": "Allowed Actions",
+            "type": "array"
+          },
+          "ca_check_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ca Check Note"
+          },
+          "errors": {
+            "items": {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "file_name": {
+            "title": "File Name",
+            "type": "string"
+          },
+          "hold_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hold Reason"
+          },
+          "needs_ca_check": {
+            "title": "Needs Ca Check",
+            "type": "boolean"
+          },
+          "reason_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Label"
+          },
+          "resolution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResolutionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "row_id": {
+            "title": "Row Id",
+            "type": "string"
+          },
+          "row_number": {
+            "title": "Row Number",
+            "type": "integer"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "new",
+              "already_imported",
+              "changed",
+              "duplicate",
+              "conflict",
+              "invalid",
+              "held",
+              "skipped_zero"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "row_id",
+          "run_id",
+          "file_name",
+          "row_number",
+          "status",
+          "hold_reason",
+          "reason_label",
+          "values",
+          "errors",
+          "needs_ca_check",
+          "ca_check_note",
+          "allowed_actions",
+          "resolution"
+        ],
+        "title": "RowOut",
+        "type": "object"
+      },
+      "RowsOut": {
+        "properties": {
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/RowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "rows",
+          "has_more"
+        ],
+        "title": "RowsOut",
+        "type": "object"
+      },
+      "RunOut": {
+        "properties": {
+          "already_uploaded_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Already Uploaded Of"
+          },
+          "columns_not_stored": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Columns Not Stored",
+            "type": "array"
+          },
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Counts",
+            "type": "object"
+          },
+          "gstin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gstin"
+          },
+          "held_by_reason": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Held By Reason",
+            "type": "object"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "months": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Months",
+            "type": "array"
+          },
+          "profile_verified": {
+            "title": "Profile Verified",
+            "type": "boolean"
+          },
+          "reader": {
+            "title": "Reader",
+            "type": "string"
+          },
+          "section": {
+            "anyOf": [
+              {
+                "enum": [
+                  "amazon",
+                  "flipkart",
+                  "meesho",
+                  "own_invoices_excel",
+                  "own_invoices_pdf"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section"
+          },
+          "status": {
+            "enum": [
+              "staged",
+              "confirmed",
+              "discarded"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "upload_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upload Id"
+          },
+          "warnings": {
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "months",
+          "already_uploaded_of",
+          "id",
+          "upload_id",
+          "section",
+          "reader",
+          "profile_verified",
+          "gstin",
+          "status",
+          "counts",
+          "held_by_reason",
+          "warnings",
+          "columns_not_stored"
+        ],
+        "title": "RunOut",
+        "type": "object"
+      },
+      "SectionOut": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "held_rows": {
+            "title": "Held Rows",
+            "type": "integer"
+          },
+          "needs_ca_check": {
+            "title": "Needs Ca Check",
+            "type": "boolean"
+          },
+          "requirement_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requirement Note"
+          },
+          "section": {
+            "enum": [
+              "amazon",
+              "flipkart",
+              "meesho",
+              "own_invoices_excel",
+              "own_invoices_pdf"
+            ],
+            "title": "Section",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "not uploaded",
+              "processing",
+              "ready",
+              "rows held"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "uploads": {
+            "items": {
+              "$ref": "#/components/schemas/app__modules__imports__api__UploadOut"
+            },
+            "title": "Uploads",
+            "type": "array"
+          }
+        },
+        "required": [
+          "section",
+          "enabled",
+          "status",
+          "uploads",
+          "held_rows",
+          "needs_ca_check",
+          "requirement_note"
+        ],
+        "title": "SectionOut",
+        "type": "object"
+      },
+      "SectionsOut": {
+        "properties": {
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/SectionOut"
+            },
+            "title": "Sections",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sections"
+        ],
+        "title": "SectionsOut",
         "type": "object"
       },
       "ShipToIn": {
@@ -5380,6 +5930,13 @@
             ],
             "title": "Run Id"
           },
+          "run_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Run Ids",
+            "type": "array"
+          },
           "section": {
             "enum": [
               "amazon",
@@ -5418,6 +5975,7 @@
           "reject_reason",
           "reject_message",
           "run_id",
+          "run_ids",
           "created_at",
           "raw_available"
         ],
@@ -7704,6 +8262,83 @@
         ]
       }
     },
+    "/api/v1/b/{business_id}/marketplace-coverage": {
+      "get": {
+        "description": "Which marketplace files are in, per month any live preview covers. Read-only.",
+        "operationId": "marketplace_coverage_api_v1_b__business_id__marketplace_coverage_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CoverageOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Marketplace Coverage",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
     "/api/v1/b/{business_id}/members": {
       "get": {
         "operationId": "list_members_api_v1_b__business_id__members_get",
@@ -9289,6 +9924,278 @@
         ]
       }
     },
+    "/api/v1/b/{business_id}/rows/{row_id}/resolve": {
+      "post": {
+        "description": "Decide a held row: leave it out (with a note), or, where allowed, use it as the file\nstates it. The decision is kept and audited; the preview and the section update at once.",
+        "operationId": "resolve_row_api_v1_b__business_id__rows__row_id__resolve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "row_id",
+            "required": true,
+            "schema": {
+              "title": "Row Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RowOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resolve Row",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/runs/{run_id}": {
+      "get": {
+        "operationId": "get_run_api_v1_b__business_id__runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Run",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/runs/{run_id}/discard": {
+      "post": {
+        "description": "Set a staged preview aside. The same file can be uploaded again.",
+        "operationId": "discard_run_api_v1_b__business_id__runs__run_id__discard_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Discard Run",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/runs/{run_id}/rows": {
+      "get": {
+        "operationId": "list_rows_api_v1_b__business_id__runs__run_id__rows_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 1000000,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RowsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Rows",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
     "/api/v1/b/{business_id}/support-grants": {
       "get": {
         "description": "Newest first: the active grant (if any) and past ones, with pages viewed.",
@@ -9561,6 +10468,82 @@
         ]
       }
     },
+    "/api/v1/b/{business_id}/upload-sections": {
+      "get": {
+        "operationId": "list_sections_api_v1_b__business_id__upload_sections_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SectionsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Sections",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
     "/api/v1/b/{business_id}/uploads": {
       "get": {
         "operationId": "list_uploads_api_v1_b__business_id__uploads_get",
@@ -9595,6 +10578,40 @@
                 }
               ],
               "title": "Section"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
             }
           },
           {

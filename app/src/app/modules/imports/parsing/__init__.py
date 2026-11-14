@@ -9,9 +9,10 @@ Column layouts are not hardcoded per marketplace. They live in mapping profiles
 guessing Amazon, Flipkart or Meesho headers would break CLAUDE.md rule 12.
 """
 
-from .files import FileRejected, SourceTable, read_table
+from .files import FileRejected, SourceTable, read_table, sheet_names
 from .normalize import ParseResult, ParsedRow, RowStatus, parse
 from .profiles import FieldKind, FieldSpec, MappingProfile, ProfileError
+from .zipguard import open_zip
 
 __all__ = [
     "FieldKind",
@@ -23,6 +24,8 @@ __all__ = [
     "ProfileError",
     "RowStatus",
     "SourceTable",
+    "open_zip",
     "parse",
     "read_table",
+    "sheet_names",
 ]

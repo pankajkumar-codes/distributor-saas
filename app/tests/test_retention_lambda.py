@@ -52,19 +52,20 @@ def test_stops_at_the_time_budget(monkeypatch):
 def test_disabled_rule_is_reported_and_not_repeated(monkeypatch):
     seen = _calls(
         monkeypatch,
-        [{"rule": "purge_operational", "skipped": "disabled"}, {"rule": "purge_drafts", "skipped": "disabled"}],
+        [{"rule": r, "skipped": "disabled"} for r in ("purge_operational", "purge_drafts", "purge_uploads")],
     )
     assert retention.handler({"task": "retention"}, None) == {
         "purge_operational": {"skipped": "disabled"},
         "purge_drafts": {"skipped": "disabled"},
+        "purge_uploads": {"skipped": "disabled"},
     }
-    assert [rule for rule, _ in seen] == ["purge_operational", "purge_drafts"]  # each once
+    assert [rule for rule, _ in seen] == ["purge_operational", "purge_drafts", "purge_uploads"]  # each once
 
 
 def test_dry_run_is_one_call(monkeypatch):
-    seen = _calls(monkeypatch, [_out(True), _out(True)])
+    seen = _calls(monkeypatch, [_out(True), _out(True), _out(True)])
     retention.handler({"task": "retention", "dry_run": True}, None)
-    assert seen == [("purge_operational", True), ("purge_drafts", True)]  # one call per rule
+    assert seen == [("purge_operational", True), ("purge_drafts", True), ("purge_uploads", True)]  # one call per rule
 
 
 def test_only_a_literal_true_means_dry_run(monkeypatch):

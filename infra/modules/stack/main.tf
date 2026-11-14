@@ -253,6 +253,8 @@ module "cdn" {
   api_endpoint        = module.api.endpoint
   aliases             = var.cdn_aliases
   acm_certificate_arn = var.cdn_certificate_arn
+  # The presigned POST goes to the bucket's regional host (R1-M3), so the CSP names it.
+  upload_origin = "https://${module.storage.bucket}.s3.${data.aws_region.current.name}.amazonaws.com"
 }
 
 # Jobs from SQS and the EventBridge schedules (app.worker.handler). Same zip as the API.

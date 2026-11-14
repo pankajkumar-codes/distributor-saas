@@ -105,11 +105,183 @@ POST for the exact key; `POST /uploads/{id}/complete` asks the store whether the
 queues the `imports.parse` job (the upload is the job's natural key, so a second complete is the same job). The job
 re-checks that the queuing user still has `uploads.create`, reads the object from this business's key, records the
 SHA-256, and moves the upload to `parsed`, `stored` (a PDF, kept for later; nothing is read until R1-M6) or `rejected` with a reason and plain message. A read error, or an unexpected error on the last retry, settles the upload as `rejected` with `read_failed`, so the screen needs only the upload status. `imports.uploads` holds no
-cell values; `raw_deleted_at` is set when the retention rule purges the raw file (a later slice).
+cell values; `raw_deleted_at` is set by the retention rule `purge_uploads` (see Retention below).
 
 Roles: owner and admin upload; owner, admin and CA read (`uploads.view`); billing gets 404 (D-046).
 
 **Readers** (`readers/`) are the plug-in point: `register(reader)` with an id, a section, a report type, `accepts`
 (zip entry names), `detect` (required headers) and a `MappingProfile`. A reader is used in production only when
 refdata `imports.profile.<id>.verified` is true. This slice ships no readers, so a platform file is rejected with
-"We can't read this kind of report yet", and a PDF in the own-invoice section is stored and marked read with no rows.
+"We can't read this kind of report yet", and a PDF in the own-invoice section is stored (status `stored`) with no rows.
+
+### Reading and staging (R1-M3 slice 2, `reading.py`, `runs.py`, `parsing/zipguard.py`)
+
+For a section with readers the parse job (1) opens a `.zip` through the guard, which refuses a folder or odd name,
+a password, a duplicate name, a file no reader of the section accepts, more than `imports.zip.max_entries` files,
+or more than `imports.zip.max_inflate_bytes` once inflated (counted as it is read); (2) reads each file into a table;
+(3) asks every reader of the section to `detect` it: none rejects with `unknown_layout`, more than one with
+`needs_choice` (the choose endpoint comes with a second reader of one layout); (4) requires the reader's `gstin(table)`
+to equal the business's own GSTIN (`gstin_missing`, `wrong_gstin`; the whole file is refused); (5) stages through
+`staging.stage` with the reader's hold rule `classify`. Every file in the upload is read before any is staged, and
+staging runs in the job's transaction, so a crash leaves no run and the retry starts again. A zip yields one run per
+file; `uploads.run_id` points at the first.
+
+A row that parsed as valid is `held` (with a `hold_reason` from `HOLD_REASONS`) or `skipped_zero` when the reader says
+so. Held rows are kept and counted separately, never dropped or guessed, and are not counted as new, already imported
+or changed. Their wording (`imports.held.<reason>.label`, `.effect_note`) and flags (`.accept_allowed`,
+`.needs_ca_check`) are refdata, all provisional. `GET /runs/{id}` and `GET /runs/{id}/rows` (owner, admin, CA) return
+the preview: counts, held-by-reason, a "layout unchecked" warning while the profile is not verified (by the reader and
+by refdata), and each row's cells as read (non-personal mapped columns only), errors and plain reason.
+
+### Discard, sections and overlap (R1-M3 slice 3)
+
+`POST /runs/{id}/discard` (owner, admin; audited as `imports.run_discarded`) sets a staged run aside and frees its file
+to be uploaded again; repeating it is a no-op and a confirmed run answers 409 `run_not_staged`. `GET /upload-sections`
+(owner, admin, CA) always returns the five sections with `status` exactly one of "not uploaded", "processing" (a file is
+received or parsing), "rows held" (a live staged run has held rows) or "ready"; rejected, expired and discarded uploads
+do not count as uploaded. The two own-invoice sections are `enabled: false` until their readers exist (R1-M5, R1-M6).
+`UploadOut.run_ids` lists every run of an upload (a zip makes one per file; `run_id` is the first).
+
+On the upload path a record that another live staged file of the same report type already holds is shown as a
+`duplicate` (error code `duplicate_in_other_file`) so the preview never promises a count that confirming both files would
+double; the first file keeps it and discarding that file frees it for files uploaded afterwards. Rows already staged as `duplicate` in a later file stay so (rows are insert-only): the user discards that file and uploads it again, and the page says so. The rule covers only rows that would be `new`; a `changed` row present in two live files is not flagged and is settled at confirm (StaleRun). The older flow (catalog, confirm) leaves this off and
+settles overlap at confirm (StaleRun).
+
+### Deciding held rows (R1-M3 slice 4, `runs.resolve`, `imports.row_resolutions`)
+
+`POST /rows/{row_id}/resolve` (owner, admin; Idempotency-Key) takes `{action: "set_aside" | "accept", note}`. A decision
+is a new insert-only `imports.row_resolutions` row (one per import row, held by a unique index so two simultaneous decisions cannot both land; the second is answered like a decided row; nothing is updated or deleted, and the
+import row itself is never edited); it is audited as `imports.row_set_aside` or `imports.row_accepted` with the note as the
+reason and no cell values. `set_aside` leaves the row out of the return and counts it as set aside; `accept` uses the row
+as the file states it and exists only where refdata `imports.held.<reason>.accept_allowed` is true, shipped `false`
+everywhere because whether an inconsistent row may be used is a PO and CA decision (CLAUDE.md rule 12). Only a held row
+of a staged run can be decided (409 `run_not_staged` after discard or confirm; 422 `action_not_allowed`, `note_required`);
+deciding the same way twice records nothing new, and a decided row cannot be switched. **For the slice that confirms a run (R1-M4/M5):** a row's own status stays `held` after a decision; confirm must read the row's resolution, must not import an unresolved or `set_aside` row, and may import an `accepted` row only as the file states it. `RowOut.allowed_actions` (label and
+effect note from refdata `imports.action.<action>.*`) and `RowOut.resolution` carry the state, so the page needs no logic
+of its own. `RunOut.counts.held` and `held_by_reason` count unresolved rows only, with `set_aside` and `accepted` counted
+beside them; a section reads "rows held" until none remain, and `needs_ca_check` stays true for accepted rows whose reason
+is flagged.
+
+Not yet: `months` and `already_uploaded_of` on the run, the `from`/`to` filters and `GET /marketplace-coverage` (all need
+the months a real reader reads from its file, R1-M4); value fixes (`enter_hsn`, `pick_state`, R1-M4).
+
+## Amazon readers (R1-M4 slice 1, `readers/amazon.py`, `readers/base.py`)
+
+Two readers, `amazon_mtr_b2c_v1` and `amazon_mtr_b2b_v1`, registered by `register_platform_readers()` at start-up.
+A report is a CSV named `MTR_B2C-*.csv` or `MTR_B2B-*.csv`, alone or inside a zip (UTF-8 BOM allowed). A reader
+claims a file by its header names, not by position or file name alone: six marker headers must be present and the
+B2C reader refuses a file that has `Customer Bill To Gstid`. The business GSTIN is read from the `Seller Gstin`
+column (compared in upper case); a blank or different one rejects the file whole (`wrong_gstin`).
+
+- **Fields kept:** GSTIN, order/shipment ids, invoice and credit note numbers, the candidate dates (order, shipment,
+  invoice, credit note), quantity, HSN, ship-to and ship-from state, taxable value, tax by head and rate, and for B2B
+  the buyer GSTIN. Buyer names and addresses are never mapped, so never stored.
+- **Rates** arrive as fractions (0.18) and are stored as percent through `FieldSpec.scale` (exact `Decimal`, never inferred).
+- **Dedupe key:** `(seller GSTIN, shipment item id, transaction type, credit note no)`. An invoice number is *not*
+  part of it: two units of one order share one, and a refund repeats its sale's. A blank credit note number is
+  allowed in the key (`key_blank_ok`) because only refunds carry one.
+- **Rows by type:** `Shipment` is a sale; `Refund` needs a credit note number; `Cancel` and `FreeReplacement` at zero
+  value are `skipped_zero` (provisional, see OPEN_QUESTIONS); a Cancel carrying value is held `sanity`; any other type is held
+  `unknown_txn_type`. Blank HSN, quantity or ship-to state hold the row (`blank_hsn`, `blank_qty`, `unknown_state`);
+  IGST together with CGST/SGST on one row is held `sanity`.
+- **Guards against a wrong guess:** a rate above 100 or below 0 after scaling is held `sanity`, so a file that already
+  writes `18` shows as held rows, not as 1800. A file naming more than one seller GSTIN is refused whole (`wrong_gstin`).
+  `unknown_state` is held only for a blank state; an unrecognised state name is not yet checked against the state list.
+- **To check on the first real report:** whether a real B2C file carries a `Customer Bill To Gstid` column (even empty),
+  which would make the B2C reader refuse it and the B2B reader claim it; whether rates are fractions or percents.
+- **Not mapped yet:** shipping, gift-wrap tax and TCS columns (exact header names unknown until a real file is checked).
+- **Unchecked layout:** both profiles ship with refdata `imports.profile.<id>.verified` false, so every run shows
+  the "layout unchecked" warning until a real report has been checked on the owner's machine.
+
+## Flipkart readers (R1-M4 slice 2, `readers/flipkart.py`)
+
+`flipkart_sales_v1` (sheet `Sales Report`, report type `orders`) and `flipkart_cashback_v1` (sheet `Cash Back Report`,
+report type `cashback`) read one `Sales Report - <range>.xlsx`, alone or in a zip. A workbook with several sheets is
+read sheet by sheet: each sheet a reader of the section names becomes its own table and run (the `Help` sheet is not
+read; a sheet with a header and no rows makes an empty run with a "This report had no rows" warning, since a month may have no cash-back; a sheet with nothing at all is skipped). A reader declares its sheet
+(`Reader.sheet`); a workbook none of whose sheets any reader names is read as before and refused if it has several.
+The whole sheet is read whatever size it declares (the declared-size bug).
+
+- **Rates** are kept as written (percent numbers like 18.0); a rate outside 0 to 100 holds the row `sanity`.
+- **Sales rows** are held for: an event type or sub type outside Sale/Return and Sale/Cancellation/Return/Return
+  Cancellation (`unknown_txn_type`), blank HSN, quantity or delivery state, IGST with CGST/SGST on one row, and a
+  Cancellation or Return Cancellation carrying value (`sanity`). A zero-value one is `skipped_zero`. How Cancellation and
+  Return Cancellation count is a CA question (spec section 5, item 4) and nothing here decides it.
+- **Dedupe keys:** sales `(seller GSTIN, order item id, event type, event sub type)`; cash-back `(seller GSTIN, note
+  id, order item id)`, a blank item id allowed.
+- **Cash Back rows** are all held as `cashback_adjustment` (new hold reason; accept is off and the CA check is on). Migration
+  `202611131400` widens the `hold_reason` check; no row changes.
+- **The same all-sellers rule as Amazon:** a sheet naming more than one seller GSTIN is refused whole.
+- **Personal columns** (customer name, address, pincodes) are not mapped, so never stored.
+- **To check on the first real report:** the exact names of the tax rate and amount columns, the shipped-from and
+  delivery state columns, and the Cash Back sheet's header names (the spec lists only some; its seller GSTIN column is assumed
+  to be `Seller GSTIN`). Both profiles ship unverified.
+
+## Months, coverage and filters (R1-M4 slice 4)
+
+- **`summary.months` on a run** (`RunOut.months`, `["2026-07"]`): the calendar months of one date field each reader names
+  (`coverage_field`: Amazon shipment date, Flipkart order approval date for sales and invoice date for cash-back, Meesho
+  order date for sales and return date for returns). It is **for the coverage view only**: it is not the return period.
+  Which date places a row in a return is a CA question (spec section 5, item 1) and the build decides it (R1-M7). A sheet
+  with no rows takes the months of the other sheets of its file. No migration: it lives in the run's `summary`.
+- **`already_uploaded_of`** (`RunOut`): the id of an earlier preview of the same file that was discarded, so the page can
+  say "you uploaded this before". A file that is still live is not a new run at all (the existing run is returned).
+- **`GET /marketplace-coverage?from=&to=`**: months with any live preview, and for each of the three platforms the report
+  types it needs (from its readers), the ones received, `complete` (all needed ones received) and `held_rows` (open held
+  rows in those previews; a preview covering two months counts in both). Read-only; CA and members read it, another
+  business gets nothing.
+- **`from` / `to` on `GET /uploads` and `GET /upload-sections`**: an upload is listed when any month its live previews
+  cover falls in the range (compared by calendar month). An upload with no month known (turned away, still being
+  read, or no dated rows) is always listed in `/uploads`, since hiding it would hide a problem. `to` before `from` is 422.
+- **`requirement_note`** on a section comes from refdata `imports.requirement.<section>.note` (wording to be settled).
+## Meesho readers (R1-M4 slice 3, `readers/meesho.py`)
+
+`meesho_sales_v1` (`tcs_sales.xlsx`, report type `orders`) and `meesho_returns_v1` (`tcs_sales_return.xlsx`, report
+type `returns`) read the two workbooks of a month's zip (one sheet each, named after the supplier id). The return file
+is the one with `cancel_return_date`; `transaction_type` is empty in the samples and is not used. The text `null` is a
+blank (`FieldSpec.blank_tokens`, applied to the mapped fields of this profile). The supplier name and enrolment number are not mapped, so never stored.
+
+- **Dedupe key and why (D-051).** Meesho's files carry no stable row id, and `sub_order_num` is not unique (a month had
+  57 sales rows for 55 orders: the extra two were price adjustments). The key is the spec's composite
+  `(gstin, sub_order_num, order_date, quantity, total_taxable_sale_value, total_invoice_value)` plus the file kind (the
+  run's report type) plus an occurrence counter (`MappingProfile.occurrence_field`). Rows with the same key and the
+  same content in one file are separate records counted 1, 2, ... in file order. Rows with the same key and
+  different other values (state, rate, tax, shipping, HSN, dates) are never merged or dropped: **all of them are flagged
+  `conflict`** (an ambiguous duplicate) for the user to look at. Cost: a re-issued file with a corrected taxable or invoice
+  value looks like new rows, which the "changed" logic cannot see; the live-file overlap rule and the file checksum
+  still stop the same file being staged twice.
+- **Adjustments:** a row with quantity 0 and any value is held `price_adjustment` (a new reason, accept off, CA check on).
+  A quantity-0 row with no value is `skipped_zero`. A blank quantity is `blank_qty`.
+- **Other holds:** blank HSN, blank customer state (`unknown_state`), a rate outside 0 to 100, a negative taxable or
+  invoice value on a row that has units, and a return with no `cancel_return_date` (`sanity`).
+  `taxable + tax = invoice` is not checked: the values are long fractions and no tolerance is invented.
+- **No tax split:** the file has one `tax_amount`; the build derives CGST/SGST/IGST from the place of supply (a CA item).
+- **To check on the first real report:** the zip entry names (taken as exact from the spec), the date formats, and
+  whether the sales file really lacks `cancel_return_date`. A sheet naming more than one seller GSTIN is refused whole.
+
+## Value fixes and the local checker (R1-M4 slice 4b)
+
+- **`enter_hsn` and `pick_state`** are new `resolve` actions with a `value`. `enter_hsn` is offered only on a `blank_hsn` row
+  and takes an HSN in the shape refdata `hsn.pattern` allows (a typo check, never which HSN fits); `pick_state` only on an
+  `unknown_state` row and takes a code from the refdata state list. Both need a note, like every decision. They are stored in
+  `row_resolutions` (`kind = 'fixed'`, `fix_field`, `fix_value`; migration `202611131500`, additive): insert-only, one
+  decision per row, the same fix twice is one decision, a different value or another action is refused. **The row as the
+  file said it is never changed**; the build (R1-M7) reads the decision to use the value. Runs count them as `counts.fixed`.
+  The audit event `imports.row_fixed` names the field, never the value.
+- **`scripts/check_reader.py <file>`** (local only): prints which reader claims each file or sheet, which headers were found
+  or missing, and row counts (new, held by reason, skipped, invalid by code). Never a cell value, GSTIN, order number, path or
+  a sheet name a reader does not name. Writes nothing and uses no database or network. The reader `verified` flags stay false
+  until someone has run it on a real report and the headers all matched; flipping a flag is then a reviewed refdata change.
+- **Not built: the choose-reader endpoint.** No two real readers claim one layout, so `needs_choice` cannot happen (EM, 2026-11-13).
+
+## Retention of uploads (R1-M3, TD-18)
+
+`retention.purge_uploads()` (the third rule of the retention Lambda, after `purge_drafts`) does two things in the
+database and neither touches S3: a `pending` upload older than refdata `imports.upload.pending_minutes` (60) becomes
+`expired`, and an upload older than `imports.upload.keep_days` (90) gets `raw_deleted_at`, so the page stops offering the
+raw file. The object itself is removed by the bucket's own lifecycle rule for the `uploads/` area (`upload_retention_days`
+in `infra/modules/storage`, 90); the Lambda has no S3 rights. **The two 90s must move together.** Rows, runs, rows' held
+reasons and decisions stay; nothing is deleted. The rule ships off (`retention.purge_uploads.enabled` false, like the others;
+a dry run still counts) and a missing period row means keep. The definer may read only `id, business_id, status, created_at,
+raw_deleted_at` and change only `status, raw_deleted_at, updated_at` on `imports.uploads`; never a file name or checksum.
+

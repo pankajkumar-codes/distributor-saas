@@ -31,3 +31,513 @@
   source_title: "LLD-7 §3 step 3: the most bytes a zip may expand to (200 MB, the parser's own limit)"
   last_checked: 2026-11-13
   status: provisional
+
+- key: imports.held.blank_hsn.label
+  value: "HSN missing"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: what a seller reads for a row held as blank_hsn (wording to be settled with the platform reader spec)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.blank_hsn.effect_note
+  value: "This row is left out of the return until its HSN is known."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: what leaving a blank_hsn row alone does"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.blank_hsn.accept_allowed
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: may a blank_hsn row be accepted as the file states it? Off until the PO and CA decide"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.blank_hsn.needs_ca_check
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: whether a blank_hsn row should be shown to the CA (provisional; the CA sheet decides)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.blank_uqc.label
+  value: "Unit missing"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: what a seller reads for a row held as blank_uqc (wording to be settled with the platform reader spec)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.blank_uqc.effect_note
+  value: "This row is left out of the return until its unit is known."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: what leaving a blank_uqc row alone does"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.blank_uqc.accept_allowed
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: may a blank_uqc row be accepted as the file states it? Off until the PO and CA decide"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.blank_uqc.needs_ca_check
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: whether a blank_uqc row should be shown to the CA (provisional; the CA sheet decides)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.unknown_state.label
+  value: "State not recognised"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: what a seller reads for a row held as unknown_state (wording to be settled with the platform reader spec)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.unknown_state.effect_note
+  value: "This row is left out of the return until its state is known."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: what leaving a unknown_state row alone does"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.unknown_state.accept_allowed
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: may a unknown_state row be accepted as the file states it? Off until the PO and CA decide"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.unknown_state.needs_ca_check
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: whether a unknown_state row should be shown to the CA (provisional; the CA sheet decides)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.unknown_txn_type.label
+  value: "Transaction type not recognised"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: what a seller reads for a row held as unknown_txn_type (wording to be settled with the platform reader spec)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.unknown_txn_type.effect_note
+  value: "This row is left out of the return until we know what kind of transaction it is."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: what leaving a unknown_txn_type row alone does"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.unknown_txn_type.accept_allowed
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: may a unknown_txn_type row be accepted as the file states it? Off until the PO and CA decide"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.unknown_txn_type.needs_ca_check
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: whether a unknown_txn_type row should be shown to the CA (provisional; the CA sheet decides)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.blank_qty.label
+  value: "Quantity missing"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: what a seller reads for a row held as blank_qty (wording to be settled with the platform reader spec)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.blank_qty.effect_note
+  value: "This row is left out of the return until its quantity is known."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: what leaving a blank_qty row alone does"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.blank_qty.accept_allowed
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: may a blank_qty row be accepted as the file states it? Off until the PO and CA decide"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.blank_qty.needs_ca_check
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: whether a blank_qty row should be shown to the CA (provisional; the CA sheet decides)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.sanity.label
+  value: "Amounts don't add up"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: what a seller reads for a row held as sanity (wording to be settled with the platform reader spec)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.sanity.effect_note
+  value: "This row is left out of the return until you decide what to do with it."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: what leaving a sanity row alone does"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.sanity.accept_allowed
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: may a sanity row be accepted as the file states it? Off until the PO and CA decide"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.sanity.needs_ca_check
+  value: "true"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: whether a sanity row should be shown to the CA (provisional; the CA sheet decides)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.action.set_aside.label
+  value: "Leave this row out"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: the button for set_aside on a held row (wording to be settled)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.action.set_aside.effect_note
+  value: "This row is counted as set aside and left out of the return. Your note is kept."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: what set_aside does to a held row"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.action.accept.label
+  value: "Use the row as the file states it"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: the button for accept on a held row (wording to be settled)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.action.accept.effect_note
+  value: "This row is used exactly as the file states it, and your note is kept."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 §4: what accept does to a held row"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.upload.pending_minutes
+  value: "60"
+  type: integer
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 retention plan: an upload still waiting for its file after this many minutes is expired"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.upload.keep_days
+  value: "90"
+  type: integer
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m3-uploads.md
+  source_title: "R1-M3 retention plan: raw uploaded files are kept this many days; must equal the bucket lifecycle (Terraform upload_retention_days)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.profile.amazon_mtr_b2c_v1.verified
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/platform-reader-spec.md
+  source_title: "R1-M4 S1: Amazon MTR B2C layout built from the spec; stays false until a real report is checked on the owner's machine"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.profile.amazon_mtr_b2b_v1.verified
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/platform-reader-spec.md
+  source_title: "R1-M4 S1: Amazon MTR B2B layout built from the spec; stays false until a real report is checked on the owner's machine"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.cashback_adjustment.label
+  value: "Flipkart cash-back note"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/platform-reader-spec.md
+  source_title: "R1-M4 S2: what a seller reads for a row held as cashback_adjustment (wording to be settled)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.cashback_adjustment.effect_note
+  value: "This note is kept but left out of the return until your CA says how it is reported."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/platform-reader-spec.md
+  source_title: "R1-M4 S2: what leaving a cashback_adjustment row alone does"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.cashback_adjustment.accept_allowed
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/platform-reader-spec.md
+  source_title: "R1-M4 S2: may a cashback_adjustment row be accepted as the file states it? No: the CA decides first (spec section 5, item 2)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.cashback_adjustment.needs_ca_check
+  value: "true"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/platform-reader-spec.md
+  source_title: "R1-M4 S2: a cashback_adjustment row is shown to the CA (spec section 5, item 2)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.price_adjustment.label
+  value: "Meesho price adjustment"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/platform-reader-spec.md
+  source_title: "R1-M4 S2: what a seller reads for a row held as price_adjustment (wording to be settled)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.price_adjustment.effect_note
+  value: "This row is kept but left out of the return until your CA says how it is reported."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/platform-reader-spec.md
+  source_title: "R1-M4 S2: what leaving a price_adjustment row alone does"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.price_adjustment.accept_allowed
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/platform-reader-spec.md
+  source_title: "R1-M4 S2: may a price_adjustment row be accepted as the file states it? No: the CA decides first (spec section 5, item 2)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.price_adjustment.needs_ca_check
+  value: "true"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/platform-reader-spec.md
+  source_title: "R1-M4 S2: a price_adjustment row is shown to the CA (spec section 5, item 2)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.profile.flipkart_sales_v1.verified
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/platform-reader-spec.md
+  source_title: "R1-M4 S2: Flipkart layout built from the spec; stays false until a real report is checked on the owner's machine"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.profile.flipkart_cashback_v1.verified
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/platform-reader-spec.md
+  source_title: "R1-M4 S2: Flipkart layout built from the spec; stays false until a real report is checked on the owner's machine"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.requirement.amazon.note
+  value: "Amazon: the monthly Merchant Tax Report files, B2C and B2B. A zip of both is fine."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/platform-reader-spec.md
+  source_title: "R1-M4 S4: plain words on which files the amazon section needs (wording to be settled)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.requirement.flipkart.note
+  value: "Flipkart: the monthly Sales Report workbook. It holds the Sales Report and Cash Back Report sheets, and both are read."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/platform-reader-spec.md
+  source_title: "R1-M4 S4: plain words on which files the flipkart section needs (wording to be settled)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.requirement.meesho.note
+  value: "Meesho: the month's zip with its two files, tcs_sales.xlsx and tcs_sales_return.xlsx."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/platform-reader-spec.md
+  source_title: "R1-M4 S4: plain words on which files the meesho section needs (wording to be settled)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.profile.meesho_sales_v1.verified
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/platform-reader-spec.md
+  source_title: "R1-M4 S3: Meesho layout built from the spec; stays false until a real report is checked on the owner's machine"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.profile.meesho_returns_v1.verified
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/platform-reader-spec.md
+  source_title: "R1-M4 S3: Meesho layout built from the spec; stays false until a real report is checked on the owner's machine"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.action.enter_hsn.label
+  value: "Enter the HSN"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m4-readers.md
+  source_title: "R1-M4 S4b: wording of the enter_hsn action on a held row (to be settled)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.action.enter_hsn.effect_note
+  value: "The HSN you enter is used for this row. Your note is kept."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m4-readers.md
+  source_title: "R1-M4 S4b: wording of the enter_hsn action on a held row (to be settled)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.action.pick_state.label
+  value: "Pick the state"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m4-readers.md
+  source_title: "R1-M4 S4b: wording of the pick_state action on a held row (to be settled)"
+  last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.action.pick_state.effect_note
+  value: "The state you pick is used for this row. Your note is kept."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m4-readers.md
+  source_title: "R1-M4 S4b: wording of the pick_state action on a held row (to be settled)"
+  last_checked: 2026-11-13
+  status: provisional

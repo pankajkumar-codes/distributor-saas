@@ -20,6 +20,15 @@ variable "acm_certificate_arn" {
   type        = string
   default     = ""
 }
+variable "upload_origin" {
+  description = "https:// origin of the uploads bucket in its own region (virtual-hosted style). The browser POSTs a file straight to it on a presigned POST, so the CSP must allow it in connect-src (fetch/XHR) and form-action (a plain form). Empty leaves both at 'self'."
+  type        = string
+  default     = ""
+  validation {
+    condition     = var.upload_origin == "" || can(regex("^https://[a-z0-9.-]+$", var.upload_origin))
+    error_message = "upload_origin must be an https:// origin with no path, port or wildcard."
+  }
+}
 variable "price_class" {
   description = "PriceClass_200 includes edge locations in India."
   type        = string
@@ -115,12 +124,18 @@ resource "aws_cloudfront_function" "spa" {
   JS
 }
 
+locals {
+  # form-action does not fall back to default-src, so it is named as well as connect-src.
+  upload_src = var.upload_origin == "" ? "" : " ${var.upload_origin}"
+  csp        = "default-src 'self'; img-src 'self' data: blob:; connect-src 'self'${local.upload_src}; frame-ancestors 'none'; base-uri 'none'; form-action 'self'${local.upload_src}"
+}
+
 # LLD-1 §11.5.
 resource "aws_cloudfront_response_headers_policy" "security" {
   name = "${var.name}-security"
   security_headers_config {
     content_security_policy {
-      content_security_policy = "default-src 'self'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+      content_security_policy = local.csp
       override                = true
     }
     strict_transport_security {

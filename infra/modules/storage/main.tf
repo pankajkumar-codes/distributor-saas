@@ -12,6 +12,10 @@ variable "cors_origins" {
   description = "Origins the browser POSTs uploads from (the app domain)"
   type        = list(string)
   default     = []
+  validation {
+    condition     = alltrue([for o in var.cors_origins : can(regex("^https?://[^*/]+$", o))])
+    error_message = "cors_origins must be exact origins (scheme and host, no path), never a wildcard."
+  }
 }
 variable "noncurrent_version_days" {
   description = "How long an overwritten or deleted object's old version is kept"
@@ -19,7 +23,7 @@ variable "noncurrent_version_days" {
   default     = 30
 }
 variable "upload_retention_days" {
-  description = "TD-18: raw uploads are deleted this many days after upload (90, a setting the CA may change)"
+  description = "TD-18: raw uploads are deleted this many days after upload (90, a setting the CA may change). Must equal refdata imports.upload.keep_days, which marks the file gone in the database; tests/tools/test_infra_retention.py checks it."
   type        = number
   default     = 90
 }
