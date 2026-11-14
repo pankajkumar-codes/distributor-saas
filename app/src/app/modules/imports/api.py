@@ -22,7 +22,7 @@ from platform_common.permissions import Permission, require
 from platform_common.uow import BusinessUoW, parse_id
 
 from . import jobs as import_jobs
-from . import coverage, runs, sections, template, uploads
+from . import confirm, coverage, runs, sections, template, uploads
 
 router = APIRouter(tags=["imports"])
 CREATE = [Depends(require(Permission.UPLOADS_CREATE))]
@@ -254,6 +254,38 @@ def resolve_row(row_id: str, body: ResolveIn, request: Request, uow: BusinessUoW
     return run_once(uow.tx, uow.principal.business_id, idempotency_key, method=request.method,
                     route=request.scope["route"].path, payload={"row": row_id, **body.model_dump(mode="json")},
                     operation=decide)
+
+
+class BlockerOut(BaseModel):
+    code: str
+    label: str
+    count: int
+    rows: list[int]  # row numbers, the first 20
+
+
+class NoteOut(BaseModel):
+    code: str
+    label: str
+
+
+class ConfirmCheckOut(BaseModel):
+    run_id: str
+    can_confirm: bool
+    included: int
+    changed: int
+    left_out: dict[str, int]  # set_aside, already_imported, duplicate, skipped_zero
+    blockers: list[BlockerOut]
+    notes: list[NoteOut]
+
+
+@router.get("/b/{business_id}/runs/{run_id}/confirm-check", response_model=ConfirmCheckOut, dependencies=VIEW)
+def confirm_check(run_id: str, uow: BusinessUoW, clock: Annotated[Clock, Depends(get_clock)]):
+    """What stops this staged run being confirmed, with counts and row numbers (never cell values). Read-only."""
+    out = confirm.check(uow, parse_id(run_id), clock.today())
+    return ConfirmCheckOut(
+        run_id=str(out.run_id), can_confirm=out.can_confirm, included=out.included, changed=out.changed,
+        left_out=out.left_out, blockers=[BlockerOut(**b.__dict__ | {"rows": list(b.rows)}) for b in out.blockers],
+        notes=[NoteOut(code=n.code, label=n.label) for n in out.notes])
 
 
 @router.post("/b/{business_id}/runs/{run_id}/discard", response_model=RunOut, dependencies=CREATE)

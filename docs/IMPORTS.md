@@ -316,6 +316,24 @@ slice 2, which adds the template download.
   check that the rows of one document agree on date, original invoice, buyer GSTIN and total (the template repeats the
   total on every line).
 
+## Confirm check (R1-M7 slice 1, `confirm.py`)
+
+`GET /b/{b}/runs/{run}/confirm-check` (`uploads.view`: owner, admin, CA; billing and other businesses 404; a run that is not staged 409 `run_not_staged`) says whether a staged run could be confirmed and, if not, why. It is read-only and decides nothing about tax. The confirm itself is slice 2.
+
+Included rows are `new` and `changed` rows and held rows the user accepted or fixed; never a set-aside row, and never `already_imported`, `duplicate` or `skipped_zero` rows (counted in `left_out`). Each blocker has a code, refdata wording (`imports.confirm.<code>.label`), a count and up to 20 row numbers, never a cell value, GSTIN or document number:
+
+| Code | When |
+|---|---|
+| `profile_not_verified` | the layout is not verified (LLD-7 L7-13). A local demo (`DEMO_READERS=1` in a debug environment, never on Lambda) opens this gate so synthetic files can be taken end to end; production profiles stay unverified. |
+| `period_date_unconfirmed` | the profile has no `imports.profile.<id>.period_field` row. Flipkart and Meesho have none until the CA answers (question sheet M-4). |
+| `rows_undecided`, `rows_invalid`, `rows_conflict` | a held row has no decision; a row could not be read; the file repeats a record with other values. Nothing is left out silently. |
+| `document_rows_disagree` | lines of one document (own invoices: seller GSTIN, type, number, and the financial year of its date) differ on date, original invoice, buyer GSTIN or total. |
+| `rows_conflict_across_runs` | a reader with a `cross_run_key` (Meesho: GSTIN, sub-order number, order date) has a live row of another file with the same key and different values. The user may set aside the new row (the only decision offered on a `new` or `changed` row, and only for such a clash); an older confirmed row stays. Reported even while the period date is open. |
+| `hsn_too_short` | an included row's HSN (a fix replaces it) is shorter than `business.hsn_min_digits` for its date. With no turnover band the stricter count applies and the note `hsn_band_missing` says so (needs CA check). |
+
+**Known performance limit.** Because `allowed_actions` on a `new` or `changed` row depends on the cross-file clash, every row-list or single-row request for a staged run of a reader with a `cross_run_key` (Meesho) loads every row of that run and the matching rows of other live runs to work out the clash. That is fine for a month of a small seller and slow for a very large file. The fix is a cap on rows per run or a query that fetches only the keys on the page; it can be a later slice.
+
+The date used is the profile's `period_field` (a comma list, the first present wins), never the coverage `months` label (D-052). See D-056.
 ## Own sales invoices, PDF (R1-M6 slice 1, `imports/pdf/`)
 
 Not wired into uploads yet (slice 2): a PDF in the own-invoice section is still stored and not read. This slice adds the

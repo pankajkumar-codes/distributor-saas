@@ -979,6 +979,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/runs/{run_id}/confirm-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Confirm Check
+         * @description What stops this staged run being confirmed, with counts and row numbers (never cell values). Read-only.
+         */
+        get: operations["confirm_check_api_v1_b__business_id__runs__run_id__confirm_check_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/runs/{run_id}/discard": {
         parameters: {
             query?: never;
@@ -1670,6 +1690,17 @@ export interface components {
             reason: string | null;
             target: components["schemas"]["Target"];
         };
+        /** BlockerOut */
+        BlockerOut: {
+            /** Code */
+            code: string;
+            /** Count */
+            count: number;
+            /** Label */
+            label: string;
+            /** Rows */
+            rows: number[];
+        };
         /** CashBuyerIn */
         CashBuyerIn: {
             /** Address */
@@ -1812,6 +1843,25 @@ export interface components {
             taxes: components["schemas"]["TaxOut"][];
             /** Total */
             total: string;
+        };
+        /** ConfirmCheckOut */
+        ConfirmCheckOut: {
+            /** Blockers */
+            blockers: components["schemas"]["BlockerOut"][];
+            /** Can Confirm */
+            can_confirm: boolean;
+            /** Changed */
+            changed: number;
+            /** Included */
+            included: number;
+            /** Left Out */
+            left_out: {
+                [key: string]: number;
+            };
+            /** Notes */
+            notes: components["schemas"]["NoteOut"][];
+            /** Run Id */
+            run_id: string;
         };
         /** ConfirmIn */
         ConfirmIn: {
@@ -2590,6 +2640,13 @@ export interface components {
         NoteIn: {
             /** Note */
             note?: string | null;
+        };
+        /** NoteOut */
+        NoteOut: {
+            /** Code */
+            code: string;
+            /** Label */
+            label: string;
         };
         /** PasswordBody */
         PasswordBody: {
@@ -5725,6 +5782,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RunOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_check_api_v1_b__business_id__runs__run_id__confirm_check_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfirmCheckOut"];
                 };
             };
             /** @description Validation Error */

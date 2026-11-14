@@ -238,6 +238,12 @@ Every row in `refdata/` is `provisional`. Before go-live:
 
 - **Cross-check rounding (R1-M6).** The Excel-versus-PDF cross-check (slice 3) compares money by exact Decimal equality with no tolerance. Whether a difference of a paisa from rounding is acceptable, and CGST and SGST differing by a paisa, is a question for the CA (same as the M5 plan's).
 - **PDF layouts the free reader cannot read yet (R1-M6).** Tax split over two heading rows, labels above their values, scans and photos. Real accuracy is unknown until the owner runs his own PDFs through the local checker.
+## R1-M7 (GSTR-1 build from uploaded rows)
+- **Period date for Flipkart and Meesho rows** (CA question sheet M-4): confirm of those two files is refused until a reviewed refdata row `imports.profile.<id>.period_field` names the date. The Amazon row (credit note date, else invoice date) is provisional and needs the CA's check.
+- **A number reused in another financial year:** treated as another document (identity includes the FY of the document date); rests on the "unique per financial year" reading in document-fields.md, Rule 46(b). Needs CA check; no user text states it as law.
+- **Check tolerances:** none chosen. Taxable value x rate against tax, intra/inter-state from the place of supply and the seller's state, and CGST against SGST are report-only findings with the difference shown; the CA decides any tolerance (including a paisa after rounding) and whether any becomes a block.
+- **Debit notes** have no GSTR-1 section in the builder yet: they are shown as "not in this return yet, needs CA check" and not summed. R1-M8 must refuse or clearly warn on export while any is unsummed.
+- **Operator GSTIN, Table 14 and TCS** are not in R1-M7; marketplace rows build under the own-sales (OE) assumption and the screen says so.
 
 ## Decision handling
 For each answer, update `docs/DECISIONS.md` with the decision, rationale, trade-offs, and approval status. Do not silently turn assumptions into requirements.
