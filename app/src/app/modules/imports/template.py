@@ -24,14 +24,15 @@ HOW_TO = (
     "Use your own GSTIN in the Seller GSTIN column on every row. A file with another GSTIN is not accepted.",
     "Type the buyer's GSTIN only when the buyer is GST-registered. Do not add columns for names, addresses or "
     "phone numbers: they are not read and not kept.",
-    "Type the GST rate as a plain number, for example 18. Type tax amounts as printed on the document and leave a "
-    "tax column blank when it was not charged.",
+    "Type the GST rate printed on your document as a plain number, without a % sign. Type tax amounts as printed "
+    "on the document and leave a tax column blank when it was not charged.",
     "Do not rename or reorder the header row's titles on the Invoices sheet. Do not use formulas.",
     "A row we cannot place, for example a missing HSN or place of supply, is shown to you as held, with the reason. "
     "Nothing is filed from this sheet: it only fills your preview.",
 )
 NOT_SUPPORTED = (
-    "Not supported yet. Do not enter any of these as ordinary rows; we need your CA's answer first:",
+    "Not supported yet. Do not enter any of these as ordinary rows; we need your CA's answer first. Ask your CA how to "
+    "report them for now:",
     "Exports, with or without payment of tax",
     "Supplies to a Special Economic Zone (SEZ)",
     "Supplies on which the buyer pays tax (reverse charge)",

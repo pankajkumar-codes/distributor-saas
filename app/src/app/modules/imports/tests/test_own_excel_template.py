@@ -58,6 +58,13 @@ def test_the_how_to_sheet_names_every_column_and_every_unsupported_case_in_plain
     assert "not supported" in text.lower()
 
 
+def test_the_template_suggests_no_gst_rate_anywhere():
+    import re
+
+    cells = [str(c) for ws in workbook().worksheets for row in ws.iter_rows(values_only=True) for c in row if c]
+    assert not [c for c in cells if re.search(r"\d", c)], "a digit in the template could read as a suggested rate"
+
+
 def test_the_document_type_cell_offers_exactly_the_three_types():
     validations = workbook()[SHEET].data_validations.dataValidation
     assert len(validations) == 1 and validations[0].formula1 == '"Invoice,Credit note,Debit note"'
