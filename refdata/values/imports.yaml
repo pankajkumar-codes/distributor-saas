@@ -542,83 +542,83 @@
   last_checked: 2026-11-13
   status: provisional
 
-- key: imports.held.missing_original_invoice.label
+- key: imports.held.missing_original.label
   value: "Original invoice number missing"
   type: text
   kind: product
   valid_from: 2026-11-13
   source_url: team/engineering/r1-m5-own-excel.md
-  source_title: "R1-M5: what a seller reads for a row held as missing_original_invoice (wording to be settled)"
+  source_title: "R1-M5: what a seller reads for a row held as missing_original (wording to be settled)"
   last_checked: 2026-11-14
   status: provisional
 
-- key: imports.held.missing_original_invoice.effect_note
+- key: imports.held.missing_original.effect_note
   value: "This row is left out of the return until the note names the invoice it corrects."
   type: text
   kind: product
   valid_from: 2026-11-13
   source_url: team/engineering/r1-m5-own-excel.md
-  source_title: "R1-M5: what leaving a missing_original_invoice row alone does"
+  source_title: "R1-M5: what leaving a missing_original row alone does"
   last_checked: 2026-11-14
   status: provisional
 
-- key: imports.held.missing_original_invoice.accept_allowed
+- key: imports.held.missing_original.accept_allowed
   value: "false"
   type: boolean
   kind: product
   valid_from: 2026-11-13
   source_url: team/engineering/r1-m5-own-excel.md
-  source_title: "R1-M5: may a missing_original_invoice row be accepted as typed? No: a credit or debit note names the invoice it corrects (document-fields.md section 2, Rule 53(1A))"
+  source_title: "R1-M5: may a missing_original row be accepted as typed? No: a credit or debit note names the invoice it corrects (document-fields.md section 2, Rule 53(1A))"
   last_checked: 2026-11-14
   status: provisional
 
-- key: imports.held.missing_original_invoice.needs_ca_check
+- key: imports.held.missing_original.needs_ca_check
   value: "true"
   type: boolean
   kind: product
   valid_from: 2026-11-13
   source_url: team/engineering/r1-m5-own-excel.md
-  source_title: "R1-M5: a missing_original_invoice row is shown to the CA: a credit or debit note names the invoice it corrects (document-fields.md section 2, Rule 53(1A))"
+  source_title: "R1-M5: a missing_original row is shown to the CA: a credit or debit note names the invoice it corrects (document-fields.md section 2, Rule 53(1A))"
   last_checked: 2026-11-14
   status: provisional
 
-- key: imports.held.invoice_number_format.label
+- key: imports.held.number_format.label
   value: "Check this document number"
   type: text
   kind: product
   valid_from: 2026-11-13
   source_url: team/engineering/r1-m5-own-excel.md
-  source_title: "R1-M5: what a seller reads for a row held as invoice_number_format (wording to be settled)"
+  source_title: "R1-M5: what a seller reads for a row held as number_format (wording to be settled)"
   last_checked: 2026-11-14
   status: provisional
 
-- key: imports.held.invoice_number_format.effect_note
+- key: imports.held.number_format.effect_note
   value: "This row is left out of the return until you have checked the number against your invoice."
   type: text
   kind: product
   valid_from: 2026-11-13
   source_url: team/engineering/r1-m5-own-excel.md
-  source_title: "R1-M5: what leaving a invoice_number_format row alone does"
+  source_title: "R1-M5: what leaving a number_format row alone does"
   last_checked: 2026-11-14
   status: provisional
 
-- key: imports.held.invoice_number_format.accept_allowed
+- key: imports.held.number_format.accept_allowed
   value: "false"
   type: boolean
   kind: product
   valid_from: 2026-11-13
   source_url: team/engineering/r1-m5-own-excel.md
-  source_title: "R1-M5: may a invoice_number_format row be accepted as typed? No: the number does not fit the usual 16-character shape (document-fields.md section 1, Rule 46(b)); check it against your invoice"
+  source_title: "R1-M5: may a number_format row be accepted as typed? No: the number does not fit the usual 16-character shape (document-fields.md section 1, Rule 46(b)); check it against your invoice"
   last_checked: 2026-11-14
   status: provisional
 
-- key: imports.held.invoice_number_format.needs_ca_check
+- key: imports.held.number_format.needs_ca_check
   value: "true"
   type: boolean
   kind: product
   valid_from: 2026-11-13
   source_url: team/engineering/r1-m5-own-excel.md
-  source_title: "R1-M5: a invoice_number_format row is shown to the CA: the number does not fit the usual 16-character shape (document-fields.md section 1, Rule 46(b)); check it against your invoice"
+  source_title: "R1-M5: a number_format row is shown to the CA: the number does not fit the usual 16-character shape (document-fields.md section 1, Rule 46(b)); check it against your invoice"
   last_checked: 2026-11-14
   status: provisional
 

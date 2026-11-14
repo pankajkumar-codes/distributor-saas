@@ -130,9 +130,9 @@ class OwnExcelReader(HeaderReader):
             return StagedRowStatus.held, "unknown_txn_type"
         pattern = context.get(NUMBER_PATTERN_KEY)
         if pattern is not None and not pattern.fullmatch(str(n.get("doc_number") or "").strip()):
-            return StagedRowStatus.held, "invoice_number_format"
+            return StagedRowStatus.held, "number_format"
         if kind in NOTES and not n.get("original_number"):
-            return StagedRowStatus.held, "missing_original_invoice"
+            return StagedRowStatus.held, "missing_original"
         if not n.get("hsn"):
             return StagedRowStatus.held, "blank_hsn"
         if n.get("quantity") is None:

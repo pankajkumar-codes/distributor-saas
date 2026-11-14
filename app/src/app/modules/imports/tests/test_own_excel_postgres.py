@@ -54,7 +54,7 @@ def test_the_state_list_and_the_number_pattern_come_from_refdata(shop):  # noqa:
     upload(shop, "own_invoices_excel", "invoices.xlsx", book(rows), XLSX)
     run_jobs(shop)
     assert [(r.status, r.hold_reason) for r in rows_of(pg)] == [
-        ("held", "unknown_state"), ("held", "invoice_number_format"), ("held", "missing_original_invoice")]
+        ("held", "unknown_state"), ("held", "number_format"), ("held", "missing_original")]
 
 
 def test_a_csv_with_the_template_headers_is_read_too(shop):  # noqa: F811

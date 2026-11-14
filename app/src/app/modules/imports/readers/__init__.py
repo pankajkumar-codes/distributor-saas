@@ -22,7 +22,7 @@ PLATFORM_SECTIONS = ("amazon", "flipkart", "meesho")
 
 # Why a row is held (LLD-7 §3 step 5). A reader may only choose from these.
 HOLD_REASONS = ("blank_hsn", "blank_uqc", "unknown_state", "unknown_txn_type", "blank_qty", "sanity",
-                "cashback_adjustment", "price_adjustment", "missing_original_invoice", "invoice_number_format")
+                "cashback_adjustment", "price_adjustment", "missing_original", "number_format")
 
 
 class Reader(Protocol):

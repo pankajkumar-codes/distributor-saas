@@ -289,7 +289,7 @@ until slice 2.
   quantity, unit, taxable value, the rate as typed, the four tax amounts as typed, and the document total. Money is
   `Decimal` with the typed text kept. A rate of 0 is kept as typed.
 - **Held:** `unknown_txn_type` (a document type other than Invoice, Credit note or Debit note),
-  `missing_original_invoice` (a note with no original invoice number), `invoice_number_format` (a number that does
+  `missing_original` (a note with no original invoice number), `number_format` (a number that does
   not match refdata `imports.own_invoices.document_number_pattern`: the wording says to check it against the invoice,
   never that it is invalid), `blank_hsn` and `blank_qty` and `blank_uqc` (unit), `unknown_state` (place of supply blank
   or not a state name or code in refdata), `sanity` (a rate outside 0 to 100, IGST together with CGST or SGST, CGST
@@ -301,6 +301,11 @@ until slice 2.
   and the line's position within that document in the file. A later file with the same document and other values,
   with lines in another order, or with the same number reused in another financial year shows those rows as `changed`
   against a confirmed earlier file (or `duplicate` against a live one), never as a silent second copy.
+- **Known limit (gate for R1-M7):** two different documents that carry the same number in one file are not caught by the
+  reader. They are counted as lines 1 and 2 of one document (a test pins this), with no hold and no conflict, because
+  a document's lines share a number by nature. The build must not assume the reader caught reused numbers: it has to
+  check that the rows of one document agree on date, original invoice, buyer GSTIN and total (the template repeats the
+  total on every line).
 
 ## Retention of uploads (R1-M3, TD-18)
 

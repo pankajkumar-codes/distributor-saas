@@ -32,6 +32,8 @@ Resolve these before the affected functionality is used for live financial trans
 - **Not supported in the template yet, each needs a CA answer first:** exports, SEZ supplies, reverse charge, advances received, nil-rated and exempt marking, and an e-commerce operator's GSTIN. The "How to fill" sheet says in plain words that they must not be entered as ordinary rows.
 - **Document number shape:** the pattern (16 characters, letters, digits, hyphen, slash) is cited from team/gst/document-fields.md Rule 46(b) and is provisional; a number outside it is held for the seller to check against the invoice, not called invalid. Whether a number reused in another financial year is allowed is the CA's call; today it shows as "changed".
 - **Tax checks left to R1-M7:** taxable value times rate against the tax amounts (and the tolerance), intra- against inter-state from the place of supply, and the HSN minimum digits by turnover.
+- **Reused document number inside one file (gate before R1-M7):** the reader counts two different documents with one number as lines of one document and does not flag it; the build must check that the rows of a document agree before filing.
+- **CGST and SGST differing by a paisa:** the reader holds a line whose CGST and SGST differ at all (`sanity`). Software that rounds the total and then halves it can produce that. Whether a tolerance is allowed is a CA question for R1-M7; none is chosen here.
 - **Real-month check:** the template ships unverified until the owner fills one real month and runs `scripts/check_reader.py --section own_invoices_excel`.
 
 ## Platform readers (R1-M4)

@@ -89,14 +89,14 @@ def test_an_unknown_document_type_is_held():
 
 
 def test_a_note_with_no_original_invoice_is_held_but_an_invoice_needs_none():
-    assert verdict(one(kind="Credit note")) == (HELD, "missing_original_invoice")
-    assert verdict(one(kind="Debit note")) == (HELD, "missing_original_invoice")
+    assert verdict(one(kind="Credit note")) == (HELD, "missing_original")
+    assert verdict(one(kind="Debit note")) == (HELD, "missing_original")
     assert verdict(one(kind="Credit note", original="INV-1", original_date="03-07-2026")) is None
 
 
 def test_a_document_number_that_does_not_fit_the_pattern_is_held_by_the_refdata_pattern_not_a_literal():
-    assert verdict(one(number="INV/2026-27/000000001")) == (HELD, "invoice_number_format")  # 21 characters
-    assert verdict(one(number="INV 1")) == (HELD, "invoice_number_format")
+    assert verdict(one(number="INV/2026-27/000000001")) == (HELD, "number_format")  # 21 characters
+    assert verdict(one(number="INV 1")) == (HELD, "number_format")
     assert verdict(one(number="INV 1"), {"states": STATES}) is None  # no pattern given: nothing to check
 
 
@@ -156,3 +156,14 @@ def test_reordered_lines_change_the_rows_under_the_same_keys_so_a_later_file_sho
     second = parsed(fx.workbook([fx.line("INV-1", hsn="6110"), fx.line("INV-1", hsn="6109")]))
     for a, b in zip(first, second, strict=True):
         assert a.dedup_key == b.dedup_key and a.content_hash != b.content_hash
+
+
+def test_two_different_documents_with_one_number_are_lines_one_and_two_of_one_document_a_known_limit():
+    """Pinned on purpose (R1-M7 gate in IMPORTS.md): the reader does not tell a reused number from the second
+    line of a document. The build has to check that the rows of a document agree."""
+    rows = parsed(fx.workbook([fx.line("INV-9", date="03-07-2026", buyer="29DEMOC9999C1Z1"),
+                               fx.line("INV-9", date="15-07-2026", buyer="")]))
+    assert [r.status for r in rows] == [RowStatus.valid, RowStatus.valid]
+    assert [r.dedup_key[-1] for r in rows] == ["1", "2"]
+    assert rows[0].dedup_key[:3] == rows[1].dedup_key[:3]
+    assert all(verdict(r) is None for r in rows)
