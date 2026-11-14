@@ -24,6 +24,10 @@ MAX_OUTPUT_BYTES = 8 * 1024 * 1024  # the child's answer is bounded too: a refus
 GRACE_SECONDS = 2  # the child's own CPU limit fires first; the parent's kill is the backstop
 
 
+class SandboxUnavailable(RuntimeError):
+    """The child could not be started. Not a PdfRefused: the upload must stay received and be retried, never rejected."""
+
+
 def read_sandboxed(pdf: bytes, limits: Limits, hsn_pattern: str, *, max_memory_bytes: int) -> ReadResult:
     """The text-layer reader, run in a child. `hsn_pattern` is refdata `hsn.pattern` as text."""
     header = json.dumps({"limits": asdict(limits), "hsn": hsn_pattern, "memory": max_memory_bytes}).encode()
@@ -43,7 +47,9 @@ def read_sandboxed(pdf: bytes, limits: Limits, hsn_pattern: str, *, max_memory_b
         except subprocess.TimeoutExpired:  # subprocess.run has already killed the child
             raise PdfRefused("too_slow") from None
         except OSError:
-            raise PdfRefused("unreadable") from None
+            # The parser could not be started at all (no process, no memory, a missing interpreter): that is this
+            # machine's fault, not the file's, so it is not a refusal of the file and the job is retried.
+            raise SandboxUnavailable("the PDF parser could not be started") from None
     if len(done.stdout) > MAX_OUTPUT_BYTES:
         raise PdfRefused("too_complex")
     try:

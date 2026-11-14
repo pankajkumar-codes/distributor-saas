@@ -192,7 +192,7 @@ def test_a_page_tree_loop_does_not_hang_or_leak_text():
 def test_the_table_handoff_uses_the_excel_templates_headers():
     data = pdf([invoice_page("INV-1"), [(40, 700, "unreadable page of text")]])
     table = to_table(read(data).invoices, filename="a.pdf", pdf=data)
-    assert table.rows[0] == [c.header for c in COLUMNS]
+    assert table.rows[0] == [c.header for c in COLUMNS] + ["Unclear fields"]
     row = dict(zip(table.rows[0], table.rows[1], strict=True))
     assert row["Document number"] == "INV-1" and row["HSN"] == "6109" and row["IGST"] == ""
     assert table.checksum_sha256 and len(table.rows) == 2  # a bare second page continues the first document

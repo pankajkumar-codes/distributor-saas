@@ -88,12 +88,12 @@ def test_a_platform_file_with_no_reader_is_rejected_in_plain_words(shop):
     assert scalar(pg.owner, "select count(*) from platform.audit_log where action = 'imports.rejected'") == 1
 
 
-def test_a_pdf_is_stored_and_marked_read_with_no_rows(shop):
+def test_a_pdf_with_no_reader_registered_is_turned_away_not_stored(shop):
     pg, biz, _ = shop
     upload_id, _ = upload(shop, "own_invoices_pdf", "inv.pdf", PDF, "application/pdf")
     assert run_jobs(shop) == ["done"]
     out = get(pg, f"/api/v1/b/{biz}/uploads/{upload_id}").json()
-    assert (out["status"], out["run_id"]) == ("stored", None)
+    assert (out["status"], out["run_id"], out["reject_reason"]) == ("rejected", None, "no_reader")
 
 
 def test_a_file_that_is_not_a_pdf_is_rejected(shop):
