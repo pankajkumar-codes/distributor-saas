@@ -165,6 +165,9 @@
 - path: app/src/app/modules/imports/template.py
   value: "2"
   reason: "spreadsheet layout number (a column width, a padding or a column position in the template workbook), not a tax value"
+- path: app/src/app/modules/imports/confirm.py
+  value: "20"
+  reason: "how many row numbers the confirm check lists per reason; a display limit, not a tax value"
 - path: app/src/app/modules/imports/pdf/extract.py
   value: "6"
   reason: "how many top rows of a page are searched for its title (Tax Invoice, Credit Note); layout, not a tax rule"

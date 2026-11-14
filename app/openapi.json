@@ -501,6 +501,37 @@
         "title": "AuditRowOut",
         "type": "object"
       },
+      "BlockerOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "code",
+          "label",
+          "count",
+          "rows"
+        ],
+        "title": "BlockerOut",
+        "type": "object"
+      },
       "CashBuyerIn": {
         "additionalProperties": false,
         "properties": {
@@ -913,6 +944,58 @@
           "total"
         ],
         "title": "ComputedLineOut",
+        "type": "object"
+      },
+      "ConfirmCheckOut": {
+        "properties": {
+          "blockers": {
+            "items": {
+              "$ref": "#/components/schemas/BlockerOut"
+            },
+            "title": "Blockers",
+            "type": "array"
+          },
+          "can_confirm": {
+            "title": "Can Confirm",
+            "type": "boolean"
+          },
+          "changed": {
+            "title": "Changed",
+            "type": "integer"
+          },
+          "included": {
+            "title": "Included",
+            "type": "integer"
+          },
+          "left_out": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Left Out",
+            "type": "object"
+          },
+          "notes": {
+            "items": {
+              "$ref": "#/components/schemas/NoteOut"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "can_confirm",
+          "included",
+          "changed",
+          "left_out",
+          "blockers",
+          "notes"
+        ],
+        "title": "ConfirmCheckOut",
         "type": "object"
       },
       "ConfirmIn": {
@@ -3373,6 +3456,24 @@
           }
         },
         "title": "NoteIn",
+        "type": "object"
+      },
+      "NoteOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "label"
+        ],
+        "title": "NoteOut",
         "type": "object"
       },
       "PasswordBody": {
@@ -10048,6 +10149,58 @@
           }
         },
         "summary": "Get Run",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/runs/{run_id}/confirm-check": {
+      "get": {
+        "description": "What stops this staged run being confirmed, with counts and row numbers (never cell values). Read-only.",
+        "operationId": "confirm_check_api_v1_b__business_id__runs__run_id__confirm_check_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfirmCheckOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm Check",
         "tags": [
           "imports"
         ]

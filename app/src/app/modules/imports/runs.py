@@ -43,6 +43,7 @@ class Run:
     set_aside: int = 0
     accepted: int = 0
     fixed: int = 0
+    report_type: str = ""
 
 
 @dataclass(frozen=True)
@@ -73,7 +74,7 @@ LATEST = ("select distinct on (row_id) row_id, kind, note, created_at, fix_field
 def get_run(uow: UnitOfWork, run_id: uuid.UUID) -> Run:
     r = uow.tx.execute(
         text("select r.id, r.upload_id, u.section, r.marketplace, r.profile_id, r.profile_verified, r.gstin, r.status,"
-             " r.summary from imports.import_runs r left join imports.uploads u"
+             " r.summary, r.report_type from imports.import_runs r left join imports.uploads u"
              " on u.id = r.upload_id and u.business_id = r.business_id where r.id = :r and r.business_id = :b"),
         {"r": run_id, "b": _business(uow)},
     ).one_or_none()
@@ -92,7 +93,7 @@ def get_run(uow: UnitOfWork, run_id: uuid.UUID) -> Run:
         else:
             resolved[kind] += n
     return Run(r.id, r.upload_id, r.section, r.marketplace, r.profile_id, r.profile_verified, r.gstin, r.status,
-               r.summary or {}, held, resolved["set_aside"], resolved["accepted"], resolved["fixed"])
+               r.summary or {}, held, resolved["set_aside"], resolved["accepted"], resolved["fixed"], r.report_type)
 
 
 def counts(run: Run) -> dict[str, int]:
@@ -139,10 +140,15 @@ def _words(uow: UnitOfWork, key: str, today: date) -> str:
     return str(value_on(uow.tx, key, today))
 
 
-def allowed_actions(uow: UnitOfWork, status: str, reason: str | None, run_status: str, today: date) -> list[dict]:
+def allowed_actions(uow: UnitOfWork, status: str, reason: str | None, run_status: str, today: date,
+                    clash: bool = False) -> list[dict]:
     """What the user may do with a row: only a held row of a staged run. `set_aside` is always
     there; `accept` only where refdata `imports.held.<reason>.accept_allowed` is true (shipped
-    false: whether an inconsistent row may be used as the file states it is the PO's and the CA's)."""
+    false: whether an inconsistent row may be used as the file states it is the PO's and the CA's).
+    A new or changed row that clashes with a live row of another file (`clash`, R1-M7 confirm check) may be set aside."""
+    if run_status == "staged" and clash and status in ("new", "changed"):
+        return [{"action": "set_aside", "label": _words(uow, "imports.action.set_aside.label", today),
+                 "effect_note": _words(uow, "imports.action.set_aside.effect_note", today)}]
     if status != "held" or run_status != "staged" or reason not in HOLD_REASONS:
         return []
     actions = ["set_aside"] + [a for a, r in FIX_REASON.items() if r == reason]
@@ -153,6 +159,11 @@ def allowed_actions(uow: UnitOfWork, status: str, reason: str | None, run_status
 
 
 def _build(uow: UnitOfWork, found, today: date) -> list[Row]:
+    from . import confirm
+
+    clashing: set[uuid.UUID] = set()
+    for run_id in {w.run_id for w in found if w.status in ("new", "changed") and w.run_status == "staged"}:
+        clashing |= confirm.conflicting_row_ids(uow, run_id)
     labels: dict[str, tuple[str, bool]] = {}
 
     def held_words(reason: str) -> tuple[str, bool]:
@@ -174,7 +185,8 @@ def _build(uow: UnitOfWork, found, today: date) -> list[Row]:
             resolution = {"action": action, "note": w.res_note, "at": w.res_at,
                           "value": w.fix_value if w.res_kind == "fixed" else None}
         # A resolved row has nothing more to decide.
-        actions = [] if resolution else allowed_actions(uow, w.status, w.hold_reason, w.run_status, today)
+        actions = [] if resolution else allowed_actions(uow, w.status, w.hold_reason, w.run_status, today,
+                                                        w.id in clashing)
         rows.append(Row(w.id, w.run_id, w.filename, w.row_number, w.status, w.hold_reason,
                         {k: "" if v is None else str(v) for k, v in (w.raw or {}).items()},
                         _errors(w.errors), label, ca, None, actions, resolution))
@@ -264,7 +276,7 @@ def resolve(uow: UnitOfWork, row_id: uuid.UUID, action: str, note: str, today: d
         if same:
             return row  # already decided this way
         raise Invalid("action_not_allowed", "This row has already been decided.", field="action")
-    if action not in [a["action"] for a in allowed_actions(uow, row.status, row.hold_reason, run.status, today)]:
+    if action not in [a["action"] for a in row.allowed_actions]:
         raise Invalid("action_not_allowed", "That isn't something you can do with this row.", field="action")
     fix_value = _checked_value(uow, action, value, today) if kind == "fixed" else None
     # One decision per row is held by the unique index; of two simultaneous decisions the second

@@ -283,7 +283,7 @@
   status: provisional
 
 - key: imports.action.set_aside.effect_note
-  value: "This row is counted as set aside and left out of the return. Your note is kept."
+  value: "This row is counted as set aside and left out of the return. Your note is kept. This cannot be undone: to bring the row back, discard this file and upload it again."
   type: text
   kind: product
   valid_from: 2026-11-13
@@ -759,5 +759,122 @@
   valid_from: 2026-11-13
   source_url: team/engineering/r1-m6-own-pdf.md
   source_title: "R1-M6: stays false until the owner has run the local checker on his own PDFs"
+- key: imports.confirm.profile_not_verified.label
+  value: "We haven't checked this report's layout against a real file yet, so it can't be confirmed."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7: what a seller reads when confirming is refused for this reason (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.confirm.period_date_unconfirmed.label
+  value: "Which date puts these rows in a return is still to be confirmed with a CA, so this file can't be confirmed yet."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7: what a seller reads when confirming is refused for this reason (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.confirm.rows_undecided.label
+  value: "Some rows are on hold. Fix them, use them, or set them aside before confirming."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7: what a seller reads when confirming is refused for this reason (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.confirm.rows_invalid.label
+  value: "Some rows could not be read. Correct them in your file and upload it again."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7: what a seller reads when confirming is refused for this reason (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.confirm.rows_conflict.label
+  value: "Some rows in this file repeat the same record with different values. Correct the file and upload it again."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7: what a seller reads when confirming is refused for this reason (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.confirm.document_rows_disagree.label
+  value: "The lines of one document differ on its date, original invoice, buyer GSTIN or total. Correct the file and upload it again."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7: what a seller reads when confirming is refused for this reason (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.confirm.rows_conflict_across_runs.label
+  value: "Another file already has these records with different values. Set aside the rows you do not want, or discard this file."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7: what a seller reads when confirming is refused for this reason (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.confirm.hsn_too_short.label
+  value: "Some HSN codes are shorter than the minimum digits for their date. Enter the full code."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7: what a seller reads when confirming is refused for this reason (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.confirm.hsn_band_missing.label
+  value: "Your turnover band for last year is not set, so the longer HSN code rule is applied. Needs CA check."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7: what a seller reads when confirming is refused for this reason (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.profile.own_invoices_excel_v1.period_field
+  value: "doc_date"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7 decision 3: the date that puts a row in a return, the document date as written on the seller's own invoice. Flipkart and Meesho have no row until CA item 1 is answered"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.profile.amazon_mtr_b2c_v1.period_field
+  value: "credit_note_date,invoice_date"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7 decision 3: the date that puts a row in a return, provisional: the credit note date on a refund row, else the invoice date; needs CA check. Flipkart and Meesho have no row until CA item 1 is answered"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.profile.amazon_mtr_b2b_v1.period_field
+  value: "credit_note_date,invoice_date"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7 decision 3: the date that puts a row in a return, provisional: the credit note date on a refund row, else the invoice date; needs CA check. Flipkart and Meesho have no row until CA item 1 is answered"
   last_checked: 2026-11-14
   status: provisional
