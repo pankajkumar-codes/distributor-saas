@@ -18,6 +18,8 @@ WORKDIR /srv/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci --ignore-scripts
 COPY web ./
+# Only this build knows it is the demo: sign-up screens say the code is in the terminal.
+ENV VITE_DEMO=1
 RUN npx vite build
 EXPOSE 5173
 CMD ["npx", "vite", "preview", "--host", "0.0.0.0"]

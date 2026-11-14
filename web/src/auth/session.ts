@@ -1,3 +1,4 @@
+import { withAuthTimeout } from "../api/timeout";
 import { tokenStore } from "./tokenStore";
 
 // LLD-1 §11.3. The refresh cookie is HttpOnly, so the page never sees it: a reload asks
@@ -83,6 +84,10 @@ async function refreshNow(background: boolean, rejected: string | null): Promise
       method: "POST",
       credentials: "same-origin",
       headers: background ? { "X-Background": "1" } : {},
+      // 20 s limit: a refresh that never answers would leave the app on "Loading" with no way out. If the server did
+      // rotate the cookie and the answer was lost, the next refresh is refused as a reuse and the person signs in
+      // again, which is safe. A timeout reads as "unavailable": a plain message and a manual Try again, no retry loop.
+      signal: withAuthTimeout(),
     });
   } catch {
     return "unavailable";

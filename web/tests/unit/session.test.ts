@@ -27,6 +27,24 @@ afterEach(() => {
 });
 
 describe("refreshSession", () => {
+  it("gives up on a refresh that gets no answer and reports unavailable instead of waiting forever", async () => {
+    const real = AbortSignal.timeout.bind(AbortSignal);
+    const spy = vi.spyOn(AbortSignal, "timeout").mockImplementation(() => real(30));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        (_url: unknown, init?: RequestInit) =>
+          new Promise((_resolve, reject) => init?.signal?.addEventListener("abort", () => reject(init.signal?.reason))),
+      ),
+    );
+    try {
+      expect(await refreshSession()).toBe("unavailable");
+    } finally {
+      spy.mockRestore();
+    }
+    expect(tokenStore.get()).toBeNull();
+  });
+
   it("keeps the new token in memory and hands it to the other tabs", async () => {
     server.reply(REFRESH, fresh("t1"));
     expect(await refreshSession()).toBe("ok");
