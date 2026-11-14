@@ -127,6 +127,34 @@ def list_uploads(uow: BusinessUoW, page: Annotated[PageParams, Depends(page_para
     return UploadsOut(uploads=[_out(u, ids[u.id]) for u in found], has_more=more)
 
 
+class NoneIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    section: Section
+    month: str = Field(pattern=r"^[0-9]{4}-[0-9]{2}$")  # a calendar month of the filing period
+
+
+class NoneOut(BaseModel):
+    section: Section
+    month: str
+
+
+class NonesOut(BaseModel):
+    items: list[NoneOut]
+
+
+@router.post("/b/{business_id}/uploads/none-this-month", response_model=NoneOut, dependencies=CREATE)
+def none_this_month(body: NoneIn, uow: BusinessUoW, clock: Annotated[Clock, Depends(get_clock)]):
+    """"I have none this month": the section has no sales in that month. Insert-only; saying it twice is a no-op."""
+    first = confirm.none_this_month(uow, body.section, body.month, clock)
+    return NoneOut(section=body.section, month=first.strftime("%Y-%m"))
+
+
+@router.get("/b/{business_id}/uploads/none-this-month", response_model=NonesOut, dependencies=VIEW)
+def list_none_this_month(uow: BusinessUoW):
+    return NonesOut(items=[NoneOut(section=s, month=m.strftime("%Y-%m")) for s, m in confirm.list_none_this_month(uow)])
+
+
 @router.get("/b/{business_id}/uploads/own-invoices-template", dependencies=VIEW, response_class=Response,
             responses={http.HTTP_200_OK: {"content": {template.CONTENT_TYPE: {}}}})
 def own_invoices_template():
@@ -261,6 +289,7 @@ class BlockerOut(BaseModel):
     label: str
     count: int
     rows: list[int]  # row numbers, the first 20
+    ca_items: list[str]  # CA question-sheet ids this waits on, for `treatment_unconfirmed`
 
 
 class NoteOut(BaseModel):
@@ -284,8 +313,50 @@ def confirm_check(run_id: str, uow: BusinessUoW, clock: Annotated[Clock, Depends
     out = confirm.check(uow, parse_id(run_id), clock.today())
     return ConfirmCheckOut(
         run_id=str(out.run_id), can_confirm=out.can_confirm, included=out.included, changed=out.changed,
-        left_out=out.left_out, blockers=[BlockerOut(**b.__dict__ | {"rows": list(b.rows)}) for b in out.blockers],
+        left_out=out.left_out, blockers=[BlockerOut(**b.__dict__ | {"rows": list(b.rows), "ca_items": list(b.ca_items)}) for b in out.blockers],
         notes=[NoteOut(code=n.code, label=n.label) for n in out.notes])
+
+
+class ChangedChoice(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    row_id: str
+    choice: Literal["accept", "skip"]
+
+
+class ConfirmIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    changed: list[ChangedChoice] = Field(default_factory=list, max_length=50_000)
+
+
+class ConfirmedOut(BaseModel):
+    run_id: str
+    documents: int
+    lines: int
+    accepted_changes: int
+    skipped_changes: int
+
+
+@router.post("/b/{business_id}/runs/{run_id}/confirm", response_model=ConfirmedOut, dependencies=CREATE)
+def confirm_run(run_id: str, body: ConfirmIn, request: Request, uow: BusinessUoW,
+                clock: Annotated[Clock, Depends(get_clock)],
+                idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None):
+    """Write the run's included rows as documents, assign each new one to its return, and close the preview.
+    Refused (409 `confirm_blocked`) while `confirm-check` lists anything; every row that changed since an earlier
+    file needs `accept` or `skip` (422 `changes_undecided`). All or nothing."""
+    rid = parse_id(run_id)
+
+    def go():
+        choices = {parse_id(c.row_id): c.choice for c in body.changed}
+        out = confirm.confirm(uow, rid, choices, clock)
+        return ConfirmedOut(run_id=str(out.run_id), documents=out.documents, lines=out.lines,
+                            accepted_changes=out.accepted_changes, skipped_changes=out.skipped_changes
+                            ).model_dump(mode="json")
+
+    return run_once(uow.tx, uow.principal.business_id, idempotency_key, method=request.method,
+                    route=request.scope["route"].path, payload={"run": run_id, **body.model_dump(mode="json")},
+                    operation=go)
 
 
 @router.post("/b/{business_id}/runs/{run_id}/discard", response_model=RunOut, dependencies=CREATE)

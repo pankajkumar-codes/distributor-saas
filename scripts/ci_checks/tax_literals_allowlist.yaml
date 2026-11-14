@@ -201,3 +201,12 @@
 - path: app/src/app/modules/imports/pdf/sandbox.py
   value: "20"
   reason: "most names in an invoice's unclear list accepted from the child; a validation bound, not a tax rule"
+- path: app/src/app/modules/imports/documents.py
+  value: "0"
+  reason: "the start of a sum and the default of a blank amount in an uploaded row; not a tax value"
+- path: app/src/app/modules/imports/documents.py
+  value: "2"
+  reason: "the first two characters of a GSTIN are its state code (the format, not a rate)"
+- path: app/src/app/modules/imports/api.py
+  value: "50000"
+  reason: "an upper bound on how many changed-row choices one confirm request may carry; a request-size limit, not a tax value"

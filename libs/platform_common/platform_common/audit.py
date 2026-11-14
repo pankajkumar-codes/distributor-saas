@@ -82,6 +82,9 @@ ALLOWED_DATA: dict[str, frozenset[str]] = {
     "imports.row_set_aside": frozenset({"run_id", "row_id", "hold_reason"}),
     "imports.row_accepted": frozenset({"run_id", "row_id", "hold_reason"}),
     "imports.row_fixed": frozenset({"run_id", "row_id", "hold_reason", "field"}),  # the field only, not the value
+    # Confirming a run into documents (R1-M7): counts only, never a number, GSTIN or value.
+    "imports.confirmed": frozenset({"run_id", "section", "documents", "lines", "accepted_changes", "skipped_changes"}),
+    "imports.none_this_month": frozenset({"section", "month"}),
 }
 
 _INSERT = text(

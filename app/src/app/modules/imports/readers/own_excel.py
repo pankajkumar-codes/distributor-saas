@@ -107,6 +107,7 @@ class OwnExcelReader(HeaderReader):
     refdata_keys = (NUMBER_PATTERN_KEY,)  # the upload pipeline reads these and the state list for `classify`
     # Confirm checks that the lines of one document agree on these (R1-M7 gate, r1-m5 plan section 7).
     document_key = ("seller_gstin", "doc_type", "doc_number")
+    maps_documents = True  # confirm turns its rows into documents (documents.own_documents)
     document_agree = ("doc_date", "original_number", "original_date", "buyer_gstin", "invoice_total")
 
     def __init__(self):
