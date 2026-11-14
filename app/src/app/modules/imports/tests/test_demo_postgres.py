@@ -80,13 +80,21 @@ def test_a_file_that_is_not_a_report_is_refused(shop):  # noqa: F811
     assert state(shop, upload_id)["reject_reason"] == "unknown_layout"
 
 
-def test_the_own_invoice_workbook_is_not_read_in_this_milestone(shop):  # noqa: F811
+def test_the_own_invoice_workbook_stages_once_the_own_reader_is_registered(shop):  # noqa: F811
+    readers.register_own_readers()
     xlsx = files()["demo-own-invoices.xlsx"]
     upload_id, _ = upload(shop, "own_invoices_excel", "demo-own-invoices.xlsx", xlsx,
                           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     run_jobs(shop)
     out = state(shop, upload_id)
-    assert out["status"] == "rejected" and out["reject_reason"] == "no_reader"
+    assert out["status"] == "parsed", out
+    assert run_counts(shop, upload_id)["counts"]["new"] > 0
+
+
+def test_the_own_invoice_sample_uses_the_template_headers():
+    from app.modules.imports.readers import own_excel
+
+    assert samples.TEMPLATE_HEADERS == [c.header for c in own_excel.COLUMNS]
 
 
 def test_committed_samples_match_the_generator():

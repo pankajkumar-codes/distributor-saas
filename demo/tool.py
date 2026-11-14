@@ -6,6 +6,8 @@ decision buttons come in later web slices, so this is how to see them today.
     python demo/tool.py upload amazon demo/samples/demo-orders-good.csv   # same as the web page
     python demo/tool.py set-aside DEMO-2002 "Checked with the seller: not ours"
     python demo/tool.py discard <run id from status>    # throw a file's preview away
+    python demo/tool.py confirm-check <run id>          # what stops a preview being confirmed (R1-M7)
+    python demo/tool.py confirm <run id>                # confirm it into documents and a return (R1-M7)
 
 Signs in as the demo user. Local demo only; standard library only; made-up data only.
 """
@@ -143,6 +145,28 @@ def discard(run_id):
     print("discarded" if code in (200, 204) else f"refused ({code}): {out}")
 
 
+def confirm_check(run_id):
+    token, business = login()
+    code, out = api("GET", f"/b/{business}/runs/{run_id}/confirm-check", None, token)
+    if code != 200:
+        raise SystemExit(f"refused ({code}): {out}")
+    print("can be confirmed" if out["can_confirm"] else "cannot be confirmed yet")
+    print(f"  rows that would be used: {out['included']}, left out: {out['left_out']}")
+    for b in out["blockers"]:
+        rows = f" (rows {', '.join(map(str, b['rows']))})" if b["rows"] else ""
+        ca = f" [waits on CA items: {', '.join(b['ca_items'])}]" if b["ca_items"] else ""
+        print(f"  - {b['label']}{rows}{ca}")
+    for n in out["notes"]:
+        print(f"  note: {n['label']}")
+
+
+def confirm(run_id):
+    token, business = login()
+    code, out = api("POST", f"/b/{business}/runs/{run_id}/confirm", {"changed": []}, token)
+    print(f"confirmed: {out['documents']} documents, {out['lines']} lines" if code == 200
+          else f"refused ({code}): {out['error']['message']}")
+
+
 if __name__ == "__main__":
     cmd, args = (sys.argv[1] if len(sys.argv) > 1 else "status"), sys.argv[2:]
     if cmd == "status":
@@ -153,5 +177,9 @@ if __name__ == "__main__":
         set_aside(*args)
     elif cmd == "discard" and len(args) == 1:
         discard(*args)
+    elif cmd == "confirm-check" and len(args) == 1:
+        confirm_check(*args)
+    elif cmd == "confirm" and len(args) == 1:
+        confirm(*args)
     else:
         raise SystemExit(__doc__)

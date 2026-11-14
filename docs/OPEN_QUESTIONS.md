@@ -244,6 +244,7 @@ Every row in `refdata/` is `provisional`. Before go-live:
 - **Check tolerances:** none chosen. Taxable value x rate against tax, intra/inter-state from the place of supply and the seller's state, and CGST against SGST are report-only findings with the difference shown; the CA decides any tolerance (including a paisa after rounding) and whether any becomes a block.
 - **Debit notes** have no GSTR-1 section in the builder yet: they are shown as "not in this return yet, needs CA check" and not summed. R1-M8 must refuse or clearly warn on export while any is unsummed.
 - **Operator GSTIN, Table 14 and TCS** are not in R1-M7; marketplace rows build under the own-sales (OE) assumption and the screen says so.
+- **R1-M7 slice 2: which platforms may be confirmed.** Amazon, Flipkart and Meesho stay refused (`treatment_unconfirmed`) until the CA items listed per profile in `team/engineering/r1-m7-gstr1-build.md` section 10 are answered. M-1, M-2, M-9 and V-2 are common to all; M-4 blocks Flipkart and Meesho.
 
 ## Decision handling
 For each answer, update `docs/DECISIONS.md` with the decision, rationale, trade-offs, and approval status. Do not silently turn assumptions into requirements.

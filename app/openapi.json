@@ -503,6 +503,13 @@
       },
       "BlockerOut": {
         "properties": {
+          "ca_items": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Ca Items",
+            "type": "array"
+          },
           "code": {
             "title": "Code",
             "type": "string"
@@ -527,7 +534,8 @@
           "code",
           "label",
           "count",
-          "rows"
+          "rows",
+          "ca_items"
         ],
         "title": "BlockerOut",
         "type": "object"
@@ -569,6 +577,29 @@
           "state_code"
         ],
         "title": "CashBuyerIn",
+        "type": "object"
+      },
+      "ChangedChoice": {
+        "additionalProperties": false,
+        "properties": {
+          "choice": {
+            "enum": [
+              "accept",
+              "skip"
+            ],
+            "title": "Choice",
+            "type": "string"
+          },
+          "row_id": {
+            "title": "Row Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "row_id",
+          "choice"
+        ],
+        "title": "ChangedChoice",
         "type": "object"
       },
       "ChannelsIn": {
@@ -998,20 +1029,6 @@
         "title": "ConfirmCheckOut",
         "type": "object"
       },
-      "ConfirmIn": {
-        "additionalProperties": false,
-        "properties": {
-          "apply_changes": {
-            "title": "Apply Changes",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "apply_changes"
-        ],
-        "title": "ConfirmIn",
-        "type": "object"
-      },
       "Confirmation": {
         "properties": {
           "at": {
@@ -1049,6 +1066,39 @@
           "note"
         ],
         "title": "Confirmation",
+        "type": "object"
+      },
+      "ConfirmedOut": {
+        "properties": {
+          "accepted_changes": {
+            "title": "Accepted Changes",
+            "type": "integer"
+          },
+          "documents": {
+            "title": "Documents",
+            "type": "integer"
+          },
+          "lines": {
+            "title": "Lines",
+            "type": "integer"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "skipped_changes": {
+            "title": "Skipped Changes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "run_id",
+          "documents",
+          "lines",
+          "accepted_changes",
+          "skipped_changes"
+        ],
+        "title": "ConfirmedOut",
         "type": "object"
       },
       "CoverageOut": {
@@ -3437,6 +3487,74 @@
           "einvoice_history"
         ],
         "title": "NewBusinessProfile",
+        "type": "object"
+      },
+      "NoneIn": {
+        "additionalProperties": false,
+        "properties": {
+          "month": {
+            "pattern": "^[0-9]{4}-[0-9]{2}$",
+            "title": "Month",
+            "type": "string"
+          },
+          "section": {
+            "enum": [
+              "amazon",
+              "flipkart",
+              "meesho",
+              "own_invoices_excel",
+              "own_invoices_pdf"
+            ],
+            "title": "Section",
+            "type": "string"
+          }
+        },
+        "required": [
+          "section",
+          "month"
+        ],
+        "title": "NoneIn",
+        "type": "object"
+      },
+      "NoneOut": {
+        "properties": {
+          "month": {
+            "title": "Month",
+            "type": "string"
+          },
+          "section": {
+            "enum": [
+              "amazon",
+              "flipkart",
+              "meesho",
+              "own_invoices_excel",
+              "own_invoices_pdf"
+            ],
+            "title": "Section",
+            "type": "string"
+          }
+        },
+        "required": [
+          "section",
+          "month"
+        ],
+        "title": "NoneOut",
+        "type": "object"
+      },
+      "NonesOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NoneOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "NonesOut",
         "type": "object"
       },
       "NoteIn": {
@@ -5915,6 +6033,20 @@
         "title": "WindowOut",
         "type": "object"
       },
+      "app__modules__catalog__api_imports__ConfirmIn": {
+        "additionalProperties": false,
+        "properties": {
+          "apply_changes": {
+            "title": "Apply Changes",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "apply_changes"
+        ],
+        "title": "ConfirmIn",
+        "type": "object"
+      },
       "app__modules__catalog__api_imports__UploadOut": {
         "properties": {
           "expires_at": {
@@ -5977,6 +6109,21 @@
           }
         },
         "title": "ReasonIn",
+        "type": "object"
+      },
+      "app__modules__imports__api__ConfirmIn": {
+        "additionalProperties": false,
+        "properties": {
+          "changed": {
+            "items": {
+              "$ref": "#/components/schemas/ChangedChoice"
+            },
+            "maxItems": 50000,
+            "title": "Changed",
+            "type": "array"
+          }
+        },
+        "title": "ConfirmIn",
         "type": "object"
       },
       "app__modules__imports__api__UploadOut": {
@@ -8939,7 +9086,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ConfirmIn"
+                "$ref": "#/components/schemas/app__modules__catalog__api_imports__ConfirmIn"
               }
             }
           },
@@ -10154,6 +10301,84 @@
         ]
       }
     },
+    "/api/v1/b/{business_id}/runs/{run_id}/confirm": {
+      "post": {
+        "description": "Write the run's included rows as documents, assign each new one to its return, and close the preview.\nRefused (409 `confirm_blocked`) while `confirm-check` lists anything; every row that changed since an earlier\nfile needs `accept` or `skip` (422 `changes_undecided`). All or nothing.",
+        "operationId": "confirm_run_api_v1_b__business_id__runs__run_id__confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/app__modules__imports__api__ConfirmIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfirmedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm Run",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
     "/api/v1/b/{business_id}/runs/{run_id}/confirm-check": {
       "get": {
         "description": "What stops this staged run being confirmed, with counts and row numbers (never cell values). Read-only.",
@@ -10882,6 +11107,99 @@
           }
         },
         "summary": "Start Upload",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/uploads/none-this-month": {
+      "get": {
+        "operationId": "list_none_this_month_api_v1_b__business_id__uploads_none_this_month_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NonesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List None This Month",
+        "tags": [
+          "imports"
+        ]
+      },
+      "post": {
+        "description": "\"I have none this month\": the section has no sales in that month. Insert-only; saying it twice is a no-op.",
+        "operationId": "none_this_month_api_v1_b__business_id__uploads_none_this_month_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoneIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoneOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "None This Month",
         "tags": [
           "imports"
         ]

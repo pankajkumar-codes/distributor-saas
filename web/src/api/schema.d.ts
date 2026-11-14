@@ -979,6 +979,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/runs/{run_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Run
+         * @description Write the run's included rows as documents, assign each new one to its return, and close the preview.
+         *     Refused (409 `confirm_blocked`) while `confirm-check` lists anything; every row that changed since an earlier
+         *     file needs `accept` or `skip` (422 `changes_undecided`). All or nothing.
+         */
+        post: operations["confirm_run_api_v1_b__business_id__runs__run_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/runs/{run_id}/confirm-check": {
         parameters: {
             query?: never;
@@ -1156,6 +1178,27 @@ export interface paths {
          * @description An upload and a presigned POST for exactly its key, type and declared size.
          */
         post: operations["start_upload_api_v1_b__business_id__uploads_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/uploads/none-this-month": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List None This Month */
+        get: operations["list_none_this_month_api_v1_b__business_id__uploads_none_this_month_get"];
+        put?: never;
+        /**
+         * None This Month
+         * @description "I have none this month": the section has no sales in that month. Insert-only; saying it twice is a no-op.
+         */
+        post: operations["none_this_month_api_v1_b__business_id__uploads_none_this_month_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1692,6 +1735,8 @@ export interface components {
         };
         /** BlockerOut */
         BlockerOut: {
+            /** Ca Items */
+            ca_items: string[];
             /** Code */
             code: string;
             /** Count */
@@ -1709,6 +1754,16 @@ export interface components {
             name?: string | null;
             /** State Code */
             state_code: string;
+        };
+        /** ChangedChoice */
+        ChangedChoice: {
+            /**
+             * Choice
+             * @enum {string}
+             */
+            choice: "accept" | "skip";
+            /** Row Id */
+            row_id: string;
         };
         /** ChannelsIn */
         ChannelsIn: {
@@ -1863,11 +1918,6 @@ export interface components {
             /** Run Id */
             run_id: string;
         };
-        /** ConfirmIn */
-        ConfirmIn: {
-            /** Apply Changes */
-            apply_changes: boolean;
-        };
         /** Confirmation */
         Confirmation: {
             /** At */
@@ -1881,6 +1931,19 @@ export interface components {
              * @enum {string}
              */
             state: "confirmed" | "unconfirmed";
+        };
+        /** ConfirmedOut */
+        ConfirmedOut: {
+            /** Accepted Changes */
+            accepted_changes: number;
+            /** Documents */
+            documents: number;
+            /** Lines */
+            lines: number;
+            /** Run Id */
+            run_id: string;
+            /** Skipped Changes */
+            skipped_changes: number;
         };
         /** CoverageOut */
         CoverageOut: {
@@ -2635,6 +2698,31 @@ export interface components {
              * @enum {string}
              */
             turnover_band: "up_to_threshold" | "above_threshold";
+        };
+        /** NoneIn */
+        NoneIn: {
+            /** Month */
+            month: string;
+            /**
+             * Section
+             * @enum {string}
+             */
+            section: "amazon" | "flipkart" | "meesho" | "own_invoices_excel" | "own_invoices_pdf";
+        };
+        /** NoneOut */
+        NoneOut: {
+            /** Month */
+            month: string;
+            /**
+             * Section
+             * @enum {string}
+             */
+            section: "amazon" | "flipkart" | "meesho" | "own_invoices_excel" | "own_invoices_pdf";
+        };
+        /** NonesOut */
+        NonesOut: {
+            /** Items */
+            items: components["schemas"]["NoneOut"][];
         };
         /** NoteIn */
         NoteIn: {
@@ -3438,6 +3526,11 @@ export interface components {
             /** Opens */
             opens: string | null;
         };
+        /** ConfirmIn */
+        app__modules__catalog__api_imports__ConfirmIn: {
+            /** Apply Changes */
+            apply_changes: boolean;
+        };
         /** UploadOut */
         app__modules__catalog__api_imports__UploadOut: {
             /**
@@ -3461,6 +3554,11 @@ export interface components {
         app__modules__identity__api_team__ReasonIn: {
             /** Reason */
             reason?: string | null;
+        };
+        /** ConfirmIn */
+        app__modules__imports__api__ConfirmIn: {
+            /** Changed */
+            changed?: components["schemas"]["ChangedChoice"][];
         };
         /** UploadOut */
         app__modules__imports__api__UploadOut: {
@@ -5138,7 +5236,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ConfirmIn"];
+                "application/json": components["schemas"]["app__modules__catalog__api_imports__ConfirmIn"];
             };
         };
         responses: {
@@ -5795,6 +5893,44 @@ export interface operations {
             };
         };
     };
+    confirm_run_api_v1_b__business_id__runs__run_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                run_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["app__modules__imports__api__ConfirmIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfirmedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     confirm_check_api_v1_b__business_id__runs__run_id__confirm_check_get: {
         parameters: {
             query?: never;
@@ -6157,6 +6293,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UploadStartOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_none_this_month_api_v1_b__business_id__uploads_none_this_month_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NonesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    none_this_month_api_v1_b__business_id__uploads_none_this_month_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoneIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoneOut"];
                 };
             };
             /** @description Validation Error */

@@ -692,6 +692,16 @@
   last_checked: 2026-11-14
   status: provisional
 
+- key: imports.confirm.rows_undated.label
+  value: "Some rows have no readable date, so they can't be placed in a return. Correct them in your file and upload it again."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7: what a seller reads when confirming is refused for this reason (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
 - key: imports.confirm.rows_conflict.label
   value: "Some rows in this file repeat the same record with different values. Correct the file and upload it again."
   type: text
@@ -769,5 +779,185 @@
   valid_from: 2026-11-13
   source_url: team/engineering/r1-m7-gstr1-build.md
   source_title: "R1-M7 decision 3: the date that puts a row in a return, provisional: the credit note date on a refund row, else the invoice date; needs CA check. Flipkart and Meesho have no row until CA item 1 is answered"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.confirm.treatment_unconfirmed.label
+  value: "How this report enters your return is waiting on your CA's answers (listed here). Nothing is wrong with your file; it is kept and can be confirmed once they are in."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7: what a seller reads when confirming is refused for this reason (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.confirm.place_of_supply_disagrees.label
+  value: "The lines of one document name different places of supply. Correct the file and upload it again."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7: what a seller reads when confirming is refused for this reason (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.confirm.row_unusable.label
+  value: "Some rows could not be turned into documents. Correct them in your file and upload it again."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7: what a seller reads when confirming is refused for this reason (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.confirm.document_differs_from_confirmed.label
+  value: "These lines belong to a document you already confirmed, but its date, place of supply, buyer or original invoice differs. Correct the file and upload it again."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7: what a seller reads when confirming is refused for this reason (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.confirm.change_needs_correction_note.label
+  value: "A change to a confirmed document's date, place of supply, buyer or original invoice needs a correction note. Skip this row and ask your CA."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7: what a seller reads when confirming is refused for this reason (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.profile.amazon_mtr_b2c_v1.treatment_confirmed
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7 section 9: how this report enters the return waits on the CA's answers; a reviewed change to true, with a mapper in code, switches the platform on"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.profile.amazon_mtr_b2c_v1.open_ca_items
+  value: "M-1,M-2,M-8,M-9,V-2"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7 section 9: the CA question-sheet items (team/program-lead/ca-question-sheet-v1.md) this report's treatment waits on"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.profile.amazon_mtr_b2b_v1.treatment_confirmed
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7 section 9: how this report enters the return waits on the CA's answers; a reviewed change to true, with a mapper in code, switches the platform on"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.profile.amazon_mtr_b2b_v1.open_ca_items
+  value: "M-1,M-2,M-8,M-9,V-2"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7 section 9: the CA question-sheet items (team/program-lead/ca-question-sheet-v1.md) this report's treatment waits on"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.profile.flipkart_sales_v1.treatment_confirmed
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7 section 9: how this report enters the return waits on the CA's answers; a reviewed change to true, with a mapper in code, switches the platform on"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.profile.flipkart_sales_v1.open_ca_items
+  value: "M-1,M-2,M-4,M-8,M-9,V-2"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7 section 9: the CA question-sheet items (team/program-lead/ca-question-sheet-v1.md) this report's treatment waits on"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.profile.flipkart_cashback_v1.treatment_confirmed
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7 section 9: how this report enters the return waits on the CA's answers; a reviewed change to true, with a mapper in code, switches the platform on"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.profile.flipkart_cashback_v1.open_ca_items
+  value: "M-3,H-8,M-4"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7 section 9: the CA question-sheet items (team/program-lead/ca-question-sheet-v1.md) this report's treatment waits on"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.profile.meesho_sales_v1.treatment_confirmed
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7 section 9: how this report enters the return waits on the CA's answers; a reviewed change to true, with a mapper in code, switches the platform on"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.profile.meesho_sales_v1.open_ca_items
+  value: "M-1,M-2,M-4,M-5,M-6,M-7,M-9,V-2"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7 section 9: the CA question-sheet items (team/program-lead/ca-question-sheet-v1.md) this report's treatment waits on"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.profile.meesho_returns_v1.treatment_confirmed
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7 section 9: how this report enters the return waits on the CA's answers; a reviewed change to true, with a mapper in code, switches the platform on"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.profile.meesho_returns_v1.open_ca_items
+  value: "M-1,M-2,M-4,M-5,M-9,V-2"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7 section 9: the CA question-sheet items (team/program-lead/ca-question-sheet-v1.md) this report's treatment waits on"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.profile.own_invoices_excel_v1.treatment_confirmed
+  value: "true"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7: the seller's own invoices are mapped as typed (decision 2); tax arithmetic and rates are never decided here"
   last_checked: 2026-11-14
   status: provisional
