@@ -16,7 +16,8 @@ import re
 from dataclasses import dataclass, field
 from decimal import Decimal
 
-MARKETPLACES = {"amazon", "flipkart", "meesho"}
+# own_invoices is not a marketplace: it is the seller's own sales invoices typed into our template (R1-M5).
+MARKETPLACES = {"amazon", "flipkart", "meesho", "own_invoices"}
 # mtr_b2c and mtr_b2b are Amazon's Merchant Tax Report files (R1-M4).
 REPORT_TYPES = {"orders", "invoices", "returns", "settlements", "fees", "mtr_b2c", "mtr_b2b", "cashback"}
 _NAME = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
@@ -58,8 +59,13 @@ class FieldSpec:
     # Cell texts (compared case-insensitively) that mean "nothing here", such as Meesho's literal `null`
     # in a date column; the field is then read as blank.
     blank_tokens: tuple[str, ...] = ()
+    # Text key fields only: the de-duplication key compares this value upper-cased with spaces removed, so
+    # `inv-7` and `INV-7` are one document. The value itself is stored as typed.
+    key_fold: bool = False
 
     def __post_init__(self):
+        if self.key_fold and self.kind != FieldKind.text:
+            raise ProfileError(f"field {self.name!r} folds its key but is not text")
         if self.scale is not None and self.kind != FieldKind.decimal:
             raise ProfileError(f"field {self.name!r} has a scale but is not a decimal")
         if self.scale is not None and (not self.scale.is_finite() or self.scale <= 0):
@@ -98,6 +104,11 @@ class MappingProfile:
     # so identical rows in one file are counted 1, 2, ...). Rows with the same other key parts but different
     # values are not numbered apart: they collide and are flagged `conflict`, never merged or dropped.
     occurrence_field: str | None = None
+    # With `occurrence_field`: number every row that shares the other key parts 1, 2, ... in file order,
+    # whether or not their values differ. The counter is then the line's position within its document (the
+    # lines of one invoice differ by nature), so the same document in a later file with other values shows as
+    # `changed`, and nothing in one file is a conflict by key (R1-M5, D-053).
+    occurrence_by_position: bool = False
     by_name: dict[str, FieldSpec] = field(init=False, repr=False, compare=False)
 
     def __post_init__(self):
@@ -126,6 +137,8 @@ class MappingProfile:
 
         if not self.dedup_key:
             raise ProfileError("profile needs a de-duplication key")
+        if self.occurrence_by_position and self.occurrence_field is None:
+            raise ProfileError("occurrence_by_position needs an occurrence_field")
         if self.occurrence_field is not None:
             if self.occurrence_field in by_name or self.dedup_key[-1] != self.occurrence_field:
                 raise ProfileError("the occurrence counter must be the last part of the key and not a column")
@@ -161,6 +174,7 @@ class MappingProfile:
                     scale=Decimal(str(f["scale"])) if f.get("scale") is not None else None,
                     key_blank_ok=bool(f.get("key_blank_ok", False)),
                     blank_tokens=tuple(f.get("blank_tokens", ())),
+                    key_fold=bool(f.get("key_fold", False)),
                 )
                 for f in data["fields"]
             )
@@ -174,6 +188,7 @@ class MappingProfile:
                 header_search_rows=int(data.get("header_search_rows", 10)),
                 notes=str(data.get("notes", "")),
                 occurrence_field=data.get("occurrence_field"),
+                occurrence_by_position=bool(data.get("occurrence_by_position", False)),
             )
         except (KeyError, TypeError, ValueError) as exc:
             if isinstance(exc, ProfileError):

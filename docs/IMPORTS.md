@@ -274,6 +274,34 @@ blank (`FieldSpec.blank_tokens`, applied to the mapped fields of this profile). 
   until someone has run it on a real report and the headers all matched; flipping a flag is then a reviewed refdata change.
 - **Not built: the choose-reader endpoint.** No two real readers claim one layout, so `needs_choice` cannot happen (EM, 2026-11-13).
 
+## Own sales invoices, Excel (R1-M5 slice 1, `readers/own_excel.py`)
+
+The `own_invoices_excel` section reads our own template: one row per invoice line on a sheet named `Invoices`
+(a CSV with the same headers is read too; other sheets, such as `How to fill`, are not read). `own_excel.COLUMNS` is
+the one list of columns, so the template download (slice 2) and the reader cannot drift. The profile ships unverified
+(`imports.profile.own_invoices_excel_v1.verified` false) until the owner has filled one real month and run the local
+checker (`python scripts/check_reader.py --section own_invoices_excel file.xlsx`). The section stays `enabled: false`
+until slice 2.
+
+- **Kept:** the seller GSTIN (every row; the whole file is refused unless it is the business's own, as for platform
+  files), document type, number and date, the original invoice number and date of a note, the buyer GSTIN (the only
+  buyer detail: the template has no name or address column and any extra column is not stored), place of supply, HSN,
+  quantity, unit, taxable value, the rate as typed, the four tax amounts as typed, and the document total. Money is
+  `Decimal` with the typed text kept. A rate of 0 is kept as typed.
+- **Held:** `unknown_txn_type` (a document type other than Invoice, Credit note or Debit note),
+  `missing_original_invoice` (a note with no original invoice number), `invoice_number_format` (a number that does
+  not match refdata `imports.own_invoices.document_number_pattern`: the wording says to check it against the invoice,
+  never that it is invalid), `blank_hsn` and `blank_qty` and `blank_uqc` (unit), `unknown_state` (place of supply blank
+  or not a state name or code in refdata), `sanity` (a rate outside 0 to 100, IGST together with CGST or SGST, CGST
+  different from SGST). The two new reasons are never acceptable as typed and carry the CA flag (D-053).
+- **Not checked here (R1-M7 conditions):** taxable value times rate against the tax, intra- against inter-state from
+  the place of supply, the HSN's minimum digits, and any period. Exports, SEZ supplies, reverse charge, advances,
+  nil-rated or exempt marking and an e-commerce operator's GSTIN have no column and are not supported yet.
+- **Identity:** seller GSTIN, document type, document number (each upper-cased with spaces removed for the key only)
+  and the line's position within that document in the file. A later file with the same document and other values,
+  with lines in another order, or with the same number reused in another financial year shows those rows as `changed`
+  against a confirmed earlier file (or `duplicate` against a live one), never as a silent second copy.
+
 ## Retention of uploads (R1-M3, TD-18)
 
 `retention.purge_uploads()` (the third rule of the retention Lambda, after `purge_drafts`) does two things in the

@@ -28,6 +28,12 @@ Resolve these before the affected functionality is used for live financial trans
 19. Subscription plans and usage limits?
 20. Direct marketplace APIs, GST e-invoicing, e-way bills, or filing integrations and their priority?
 
+## Own sales invoices, Excel (R1-M5)
+- **Not supported in the template yet, each needs a CA answer first:** exports, SEZ supplies, reverse charge, advances received, nil-rated and exempt marking, and an e-commerce operator's GSTIN. The "How to fill" sheet says in plain words that they must not be entered as ordinary rows.
+- **Document number shape:** the pattern (16 characters, letters, digits, hyphen, slash) is cited from team/gst/document-fields.md Rule 46(b) and is provisional; a number outside it is held for the seller to check against the invoice, not called invalid. Whether a number reused in another financial year is allowed is the CA's call; today it shows as "changed".
+- **Tax checks left to R1-M7:** taxable value times rate against the tax amounts (and the tolerance), intra- against inter-state from the place of supply, and the HSN minimum digits by turnover.
+- **Real-month check:** the template ships unverified until the owner fills one real month and runs `scripts/check_reader.py --section own_invoices_excel`.
+
 ## Platform readers (R1-M4)
 - **CA items still open, not guessed (spec section 5, items 1 to 4):** which date decides the period, how adjustments are treated, shipping basis, cancellation treatment. The Amazon reader keeps every candidate date and holds what is unclear; nothing in M4 decides tax treatment.
 - **Amazon `Transaction Type` values:** only Shipment, Cancel, Refund and FreeReplacement are read; anything else is held `unknown_txn_type`. The full list and whether `Shipment Item Id` is unique per sale line need a real report. Treating zero-value Cancel and FreeReplacement rows as `skipped_zero` is provisional.

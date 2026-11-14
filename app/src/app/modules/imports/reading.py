@@ -14,7 +14,7 @@ import logging
 import uuid
 
 from app.modules.business.interface import business_card
-from app.modules.refdata import first_valid_from, value_on
+from app.modules.refdata import first_valid_from, state_codes, value_on
 from platform_common.uow import UnitOfWork
 
 from . import staging
@@ -81,7 +81,7 @@ def read_upload(uow: UnitOfWork, *, upload_id: uuid.UUID, section: str, file_nam
             profile=profile,
             upload_id=upload_id,
             gstin=own_gstin,
-            classify=_classifier(reader),
+            classify=_classifier(reader, _context(uow, reader, today)),
             flag_live_overlap=True,
             result=result,
             months=months or shared,
@@ -97,7 +97,9 @@ def _same_sheet(a: str | None, b: str | None) -> bool:
 
 def _sheet_ok(reader: Reader, table) -> bool:
     wanted = getattr(reader, "sheet", None)
-    return wanted is None or _same_sheet(wanted, table.sheet)
+    # `any_sheet`: the reader's sheet name picks its sheet out of a workbook with several, but a CSV or a
+    # workbook with one (renamed) sheet is still its file if the headers match.
+    return wanted is None or _same_sheet(wanted, table.sheet) or bool(getattr(reader, "any_sheet", False))
 
 
 def _tables(name: str, data: bytes, readers: list[Reader]) -> list:
@@ -139,9 +141,19 @@ def _profile(uow, reader: Reader, today):
     return dataclasses.replace(profile, verified=profile.verified and flag)
 
 
-def _classifier(reader: Reader):
+def _context(uow, reader: Reader, today) -> dict | None:
+    """What a reader that names `refdata_keys` is given to decide a hold: the state list (codes and names,
+    case-folded) and each key's value on `today`. None for a reader that needs nothing."""
+    keys = getattr(reader, "refdata_keys", None)
+    if keys is None:
+        return None
+    states = {part.casefold() for code, name in state_codes(uow.tx, today) for part in (code, " ".join(name.split()))}
+    return {"states": states, **{key: value_on(uow.tx, key, today) for key in keys}}
+
+
+def _classifier(reader: Reader, context: dict | None = None):
     def classify(parsed):
-        verdict = reader.classify(parsed)
+        verdict = reader.classify(parsed) if context is None else reader.classify(parsed, context)
         if verdict is None:
             return None
         status, reason = verdict
