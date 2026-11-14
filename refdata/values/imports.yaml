@@ -713,7 +713,7 @@
   status: provisional
 
 - key: imports.held.pdf_unclear.effect_note
-  value: "We could not read every detail of this invoice line from the PDF. This row is left out of the return until you have checked it against the invoice and fixed it."
+  value: "We could not read every detail of this invoice line from the PDF. This row is left out of the return. Set it aside, or correct your invoice and upload it again."
   type: text
   kind: product
   valid_from: 2026-11-13
