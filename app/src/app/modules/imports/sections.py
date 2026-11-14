@@ -18,8 +18,8 @@ from platform_common.uow import UnitOfWork
 from . import uploads
 from .readers import HOLD_REASONS, SECTIONS
 
-# The two own-invoice sections arrive with their readers (R1-M5, R1-M6).
-ENABLED = {"amazon": True, "flipkart": True, "meesho": True, "own_invoices_excel": False, "own_invoices_pdf": False}
+# The own-invoice Excel section is on since R1-M5 slice 2; the PDF section arrives with its reader (R1-M6).
+ENABLED = {"amazon": True, "flipkart": True, "meesho": True, "own_invoices_excel": True, "own_invoices_pdf": False}
 LIVE_LIMIT = 50
 
 

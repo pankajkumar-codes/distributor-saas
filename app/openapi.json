@@ -10734,6 +10734,45 @@
         ]
       }
     },
+    "/api/v1/b/{business_id}/uploads/own-invoices-template": {
+      "get": {
+        "description": "The Excel template for the own-invoices section: an `Invoices` sheet with the header row and a `How to\nfill` sheet. No values. Declared before the upload id route so the name is not read as an id.",
+        "operationId": "own_invoices_template_api_v1_b__business_id__uploads_own_invoices_template_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Own Invoices Template",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
     "/api/v1/b/{business_id}/uploads/{upload_id}": {
       "get": {
         "operationId": "get_upload_api_v1_b__business_id__uploads__upload_id__get",

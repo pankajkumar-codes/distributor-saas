@@ -26,7 +26,8 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 REFRESH_COOKIE = "__Secure-rt"
 COOKIE_PATH = "/api/v1/auth"
 COOKIE_MAX_AGE = 30 * 24 * 3600  # matches auth.session_max_days (30, BRD); the row ends the session itself
-_LOCAL_ORIGIN = "http://localhost:5173"
+# Debug only: the dev server answers on both local names, and a browser sends whichever the address bar has.
+_LOCAL_ORIGINS = ("http://localhost:5173", "http://127.0.0.1:5173")
 
 
 class EmailBody(BaseModel):
@@ -67,8 +68,9 @@ def _client_ip(request: Request) -> str:
 
 
 def _check_origin(request: Request) -> None:
-    origin = os.environ.get("APP_ORIGIN") or (_LOCAL_ORIGIN if debug_env() else None)
-    if origin is None or request.headers.get("origin") != origin:
+    configured = os.environ.get("APP_ORIGIN")  # outside debug this is the one exact origin
+    allowed = (configured,) if configured else (_LOCAL_ORIGINS if debug_env() else ())
+    if request.headers.get("origin") not in allowed:
         raise Deny("session_invalid")
 
 

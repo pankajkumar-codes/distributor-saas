@@ -58,12 +58,12 @@ def _kind(fname: str) -> str:
 
 def check(path: Path, section: str | None, out, show_headers: bool = False) -> int:
     from app.modules.imports.parsing import FileRejected, RowStatus, parse
-    from app.modules.imports.readers import clear_for_tests, readers_for, register_platform_readers
+    from app.modules.imports.readers import clear_for_tests, readers_for, register_readers
     from app.modules.imports.parsing.profiles import header_key
 
     clear_for_tests()
-    register_platform_readers()
-    sections = [section] if section else ["amazon", "flipkart", "meesho"]
+    register_readers()
+    sections = [section] if section else ["amazon", "flipkart", "meesho", "own_invoices_excel"]
     readers = [r for s in sections for r in readers_for(s)]
     status = 0
     try:
@@ -93,7 +93,11 @@ def check(path: Path, section: str | None, out, show_headers: bool = False) -> i
         holds: Counter = Counter()
         errors: Counter = Counter()
         for row in result.rows:
-            verdict = reader.classify(row) if row.status == RowStatus.valid else None
+            verdict = None
+            if row.status == RowStatus.valid:
+                # A reader that needs reference data is run without it here: the checks that need the state
+                # list or a pattern are skipped (the app makes them on upload).
+                verdict = reader.classify(row, {}) if hasattr(reader, "refdata_keys") else reader.classify(row)
             if verdict is not None:
                 counts[verdict[0].value] += 1
                 if verdict[1]:
@@ -135,7 +139,7 @@ def _headers(reader, table, out, header_key):
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("file", type=Path)
-    parser.add_argument("--section", choices=["amazon", "flipkart", "meesho"])
+    parser.add_argument("--section", choices=["amazon", "flipkart", "meesho", "own_invoices_excel"])
     parser.add_argument("--show-headers", action="store_true",
                         help="also list the names of the columns the reader does not use (header names only)")
     args = parser.parse_args(argv)
