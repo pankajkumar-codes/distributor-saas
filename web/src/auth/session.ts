@@ -117,17 +117,25 @@ export function endSession() {
   emit(false);
 }
 
-/** Ends the session on the server, then in every tab. Never fails from the user's side. */
+// A sign-out that waits on a stalled server must still sign the user out of this tab.
+const SIGNOUT_TIMEOUT_MS = 5_000;
+
+/** Ends the session on the server, then in every tab. Never fails or hangs from the user's side. */
 export async function signOut() {
   const token = tokenStore.get();
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), SIGNOUT_TIMEOUT_MS);
   try {
     await globalThis.fetch(window.location.origin + SIGNOUT, {
       method: "POST",
       credentials: "same-origin",
       headers: token ? { Authorization: `Bearer ${token}` } : {},
+      signal: abort.signal,
     });
   } catch {
-    // Offline: the server session stays until it expires, but this tab still signs out.
+    // Offline or too slow: the server session stays until it expires, but this tab still signs out.
+  } finally {
+    clearTimeout(timer);
   }
   tokenStore.clear();
   bus()?.postMessage({ type: "signed_out" } satisfies Message);

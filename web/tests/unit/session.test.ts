@@ -108,6 +108,25 @@ describe("signOut", () => {
     expect(heard).toContainEqual({ type: "signed_out" });
   });
 
+  it("still signs this tab out when the server never answers", async () => {
+    startSession("t1", 3600);
+    const real = globalThis.fetch;
+    globalThis.fetch = ((_url: unknown, init?: RequestInit) =>
+      new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(init.signal!.reason));
+      })) as typeof fetch;
+    vi.useFakeTimers();
+    try {
+      const done = signOut();
+      await vi.advanceTimersByTimeAsync(5_001);
+      await done;
+    } finally {
+      vi.useRealTimers();
+      globalThis.fetch = real;
+    }
+    expect(tokenStore.get()).toBeNull();
+  });
+
   it("follows a sign-out from another tab", async () => {
     const seen: boolean[] = [];
     onSessionChange((signedIn) => seen.push(signedIn));
