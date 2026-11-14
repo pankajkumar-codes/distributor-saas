@@ -55,6 +55,17 @@ def test_sign_up_reply_is_identical_for_a_registered_email(env):  # AC-2
     assert (last(mail).template, last(mail).params) == ("already_registered", {})
 
 
+def test_a_retried_code_request_replaces_the_first_code_and_never_locks_the_user_out(env):
+    """The web gives up on a request after 20 s and the person presses the button again, though the first may have
+    reached the server: the second code works, the first stops working, and there is still one pending sign-up."""
+    client, _, mail, admin = env
+    first = sign_up(client, mail).params["code"]
+    second = sign_up(client, mail).params["code"]
+    assert one(admin, "select count(*) from identity.pending_signups") == 1
+    assert verify(client, first).json()["error"]["code"] == "code_not_accepted"
+    assert verify(client, second).status_code == 200
+
+
 def test_weak_password_spends_no_try_and_wrong_code_does(env):  # AC-3
     client, _, mail, admin = env
     code = sign_up(client, mail).params["code"]

@@ -1,3 +1,5 @@
+import { isDemo } from "../demo";
+
 // The platform error shape {error: {code, message, field?, fix?}} (LLD-0 §3.2), turned
 // into what a screen shows (LLD-1 §11.4).
 
@@ -47,6 +49,10 @@ export function errorText(error: ApiError): string {
     const minutes = Math.max(1, Math.ceil((error.retryAfter ?? 60) / 60));
     return `Too many tries. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`;
   }
+  if (error.code === "session_invalid")
+    return isDemo()
+      ? "The server did not accept the address this page is open at. Open the app from the link your setup printed and try again."
+      : "Your session has ended. Sign in again.";
   if (error.status === 0) return "We couldn't reach the server. Check your connection and try again.";
   if (error.status >= 500) return "Something went wrong on our side. Nothing was lost; try again.";
   return error.fix ?? BY_CODE[error.code] ?? "That didn't work. Try again.";

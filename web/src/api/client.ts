@@ -3,6 +3,7 @@ import createClient from "openapi-fetch";
 import { endSession, refreshSession } from "../auth/session";
 import { tokenStore } from "../auth/tokenStore";
 import { toApiError, type ApiError } from "./errors";
+import { isAuthPath, withAuthTimeout } from "./timeout";
 import type { paths } from "./schema";
 
 // Typed from app/openapi.json (`npm run gen:api`). Same origin only: the API is served
@@ -10,8 +11,12 @@ import type { paths } from "./schema";
 export const api = createClient<paths>({
   baseUrl: window.location.origin,
   // Looked up per call, so tests can stub the global fetch.
-  fetch: (request) => globalThis.fetch(request),
+  fetch: (request) => globalThis.fetch(request, signalFor(request)),
 });
+
+function signalFor(request: Request): RequestInit | undefined {
+  return isAuthPath(request.url) ? { signal: withAuthTimeout(request.signal) } : undefined;
+}
 
 api.use({
   onRequest({ request }) {
