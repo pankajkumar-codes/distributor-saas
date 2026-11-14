@@ -1,5 +1,6 @@
 """The sandboxed PDF read (R1-M6 S2a): a hard memory and time limit, and a bomb that fails cleanly."""
 
+import os
 import re
 import sys
 import time
@@ -90,6 +91,7 @@ def test_the_child_gets_no_environment_beyond_the_code_path(monkeypatch):
     monkeypatch.setattr(subprocess, "run", spy)
     run(one_invoice())
     assert set(seen) == {"PYTHONPATH", "PYTHONHASHSEED"} and "do-not-leak" not in "".join(seen.values())
+    assert all(os.path.isabs(p) for p in seen["PYTHONPATH"].split(os.pathsep))
 
 
 def test_a_child_that_dies_without_an_answer_is_a_clean_refusal(monkeypatch):
@@ -102,3 +104,15 @@ def test_a_child_that_dies_without_an_answer_is_a_clean_refusal(monkeypatch):
     with pytest.raises(PdfRefused) as e:
         run(one_invoice())
     assert e.value.code == "too_complex"
+
+
+def test_an_answer_of_the_wrong_shape_is_a_refusal_not_a_crash(monkeypatch):
+    import subprocess
+
+    class Odd:
+        stdout, returncode = b'{"invoices": [{"nope": 1}], "unreadable_pages": []}', 0
+
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: Odd())
+    with pytest.raises(PdfRefused) as e:
+        run(one_invoice())
+    assert e.value.code == "unreadable"

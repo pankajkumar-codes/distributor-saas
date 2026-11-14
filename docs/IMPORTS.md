@@ -353,7 +353,12 @@ refused in about 1 s under 512 MB, read in about 4 s under 1 GB, so the limit is
 inside a real Lambda (RLIMIT_AS counts address space, not resident memory, so the refdata value needs checking there before
 the first deploy). Packaging, measured with `scripts/build_lambda.sh app` (aarch64 Python 3.12 wheels fetched by pip, nothing
 run on arm64): the app zip is 36.1 MB zipped and 96 MB unzipped without pdfminer.six and 42.9 MB and 105 MB with it, against
-Lambda's 50 MB limit for a zip uploaded directly (Terraform's `filename`) and 250 MB unzipped. The dependency audit in CI is
+Lambda's 50 MB limit for a zip uploaded directly (Terraform's `filename`) and 250 MB unzipped. The memory value must be chosen against the
+Lambda memory of the worker that calls the sandbox (the parent holds the PDF and the child's answer while the child may use
+up to the limit), and checked on the first deployed arm64 build: address-space limits count mapped libraries, and a CI runner
+passing the bomb test does not prove it. The child is not otherwise isolated: no network block, no syscall filter, no
+process-count limit; with no credentials in its environment and no network code in pdfminer that is accepted for R1. Its
+stdout is read in full before the 8 MB check, bounded by its own memory limit. The dependency audit in CI is
 the EM's separate change; the Lambda size margin is about 7 MB zipped before an OCR layer.
 
 Not read yet: tax split over two heading rows ("CGST" over "Rate" and "Amt"), labels above their values, scans and

@@ -32,11 +32,12 @@ def read_sandboxed(pdf: bytes, limits: Limits, hsn_pattern: str, *, max_memory_b
             done = subprocess.run(
                 [sys.executable, "-m", "app.modules.imports.pdf.worker"],
                 input=header + b"\n" + pdf,
-                capture_output=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,  # nothing the child says about the file is kept
                 timeout=limits.max_seconds + GRACE_SECONDS,
                 cwd=scratch,
                 # Only where to find the code, nothing else: no secret or cloud credential reaches the parser.
-                env={"PYTHONPATH": os.pathsep.join(p for p in sys.path if p), "PYTHONHASHSEED": "0"},
+                env={"PYTHONPATH": os.pathsep.join(os.path.abspath(p) for p in sys.path if p), "PYTHONHASHSEED": "0"},
                 check=False,
             )
         except subprocess.TimeoutExpired:  # subprocess.run has already killed the child
@@ -52,7 +53,10 @@ def read_sandboxed(pdf: bytes, limits: Limits, hsn_pattern: str, *, max_memory_b
         raise PdfRefused("too_complex" if done.returncode else "unreadable") from None
     if "refused" in answer:
         raise PdfRefused(str(answer["refused"]))
-    return _result(answer)
+    try:
+        return _result(answer)
+    except (KeyError, TypeError, ValueError, AttributeError):
+        raise PdfRefused("unreadable") from None  # an answer of the wrong shape is not a result
 
 
 def _result(answer: dict) -> ReadResult:
