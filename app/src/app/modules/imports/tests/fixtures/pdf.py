@@ -84,3 +84,36 @@ def invoice_page(number="INV-1", *, title="TAX INVOICE", date="03-07-2026", sell
 
 def one_invoice(**kw):
     return pdf([invoice_page(**kw)])
+
+
+def bomb(expanded_bytes: int) -> bytes:
+    """A small PDF whose one content stream is Flate-compressed and expands to `expanded_bytes` of blanks: the
+    shape of a decompression bomb. About 1 KB per 1 MB expanded."""
+    import zlib
+
+    co = zlib.compressobj(9)
+    chunk = b" " * (1024 * 1024)
+    parts = [co.compress(b"BT /F1 9 Tf 1 0 0 1 40 700 Tm (bomb) Tj ET\n")]
+    for _ in range(expanded_bytes // len(chunk)):
+        parts.append(co.compress(chunk))
+    parts.append(co.flush())
+    data = b"".join(parts)
+    objs = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [4 0 R] /Count 1 >>",
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 800] /Contents 5 0 R "
+        b"/Resources << /Font << /F1 3 0 R >> >> >>",
+        b"<< /Length %d /Filter /FlateDecode >>\nstream\n" % len(data) + data + b"\nendstream",
+    ]
+    out = bytearray(b"%PDF-1.4\n")
+    offsets = []
+    for n, body in enumerate(objs, start=1):
+        offsets.append(len(out))
+        out += b"%d 0 obj\n" % n + body + b"\nendobj\n"
+    xref = len(out)
+    out += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objs) + 1)
+    for off in offsets:
+        out += b"%010d 00000 n \n" % off
+    out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (len(objs) + 1, xref)
+    return bytes(out)
