@@ -20,7 +20,14 @@ let channel: BroadcastChannel | null = null;
 let receivedAt = 0;
 let inFlight: Promise<RefreshResult> | null = null;
 
+// True from the moment this tab's user pressed the Sign out button until the next sign-in, so
+// the redirect is a plain /signin and does not remember the page they left. (Sign-in-again
+// flows, like the stale sign-in on Security, sign out with the page remembered.)
+let leftOnPurpose = false;
+export const signedOutOnPurpose = () => leftOnPurpose;
+
 function emit(signedIn: boolean, change: Change = "new") {
+  if (signedIn) leftOnPurpose = false;
   listeners.forEach((listener) => listener(signedIn, change));
 }
 
@@ -118,7 +125,8 @@ export function endSession() {
 }
 
 /** Ends the session on the server, then in every tab. Never fails from the user's side. */
-export async function signOut() {
+export async function signOut({ rememberPage = true }: { rememberPage?: boolean } = {}) {
+  leftOnPurpose = !rememberPage;
   const token = tokenStore.get();
   try {
     await globalThis.fetch(window.location.origin + SIGNOUT, {
@@ -140,6 +148,7 @@ export function resetSessionForTests() {
   channel = null;
   receivedAt = 0;
   inFlight = null;
+  leftOnPurpose = false;
   listeners.clear();
   tokenStore.clear();
 }
