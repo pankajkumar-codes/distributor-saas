@@ -31,3 +31,25 @@ def test_the_engine_builds_for_sqlite_with_no_connect_arg(monkeypatch):
             pass
     finally:
         db.engine.cache_clear()
+
+
+def test_the_url_branch_passes_connect_timeout_and_the_iam_branch_does_not(monkeypatch):
+    seen = []
+    real = db.create_engine
+    monkeypatch.setattr(db, "create_engine", lambda url, **kw: (seen.append((str(url), kw)), real(url, **kw))[1])
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "ap-south-1")
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://app_rw:x@localhost:5432/saas")
+    db.engine.cache_clear()
+    try:
+        db.engine()
+        monkeypatch.delenv("DATABASE_URL")
+        monkeypatch.setenv("AWS_LAMBDA_FUNCTION_NAME", "api")
+        for name, value in {"DB_HOST": "db.internal", "DB_USER": "app_rw", "DB_NAME": "saas"}.items():
+            monkeypatch.setenv(name, value)
+        db.engine.cache_clear()
+        db.engine()
+    finally:
+        db.engine.cache_clear()
+    (_, url_kwargs), (_, iam_kwargs) = seen
+    assert url_kwargs["connect_args"] == {"connect_timeout": 5}
+    assert "connect_timeout" not in iam_kwargs["connect_args"]

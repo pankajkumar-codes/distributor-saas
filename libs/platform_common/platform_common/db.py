@@ -50,7 +50,8 @@ def engine() -> Engine:
 
 
 def engine_options(url: str) -> dict:
-    """A PostgreSQL server that cannot be reached fails in seconds, not after the operating system's own long
+    """Local and test use only: DATABASE_URL is never set in AWS, where the IAM engine above is used and is left
+    as it is. A PostgreSQL server that cannot be reached fails in seconds, not after the operating system's own long
     wait. Only PostgreSQL drivers know `connect_timeout`; the in-memory SQLite some tests use does not."""
     if make_url(url).get_backend_name() == "postgresql":
         return {"connect_args": {"connect_timeout": 5}}

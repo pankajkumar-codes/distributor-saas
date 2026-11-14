@@ -18,7 +18,10 @@ beforeEach(() => {
   ({ sent, reply } = fakeApi());
 });
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+});
 
 const SIGNUP = "/api/v1/auth/signup";
 const REFRESH = "/api/v1/auth/refresh";
@@ -176,6 +179,22 @@ describe("sign-up", () => {
     expect(button).toBeEnabled();
   });
 
+  it("tells the person what to do when the code check gets no answer, instead of 'try again'", async () => {
+    render(<App />);
+    await stepOne();
+    const real = AbortSignal.timeout.bind(AbortSignal);
+    const spy = vi.spyOn(AbortSignal, "timeout").mockImplementation(() => real(30));
+    onTestFinished(() => spy.mockRestore());
+    const fetchMock = vi.fn(
+      (_input: Request, init?: RequestInit) =>
+        new Promise<Response>((_, reject) => init?.signal?.addEventListener("abort", () => reject(init.signal?.reason))),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    await enterCode();
+    expect(await screen.findByText(/send a new code and try again/)).toBeInTheDocument();
+    expect(screen.queryByText(/couldn't reach the server/)).not.toBeInTheDocument();
+  });
+
   it("keeps a caller's own abort signal working alongside the time limit", async () => {
     const { withAuthTimeout } = await import("../../src/api/timeout");
     const own = new AbortController();
@@ -195,7 +214,16 @@ describe("sign-up", () => {
     expect(screen.queryByText(/Local demo/)).not.toBeInTheDocument();
   });
 
-  it("explains a refused page address on the code step instead of a generic failure", async () => {
+  it("shows plain words, not a generic failure, when the code step is refused", async () => {
+    render(<App />);
+    await stepOne();
+    reply(VERIFY, { status: 401, body: { error: { code: "session_invalid", message: "x" } } });
+    await enterCode();
+    expect(await screen.findByText("Your session has ended. Sign in again.")).toBeInTheDocument();
+  });
+
+  it("explains a refused page address in the local demo only", async () => {
+    vi.stubEnv("VITE_DEMO", "1");
     render(<App />);
     await stepOne();
     reply(VERIFY, { status: 401, body: { error: { code: "session_invalid", message: "x" } } });

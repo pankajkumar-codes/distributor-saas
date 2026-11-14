@@ -76,7 +76,14 @@ export function CodeStep({ email, sentAt, password, onResent, onBack, onPassword
   const error = verify.error ?? resend.error;
   const passwordError = error?.field === "password" ? errorText(error) : !password ? incomplete : undefined;
   const codeError = error?.code === "code_not_accepted" ? errorText(error) : password ? incomplete : undefined;
-  const bannerError = error && !error.field && error.code !== "code_not_accepted" ? errorText(error) : undefined;
+  // A code check that got no answer may still have succeeded on the server, so the usual "try again" would press a
+  // spent code: say what to do instead.
+  const bannerError =
+    verify.error?.status === 0 && error === verify.error
+      ? "We didn't hear back in time. If you are not taken to the next step, send a new code and try again."
+      : error && !error.field && error.code !== "code_not_accepted"
+        ? errorText(error)
+        : undefined;
   const left = Math.min(CODE_TTL_MS, sentAt + CODE_TTL_MS - now);
 
   return (
