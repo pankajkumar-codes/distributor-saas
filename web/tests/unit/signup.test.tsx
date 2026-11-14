@@ -221,6 +221,26 @@ describe("sign-up", () => {
     expect(joined.aborted).toBe(true);
   });
 
+  it("joins the caller's signal and the limit in a browser without AbortSignal.any", async () => {
+    const { withAuthTimeout } = await import("../../src/api/timeout");
+    const original = (AbortSignal as { any?: unknown }).any;
+    Object.defineProperty(AbortSignal, "any", { value: undefined, configurable: true });
+    onTestFinished(() => {
+      Object.defineProperty(AbortSignal, "any", { value: original, configurable: true });
+    });
+    const own = new AbortController();
+    const joined = withAuthTimeout(own.signal);
+    expect(joined.aborted).toBe(false);
+    own.abort();
+    expect(joined.aborted).toBe(true);
+    const real = AbortSignal.timeout.bind(AbortSignal);
+    const spy = vi.spyOn(AbortSignal, "timeout").mockImplementation(() => real(20));
+    onTestFinished(() => spy.mockRestore());
+    const second = withAuthTimeout(new AbortController().signal);
+    await new Promise((r) => setTimeout(r, 80));
+    expect(second.aborted).toBe(true);
+  });
+
   it("says where the code is in the local demo build only", async () => {
     vi.stubEnv("VITE_DEMO", "1");
     const view = render(<App />);
