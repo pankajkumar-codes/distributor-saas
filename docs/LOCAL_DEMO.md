@@ -170,7 +170,14 @@ Work down this list.
 6. **The build failed (red lines).** The usual causes are no internet while it builds, or Docker is out of disk
    space or memory (Docker Desktop > Settings > Resources). Free space, then `.\demo.ps1 stop` and `.\demo.ps1`.
 7. **"unknown flag: --wait" or "compose" is not a command.** Docker Desktop is too old. Update it to 4.20 or newer.
-8. **Still stuck?** Save the logs and send them with a screenshot of the PowerShell window:
+8. **"Email me a code" greys out and nothing happens, or the code step says "did not accept the address".** Open the
+   page at exactly `http://localhost:5173` (the address the green box printed), not an IP address or a computer
+   name: the server only accepts sign-in from that address. A sign-up request that gets no answer is given up
+   after 20 seconds and the screen says it could not reach the server, so the button works again. The demo sends
+   no email: the 6-digit code appears in the terminal window where you started the demo (`./demo.sh codes`
+   shows it again), and the sign-up screens in the demo say so. If the request itself keeps failing, run
+   `docker compose -f docker-compose.demo.yml logs api` and send the last 30 lines.
+9. **Still stuck?** Save the logs and send them with a screenshot of the PowerShell window:
 
 ```powershell
 docker compose -f docker-compose.demo.yml logs --no-color > demo-logs.txt

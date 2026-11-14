@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { App } from "../../src/App";
 import { resetSessionForTests } from "../../src/auth/session";
@@ -18,7 +18,10 @@ beforeEach(() => {
   ({ sent, reply } = fakeApi());
 });
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+});
 
 const SIGNUP = "/api/v1/auth/signup";
 const REFRESH = "/api/v1/auth/refresh";
@@ -153,6 +156,116 @@ describe("sign-up", () => {
     expect(await screen.findByText(/We sent a new code/)).toBeInTheDocument();
     expect(sent.filter((s) => s.path === SIGNUP)).toHaveLength(2);
     expect(screen.getByText(/Code expires in (10:00|9:5\d)/)).toBeInTheDocument();
+  });
+  it("gives up on a code request that gets no answer, says so, and lets the button be pressed again", async () => {
+    const real = AbortSignal.timeout.bind(AbortSignal);
+    const spy = vi.spyOn(AbortSignal, "timeout").mockImplementation(() => real(30));
+    onTestFinished(() => spy.mockRestore());
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: Request, init?: RequestInit) =>
+        new URL(input.url).pathname === REFRESH
+          ? Promise.resolve(new Response(null, { status: 401 }))
+          : new Promise<Response>((_, reject) => init?.signal?.addEventListener("abort", () => reject(init.signal?.reason))),
+      ),
+    );
+    render(<App />);
+    fireEvent.change(screen.getByLabelText("Work email"), { target: { value: EMAIL } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: PASSWORD } });
+    const button = screen.getByRole("button", { name: "Email me a code" });
+    fireEvent.click(button);
+    expect(button).toBeDisabled();
+    expect(await screen.findByText("We couldn't reach the server. Check your connection and try again.")).toBeInTheDocument();
+    expect(button).toBeEnabled();
+  });
+
+  it("tells the person what to do when the code check gets no answer, instead of 'try again'", async () => {
+    render(<App />);
+    await stepOne();
+    const real = AbortSignal.timeout.bind(AbortSignal);
+    const spy = vi.spyOn(AbortSignal, "timeout").mockImplementation(() => real(30));
+    onTestFinished(() => spy.mockRestore());
+    const fetchMock = vi.fn(
+      (_input: Request, init?: RequestInit) =>
+        new Promise<Response>((_, reject) => init?.signal?.addEventListener("abort", () => reject(init.signal?.reason))),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    await enterCode();
+    expect(await screen.findByText(/send a new code and try again/)).toBeInTheDocument();
+    expect(screen.queryByText(/couldn't reach the server/)).not.toBeInTheDocument();
+  });
+
+  it("a refresh that hangs on load shows the plain message and a manual retry, and is not retried by itself", async () => {
+    window.history.replaceState(null, "", "/onboarding/business");
+    const real = AbortSignal.timeout.bind(AbortSignal);
+    const spy = vi.spyOn(AbortSignal, "timeout").mockImplementation(() => real(30));
+    onTestFinished(() => spy.mockRestore());
+    const fetchMock = vi.fn(
+      (_input: Request, init?: RequestInit) =>
+        new Promise<Response>((_, reject) => init?.signal?.addEventListener("abort", () => reject(init.signal?.reason))),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+    expect(await screen.findByText("We couldn't reach the server. Check your connection and try again.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeEnabled();
+    await new Promise((r) => setTimeout(r, 150)); // no automatic second attempt with the same cookie
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a caller's own abort signal working alongside the time limit", async () => {
+    const { withAuthTimeout } = await import("../../src/api/timeout");
+    const own = new AbortController();
+    const joined = withAuthTimeout(own.signal);
+    expect(joined.aborted).toBe(false);
+    own.abort();
+    expect(joined.aborted).toBe(true);
+  });
+
+  it("joins the caller's signal and the limit in a browser without AbortSignal.any", async () => {
+    const { withAuthTimeout } = await import("../../src/api/timeout");
+    const original = (AbortSignal as { any?: unknown }).any;
+    Object.defineProperty(AbortSignal, "any", { value: undefined, configurable: true });
+    onTestFinished(() => {
+      Object.defineProperty(AbortSignal, "any", { value: original, configurable: true });
+    });
+    const own = new AbortController();
+    const joined = withAuthTimeout(own.signal);
+    expect(joined.aborted).toBe(false);
+    own.abort();
+    expect(joined.aborted).toBe(true);
+    const real = AbortSignal.timeout.bind(AbortSignal);
+    const spy = vi.spyOn(AbortSignal, "timeout").mockImplementation(() => real(20));
+    onTestFinished(() => spy.mockRestore());
+    const second = withAuthTimeout(new AbortController().signal);
+    await new Promise((r) => setTimeout(r, 80));
+    expect(second.aborted).toBe(true);
+  });
+
+  it("says where the code is in the local demo build only", async () => {
+    vi.stubEnv("VITE_DEMO", "1");
+    const view = render(<App />);
+    expect(screen.getByText(/Local demo: no email is sent/)).toBeInTheDocument();
+    view.unmount();
+    vi.stubEnv("VITE_DEMO", "");
+    render(<App />);
+    expect(screen.queryByText(/Local demo/)).not.toBeInTheDocument();
+  });
+
+  it("shows plain words, not a generic failure, when the code step is refused", async () => {
+    render(<App />);
+    await stepOne();
+    reply(VERIFY, { status: 401, body: { error: { code: "session_invalid", message: "x" } } });
+    await enterCode();
+    expect(await screen.findByText("Your session has ended. Sign in again.")).toBeInTheDocument();
+  });
+
+  it("explains a refused page address in the local demo only", async () => {
+    vi.stubEnv("VITE_DEMO", "1");
+    render(<App />);
+    await stepOne();
+    reply(VERIFY, { status: 401, body: { error: { code: "session_invalid", message: "x" } } });
+    await enterCode();
+    expect(await screen.findByText(/did not accept the address this page is open at/)).toBeInTheDocument();
   });
 });
 

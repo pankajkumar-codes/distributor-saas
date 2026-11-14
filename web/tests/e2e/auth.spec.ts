@@ -100,3 +100,42 @@ test("forgot password: reset with an emailed code, then sign in with the new pas
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByRole("heading", { name: "Your business and GST" })).toBeVisible();
 });
+
+// Pankaj's demo: pressing "Email me a code" greyed the button and nothing else happened. A request with no
+// answer is given up after 20 s, the screen says so, and the button works again (the real API answers the retry).
+test("a code request that gets no answer shows an error and the button works again", async ({ page }, info) => {
+  test.setTimeout(60_000);
+  const email = `e2e-hang-${info.project.name}-${Date.now()}@example.com`;
+  let hang = true;
+  await page.route("**/api/v1/auth/signup", async (route) => {
+    if (hang) return; // never answered
+    await route.continue();
+  });
+  await page.goto("/signup");
+  await page.getByLabel("Work email").fill(email);
+  await page.getByLabel("Password").fill("seven lamps under a bridge");
+  const button = page.getByRole("button", { name: "Email me a code" });
+  await button.click();
+  await expect(button).toBeDisabled();
+  await expect(page.getByText("We couldn't reach the server. Check your connection and try again.")).toBeVisible({ timeout: 30_000 });
+  await expect(button).toBeEnabled();
+
+  hang = false;
+  await button.click();
+  await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible();
+  await page.getByLabel("Digit 1 of 6").fill(await codeFor(email));
+  await page.getByRole("button", { name: "Create account" }).click();
+  await expect(page.getByRole("heading", { name: "Your business and GST" })).toBeVisible();
+});
+
+test("a code request the server fails shows an error and the button works again", async ({ page }, info) => {
+  const email = `e2e-fail-${info.project.name}-${Date.now()}@example.com`;
+  await page.route("**/api/v1/auth/signup", (route) => route.fulfill({ status: 503, body: "" }));
+  await page.goto("/signup");
+  await page.getByLabel("Work email").fill(email);
+  await page.getByLabel("Password").fill("seven lamps under a bridge");
+  const button = page.getByRole("button", { name: "Email me a code" });
+  await button.click();
+  await expect(page.getByText("Something went wrong on our side. Nothing was lost; try again.")).toBeVisible();
+  await expect(button).toBeEnabled();
+});
