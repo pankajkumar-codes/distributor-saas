@@ -759,6 +759,8 @@
   valid_from: 2026-11-13
   source_url: team/engineering/r1-m6-own-pdf.md
   source_title: "R1-M6: stays false until the owner has run the local checker on his own PDFs"
+  last_checked: 2026-11-14
+  status: provisional
 - key: imports.confirm.profile_not_verified.label
   value: "We haven't checked this report's layout against a real file yet, so it can't be confirmed."
   type: text
