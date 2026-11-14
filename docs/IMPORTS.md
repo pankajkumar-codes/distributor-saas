@@ -280,9 +280,18 @@ The `own_invoices_excel` section reads our own template: one row per invoice lin
 (a CSV with the same headers is read too; other sheets, such as `How to fill`, are not read). `own_excel.COLUMNS` is
 the one list of columns, so the template download (slice 2) and the reader cannot drift. The profile ships unverified
 (`imports.profile.own_invoices_excel_v1.verified` false) until the owner has filled one real month and run the local
-checker (`python scripts/check_reader.py --section own_invoices_excel file.xlsx`). The section stays `enabled: false`
-until slice 2.
+checker (`python scripts/check_reader.py --section own_invoices_excel file.xlsx`). The section is `enabled: true` since
+slice 2, which adds the template download.
 
+- **Template download (slice 2, `template.py`):** `GET /b/{b}/uploads/own-invoices-template` (`uploads.view`: owner, admin and
+  CA; billing and strangers get 404) returns an .xlsx built in code from `own_excel.COLUMNS`: an `Invoices` sheet with the
+  header row and no values (the Document type cell offers the three types), and a `How to fill` sheet the reader does not
+  read. That sheet says in plain words that exports, SEZ supplies, reverse charge, advances, nil-rated or exempt supplies
+  and e-commerce operator sales are not supported yet and must not be entered as ordinary rows. A test reads the generated
+  workbook back through the reader, so the headers cannot drift. The blank template uploads as an empty run. The
+  marketplace coverage view stays platform-only: an own-invoice run still carries its `months` (from the document date),
+  so the `from`/`to` filters on uploads and sections apply to it; whether the build wants an own-invoice coverage row is
+  R1-M7's to say.
 - **Kept:** the seller GSTIN (every row; the whole file is refused unless it is the business's own, as for platform
   files), document type, number and date, the original invoice number and date of a note, the buyer GSTIN (the only
   buyer detail: the template has no name or address column and any extra column is not stored), place of supply, HSN,
