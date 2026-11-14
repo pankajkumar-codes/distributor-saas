@@ -541,3 +541,113 @@
   source_title: "R1-M4 S4b: wording of the pick_state action on a held row (to be settled)"
   last_checked: 2026-11-13
   status: provisional
+
+- key: imports.held.missing_original.label
+  value: "Original invoice number missing"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m5-own-excel.md
+  source_title: "R1-M5: what a seller reads for a row held as missing_original (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.held.missing_original.effect_note
+  value: "This row is left out of the return until the note names the invoice it corrects."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m5-own-excel.md
+  source_title: "R1-M5: what leaving a missing_original row alone does"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.held.missing_original.accept_allowed
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m5-own-excel.md
+  source_title: "R1-M5: may a missing_original row be accepted as typed? No: a credit or debit note names the invoice it corrects (document-fields.md section 2, Rule 53(1A))"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.held.missing_original.needs_ca_check
+  value: "true"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m5-own-excel.md
+  source_title: "R1-M5: a missing_original row is shown to the CA: a credit or debit note names the invoice it corrects (document-fields.md section 2, Rule 53(1A))"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.held.number_format.label
+  value: "Check this document number"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m5-own-excel.md
+  source_title: "R1-M5: what a seller reads for a row held as number_format (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.held.number_format.effect_note
+  value: "This row is left out of the return until you have checked the number against your invoice."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m5-own-excel.md
+  source_title: "R1-M5: what leaving a number_format row alone does"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.held.number_format.accept_allowed
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m5-own-excel.md
+  source_title: "R1-M5: may a number_format row be accepted as typed? No: the number does not fit the usual 16-character shape (document-fields.md section 1, Rule 46(b)); check it against your invoice"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.held.number_format.needs_ca_check
+  value: "true"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m5-own-excel.md
+  source_title: "R1-M5: a number_format row is shown to the CA: the number does not fit the usual 16-character shape (document-fields.md section 1, Rule 46(b)); check it against your invoice"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.own_invoices.document_number_pattern
+  value: "^[A-Za-z0-9/-]{1,16}$"
+  type: pattern
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/document-fields.md
+  source_title: "Rule 46(b) as cited in team/gst/document-fields.md section 1: at most 16 characters, letters, digits, hyphen and slash. Used only to ask the seller to check a number against the invoice, never to say it is legally invalid"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.requirement.own_invoices_excel.note
+  value: "Own sales invoices: our Excel template, one row per invoice line. Download it from this section."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m5-own-excel.md
+  source_title: "R1-M5: plain words on what the own-invoice Excel section needs (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.profile.own_invoices_excel_v1.verified
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m5-own-excel.md
+  source_title: "R1-M5: our own layout; stays false until the owner has filled one real month and run the local checker"
+  last_checked: 2026-11-14
+  status: provisional
