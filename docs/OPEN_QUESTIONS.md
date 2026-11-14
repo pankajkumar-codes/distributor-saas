@@ -236,5 +236,8 @@ Every row in `refdata/` is `provisional`. Before go-live:
 - **Prod endpoints sit in one AZ**, like staging's. If that AZ fails, the Lambdas lose SQS, Parameter Store and Cognito until it recovers. A second AZ doubles the endpoint line (about USD 28.5 a month more). Decide with Multi-AZ RDS at public launch (TD-22).
 - The HTTP API's own `execute-api` URL also answers. It applies the same authorizer and app checks, but it bypasses CloudFront's response headers. Restricting it to CloudFront needs a shared-secret header or a WAF, and is not done.
 
+- **Cross-check rounding (R1-M6).** The Excel-versus-PDF cross-check (slice 3) compares money by exact Decimal equality with no tolerance. Whether a difference of a paisa from rounding is acceptable, and CGST and SGST differing by a paisa, is a question for the CA (same as the M5 plan's).
+- **PDF layouts the free reader cannot read yet (R1-M6).** Tax split over two heading rows, labels above their values, scans and photos. Real accuracy is unknown until the owner runs his own PDFs through the local checker.
+
 ## Decision handling
 For each answer, update `docs/DECISIONS.md` with the decision, rationale, trade-offs, and approval status. Do not silently turn assumptions into requirements.
