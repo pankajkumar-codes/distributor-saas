@@ -116,3 +116,39 @@ def test_the_same_document_in_an_excel_and_a_pdf_are_two_runs_not_one_that_chang
     settle(shop, "inv.pdf", pdf([page("INV-1")]))
     assert scalar(pg.owner, "select count(distinct report_type) from imports.import_runs") == 2
     assert {r.status for r in rows(pg)} == {"new"}
+
+
+def test_a_parser_that_cannot_start_leaves_the_upload_for_a_retry_and_nothing_is_rejected(shop, monkeypatch):  # noqa: F811
+    import subprocess
+
+    pg, biz, _ = shop
+    real = subprocess.run
+
+    def cannot(*args, **kwargs):
+        raise OSError("cannot fork")
+
+    monkeypatch.setattr(subprocess, "run", cannot)
+    upload_id, job_id = upload(shop, "own_invoices_pdf", "inv.pdf", pdf([page("INV-1")]), APP_PDF)
+    assert run_jobs(shop) == ["retry"]
+    out = state(shop, upload_id)
+    assert (out["status"], out["reject_reason"]) == ("received", None)
+    assert scalar(pg.owner, "select count(*) from platform.audit_log where action = 'imports.rejected'") == 0
+    monkeypatch.setattr(subprocess, "run", real)  # the machine recovers: the retry reads it
+    shop[2].send({"type": "job.run", "job_id": job_id})  # the queue redelivers
+    assert run_jobs(shop) == ["done"]
+    assert state(shop, upload_id)["status"] == "parsed"
+
+
+def test_no_document_number_gstin_or_hsn_reaches_the_logs_or_audit_on_the_pdf_path(shop, caplog):  # noqa: F811
+    import logging
+
+    pg, _, _ = shop
+    caplog.set_level(logging.DEBUG)
+    number = "ZX-SECRET-4417"
+    out = settle(shop, "inv.pdf", pdf([page(number, lines=(("998877", "1", "PCS", "100.00", "18", "9.00", "9.00", ""),)),
+                                       page("ZX-SECRET-4418", lines=(("", "1", "PCS", "100.00", "18", "9.00", "9.00", ""),))]))
+    assert out["status"] == "parsed"
+    audit = str(pg.owner.connect().execute(text("select a::text from platform.audit_log a")).all())
+    seen = audit + caplog.text
+    for secret in ("ZX-SECRET", "998877", GSTIN):
+        assert secret not in seen
