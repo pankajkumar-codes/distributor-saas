@@ -1,3 +1,4 @@
+import { withAuthTimeout } from "../api/timeout";
 import { tokenStore } from "./tokenStore";
 
 // LLD-1 §11.3. The refresh cookie is HttpOnly, so the page never sees it: a reload asks
@@ -76,6 +77,7 @@ async function refreshNow(background: boolean, rejected: string | null): Promise
       method: "POST",
       credentials: "same-origin",
       headers: background ? { "X-Background": "1" } : {},
+      signal: withAuthTimeout(),
     });
   } catch {
     return "unavailable";

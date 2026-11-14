@@ -16,3 +16,18 @@ def test_iam_login_is_refused_off_lambda(monkeypatch):
             db.engine()
     finally:
         db.engine.cache_clear()
+
+
+def test_only_postgresql_urls_get_a_connect_timeout():
+    assert db.engine_options("postgresql+psycopg://app_rw@localhost/saas") == {"connect_args": {"connect_timeout": 5}}
+    assert db.engine_options("sqlite+pysqlite:///:memory:") == {}
+
+
+def test_the_engine_builds_for_sqlite_with_no_connect_arg(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "sqlite+pysqlite:///:memory:")
+    db.engine.cache_clear()
+    try:
+        with db.engine().connect():
+            pass
+    finally:
+        db.engine.cache_clear()

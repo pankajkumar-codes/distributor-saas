@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { App } from "../../src/App";
 import { resetSessionForTests } from "../../src/auth/session";
@@ -156,7 +156,8 @@ describe("sign-up", () => {
   });
   it("gives up on a code request that gets no answer, says so, and lets the button be pressed again", async () => {
     const real = AbortSignal.timeout.bind(AbortSignal);
-    vi.spyOn(AbortSignal, "timeout").mockImplementation(() => real(30));
+    const spy = vi.spyOn(AbortSignal, "timeout").mockImplementation(() => real(30));
+    onTestFinished(() => spy.mockRestore());
     vi.stubGlobal(
       "fetch",
       vi.fn((input: Request, init?: RequestInit) =>
@@ -173,6 +174,15 @@ describe("sign-up", () => {
     expect(button).toBeDisabled();
     expect(await screen.findByText("We couldn't reach the server. Check your connection and try again.")).toBeInTheDocument();
     expect(button).toBeEnabled();
+  });
+
+  it("keeps a caller's own abort signal working alongside the time limit", async () => {
+    const { withAuthTimeout } = await import("../../src/api/timeout");
+    const own = new AbortController();
+    const joined = withAuthTimeout(own.signal);
+    expect(joined.aborted).toBe(false);
+    own.abort();
+    expect(joined.aborted).toBe(true);
   });
 
   it("says where the code is in the local demo build only", async () => {

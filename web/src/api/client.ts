@@ -3,6 +3,7 @@ import createClient from "openapi-fetch";
 import { endSession, refreshSession } from "../auth/session";
 import { tokenStore } from "../auth/tokenStore";
 import { toApiError, type ApiError } from "./errors";
+import { isAuthPath, withAuthTimeout } from "./timeout";
 import type { paths } from "./schema";
 
 // Typed from app/openapi.json (`npm run gen:api`). Same origin only: the API is served
@@ -13,13 +14,8 @@ export const api = createClient<paths>({
   fetch: (request) => globalThis.fetch(request, signalFor(request)),
 });
 
-// The sign-in, sign-up and refresh calls are short. If one gets no answer in this time it is given up, so the
-// screen shows "we couldn't reach the server" and its button works again instead of staying greyed out. Uploads
-// and downloads are not under /auth and are left alone.
-export const AUTH_TIMEOUT_MS = 20_000;
-
 function signalFor(request: Request): RequestInit | undefined {
-  return new URL(request.url).pathname.startsWith("/api/v1/auth/") ? { signal: AbortSignal.timeout(AUTH_TIMEOUT_MS) } : undefined;
+  return isAuthPath(request.url) ? { signal: withAuthTimeout(request.signal) } : undefined;
 }
 
 api.use({
