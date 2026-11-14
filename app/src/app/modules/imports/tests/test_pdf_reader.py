@@ -1,6 +1,7 @@
 """The own-invoice PDF reader (R1-M6 S1): synthetic PDFs only. No database."""
 
 import logging
+import re
 
 import pytest
 
@@ -11,11 +12,12 @@ from app.modules.imports.readers.own_excel import COLUMNS
 
 from .fixtures.pdf import BUYER, SELLER, invoice_page, one_invoice, pdf
 
+HSN = re.compile("^[0-9]{4}([0-9]{2}){0,2}$")  # the shape in refdata hsn.pattern
 LIMITS = Limits(max_pages=20, max_chars_per_page=5000, max_documents=10, max_seconds=30)
 
 
 def read(data, limits=LIMITS):
-    return TextLayerReader().read(data, limits)
+    return TextLayerReader(HSN).read(data, limits)
 
 
 def test_a_plain_intra_state_invoice_is_read_field_by_field():
@@ -223,3 +225,23 @@ def test_the_paid_reader_stub_fits_the_interface_and_is_not_usable():
     assert reader.id == "pdf_bedrock_v1"
     with pytest.raises(NotImplementedError):
         reader.read(b"", LIMITS)
+
+
+def test_the_hsn_shape_comes_from_the_callers_pattern_not_the_reader():
+    data = one_invoice(lines=(("61", "2", "PCS", "200.00", "18", "18.00", "18.00", ""),))
+    (inv,) = read(data).invoices
+    assert inv.lines[0].hsn is None and "hsn" in inv.lines[0].unclear  # two digits do not fit hsn.pattern
+    (inv,) = TextLayerReader(re.compile("^[0-9]{2,8}$")).read(data, LIMITS).invoices
+    assert inv.lines[0].hsn == "61"
+
+
+def test_numeric_dates_are_day_first_and_impossible_ones_are_blank():
+    assert read(one_invoice(date="03/07/2026")).invoices[0].doc_date == "03-07-2026"
+    (inv,) = read(one_invoice(date="13/13/2026")).invoices
+    assert inv.doc_date is None and "doc_date" in inv.unclear
+
+
+def test_a_word_from_in_the_buyer_block_does_not_move_a_gstin_to_the_seller():
+    extra = [(200, 700, "Goods received from: Demo Transport")]
+    (inv,) = read(pdf([invoice_page(header_extra=extra)])).invoices
+    assert inv.seller_gstin == SELLER and inv.buyer_gstin == BUYER

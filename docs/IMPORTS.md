@@ -339,7 +339,10 @@ page that looks new) refuses the whole PDF with `ambiguous_split`. Refusals carr
 `encrypted`, `unreadable`, `too_many_pages`, `too_complex`, `too_slow`, `too_many_documents`, `ambiguous_split`.
 pdfminer follows no link, script or embedded file, and its debug logging, which prints raw tokens, is switched off. A
 page with no text is listed in `unreadable_pages`; the time cap is checked between pages, so the page and character
-caps are what bounds one page.
+caps are what bounds one page, with the 20 MB upload cap and the Lambda memory and timeout limits behind them (one
+huge page can still use memory and time before a cap fires). The HSN shape is refdata `hsn.pattern`, passed to the reader; the
+reader never decides a minimum length. Numeric dates are read day first (DD/MM/YYYY); one that is not a real date that way is
+blank. The seller is the GSTIN outside a Bill To / Buyer block (the letterhead's), so a stray word like "from" cannot move one.
 
 Not read yet: tax split over two heading rows ("CGST" over "Rate" and "Amt"), labels above their values, scans and
 photos (OCR, slice 4, packaging to be proved first). Tested only on synthetic PDFs made in `tests/fixtures/pdf.py`;

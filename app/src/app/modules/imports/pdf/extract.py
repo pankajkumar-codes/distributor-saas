@@ -4,7 +4,9 @@ It anchors on printed labels and on the line table's column headings, never on f
 nothing about a field it cannot place: that field stays blank and is named in `unclear`. What it does not
 do: no tax logic, no rate inference, no arithmetic check (R1-M7 does those), no buyer name, address or item
 description is read into a result (only the buyer's GSTIN), and no number is parsed through binary float.
-Layouts with the tax split over two heading rows (a "CGST" group over "Rate" and "Amt") or with labels above
+The HSN shape is the caller's refdata `hsn.pattern` (format only; the minimum length by turnover is a CA
+question this module never decides). Numeric dates are read day first (DD/MM/YYYY); a date that is not a real
+calendar date that way is left blank. Layouts with the tax split over two heading rows (a "CGST" group over "Rate" and "Amt") or with labels above
 their values in a grid are not read in this slice: their fields stay blank for the seller to fill in.
 """
 
@@ -28,13 +30,12 @@ DATE_TOKENS = (
     (re.compile(r"\b(\d{1,2})[ -]([A-Za-z]{3})[a-z]*[ ,-]+(\d{4})\b"), "{0} {1} {2}", "%d %b %Y"),
 )
 BUYER = re.compile(r"bill(?:ed)?\s*to|buyer|receiver|consignee|ship(?:ped)?\s*to|customer|recipient", re.I)
-SELLER = re.compile(r"seller|supplier|sold\s*by|from\b", re.I)
+SELLER = re.compile(r"seller|supplier|sold\s*by", re.I)
 TOTAL = re.compile(r"grand\s*total|total\s*amount|invoice\s*total|total\s*invoice\s*value|amount\s*payable|net\s*payable",
                    re.I)
 TABLE_END = re.compile(r"^(grand\s*)?total\b|amount\s*in\s*words|bank|terms|declaration|authori[sz]ed", re.I)
 MONEY = re.compile(r"^[₹]?\s*(?:rs\.?\s*)?(-?\d[\d,]*(?:\.\d+)?)$", re.I)
 QTY_UNIT = re.compile(r"^(\d[\d,]*(?:\.\d+)?)\s*([A-Za-z]{1,10})?$")
-HSN = re.compile(r"^\d{4,8}$")
 DOC_TYPES = (("credit note", "Credit note"), ("debit note", "Debit note"), ("tax invoice", "Invoice"),
              ("invoice", "Invoice"))
 TITLE_ROWS = 6
@@ -82,7 +83,7 @@ class PageFacts:
     has_title: bool = False
 
 
-def read_page(page: int, rows: list[Row]) -> PageFacts:
+def read_page(page: int, rows: list[Row], hsn: re.Pattern) -> PageFacts:
     f = PageFacts(page)
     texts = [text_of(r) for r in rows]
     for t in texts[:TITLE_ROWS]:
@@ -126,7 +127,7 @@ def read_page(page: int, rows: list[Row]) -> PageFacts:
             nums = [n for n in nums if n is not None]
             if nums:
                 f.totals.append(nums[-1])
-    f.lines, f.table_found = _table(page, rows)
+    f.lines, f.table_found = _table(page, rows, hsn)
     return f
 
 
@@ -157,7 +158,7 @@ def _columns(row: Row) -> dict[str, Cell] | None:
     return cols if "hsn" in cols and "taxable_value" in cols else None
 
 
-def _table(page: int, rows: list[Row]) -> tuple[list[ExtractedLine], bool]:
+def _table(page: int, rows: list[Row], hsn: re.Pattern) -> tuple[list[ExtractedLine], bool]:
     for i, row in enumerate(rows):
         cols = _columns(row)
         if cols is None:
@@ -166,7 +167,7 @@ def _table(page: int, rows: list[Row]) -> tuple[list[ExtractedLine], bool]:
         for data in rows[i + 1:]:
             if TABLE_END.search(data[0].text):
                 break
-            line = _line(page, data, cols)
+            line = _line(page, data, cols, hsn)
             if line is not None:
                 lines.append(line)
         return lines, True
@@ -186,7 +187,7 @@ def _column_for(cell: Cell, cols: dict[str, Cell]) -> str | None:
     return name if abs((head.x0 + head.x1) / 2 - centre) < 40 else None
 
 
-def _line(page: int, data: Row, cols: dict[str, Cell]) -> ExtractedLine | None:
+def _line(page: int, data: Row, cols: dict[str, Cell], hsn: re.Pattern) -> ExtractedLine | None:
     got: dict[str, list[str]] = {}
     for cell in data:
         name = _column_for(cell, cols)
@@ -194,10 +195,10 @@ def _line(page: int, data: Row, cols: dict[str, Cell]) -> ExtractedLine | None:
             got.setdefault(name, []).append(cell.text)
     hsn_text = " ".join(got.get("hsn", []))
     taxable = money(" ".join(got.get("taxable_value", []))) if "taxable_value" in got else None
-    if not HSN.match(hsn_text) and taxable is None:
+    if not hsn.fullmatch(hsn_text) and taxable is None:
         return None  # a wrapped description or a sub-heading, not a line
     unclear: set[str] = set()
-    values: dict[str, str | None] = {"hsn": hsn_text if HSN.match(hsn_text) else None, "taxable_value": taxable}
+    values: dict[str, str | None] = {"hsn": hsn_text if hsn.fullmatch(hsn_text) else None, "taxable_value": taxable}
     quantity = unit = None
     q = QTY_UNIT.match(" ".join(got.get("quantity", [])).strip())
     if q:
