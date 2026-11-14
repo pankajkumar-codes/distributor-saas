@@ -35,3 +35,19 @@ export async function signUp(page: Page, email: string, password = "seven lamps 
   await page.getByRole("button", { name: "Create account" }).click();
   await expect(page.getByRole("heading", { name: "Your business and GST" })).toBeVisible();
 }
+
+/** Fills both onboarding steps with a Maharashtra GSTIN and lands on the new business's Home. */
+export async function createBusiness(page: Page, legalName = "E2E Traders Private Limited") {
+  await page.getByLabel("GSTIN").fill("27AAPFU0939F1ZV");
+  await page.getByLabel("Legal name (as on GST certificate)").fill(legalName);
+  await page.getByRole("group", { name: "Turnover this financial year (declared)" }).getByRole("radio", { name: "Up to the limit for quarterly filing (QRMP)" }).check();
+  await page.getByRole("radio", { name: "No", exact: true }).check();
+  await page.getByLabel("Address line 1").fill("12 Market Road");
+  await page.getByLabel("City or town").fill("Pune");
+  await page.getByLabel("PIN code").fill("411001");
+  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("checkbox", { name: "Amazon" }).check();
+  await page.getByRole("radio", { name: "Quarterly (QRMP)" }).check();
+  await page.getByRole("button", { name: "Finish and see my filing home" }).click();
+  await expect(page).toHaveURL(/\/b\/[0-9a-f-]{36}\/home$/);
+}

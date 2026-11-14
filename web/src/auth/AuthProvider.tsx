@@ -4,7 +4,7 @@ import { Navigate, useLocation } from "react-router-dom";
 import { Banner } from "../kit/Banner";
 import { Button } from "../kit/Button";
 
-import { onSessionChange, refreshSession, type RefreshResult } from "./session";
+import { onSessionChange, refreshSession, signedOutOnPurpose, type RefreshResult } from "./session";
 import { tokenStore } from "./tokenStore";
 
 type Status = "checking" | "signed_in" | "signed_out" | "unavailable";
@@ -58,6 +58,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
     );
   }
   if (status === "signed_out") {
+    if (signedOutOnPurpose()) return <Navigate to="/signin" replace />;
     // Only the path goes in `next`: it never carries an email or a code.
     return <Navigate to={`/signin?next=${encodeURIComponent(location.pathname)}`} replace />;
   }
