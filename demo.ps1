@@ -83,7 +83,7 @@ switch ($Command.ToLower()) {
         Say ""
         Say "  Ready-made account (a made-up business, Demo Traders):" Green
         Say "      email:     demo@example.com" White
-        Say "      password:  seven lamps under a bridge" White
+        Say "      password:  Seven-Lamps-42!" White
         Say ""
         Say "  Or sign up as yourself: the 6-digit code appears right here." Green
         Say "  Sample files to upload are in the folder:  demo\samples" Green

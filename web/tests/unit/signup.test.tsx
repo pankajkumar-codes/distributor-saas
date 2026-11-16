@@ -7,7 +7,7 @@ import { tokenStore } from "../../src/auth/tokenStore";
 import { fakeApi, type Reply, type Sent } from "./fakeApi";
 
 const EMAIL = "owner@vashi.example";
-const PASSWORD = "seven lamps under a bridge";
+const PASSWORD = "Seven-Lamps-42!";
 
 let sent: Sent[];
 let reply: (path: string, ...answers: Reply[]) => void;
@@ -26,6 +26,17 @@ afterEach(() => {
 const SIGNUP = "/api/v1/auth/signup";
 const REFRESH = "/api/v1/auth/refresh";
 const VERIFY = "/api/v1/auth/signup/verify";
+const POLICY = "/api/v1/auth/password-policy";
+const RULES = {
+  min_length: 10,
+  max_length: 128,
+  specials: "!@#",
+  rules: [
+    { id: "length", label: "At least 10 characters" },
+    { id: "upper", label: "An uppercase letter (A to Z)" },
+    { id: "special", label: "A special character: !@#" },
+  ],
+};
 const STATES = "/api/v1/refdata/state-codes"; // the onboarding screen loads its state picker
 const VERIFIED = { status: 200, body: { access_token: "tok-1", expires_in: 3600, user: { id: "u1", email: EMAIL } } };
 
@@ -59,7 +70,7 @@ describe("sign-up", () => {
     await enterCode();
     await screen.findByRole("heading", { name: "Your business and GST" });
 
-    expect(sent.map((s) => s.path).filter((p) => p !== REFRESH && p !== STATES)).toEqual([SIGNUP, VERIFY]);
+    expect(sent.map((s) => s.path).filter((p) => p !== REFRESH && p !== STATES && p !== POLICY)).toEqual([SIGNUP, VERIFY]);
     expect(sent.find((s) => s.path === VERIFY)?.body).toEqual({ email: EMAIL, code: "123456", password: PASSWORD });
     expect(tokenStore.get()).toBe("tok-1");
     expect(window.location.pathname).toBe("/onboarding/business");
@@ -143,9 +154,23 @@ describe("sign-up", () => {
     expect(screen.queryByText(/code didn't work/)).toBeNull();
   });
 
-  it("shows the password rules on step 1", () => {
+  it("shows the server's password rules on step 1 and marks the ones a refusal names", async () => {
+    reply(POLICY, { status: 200, body: RULES });
     render(<App />);
-    expect(screen.getByLabelText("Password")).toHaveAccessibleDescription(/At least 10 characters/);
+    expect(await screen.findByText("An uppercase letter (A to Z)")).toBeInTheDocument();
+    expect(screen.getByText("A special character: !@#")).toBeInTheDocument();
+
+    reply(SIGNUP, {
+      status: 422,
+      body: { error: { code: "password_weak", message: "weak", field: "password", fix: "Your password needs: an uppercase letter.", unmet: ["upper"] } },
+    });
+    fireEvent.change(screen.getByLabelText("Work email"), { target: { value: EMAIL } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "alllowercase1!" } });
+    fireEvent.click(screen.getByRole("button", { name: "Email me a code" }));
+    expect(await screen.findByText("Your password needs: an uppercase letter.")).toBeInTheDocument();
+    expect(screen.getByText("An uppercase letter (A to Z)").closest("li")).toHaveAttribute("data-unmet", "true");
+    expect(screen.getByText("At least 10 characters").closest("li")).not.toHaveAttribute("data-unmet");
+    expect(sent.find((x) => x.path === SIGNUP)?.body).toEqual({ email: EMAIL, password: "alllowercase1!" });
   });
 
   it("sends a new code and restarts the countdown", async () => {

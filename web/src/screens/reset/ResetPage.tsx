@@ -9,6 +9,7 @@ import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { Field } from "../../kit/Field";
 import { OtpInput } from "../../kit/OtpInput";
+import { PasswordRules } from "../../kit/PasswordRules";
 import { countdown, useNow } from "../signup/CodeStep";
 
 type CodeSent = components["schemas"]["CodeSent"];
@@ -23,9 +24,6 @@ function codeState(state: unknown): CodeState | null {
     ? (s as CodeState)
     : null;
 }
-
-const PASSWORD_HINT =
-  "At least 10 characters, with no spaces at the start or end; a few unrelated words work well. Very common passwords aren't accepted.";
 
 /**
  * /reset: forgot password (LLD-1 §5.8). Step 1 asks for the email and always gets the same
@@ -170,9 +168,9 @@ function CodeStep({ state, onResent, onBack, onDone }: { state: CodeState; onRes
           autoComplete="new-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          hint={PASSWORD_HINT}
           error={passwordError}
         />
+        <PasswordRules unmet={error?.code === "password_weak" ? error.unmet : undefined} />
         <p className="note">Changing your password signs you out on every device.</p>
         <div className="actions">
           <Button type="button" variant="link" onClick={onBack}>

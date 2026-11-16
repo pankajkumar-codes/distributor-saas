@@ -26,7 +26,7 @@ export async function noSeriousAxeFindings(page: Page) {
 }
 
 /** Signs a new user up and stops on the onboarding screen. */
-export async function signUp(page: Page, email: string, password = "seven lamps under a bridge") {
+export async function signUp(page: Page, email: string, password = "Seven-Lamps-42!") {
   await page.goto("/signup");
   await page.getByLabel("Work email").fill(email);
   await page.getByLabel("Password").fill(password);
