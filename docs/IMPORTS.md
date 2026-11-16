@@ -341,6 +341,8 @@ The date used is the profile's `period_field` (a comma list, the first present w
 
 Confirm locks the run row and the report type first, then re-runs every gate (`check`) inside the same transaction, so a file confirmed by someone else between a check and the confirm is seen, not missed. A row with no readable document date is an invalid row at staging and so blocks the confirm (`rows_invalid`); `rows_undated` guards the same case if a reader ever lets one through. A PDF row whose required field is unreadable also becomes an invalid row, which the check treats as undecidable: the seller corrects the source and uploads again.
 
+Confirms are serialised per business (a second advisory lock beside the report-type lock). **Condition on a future PDF `treatment_confirmed` flag:** see OPEN_QUESTIONS; an Excel and a PDF run of the same invoice must not attach duplicate lines.
+
 Only the own-invoice reader maps documents. A platform profile whose refdata `treatment_confirmed` is not true is refused with `treatment_unconfirmed` and its `open_ca_items`; the screen says the treatment is not settled yet, never that the data is wrong. `POST /uploads/none-this-month` and `GET` record that a section has nothing for a month (audited, counts only).
 
 ## Own sales invoices, PDF (R1-M6 slice 1, `imports/pdf/`)

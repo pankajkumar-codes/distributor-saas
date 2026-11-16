@@ -318,3 +318,103 @@ def test_overlapping_files_staged_at_once_are_serialised_so_the_overlap_is_seen(
     with business_session(svc, business) as s:
         statuses = [r.status.value for r in s.scalars(select(ImportRow).where(ImportRow.business_id == business))]
     assert statuses.count("duplicate") == 1 and statuses.count("new") == 3
+
+
+def _insert_document(s, business, run_id, row_id, *, number="INV-1"):
+    doc, line = uuid.uuid4(), uuid.uuid4()
+    s.execute(text(
+        "insert into imports.documents (id, business_id, gstin, source, doc_kind, doc_number, doc_key, fy, doc_date,"
+        " supply_class, pos_state_code, is_inter_state, first_run_id, created_by, return_instance_id, return_period)"
+        " values (:i, :b, '19DEMOA1234A1Z5', 'own_upload', 'invoice', :n, :n, '2026-27', '2026-10-05', 'B2CS', '19',"
+        " false, :r, :u, gen_random_uuid(), '2026-10')"), {"i": doc, "b": business, "n": number, "r": run_id, "u": USER})
+    s.execute(text(
+        "insert into imports.document_lines (id, business_id, document_id, source_row_id, line_key, line_pos, hsn, hsn_from,"
+        " rate, taxable_value, igst, cgst, sgst, cess, created_by)"
+        " values (:i, :b, :d, :w, repeat('a', 64), 1, '61091000', 'file', 5, 100, 0, 2.5, 2.5, 0, :u)"),
+        {"i": line, "b": business, "d": doc, "w": row_id, "u": USER})
+    return doc, line
+
+
+def _a_confirmed_document(svc, business):
+    run_id, _ = do_stage(svc, business)
+    with business_session(svc, business) as s:
+        row_id = s.scalars(select(ImportRow.id)).first()
+        doc, line = _insert_document(s, business, run_id, row_id)
+        s.commit()
+    return run_id, row_id, doc, line
+
+
+TABLES = ("documents", "document_lines", "period_confirmations")
+
+
+def test_confirmed_document_tables_are_tenant_isolated_and_insert_only(svc):
+    a, b = uuid.uuid4(), uuid.uuid4()
+    run_a, row_a, doc_a, line_a = _a_confirmed_document(svc, a)
+    with business_session(svc, a) as s:
+        s.execute(text("insert into imports.period_confirmations (id, business_id, section, month, created_by)"
+                       " values (:i, :b, 'amazon', '2026-10-01', :u)"), {"i": uuid.uuid4(), "b": a, "u": USER})
+        s.commit()
+    # the owning tenant sees its rows
+    with business_session(svc, a) as s:
+        assert [s.execute(text(f"select count(*) from imports.{t}")).scalar_one() for t in TABLES] == [1, 1, 1]
+    # another tenant, and no tenant at all, see nothing
+    with business_session(svc, b) as s:
+        assert [s.execute(text(f"select count(*) from imports.{t}")).scalar_one() for t in TABLES] == [0, 0, 0]
+    with Session(svc) as s:
+        assert [s.execute(text(f"select count(*) from imports.{t}")).scalar_one() for t in TABLES] == [0, 0, 0]
+    # a read-only session reads its own tenant only and cannot write
+    with business_session(svc, a) as s:
+        s.execute(text("set local role app_ro"))
+        assert s.execute(text("select count(*) from imports.documents")).scalar_one() == 1
+        with pytest.raises(DBAPIError):
+            s.execute(text("insert into imports.period_confirmations (id, business_id, section, month, created_by)"
+                           " values (:i, :b, 'meesho', '2026-10-01', :u)"), {"i": uuid.uuid4(), "b": a, "u": USER})
+    with business_session(svc, b) as s:
+        s.execute(text("set local role app_ro"))
+        assert s.execute(text("select count(*) from imports.documents")).scalar_one() == 0
+    # a tenant cannot insert for another tenant
+    with pytest.raises(DBAPIError):
+        with business_session(svc, b) as s:
+            _insert_document(s, a, run_a, row_a, number="INV-X")
+    # insert-only for everyone, the owner included: no update, delete or truncate
+    for t in TABLES:
+        for stmt in (f"update imports.{t} set business_id = business_id", f"delete from imports.{t}", f"truncate imports.{t}"):
+            with pytest.raises(DBAPIError):
+                with svc.owner.connect() as c:
+                    c.execute(text(stmt))
+            with pytest.raises(DBAPIError):
+                with business_session(svc, a) as s:
+                    s.execute(text(stmt))
+
+
+def test_a_confirmed_line_cannot_point_at_another_tenants_document_run_or_row(svc):
+    a, b = uuid.uuid4(), uuid.uuid4()
+    run_a, row_a, doc_a, _ = _a_confirmed_document(svc, a)
+    run_b, _ = do_stage(svc, b)
+    with business_session(svc, b) as s:
+        row_b = s.scalars(select(ImportRow.id)).first()
+    # business B's document may not claim A's run, nor B's line A's document or A's row
+    with pytest.raises(DBAPIError):
+        with business_session(svc, b) as s:
+            _insert_document(s, b, run_a, row_b, number="INV-1")
+    with pytest.raises(DBAPIError):
+        with business_session(svc, b) as s:
+            s.execute(text(
+                "insert into imports.document_lines (id, business_id, document_id, source_row_id, line_key, line_pos, hsn,"
+                " hsn_from, rate, taxable_value, igst, cgst, sgst, cess, created_by) values (:i, :b, :d, :w,"
+                " repeat('b', 64), 1, '61091000', 'file', 5, 1, 0, 0, 0, 0, :u)"),
+                {"i": uuid.uuid4(), "b": b, "d": doc_a, "w": row_b, "u": USER})
+    with pytest.raises(DBAPIError):
+        with business_session(svc, b) as s:
+            doc_b = uuid.uuid4()
+            s.execute(text(
+                "insert into imports.documents (id, business_id, gstin, source, doc_kind, doc_number, doc_key, fy, doc_date,"
+                " supply_class, pos_state_code, is_inter_state, first_run_id, created_by, return_instance_id, return_period)"
+                " values (:i, :b, '19DEMOA1234A1Z5', 'own_upload', 'invoice', 'I', 'I', '2026-27', '2026-10-05', 'B2CS', '19', false,"
+                " :r, :u, gen_random_uuid(), '2026-10')"),
+                {"i": doc_b, "b": b, "r": run_b, "u": USER})
+            s.execute(text(
+                "insert into imports.document_lines (id, business_id, document_id, source_row_id, line_key, line_pos, hsn,"
+                " hsn_from, rate, taxable_value, igst, cgst, sgst, cess, created_by) values (:i, :b, :d, :w,"
+                " repeat('c', 64), 1, '61091000', 'file', 5, 1, 0, 0, 0, 0, :u)"),
+                {"i": uuid.uuid4(), "b": b, "d": doc_b, "w": row_a, "u": USER})

@@ -290,3 +290,11 @@ def test_a_row_with_no_readable_date_never_reaches_a_confirm(shop):  # noqa: F81
     assert q(pg, "select count(*) from imports.documents")[0][0] == 0
     codes = [b["code"] for b in get(pg, f"/api/v1/b/{shop[1]}/runs/{run_id}/confirm-check").json()["blockers"]]
     assert "rows_invalid" in codes
+
+
+def test_a_document_number_longer_than_the_column_is_refused_cleanly_not_a_500(shop):  # noqa: F811
+    monthly(shop)
+    run_id = stage(shop, [line("INV-" + "9" * 50)])
+    out = confirm(shop, run_id)
+    assert out.status_code in (409, 422), out.text
+    assert q(shop[0], "select count(*) from imports.documents")[0][0] == 0

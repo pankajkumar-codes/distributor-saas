@@ -413,6 +413,9 @@ def confirm(uow: UnitOfWork, run_id: uuid.UUID, choices: dict[uuid.UUID, str], c
         raise Deny("not_found")
     run = runs.get_run(uow, run_id)
     staging._lock_report_type(uow.tx, business, run.marketplace, run.report_type)  # noqa: SLF001
+    # One confirm per business at a time: a document can come from reports of different types (an Excel run
+    # and a PDF run of one invoice), which the report-type lock above does not serialise.
+    staging._lock_report_type(uow.tx, business, "*", "documents")  # noqa: SLF001
     chk = check(uow, run_id, today)
     if not chk.can_confirm:
         raise Conflict("confirm_blocked", "This file can't be confirmed yet. See what is in the way and try again.")

@@ -44,7 +44,8 @@ create table imports.documents (
     created_at timestamptz not null default now(),
     check ((doc_kind = 'debit_note') = (supply_class is null)),
     check ((doc_kind = 'debit_note') = (return_instance_id is null)),
-    unique (id, business_id)
+    unique (id, business_id),
+    foreign key (first_run_id, business_id) references imports.import_runs (id, business_id)
 );
 create unique index documents_identity_uq on imports.documents (business_id, gstin, doc_kind, fy, doc_key);
 create index documents_instance on imports.documents (business_id, return_instance_id);
@@ -89,7 +90,8 @@ create table imports.document_lines (
     supersedes uuid references imports.document_lines (id),
     created_by uuid not null,
     created_at timestamptz not null default now(),
-    foreign key (document_id, business_id) references imports.documents (id, business_id)
+    foreign key (document_id, business_id) references imports.documents (id, business_id),
+    foreign key (source_row_id, business_id) references imports.import_rows (id, business_id)
 );
 create index document_lines_document on imports.document_lines (business_id, document_id);
 create index document_lines_key on imports.document_lines (business_id, line_key);
