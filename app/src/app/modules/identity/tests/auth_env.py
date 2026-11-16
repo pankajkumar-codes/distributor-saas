@@ -22,7 +22,7 @@ from .conftest import PG_ADMIN_URL
 MIGRATOR = Path(__file__).resolve().parents[6] / "migrator"
 ORIGIN = {"origin": "http://localhost:5173"}
 EMAIL = "asha@example.com"
-PASSWORD = "correct horse battery"
+PASSWORD = "Correct-Horse-42!"
 
 
 @contextmanager
@@ -59,7 +59,7 @@ def one(admin, sql, **params):
 
 
 def sign_up(client, mail, email=EMAIL):
-    r = client.post("/api/v1/auth/signup", json={"email": email})
+    r = client.post("/api/v1/auth/signup", json={"email": email, "password": PASSWORD})
     assert (r.status_code, r.json()) == (202, {"status": "code_sent", "code_ttl_minutes": 10, "code_max_tries": 5})
     return last(mail)
 

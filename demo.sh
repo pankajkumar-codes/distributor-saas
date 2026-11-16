@@ -52,7 +52,7 @@ case "${1:-start}" in
 
   Ready-made account (a made-up business, Demo Traders):
       email:     demo@example.com
-      password:  seven lamps under a bridge
+      password:  Seven-Lamps-42!
 
   Or sign up as yourself: the 6-digit code appears right here.
   Sample files to upload are in the folder:  demo/samples

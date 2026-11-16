@@ -2078,6 +2078,20 @@
           "message": {
             "title": "Message",
             "type": "string"
+          },
+          "unmet": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unmet"
           }
         },
         "required": [
@@ -3814,6 +3828,55 @@
           "new_password"
         ],
         "title": "PasswordBody",
+        "type": "object"
+      },
+      "PasswordPolicyOut": {
+        "properties": {
+          "max_length": {
+            "title": "Max Length",
+            "type": "integer"
+          },
+          "min_length": {
+            "title": "Min Length",
+            "type": "integer"
+          },
+          "rules": {
+            "items": {
+              "$ref": "#/components/schemas/PasswordRuleOut"
+            },
+            "title": "Rules",
+            "type": "array"
+          },
+          "specials": {
+            "title": "Specials",
+            "type": "string"
+          }
+        },
+        "required": [
+          "min_length",
+          "max_length",
+          "specials",
+          "rules"
+        ],
+        "title": "PasswordPolicyOut",
+        "type": "object"
+      },
+      "PasswordRuleOut": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "PasswordRuleOut",
         "type": "object"
       },
       "PasswordSetOut": {
@@ -5662,6 +5725,26 @@
         "title": "SigninBody",
         "type": "object"
       },
+      "SignupBody": {
+        "properties": {
+          "email": {
+            "maxLength": 254,
+            "title": "Email",
+            "type": "string"
+          },
+          "password": {
+            "maxLength": 1024,
+            "title": "Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "SignupBody",
+        "type": "object"
+      },
       "StateCode": {
         "properties": {
           "code": {
@@ -6440,6 +6523,28 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/auth/password-policy": {
+      "get": {
+        "description": "The password rules in force, from refdata, so the screens never carry their own copy. Public: it is the same\nfor everyone and a person choosing a password is not signed in yet. Cached for a minute in the process and by the\nbrowser, so it cannot be used to make the database work.",
+        "operationId": "password_policy_api_v1_auth_password_policy_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasswordPolicyOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Password Policy",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/auth/refresh": {
       "post": {
         "operationId": "refresh_api_v1_auth_refresh_post",
@@ -6746,7 +6851,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/EmailBody"
+                "$ref": "#/components/schemas/SignupBody"
               }
             }
           },

@@ -133,3 +133,82 @@
   last_checked: 2026-10-26
   status: provisional
   note: "Not in the BRD; LLD-1 §12. PO to confirm."
+
+# Password rules (Pankaj, 16 Nov 2026 local test, item 1; EM relay). They replace LLD-1 L1-9's "no character-class
+# rules": the app is stricter than Cognito's pool policy, so Cognito never refuses a password the app accepted.
+- key: auth.password_min_length
+  value: "10"
+  type: integer
+  kind: product
+  valid_from: 2026-11-16
+  source_url: team/engineering/password-policy.md
+  source_title: "Password policy, Pankaj's local test item 1 (supersedes LLD-1 L1-9 character-class wording)"
+  last_checked: 2026-11-16
+  status: provisional
+  note: "At least 10 characters. PO to confirm."
+
+- key: auth.password_max_length
+  value: "128"
+  type: integer
+  kind: product
+  valid_from: 2026-11-16
+  source_url: team/docs/lld-1.md
+  source_title: "LLD-1 L1-9 (the 128-character upper limit is unchanged)"
+  last_checked: 2026-11-16
+  status: provisional
+  note: "A longer password is refused with its own message. Must stay at or below what a Cognito user pool takes (256); a test checks it."
+
+- key: auth.password_require_upper
+  value: "true"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-16
+  source_url: team/engineering/password-policy.md
+  source_title: "Password policy, Pankaj's local test item 1"
+  last_checked: 2026-11-16
+  status: provisional
+  note: "At least one uppercase letter, A to Z."
+
+- key: auth.password_require_lower
+  value: "true"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-16
+  source_url: team/engineering/password-policy.md
+  source_title: "Password policy, Pankaj's local test item 1"
+  last_checked: 2026-11-16
+  status: provisional
+  note: "At least one lowercase letter, a to z."
+
+- key: auth.password_require_digit
+  value: "true"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-16
+  source_url: team/engineering/password-policy.md
+  source_title: "Password policy, Pankaj's local test item 1"
+  last_checked: 2026-11-16
+  status: provisional
+  note: "At least one digit, 0 to 9."
+
+- key: auth.password_require_special
+  value: "true"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-16
+  source_url: team/engineering/password-policy.md
+  source_title: "Password policy, Pankaj's local test item 1"
+  last_checked: 2026-11-16
+  status: provisional
+  note: "At least one character from auth.password_specials."
+
+- key: auth.password_specials
+  value: "!@#$%^&*()-_=+[]{}.,?"
+  type: text
+  kind: product
+  valid_from: 2026-11-16
+  source_url: team/engineering/password-policy.md
+  source_title: "Password policy, Pankaj's local test item 1 (the EM proposed this fixed set)"
+  last_checked: 2026-11-16
+  status: provisional
+  note: "The special characters that count. A space is allowed inside a password but is not a special character."
