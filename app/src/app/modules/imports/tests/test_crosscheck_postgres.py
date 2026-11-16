@@ -2,6 +2,7 @@
 Synthetic files only."""
 
 import pytest
+from sqlalchemy import text
 
 from app.modules.imports import readers
 from app.modules.imports.readers import register_readers
@@ -153,3 +154,52 @@ def test_the_response_and_the_logs_carry_no_buyer_text(shop, caplog):  # noqa: F
     caplog.set_level("DEBUG")
     body = str(check(shop))
     assert "Demo Buyer" not in body + caplog.text and "Item description" not in body + caplog.text
+
+
+def _confirm_runs(pg):
+    with pg.owner.connect() as c:  # confirm is not exposed yet (R1-M7); mark the runs confirmed as the owner
+        c.execute(text("update imports.import_runs set status = 'confirmed', confirmed_by = uploaded_by,"
+                       " confirmed_at = now() where status = 'staged'"))
+
+
+def test_a_cumulative_excel_counts_each_invoice_once_after_the_first_file_is_confirmed(shop):  # noqa: F811
+    pg, _, _ = shop
+    jan = xl.line("INV-1", gstin=GSTIN, buyer=BUYER)
+    feb = xl.line("INV-2", gstin=GSTIN, buyer=BUYER, date="05-08-2026")
+    excel(shop, [jan])
+    _confirm_runs(pg)
+    excel(shop, [jan, feb])  # January again, plus February: INV-1 is already_imported in the second run
+    pdfs(shop, page("INV-1"), page("INV-2", date="05-08-2026"))
+    out = check(shop)
+    assert (out["matching"], out["mismatches"], out["excel"]["documents"]) == (2, [], 2)
+
+
+def test_a_changed_row_replaces_the_older_one_and_the_older_is_not_counted_as_well(shop):  # noqa: F811
+    pg, _, _ = shop
+    excel(shop, [xl.line("INV-1", gstin=GSTIN, buyer=BUYER)])
+    _confirm_runs(pg)
+    excel(shop, [xl.line("INV-1", gstin=GSTIN, buyer=BUYER, taxable="300", cgst="27", sgst="27", total="354")])
+    pdfs(shop, page("INV-1", total="354.00", lines=(("6109", "2", "PCS", "300.00", "18", "27.00", "27.00", ""),)))
+    out = check(shop)
+    assert (out["matching"], out["mismatches"]) == (1, [])  # one line of 300, not 200 plus 300
+
+
+def test_an_excel_with_no_rows_still_counts_as_an_upload_for_the_note(shop):  # noqa: F811
+    pg, _, _ = shop
+    excel(shop, [xl.line("INV-1", gstin=GSTIN, buyer=BUYER)])
+    pdfs(shop, page("INV-1"))
+    assert check(shop)["show_validate_note"] is False
+    with pg.owner.connect() as c:  # the rows of the PDF run vanish (as for a header-only file): the run is still live
+        c.execute(text("alter table imports.import_rows disable trigger all"))
+        c.execute(text("delete from imports.import_rows where run_id in"
+                       " (select id from imports.import_runs where report_type = 'invoices_pdf')"))
+        c.execute(text("alter table imports.import_rows enable trigger all"))
+    out = check(shop)
+    assert (out["show_validate_note"], out["pdf"]["live"], out["pdf"]["documents"]) == (False, True, 0)
+
+
+def test_an_amount_that_is_not_a_number_is_not_read_as_zero():
+    from app.modules.imports.crosscheck import _dec
+
+    assert _dec("") == 0 and _dec(None) == 0 and _dec("12.50") == 12.5
+    assert _dec("abc") is None

@@ -4,7 +4,8 @@ Read-only and computed on request: nothing is stored and nothing reaches a retur
 same invoices twice, once typed into our Excel template and once as the invoice PDFs, and this lists every
 difference so they can fix whichever side is wrong. It never decides which side is right.
 
-Compared per document (seller GSTIN, document type, document number; trimmed and case-folded), not per line,
+Compared per document (seller GSTIN, document type, document number; trimmed and case-folded; and the financial year of
+its date, as the confirm check does, so a number reused in another year is another document), not per line,
 so a different line split does not flood the screen: date, buyer GSTIN, place of supply, the sum of each money
 column, the invoice total and the number of lines. Money is compared on exact Decimal equality; whether a
 rounding difference may be tolerated is a CA question (OPEN_QUESTIONS), so none is applied.
@@ -27,6 +28,7 @@ from decimal import Decimal, InvalidOperation
 
 from sqlalchemy import text
 
+from app.modules.business.interface import fy_of
 from app.modules.refdata import state_codes
 from platform_common.uow import UnitOfWork
 
@@ -37,11 +39,16 @@ HEADER = ("doc_date", "buyer_gstin", "place_of_supply")
 _ROWS = (
     "with latest as (select distinct on (row_id) row_id, kind, fix_field, fix_value from imports.row_resolutions"
     " where business_id = :b order by row_id, created_at desc, id desc)"
-    " select w.id, r.report_type, w.status, w.normalized, l.kind, l.fix_field, l.fix_value"
+    " select w.id, r.report_type, w.status, w.normalized, l.kind, l.fix_field, l.fix_value, w.dedup_key,"
+    " r.uploaded_at, r.id as run_id"
     " from imports.import_rows w join imports.import_runs r on r.id = w.run_id and r.business_id = w.business_id"
     " left join latest l on l.row_id = w.id"
     " where w.business_id = :b and r.marketplace = 'own_invoices' and r.report_type in ('invoices', 'invoices_pdf')"
-    " and r.status in ('staged', 'confirmed')")
+    " and r.status in ('staged', 'confirmed') order by r.uploaded_at, r.id, w.row_number")
+
+# an upload counts as live from its run, even one with no rows (a header-only Excel)
+_LIVE = ("select distinct report_type from imports.import_runs where business_id = :b and marketplace = 'own_invoices'"
+         " and report_type in ('invoices', 'invoices_pdf') and status in ('staged', 'confirmed')")
 
 
 @dataclass(frozen=True)
@@ -55,7 +62,7 @@ class DocRef:
 class Doc:
     ref: DocRef
     row_ids: list[uuid.UUID] = field(default_factory=list)
-    held: int = 0  # held rows the seller has not decided
+    held: int = 0  # rows the seller has not decided, or whose amounts could not be read
     lines: int = 0
     totals: dict[str, Decimal] = field(default_factory=dict)
     values: dict[str, set] = field(default_factory=lambda: {k: set() for k in (*HEADER, "invoice_total")})
@@ -107,11 +114,14 @@ def _fold(value) -> str:
     return " ".join(str(value or "").split()).casefold()
 
 
-def _dec(value) -> Decimal:
+def _dec(value) -> Decimal | None:
+    """The amount, zero for a column left blank, None for text that is not a number (never silently zero)."""
+    if value in (None, ""):
+        return Decimal(0)
     try:
         return Decimal(str(value))
     except (InvalidOperation, ValueError):
-        return Decimal(0)
+        return None
 
 
 def _states(uow: UnitOfWork, today: date) -> dict[str, str]:
@@ -123,23 +133,46 @@ def _states(uow: UnitOfWork, today: date) -> dict[str, str]:
     return out
 
 
+def _day(value) -> date | None:
+    try:
+        return date.fromisoformat(str(value).split("T")[0])
+    except ValueError:
+        return None
+
+
+def _latest_rows(uow: UnitOfWork):
+    """Rows of live runs, one per record: a row another file also carries is skipped, and a later `changed` row replaces
+    the older row with the same key. The query is ordered oldest run first."""
+    kept: dict[tuple, tuple] = {}
+    extra = []
+    for row in uow.tx.execute(text(_ROWS), {"b": uow.principal.business_id}):
+        _, report_type, status, _, _, _, _, dedup_key, *_ = row
+        if status in ("duplicate", "already_imported"):
+            continue
+        if dedup_key is None:
+            extra.append(row)  # no key (an invalid row): it can only be counted as unplaced
+        else:
+            kept[(report_type, dedup_key)] = row
+    return [*kept.values(), *extra]
+
+
 def _collect(uow: UnitOfWork, today: date):
     states = _states(uow, today)
     docs: dict[str, dict[tuple, Doc]] = {EXCEL: {}, PDF: {}}
     unplaced = {EXCEL: 0, PDF: 0}
     live = {EXCEL: False, PDF: False}
-    for row_id, report_type, status, normalized, kind, fix_field, fix_value in uow.tx.execute(
-            text(_ROWS), {"b": uow.principal.business_id}):
+    for (report_type,) in uow.tx.execute(text(_LIVE), {"b": uow.principal.business_id}):
         live[report_type] = True
+    for row_id, report_type, status, normalized, kind, fix_field, fix_value, *_ in _latest_rows(uow):
         n = dict(normalized or {})
-        key = (_fold(n.get("seller_gstin")), _fold(n.get("doc_type")), _fold(n.get("doc_number")))
-        if status == "duplicate":
-            continue
-        if status in ("invalid", "conflict") or not all(key):
+        number = (_fold(n.get("seller_gstin")), _fold(n.get("doc_type")), _fold(n.get("doc_number")))
+        if status == "conflict" or status == "invalid" or not all(number):
             unplaced[report_type] += 1
             continue
         if kind == "set_aside":
             continue
+        day = _day(n.get("doc_date"))
+        key = (*number, "" if day is None else fy_of(day))
         ref = DocRef(str(n["seller_gstin"]).strip(), " ".join(str(n["doc_type"]).split()),
                      " ".join(str(n["doc_number"]).split()))
         doc = docs[report_type].setdefault(key, Doc(ref))
@@ -149,11 +182,15 @@ def _collect(uow: UnitOfWork, today: date):
             continue
         if kind == "fixed" and fix_field == "state":
             n["place_of_supply"] = fix_value
+        amounts = {name: _dec(n.get(name)) for name in (*MONEY, "invoice_total")}
+        if any(v is None for v in amounts.values()):
+            doc.held += 1  # an amount that cannot be read is not zero: the document is not compared
+            continue
         doc.lines += 1
         for name in MONEY:
-            doc.totals[name] = doc.totals.get(name, Decimal(0)) + _dec(n.get(name))
+            doc.totals[name] = doc.totals.get(name, Decimal(0)) + amounts[name]
         place = _fold(n.get("place_of_supply"))
-        total = None if n.get("invoice_total") in (None, "") else _dec(n["invoice_total"])
+        total = None if n.get("invoice_total") in (None, "") else amounts["invoice_total"]
         for name, value in (("doc_date", n.get("doc_date")), ("buyer_gstin", _fold(n.get("buyer_gstin")).upper()),
                             ("place_of_supply", states.get(place, place)), ("invoice_total", total)):
             if value not in (None, ""):
