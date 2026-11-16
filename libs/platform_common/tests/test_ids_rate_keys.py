@@ -9,6 +9,16 @@ from platform_common import rate
 from platform_common.ids import uuid7
 
 
+@pytest.fixture(autouse=True)
+def _fresh_uuid7_state():
+    """The tests below move a fake clock; none may leave `ids._last` in the future for the next test."""
+    from platform_common import ids
+
+    ids._last = (0, 0)
+    yield
+    ids._last = (0, 0)
+
+
 def test_uuid7_is_version_7_rfc_variant_and_time_ordered():
     first = uuid7()
     time.sleep(0.002)
