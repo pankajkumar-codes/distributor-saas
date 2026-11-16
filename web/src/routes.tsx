@@ -59,5 +59,5 @@ export const routes: RouteObject[] = [
   { path: "/b/:businessId/settings/security", element: <PageTitle title="Two-step sign-in"><RequireAuth><SecurityPage /></RequireAuth></PageTitle> },
   { path: "/account/security", element: <PageTitle title="Two-step sign-in"><RequireAuth><SecurityPage /></RequireAuth></PageTitle> },
   { path: "/support/totp-recovery", element: <PageTitle title="Recover two-step sign-in"><RequireAuth><TotpRecoveryPage /></RequireAuth></PageTitle> },
-  { path: "*", element: <NotFound /> },
+  { path: "*", element: <PageTitle title="Page not found"><NotFound /></PageTitle> },
 ];
