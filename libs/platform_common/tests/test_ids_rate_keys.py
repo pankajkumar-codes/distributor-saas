@@ -18,7 +18,7 @@ def test_uuid7_is_version_7_rfc_variant_and_time_ordered():
     assert abs((first.int >> 80) - time.time_ns() // 1_000_000) < 5_000
 
 
-def test_uuid7_is_strictly_increasing_inside_one_millisecond_and_across_threads(monkeypatch):
+def test_uuid7_is_strictly_increasing_inside_one_millisecond(monkeypatch):
     from platform_common import ids
 
     monkeypatch.setattr(ids.time, "time_ns", lambda: 1_800_000_000_000_000_000)  # the clock does not move at all
@@ -27,6 +27,18 @@ def test_uuid7_is_strictly_increasing_inside_one_millisecond_and_across_threads(
     assert all(u.version == 7 and u.variant == uuid.RFC_4122 for u in same_ms)
     monkeypatch.setattr(ids.time, "time_ns", lambda: 1_700_000_000_000_000_000)  # the clock steps back
     assert uuid7() > same_ms[-1]
+
+
+def test_uuid7_is_unique_across_threads_and_increasing_within_each():
+    from concurrent.futures import ThreadPoolExecutor
+
+    def mint(_):
+        return [uuid7() for _ in range(2000)]
+
+    with ThreadPoolExecutor(4) as ex:
+        runs = list(ex.map(mint, range(4)))
+    assert all(r == sorted(r) for r in runs)  # each thread sees its own ids rise
+    assert len({u for r in runs for u in r}) == 8000  # and no two threads got the same id
 
 
 def test_uuid7_rolls_into_the_next_millisecond_when_the_random_part_is_used_up(monkeypatch):
