@@ -58,3 +58,24 @@ def hit(bucket_key: str, limit: int, window: timedelta, *, clock: Clock | None =
         count = s.execute(_HIT, {"b": bucket_key, "w": start}).scalar_one()
     if count > limit:
         raise RateLimited(retry_after=max(1, math.ceil((start + window - now).total_seconds())))
+
+
+_REFUND = text(
+    "update platform.rate_counters set count = greatest(count - 1, 0) where bucket = :b and window_start = :w"
+)
+
+
+def refund(bucket_key: str, window: timedelta, *, clock: Clock | None = None, factory=None) -> None:
+    """Give back one try counted by `hit` in the current window: a try that turned out to be a success is not a
+    guess. Used for the sign-in limit, which exists to stop password guessing, so someone who signs in and out
+    a dozen times is never locked out of their own account. A try counted in an earlier window stays counted
+    there. Same rule as `hit`: no unit of work may be open."""
+    from . import uow as _uow
+
+    if _uow.is_open():
+        raise RuntimeError("rate.refund must run before the unit of work opens")
+    now = (clock or Clock()).now()
+    seconds = int(window.total_seconds())
+    start = datetime.fromtimestamp(int(now.timestamp()) // seconds * seconds, UTC)
+    with (factory or _uow.session_factory())() as s, s.begin():
+        s.execute(_REFUND, {"b": bucket_key, "w": start})

@@ -84,12 +84,16 @@ def sign_in(email: str, password: str, ip: str, request_id: str, idp: AuthProvid
     lim = limits.read(
         ("auth.signin_per_email_per_15min", "auth.signin_per_ip_per_hour", "auth.session_max_days"), today, request_id
     )
-    rate.hit(rate.bucket("signin:email", email), lim["auth.signin_per_email_per_15min"], QUARTER_HOUR)
+    email_bucket = rate.bucket("signin:email", email)
+    rate.hit(email_bucket, lim["auth.signin_per_email_per_15min"], QUARTER_HOUR)
     rate.hit(rate.bucket("signin:ip", ip), lim["auth.signin_per_ip_per_hour"], HOUR)
     try:
         tokens = idp.initiate_auth(email, password)
     except AuthRefused:
         raise SigninNotAccepted() from None
+    # The per-email limit counts wrong guesses (L1-10): a right password gives its try back, so signing in and out
+    # many times never locks the owner out. The per-IP limit still counts every request.
+    rate.refund(email_bucket, QUARTER_HOUR)
     if tokens.needs_totp:
         return TotpStep(tokens.challenge)
     return _finish(email, tokens, request_id, idp, lim["auth.session_max_days"], totp=False)

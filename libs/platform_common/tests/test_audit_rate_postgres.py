@@ -196,3 +196,24 @@ def test_rate_hit_refuses_inside_a_unit_of_work(factory):
     with unit_of_work(P()):
         with pytest.raises(RuntimeError, match="before the unit of work"):
             rate.hit(rate.bucket("x", "y"), 1, timedelta(minutes=1))
+
+
+def test_rate_refund_gives_one_try_back_in_the_same_window_only(factory):
+    clock = FrozenClock(datetime(2026, 10, 25, 10, 0, 30, tzinfo=UTC))
+    key = rate.bucket("signin:email", f"{uuid.uuid4()}@example.com")
+    window = timedelta(minutes=15)
+    for _ in range(3):
+        rate.hit(key, 3, window, clock=clock)
+        rate.refund(key, window, clock=clock)  # three tries that turned out to be right passwords
+    for _ in range(3):
+        rate.hit(key, 3, window, clock=clock)  # the count is back at zero: three wrong guesses still fit
+    with pytest.raises(RateLimited):
+        rate.hit(key, 3, window, clock=clock)
+    for _ in range(5):
+        rate.refund(key, window, clock=clock)  # never below zero
+    with factory() as s:
+        count = s.execute(text("select count from platform.rate_counters where bucket = :b"), {"b": key}).scalar_one()
+    assert count == 0
+    with unit_of_work(P()):
+        with pytest.raises(RuntimeError, match="before the unit of work"):
+            rate.refund(key, window)

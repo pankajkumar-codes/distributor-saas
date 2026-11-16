@@ -147,6 +147,16 @@ def test_the_eleventh_sign_in_for_one_email_in_15_minutes_is_429(env):  # L1-10
     assert r.status_code == 429 and "retry-after" in r.headers
 
 
+def test_signing_in_many_times_never_locks_the_owner_out_but_wrong_guesses_still_count(env):
+    client, _, _, _ = env
+    for _ in range(12):  # a tester signing in and out: right password every time
+        assert signin(client).status_code == 200
+    for _ in range(10):
+        assert signin(client, password="wrong password here").status_code == 401
+    r = signin(client)  # ten wrong guesses in the window: even the right password waits
+    assert r.status_code == 429 and "retry-after" in r.headers
+
+
 def test_totp_users_get_a_challenge_then_sign_in_with_the_code(env):  # AC-14
     client, idp, _, admin = env
     code = enrol(idp)
@@ -238,7 +248,9 @@ def test_the_limits_and_session_length_come_from_refdata(env, monkeypatch):
     newest = "select absolute_expires_at - created_at from identity.sessions order by created_at desc limit 1"
     assert one(admin, newest).days == 3
     assert signin(client).status_code == 200
-    assert signin(client).status_code == 429
+    assert signin(client, password="wrong password here").status_code == 401
+    assert signin(client, password="wrong password here").status_code == 401
+    assert signin(client).status_code == 429  # the limit is the refdata number: two wrong guesses
 
 
 def test_every_auth_route_declares_its_reply_for_the_web_client():
