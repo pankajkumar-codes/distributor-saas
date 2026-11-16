@@ -19,7 +19,7 @@ from decimal import Decimal
 # own_invoices is not a marketplace: it is the seller's own sales invoices typed into our template (R1-M5).
 MARKETPLACES = {"amazon", "flipkart", "meesho", "own_invoices"}
 # mtr_b2c and mtr_b2b are Amazon's Merchant Tax Report files (R1-M4).
-REPORT_TYPES = {"orders", "invoices", "returns", "settlements", "fees", "mtr_b2c", "mtr_b2b", "cashback"}
+REPORT_TYPES = {"orders", "invoices", "returns", "settlements", "fees", "mtr_b2c", "mtr_b2b", "cashback", "invoices_pdf"}
 _NAME = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
 
 

@@ -22,7 +22,7 @@ PLATFORM_SECTIONS = ("amazon", "flipkart", "meesho")
 
 # Why a row is held (LLD-7 §3 step 5). A reader may only choose from these.
 HOLD_REASONS = ("blank_hsn", "blank_uqc", "unknown_state", "unknown_txn_type", "blank_qty", "sanity",
-                "cashback_adjustment", "price_adjustment", "missing_original", "number_format")
+                "cashback_adjustment", "price_adjustment", "missing_original", "number_format", "pdf_unclear")
 
 
 class Reader(Protocol):
@@ -85,12 +85,14 @@ def register_platform_readers() -> None:
 
 
 def register_own_readers() -> None:
-    """The seller's own invoices in our Excel template (R1-M5). Safe to call twice."""
+    """The seller's own invoices: our Excel template (R1-M5) and PDFs (R1-M6). Safe to call twice."""
     from .own_excel import OwnExcelReader
 
-    reader = OwnExcelReader()
-    if reader.id not in _registry:
-        register(reader)
+    from .own_pdf import OwnPdfReader
+
+    for reader in (OwnExcelReader(), OwnPdfReader()):
+        if reader.id not in _registry:
+            register(reader)
 
 
 def register_readers() -> None:

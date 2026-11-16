@@ -113,5 +113,5 @@ def test_the_blank_template_uploads_as_an_empty_run_and_the_section_is_enabled(s
     out = get(pg, f"/api/v1/b/{biz}/uploads/{upload_id}").json()
     assert (out["status"], out["reject_reason"]) == ("parsed", None)
     sections = {s["section"]: s for s in get(pg, f"/api/v1/b/{biz}/upload-sections").json()["sections"]}
-    assert sections["own_invoices_excel"]["enabled"] is True and sections["own_invoices_pdf"]["enabled"] is False
+    assert sections["own_invoices_excel"]["enabled"] is True and sections["own_invoices_pdf"]["enabled"] is True
     assert "Excel template" in (sections["own_invoices_excel"]["requirement_note"] or "")
