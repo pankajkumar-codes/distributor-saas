@@ -45,19 +45,27 @@ def bucket(kind: str, value: str) -> str:
     return f"{kind}:{digest}"
 
 
-def hit(bucket_key: str, limit: int, window: timedelta, *, clock: Clock | None = None, factory=None) -> None:
-    """Count one try; raise RateLimited (429 with Retry-After) once `limit` is passed."""
+def _window_start(window: timedelta, now: datetime) -> datetime:
+    seconds = int(window.total_seconds())
+    return datetime.fromtimestamp(int(now.timestamp()) // seconds * seconds, UTC)
+
+
+def hit(
+    bucket_key: str, limit: int, window: timedelta, *, clock: Clock | None = None, factory=None
+) -> datetime:
+    """Count one try and return the start of the window it was counted in (pass it to `refund`, so a window that
+    ends between the two calls is never mixed up). Raise RateLimited (429 with Retry-After) once `limit` is passed."""
     from . import uow as _uow
 
     if _uow.is_open():
         raise RuntimeError("rate.hit must run before the unit of work opens")
     now = (clock or Clock()).now()
-    seconds = int(window.total_seconds())
-    start = datetime.fromtimestamp(int(now.timestamp()) // seconds * seconds, UTC)
+    start = _window_start(window, now)
     with (factory or _uow.session_factory())() as s, s.begin():
         count = s.execute(_HIT, {"b": bucket_key, "w": start}).scalar_one()
     if count > limit:
         raise RateLimited(retry_after=max(1, math.ceil((start + window - now).total_seconds())))
+    return start
 
 
 _REFUND = text(
@@ -65,17 +73,14 @@ _REFUND = text(
 )
 
 
-def refund(bucket_key: str, window: timedelta, *, clock: Clock | None = None, factory=None) -> None:
-    """Give back one try counted by `hit` in the current window: a try that turned out to be a success is not a
-    guess. Used for the sign-in limit, which exists to stop password guessing, so someone who signs in and out
-    a dozen times is never locked out of their own account. A try counted in an earlier window stays counted
-    there. Same rule as `hit`: no unit of work may be open."""
+def refund(bucket_key: str, window_start: datetime, *, factory=None) -> None:
+    """Give back one try that `hit` counted in the window starting at `window_start` (what `hit` returned): a try
+    that turned out to be a success is not a guess. Used for the sign-in limit, which exists to stop password
+    guessing, so someone who signs in and out a dozen times is never locked out of their own account. Same rule as
+    `hit`: no unit of work may be open."""
     from . import uow as _uow
 
     if _uow.is_open():
         raise RuntimeError("rate.refund must run before the unit of work opens")
-    now = (clock or Clock()).now()
-    seconds = int(window.total_seconds())
-    start = datetime.fromtimestamp(int(now.timestamp()) // seconds * seconds, UTC)
     with (factory or _uow.session_factory())() as s, s.begin():
-        s.execute(_REFUND, {"b": bucket_key, "w": start})
+        s.execute(_REFUND, {"b": bucket_key, "w": window_start})

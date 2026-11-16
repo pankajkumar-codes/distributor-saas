@@ -157,6 +157,20 @@ def test_signing_in_many_times_never_locks_the_owner_out_but_wrong_guesses_still
     assert r.status_code == 429 and "retry-after" in r.headers
 
 
+def test_a_failed_refund_does_not_fail_a_good_sign_in(env, monkeypatch, caplog):
+    from platform_common import rate
+
+    client, _, _, _ = env
+
+    def broken(*a, **k):
+        raise RuntimeError("database gone")
+
+    monkeypatch.setattr(rate, "refund", broken)
+    assert signin(client).status_code == 200
+    assert "could not give a try back" in caplog.text
+    assert EMAIL not in caplog.text  # the log names the request, never the email
+
+
 def test_totp_users_get_a_challenge_then_sign_in_with_the_code(env):  # AC-14
     client, idp, _, admin = env
     code = enrol(idp)

@@ -14,6 +14,7 @@ the per-email limit. The step also counts against the per-IP sign-in limit, and 
 success the token's user must still own that email.
 """
 
+import logging
 import uuid
 from dataclasses import dataclass
 from datetime import date, timedelta
@@ -30,6 +31,8 @@ from platform_common.uow import Principal, unit_of_work
 from ..interface import MembershipCard, list_my_businesses, session_key_from_claims
 from . import limits
 from .sessions import open_session, revoke_at_provider, verified_claims
+
+log = logging.getLogger(__name__)
 
 QUARTER_HOUR = timedelta(minutes=15)
 HOUR = timedelta(hours=1)
@@ -85,7 +88,7 @@ def sign_in(email: str, password: str, ip: str, request_id: str, idp: AuthProvid
         ("auth.signin_per_email_per_15min", "auth.signin_per_ip_per_hour", "auth.session_max_days"), today, request_id
     )
     email_bucket = rate.bucket("signin:email", email)
-    rate.hit(email_bucket, lim["auth.signin_per_email_per_15min"], QUARTER_HOUR)
+    window = rate.hit(email_bucket, lim["auth.signin_per_email_per_15min"], QUARTER_HOUR)
     rate.hit(rate.bucket("signin:ip", ip), lim["auth.signin_per_ip_per_hour"], HOUR)
     try:
         tokens = idp.initiate_auth(email, password)
@@ -93,7 +96,10 @@ def sign_in(email: str, password: str, ip: str, request_id: str, idp: AuthProvid
         raise SigninNotAccepted() from None
     # The per-email limit counts wrong guesses (L1-10): a right password gives its try back, so signing in and out
     # many times never locks the owner out. The per-IP limit still counts every request.
-    rate.refund(email_bucket, QUARTER_HOUR)
+    try:
+        rate.refund(email_bucket, window)
+    except Exception:  # the sign-in itself succeeded: a failed refund only leaves one try counted
+        log.warning("sign-in: could not give a try back", extra={"request_id": request_id})
     if tokens.needs_totp:
         return TotpStep(tokens.challenge)
     return _finish(email, tokens, request_id, idp, lim["auth.session_max_days"], totp=False)
