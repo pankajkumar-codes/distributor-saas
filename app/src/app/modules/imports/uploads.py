@@ -50,6 +50,7 @@ REJECT_MESSAGES = {
     "pdf_encrypted": "This PDF is password protected. Save an unprotected copy and upload it again.",
     "pdf_ambiguous": "We couldn't tell where one invoice ends and the next begins. Upload each invoice as its own PDF.",
     "pdf_too_big": "This PDF has more pages or invoices than we can read at once. Split it and upload the parts.",
+    "pdf_too_complex": "This PDF is too complex for us to read here. Type the rows or upload the Excel.",
     "no_text_layer": "This looks like a scan or a photo, so we can't read it. Type the rows or upload the Excel.",
     "upload_changed": "The file in storage isn't the one you chose. Upload it again.",
     "read_failed": "We couldn't read this file. Try uploading it again, or contact support.",

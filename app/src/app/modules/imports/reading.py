@@ -44,10 +44,11 @@ def read_upload(uow: UnitOfWork, *, upload_id: uuid.UUID, section: str, file_nam
     return stage_tables(uow, upload_id=upload_id, readers=readers, tables=tables, today=today)
 
 
-# What a refused PDF is called on the upload. The three ways the child can die or run out (killed for time or memory,
-# unreadable) all say "we could not read it", never what the file held.
+# What a refused PDF is called on the upload, never what the file held. A file that ran out of time or memory fails the
+# same way every time, so it says so (`pdf_too_complex`); anything else unreadable is `read_failed`.
 PDF_REJECTS = {"not_a_pdf": "not_a_pdf", "encrypted": "pdf_encrypted", "ambiguous_split": "pdf_ambiguous",
-               "too_many_pages": "pdf_too_big", "too_many_documents": "pdf_too_big"}
+               "too_many_pages": "pdf_too_big", "too_many_documents": "pdf_too_big", "too_slow": "pdf_too_complex",
+               "too_complex": "pdf_too_complex"}
 MB = 1024 * 1024
 
 

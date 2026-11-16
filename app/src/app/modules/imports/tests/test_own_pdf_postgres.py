@@ -152,3 +152,17 @@ def test_no_document_number_gstin_or_hsn_reaches_the_logs_or_audit_on_the_pdf_pa
     seen = audit + caplog.text
     for secret in ("ZX-SECRET", "998877", GSTIN):
         assert secret not in seen
+
+
+@pytest.mark.parametrize("code", ["too_slow", "too_complex"])
+def test_a_pdf_that_runs_out_of_time_or_memory_is_called_too_complex(shop, monkeypatch, code):  # noqa: F811
+    from app.modules.imports import reading
+    from app.modules.imports.pdf import PdfRefused
+
+    def refuse(*args, **kwargs):
+        raise PdfRefused(code)
+
+    monkeypatch.setattr(reading, "read_sandboxed", refuse)
+    out = settle(shop, "heavy.pdf", pdf([page("INV-1")]))
+    assert (out["status"], out["reject_reason"]) == ("rejected", "pdf_too_complex")
+    assert "too complex" in out["reject_message"]

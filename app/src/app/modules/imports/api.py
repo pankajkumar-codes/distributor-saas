@@ -22,7 +22,7 @@ from platform_common.permissions import Permission, require
 from platform_common.uow import BusinessUoW, parse_id
 
 from . import jobs as import_jobs
-from . import confirm, coverage, runs, sections, template, uploads
+from . import confirm, coverage, crosscheck, runs, sections, template, uploads
 
 router = APIRouter(tags=["imports"])
 CREATE = [Depends(require(Permission.UPLOADS_CREATE))]
@@ -345,3 +345,68 @@ def marketplace_coverage(uow: BusinessUoW, from_: Annotated[date | None, Query(a
     return CoverageOut(months=[
         MonthCoverageOut(month=m.month, marketplaces=[PlatformMonthOut(**vars(p)) for p in m.marketplaces])
         for m in coverage.coverage(uow, from_, to)])
+
+
+class DocRefOut(BaseModel):
+    seller_gstin: str
+    doc_type: str
+    doc_number: str
+
+
+class DifferenceOut(BaseModel):
+    field: Literal["doc_date", "buyer_gstin", "place_of_supply", "invoice_total", "taxable_value", "igst", "cgst",
+                   "sgst", "cess", "lines"]
+    excel: str
+    pdf: str
+
+
+class MismatchOut(BaseModel):
+    document: DocRefOut
+    differences: list[DifferenceOut]
+    excel_row_ids: list[str]  # so the screen can colour the cells of both sides
+    pdf_row_ids: list[str]
+
+
+class NotComparedOut(BaseModel):
+    document: DocRefOut
+    excel_held_rows: int
+    pdf_held_rows: int
+
+
+class CrossCheckSideOut(BaseModel):
+    live: bool
+    documents: int
+    unplaced_rows: int
+
+
+class CrossCheckOut(BaseModel):
+    show_validate_note: bool
+    compared: bool
+    excel: CrossCheckSideOut
+    pdf: CrossCheckSideOut
+    matching: int
+    only_in_excel: list[DocRefOut]
+    only_in_pdf: list[DocRefOut]
+    mismatches: list[MismatchOut]
+    not_compared: list[NotComparedOut]
+
+
+def _ref_out(d: crosscheck.DocRef) -> DocRefOut:
+    return DocRefOut(seller_gstin=d.seller_gstin, doc_type=d.doc_type, doc_number=d.doc_number)
+
+
+@router.get("/b/{business_id}/own-invoices/crosscheck", response_model=CrossCheckOut, dependencies=VIEW)
+def own_invoices_crosscheck(uow: BusinessUoW, clock: Annotated[Clock, Depends(get_clock)]):
+    """Every difference between the Excel and the invoice PDFs of the seller's own invoices, per document.
+    Read-only; never says which side is right. `show_validate_note` is true only with a live Excel and no live PDF."""
+    out = crosscheck.check(uow, clock.today())
+    side = lambda s: CrossCheckSideOut(live=s.live, documents=s.documents, unplaced_rows=s.unplaced_rows)  # noqa: E731
+    return CrossCheckOut(
+        show_validate_note=out.show_validate_note, compared=out.compared, excel=side(out.excel), pdf=side(out.pdf),
+        matching=out.matching, only_in_excel=[_ref_out(d) for d in out.only_in_excel],
+        only_in_pdf=[_ref_out(d) for d in out.only_in_pdf],
+        mismatches=[MismatchOut(document=_ref_out(m.doc), differences=[DifferenceOut(**d.__dict__) for d in m.differences],
+                                excel_row_ids=[str(i) for i in m.excel_rows], pdf_row_ids=[str(i) for i in m.pdf_rows])
+                    for m in out.mismatches],
+        not_compared=[NotComparedOut(document=_ref_out(n.doc), excel_held_rows=n.excel_held, pdf_held_rows=n.pdf_held)
+                      for n in out.not_compared])
