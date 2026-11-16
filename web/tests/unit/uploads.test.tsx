@@ -34,7 +34,7 @@ function open(role = "owner", path = "/b/b-1/uploads", chosen: Record<string, bo
   server.reply(REFRESH, { status: 200, body: { access_token: "t", expires_in: 3600 } });
   server.reply(ME, me(role));
   server.reply(CHANNELS, channels(chosen));
-  server.reply(BASE, { status: 200, body: { uploads: [] } }, { status: 200, body: { uploads: [] } }, { status: 200, body: { uploads: [] } }, { status: 200, body: { uploads: [] } });
+  server.reply(BASE, ...Array.from({ length: 5 }, () => ({ status: 200, body: { uploads: [] } })));
   window.history.replaceState(null, "", path);
   render(<App />);
 }
@@ -49,14 +49,15 @@ describe("upload page", () => {
   it("has one heading, a labelled card per section, and labelled file inputs", async () => {
     open();
     expect(await screen.findByRole("heading", { level: 1, name: "Upload your reports" })).toBeInTheDocument();
-    for (const name of ["Amazon", "Flipkart", "Meesho", "Your own sales invoices (Excel)"]) expect(await card(name)).toBeInTheDocument();
-    expect(screen.getAllByLabelText("Choose a file")).toHaveLength(4);
+    for (const name of ["Amazon", "Flipkart", "Meesho", "Your own sales invoices"]) expect(await card(name)).toBeInTheDocument();
+    expect(screen.getAllByLabelText("Choose a file")).toHaveLength(3);
+    expect(screen.getAllByLabelText("Choose files")).toHaveLength(1); // your own invoices: several files
   });
 
   it("offers only the platforms chosen at setup", async () => {
     open("owner", "/b/b-1/uploads", { flipkart: false, meesho: false });
     expect(await card("Amazon")).toBeInTheDocument();
-    expect(await card("Your own sales invoices (Excel)")).toBeInTheDocument();
+    expect(await card("Your own sales invoices")).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Flipkart" })).toBeNull();
     expect(screen.queryByRole("region", { name: "Meesho" })).toBeNull();
   });
@@ -80,7 +81,7 @@ describe("upload page", () => {
     server.reply(REFRESH, { status: 200, body: { access_token: "t", expires_in: 3600 } });
     server.reply(ME, me("owner"));
     server.reply(CHANNELS, { status: 404 }, channels());
-    server.reply(BASE, { status: 200, body: { uploads: [] } }, { status: 200, body: { uploads: [] } }, { status: 200, body: { uploads: [] } }, { status: 200, body: { uploads: [] } });
+    server.reply(BASE, ...Array.from({ length: 5 }, () => ({ status: 200, body: { uploads: [] } })));
     window.history.replaceState(null, "", "/b/b-1/uploads");
     render(<App />);
     expect(await screen.findByText(/We couldn't load where you sell/)).toBeInTheDocument();
@@ -141,10 +142,20 @@ describe("upload page", () => {
     expect(sent(`${BASE}/u-1`, "GET")).toHaveLength(2);
   });
 
-  it("says a stored upload is saved but not read yet", async () => {
-    open("owner", "/b/b-1/uploads?own_invoices_excel=u-1");
-    server.reply(`${BASE}/u-1`, { status: 200, body: upload("stored", { section: "own_invoices_excel" }) });
+  it("lists your own invoice files, Excel and PDF, with the server's word on each", async () => {
+    resetSessionForTests();
+    server = fakeApi();
+    server.reply(REFRESH, { status: 200, body: { access_token: "t", expires_in: 3600 } });
+    server.reply(ME, me("owner"));
+    server.reply(CHANNELS, channels());
+    const empty = { status: 200, body: { uploads: [] } };
+    server.reply(BASE, empty, empty, empty, { status: 200, body: { uploads: [upload("stored", { id: "u-2", section: "own_invoices_excel", file_name: "sales.xlsx" })] } }, { status: 200, body: { uploads: [upload("rejected", { id: "u-3", section: "own_invoices_pdf", file_name: "inv-1.pdf", reject_message: "This looks like a scan or a photo, so we can't read it. Type the rows or upload the Excel." })] } });
+    window.history.replaceState(null, "", "/b/b-1/uploads");
+    render(<App />);
     expect(await screen.findByText("Saved, not read yet.")).toBeInTheDocument();
+    expect(screen.getByText("sales.xlsx")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("This looks like a scan or a photo");
+    expect(screen.getByText("inv-1.pdf")).toBeInTheDocument();
   });
 
   it("refuses a wrong type or an empty file in the browser before sending anything", async () => {
@@ -158,15 +169,40 @@ describe("upload page", () => {
     expect(sent(BASE)).toHaveLength(0);
   });
 
-  it("offers each section only the types the server takes: no zip for own invoices", async () => {
+  it("offers platforms CSV, Excel and zip, and your own invoices Excel and PDF but no zip", async () => {
     open();
-    const own = await card("Your own sales invoices (Excel)");
-    expect(own.querySelector("input")!.getAttribute("accept")).toBe(".csv,.xlsx");
+    const own = await card("Your own sales invoices");
+    expect(own.querySelector("input")!.getAttribute("accept")).toBe(".csv,.xlsx,.pdf");
+    expect(own.querySelector("input")!.hasAttribute("multiple")).toBe(true);
     expect((await card("Amazon")).querySelector("input")!.getAttribute("accept")).toBe(".csv,.xlsx,.zip");
-    pick(own.querySelector("input")!, "invoices.zip");
-    expect(await screen.findByText("Choose a CSV or Excel file.")).toBeInTheDocument();
+    fireEvent.change(own.querySelector("input")!, { target: { files: [new File(["x"], "invoices.zip"), new File(["x"], "notes.txt")] } });
+    expect(await screen.findByText("invoices.zip: Choose a CSV, Excel or PDF file.")).toBeInTheDocument();
+    expect(screen.getByText("notes.txt: Choose a CSV, Excel or PDF file.")).toBeInTheDocument();
     fireEvent.click(own.querySelector("button")!);
     expect(sent(BASE)).toHaveLength(0);
+  });
+
+  it("sends each own-invoice file to the reader for its type, and retries only the one that failed", async () => {
+    open();
+    const own = await card("Your own sales invoices");
+    server.reply(`POST ${BASE}`, started, { status: 503 }, { status: 503 }, started);
+    server.reply(STORE, { status: 204 }, { status: 204 });
+    server.reply(`${BASE}/u-1/complete`, { status: 202, body: { job_id: "j-1" } }, { status: 202, body: { job_id: "j-2" } });
+    fireEvent.change(own.querySelector("input")!, {
+      target: { files: [new File(["a,b\n1,2\n"], "sales.xlsx"), new File(["%PDF-1.4"], "inv-1.pdf")] },
+    });
+    fireEvent.click(own.querySelector("button")!);
+    expect(await screen.findByText(/inv-1\.pdf: /)).toBeInTheDocument();
+    expect(sent(BASE).map((s) => s.body)).toEqual([
+      expect.objectContaining({ section: "own_invoices_excel", file_name: "sales.xlsx" }),
+      expect.objectContaining({ section: "own_invoices_pdf", file_name: "inv-1.pdf" }),
+    ]);
+    expect(screen.getByText(/Press Upload to send these again/)).toBeInTheDocument();
+    const firstKey = sent(BASE)[1].headers.get("Idempotency-Key");
+    fireEvent.click(own.querySelector("button")!);
+    await vi.waitFor(() => expect(sent(BASE)).toHaveLength(3));
+    expect(sent(BASE)[2].body).toMatchObject({ file_name: "inv-1.pdf", section: "own_invoices_pdf" }); // sales.xlsx is not sent again
+    expect(sent(BASE)[2].headers.get("Idempotency-Key")).toBe(firstKey); // a 503 keeps the key
   });
 
   it("lets a CA look but not upload", async () => {

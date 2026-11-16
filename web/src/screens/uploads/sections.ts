@@ -14,8 +14,16 @@ export const SECTIONS: { id: Section; label: string; hint: string; types: string
   { id: "amazon", label: "Amazon", hint: "Your monthly Merchant Tax Report files, B2C and B2B (CSV, or a zip of them).", types: PLATFORM_TYPES, typeWords: "a CSV, Excel or zip file" },
   { id: "flipkart", label: "Flipkart", hint: "Your Sales Report workbook for the month (Excel).", types: PLATFORM_TYPES, typeWords: "a CSV, Excel or zip file" },
   { id: "meesho", label: "Meesho", hint: "Your monthly GST report (the zip from the Supplier Panel, or the Excel files in it).", types: PLATFORM_TYPES, typeWords: "a CSV, Excel or zip file" },
-  { id: "own_invoices_excel", label: "Your own sales invoices (Excel)", hint: "An Excel sheet of the invoices you issued.", types: [".csv", ".xlsx"], typeWords: "a CSV or Excel file" },
+  { id: "own_invoices_excel", label: "Your own sales invoices", hint: "An Excel sheet of the invoices you issued, the invoice PDFs, or both. You can add several files at once.", types: [".csv", ".xlsx", ".pdf"], typeWords: "a CSV, Excel or PDF file" },
 ];
+
+/** The own-invoices card takes both kinds; each file goes to the reader for its type. A zip of PDFs waits for the server. */
+export const OWN_INVOICE_TYPES = [".csv", ".xlsx", ".pdf"];
+export const ownInvoiceSection = (name: string): Section => (name.toLowerCase().endsWith(".pdf") ? "own_invoices_pdf" : "own_invoices_excel");
+export function ownInvoiceProblem(file: File): string | undefined {
+  if (!OWN_INVOICE_TYPES.some((ext) => file.name.toLowerCase().endsWith(ext))) return "Choose a CSV, Excel or PDF file.";
+  return file.size === 0 ? "That file is empty." : undefined;
+}
 
 type Choice = (typeof SECTIONS)[number];
 

@@ -8,6 +8,7 @@ import { Button } from "../../kit/Button";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
 import { sectionsFor } from "./sections";
+import { OwnInvoicesCard } from "./OwnInvoicesCard";
 import { UploadCard } from "./UploadCard";
 import { useChannels } from "./useChannels";
 
@@ -73,7 +74,10 @@ export function UploadsPage() {
             You haven't said where you sell yet. <Link to={`/b/${businessId}/settings/company`}>Choose it in Business details</Link>, then come back to add your files.
           </Banner>
         )}
-        {shown.map((s) => (
+        {shown.map((s) =>
+          s.id === "own_invoices_excel" ? (
+            <OwnInvoicesCard key={s.id} businessId={businessId} label={s.label} hint={s.hint} canUpload={canUpload(business.role)} />
+          ) : (
           <UploadCard
             key={s.id}
             businessId={businessId}
@@ -84,7 +88,8 @@ export function UploadsPage() {
             uploadId={params.get(s.id)}
             onUpload={(id) => follow(s.id, id)}
           />
-        ))}
+          ),
+        )}
       </main>
     </>
   );
