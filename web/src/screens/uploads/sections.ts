@@ -19,6 +19,13 @@ export const SECTIONS: { id: Section; label: string; hint: string; types: string
 
 type Choice = (typeof SECTIONS)[number];
 
+/** Which answer at setup ("Where you sell") each section belongs to. */
+const CHANNEL_OF = { amazon: "amazon", flipkart: "flipkart", meesho: "meesho", own_invoices_excel: "own_invoices" } as const;
+
+/** The sections for the places the business said it sells; a platform it didn't choose is not offered. */
+export const sectionsFor = (channels: Record<(typeof CHANNEL_OF)[keyof typeof CHANNEL_OF], boolean>) =>
+  SECTIONS.filter((s) => s.id in CHANNEL_OF && channels[CHANNEL_OF[s.id as keyof typeof CHANNEL_OF]]);
+
 // What the file picker offers. The server decides what it accepts and says why when it doesn't,
 // so this only spares a pointless round trip. Size is left to the server: its limit is data.
 export const acceptFor = (section: Choice) => section.types.join(",");
