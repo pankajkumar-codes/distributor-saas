@@ -14,7 +14,8 @@ export interface paths {
         /**
          * Password Policy
          * @description The password rules in force, from refdata, so the screens never carry their own copy. Public: it is the same
-         *     for everyone and a person choosing a password is not signed in yet.
+         *     for everyone and a person choosing a password is not signed in yet. Cached for a minute in the process and by the
+         *     browser, so it cannot be used to make the database work.
          */
         get: operations["password_policy_api_v1_auth_password_policy_get"];
         put?: never;

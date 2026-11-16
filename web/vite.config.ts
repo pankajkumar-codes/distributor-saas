@@ -10,6 +10,8 @@ const api = { "/api": process.env.API_URL ?? "http://localhost:8000" };
 
 export default defineConfig({
   plugins: [react()],
+  // No data: URIs: the CDN's CSP (default-src 'self') would block an inlined font subset.
+  build: { assetsInlineLimit: 0 },
   server: { port: 5173, strictPort: true, proxy: api },
   preview: { port: 5173, strictPort: true, proxy: api },
   test: {

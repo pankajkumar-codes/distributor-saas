@@ -177,3 +177,19 @@ def test_the_password_rules_come_from_refdata_through_a_public_endpoint(env):
     body = r.json()
     assert (body["min_length"], body["max_length"], body["specials"]) == (10, 128, "!@#$%^&*()-_=+[]{}.,?")
     assert [x["id"] for x in body["rules"]] == ["length", "upper", "lower", "digit", "special"]
+
+
+def test_the_public_policy_answer_is_cached_and_says_so(env, monkeypatch):
+    from app.modules.identity.service import passwords
+
+    client, _, _, _ = env
+    passwords.clear_policy_cache()
+    reads = []
+    real = passwords.read_policy
+    monkeypatch.setattr(passwords, "read_policy", lambda *a, **k: reads.append(1) or real(*a, **k))
+    first = client.get("/api/v1/auth/password-policy")
+    for _ in range(5):
+        assert client.get("/api/v1/auth/password-policy").json() == first.json()
+    assert len(reads) == 1  # five more requests, no more database reads
+    assert first.headers["cache-control"] == "public, max-age=60"
+    passwords.clear_policy_cache()

@@ -168,9 +168,10 @@ function CodeStep({ state, onResent, onBack, onDone }: { state: CodeState; onRes
           autoComplete="new-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          describedBy="reset-password-rules"
           error={passwordError}
         />
-        <PasswordRules unmet={error?.code === "password_weak" ? error.unmet : undefined} />
+        <PasswordRules password={password} id="reset-password-rules" />
         <p className="note">Changing your password signs you out on every device.</p>
         <div className="actions">
           <Button type="button" variant="link" onClick={onBack}>

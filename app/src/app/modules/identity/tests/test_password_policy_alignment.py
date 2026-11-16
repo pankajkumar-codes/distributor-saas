@@ -14,7 +14,7 @@ TERRAFORM = REPO / "infra" / "modules" / "auth" / "main.tf"
 REFDATA = REPO / "refdata" / "values" / "auth.yaml"
 # The symbols a Cognito user pool accepts (AWS documents this fixed list); ours must be a subset of it.
 COGNITO_SYMBOLS = set("^$*.[]{}()?\"!@#%&/\\,><':;|_~`=+-")
-COGNITO_MAX_LENGTH = 99
+COGNITO_MAX_LENGTH = 256
 
 
 def _refdata() -> dict:

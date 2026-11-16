@@ -170,10 +170,12 @@ class PasswordPolicyOut(BaseModel):
 
 
 @router.get("/password-policy", response_model=PasswordPolicyOut)
-def password_policy(clock: Annotated[Clock, Depends(get_clock)], request: Request):
+def password_policy(clock: Annotated[Clock, Depends(get_clock)], request: Request, response: Response):
     """The password rules in force, from refdata, so the screens never carry their own copy. Public: it is the same
-    for everyone and a person choosing a password is not signed in yet."""
-    policy = passwords.read_policy(clock.today(), request_id(request))
+    for everyone and a person choosing a password is not signed in yet. Cached for a minute in the process and by the
+    browser, so it cannot be used to make the database work."""
+    response.headers["Cache-Control"] = f"public, max-age={passwords.POLICY_CACHE_SECONDS}"
+    policy = passwords.cached_policy(clock.today(), request_id(request))
     return PasswordPolicyOut(
         min_length=policy.min_length, max_length=policy.max_length, specials=policy.specials,
         rules=[PasswordRuleOut(id=i, label=label) for i, label in policy.rules()])

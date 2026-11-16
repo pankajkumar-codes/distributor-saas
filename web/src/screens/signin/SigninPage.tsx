@@ -8,6 +8,7 @@ import { errorText, type ApiError } from "../../api/errors";
 import { safeNext } from "../../auth/AuthProvider";
 import { landingPath } from "../../auth/landing";
 import { startSession } from "../../auth/session";
+import { AuthPage } from "../../kit/AuthPage";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { Field } from "../../kit/Field";
@@ -76,9 +77,9 @@ export function SigninPage() {
 
   const error = signin.error;
   return (
-    <main className="page">
+    <AuthPage>
       <h1>Sign in</h1>
-      <form onSubmit={submit} noValidate>
+      <form onSubmit={submit} noValidate className="card stack">
         {passwordReset && !error && <Banner>Your password is changed, and you're signed out everywhere. Sign in with the new password.</Banner>}
         {expired && <Banner tone="error">That took too long. Sign in again.</Banner>}
         {error && !error.field && <Banner tone="error">{errorText(error)}</Banner>}
@@ -98,18 +99,18 @@ export function SigninPage() {
           onChange={(e) => setPassword(e.target.value)}
           error={missing.password}
         />
-        <p className="note">
+        <p className="note forgot">
           <Link to="/reset" state={{ email: email.trim() }}>
             Forgot your password?
           </Link>
         </p>
-        <Button type="submit" busy={signin.isPending}>
+        <Button type="submit" busy={signin.isPending} className="btn-block">
           Sign in
         </Button>
       </form>
-      <p className="note">
+      <p className="note centred">
         New here? <Link to="/signup">Create an account</Link>
       </p>
-    </main>
+    </AuthPage>
   );
 }

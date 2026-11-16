@@ -13,6 +13,7 @@ spends a code or a code try (RM3-6). An error lists every unmet rule, not just t
 product copy until the PO confirms them.
 """
 
+import time
 from dataclasses import dataclass
 from datetime import date
 from functools import cache
@@ -33,6 +34,10 @@ _KEYS = {
     "special": "auth.password_require_special",
     "specials": "auth.password_specials",
 }
+
+
+POLICY_CACHE_SECONDS = 60
+_cached: tuple[float, date, "Policy"] | None = None
 
 
 @dataclass(frozen=True)
@@ -68,6 +73,23 @@ def read_policy(today: date, request_id: str) -> Policy:
         lower=bool(values["lower"]), digit=bool(values["digit"]), special=bool(values["special"]),
         specials=str(values["specials"]),
     )
+
+
+def cached_policy(today: date, request_id: str) -> Policy:
+    """`read_policy` for the public GET, kept for POLICY_CACHE_SECONDS per process so an unauthenticated caller
+    cannot turn it into a database read per request. A change in refdata shows within that time."""
+    global _cached
+    now = time.monotonic()
+    if _cached is not None and _cached[1] == today and now - _cached[0] < POLICY_CACHE_SECONDS:
+        return _cached[2]
+    policy = read_policy(today, request_id)
+    _cached = (now, today, policy)
+    return policy
+
+
+def clear_policy_cache() -> None:
+    global _cached
+    _cached = None
 
 
 class PasswordWeak(Invalid):

@@ -29,12 +29,14 @@ const VERIFY = "/api/v1/auth/signup/verify";
 const POLICY = "/api/v1/auth/password-policy";
 const RULES = {
   min_length: 10,
-  max_length: 128,
-  specials: "!@#",
+  max_length: 99,
+  specials: "!@#$",
   rules: [
     { id: "length", label: "At least 10 characters" },
     { id: "upper", label: "An uppercase letter (A to Z)" },
-    { id: "special", label: "A special character: !@#" },
+    { id: "lower", label: "A lowercase letter (a to z)" },
+    { id: "digit", label: "A digit (0 to 9)" },
+    { id: "special", label: "A special character: !@#$" },
   ],
 };
 const STATES = "/api/v1/refdata/state-codes"; // the onboarding screen loads its state picker
@@ -107,16 +109,16 @@ describe("sign-up", () => {
 
   it("shows a weak password's fix inline, under a password field on the code step", async () => {
     render(<App />);
-    await stepOne("short");
+    await stepOne("Password-123!");
     reply(VERIFY, {
       status: 422,
-      body: { error: { code: "password_weak", message: "weak", field: "password", fix: "Use at least 10 characters." } },
+      body: { error: { code: "password_weak", message: "weak", field: "password", fix: "That password is too common. Choose another." } },
     });
     await enterCode();
 
     const field = await screen.findByLabelText("Password");
     expect(field).toHaveAttribute("aria-invalid", "true");
-    expect(field).toHaveAccessibleDescription("Use at least 10 characters.");
+    expect(field).toHaveAccessibleDescription("That password is too common. Choose another.");
   });
 
   it("shows a refused code under the code boxes", async () => {
@@ -154,23 +156,54 @@ describe("sign-up", () => {
     expect(screen.queryByText(/code didn't work/)).toBeNull();
   });
 
-  it("shows the server's password rules on step 1 and marks the ones a refusal names", async () => {
+  it("lists the server's rules, ticks them as the person types and keeps the button off until they pass", async () => {
     reply(POLICY, { status: 200, body: RULES });
     render(<App />);
     expect(await screen.findByText("An uppercase letter (A to Z)")).toBeInTheDocument();
-    expect(screen.getByText("A special character: !@#")).toBeInTheDocument();
+    const send = screen.getByRole("button", { name: "Email me a code" });
+    const password = screen.getByLabelText("Password");
+    expect(send).toBeDisabled();
+    for (const weak of ["Short1!", "alllowercase-123!", "ALLUPPERCASE-123!", "NoDigitsHere-!!", "NoSpecial12345", "Seven-Lamps-42?"]) {
+      fireEvent.change(password, { target: { value: weak } }); // "?" is not in this policy's special characters
+      expect(send).toBeDisabled();
+    }
+    fireEvent.change(password, { target: { value: "Seven-Lamps-42!" } });
+    expect(send).toBeEnabled();
+    expect(screen.getAllByText("(done)").length).toBe(5);
+  });
 
+  it("takes the rules from the policy it is given, not from a copy: a longer minimum changes the check", async () => {
+    reply(POLICY, { status: 200, body: { ...RULES, min_length: 16, rules: [{ id: "length", label: "At least 16 characters" }] } });
+    render(<App />);
+    await screen.findByText("At least 16 characters");
+    const send = screen.getByRole("button", { name: "Email me a code" });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "Seven-Lamps-42!" } }); // 15
+    expect(send).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "Seven-Lamps-42!!" } });
+    expect(send).toBeEnabled();
+  });
+
+  it("never blocks on a rule it does not know, and does not block when the list cannot be loaded", async () => {
+    reply(POLICY, { status: 200, body: { ...RULES, rules: [...RULES.rules, { id: "no_repeats", label: "No letter three times in a row" }] } });
+    render(<App />);
+    await screen.findByText("No letter three times in a row");
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "Seven-Lamps-42!" } });
+    expect(screen.getByRole("button", { name: "Email me a code" })).toBeEnabled(); // the server decides that rule
+  });
+
+  it("sends the password with the request and shows the server's refusal under the field", async () => {
+    reply(POLICY, { status: 200, body: RULES });
+    render(<App />);
+    await screen.findByText("An uppercase letter (A to Z)");
     reply(SIGNUP, {
       status: 422,
-      body: { error: { code: "password_weak", message: "weak", field: "password", fix: "Your password needs: an uppercase letter.", unmet: ["upper"] } },
+      body: { error: { code: "password_weak", message: "weak", field: "password", fix: "This password is too common. Choose one that is harder to guess.", unmet: ["common"] } },
     });
     fireEvent.change(screen.getByLabelText("Work email"), { target: { value: EMAIL } });
-    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "alllowercase1!" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "Password-123!" } });
     fireEvent.click(screen.getByRole("button", { name: "Email me a code" }));
-    expect(await screen.findByText("Your password needs: an uppercase letter.")).toBeInTheDocument();
-    expect(screen.getByText("An uppercase letter (A to Z)").closest("li")).toHaveAttribute("data-unmet", "true");
-    expect(screen.getByText("At least 10 characters").closest("li")).not.toHaveAttribute("data-unmet");
-    expect(sent.find((x) => x.path === SIGNUP)?.body).toEqual({ email: EMAIL, password: "alllowercase1!" });
+    expect(await screen.findByText("This password is too common. Choose one that is harder to guess.")).toBeInTheDocument();
+    expect(sent.find((x) => x.path === SIGNUP)?.body).toEqual({ email: EMAIL, password: "Password-123!" });
   });
 
   it("sends a new code and restarts the countdown", async () => {
