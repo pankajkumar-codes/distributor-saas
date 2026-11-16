@@ -271,7 +271,7 @@ def test_none_this_month_is_kept_once_listed_and_refuses_the_future_and_unknown_
     assert scalar(pg.owner, "select count(*) from imports.period_confirmations") == 2
     assert scalar(pg.owner, "select count(*) from platform.audit_log where action = 'imports.none_this_month'") == 2
     assert post(pg, path, {"section": "own_invoices_excel", "month": "2026-12"}, key="n4").json()["error"]["code"] == "month_in_future"
-    assert post(pg, path, {"section": "own_invoices_pdf", "month": "2026-10"}, key="n5").json()["error"]["code"] == "unknown_section"
+    assert post(pg, path, {"section": "not_a_section", "month": "2026-10"}, key="n5").json()["error"]["code"] == "invalid"  # every listed section is enabled now, so the schema refuses the rest
     assert post(pg, path, {"section": "amazon", "month": "2026-13"}, key="n6").json()["error"]["code"] == "invalid_month"
     assert post(pg, path, {"section": "amazon", "month": "2026-10"}, sub="bill", key="n7").status_code == 404
     assert get(pg, path, sub="cathy").status_code == 200 and get(pg, path, sub="bill").status_code == 404
