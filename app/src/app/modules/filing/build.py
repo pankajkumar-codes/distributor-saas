@@ -2,7 +2,7 @@
 
 Reads `filing.v_supply_lines` (view contract v1) for the instance's member sets and hands them to the pure
 section builder. Nothing here edits anything. The result carries a fingerprint (SHA-256 over the member lines
-and the instance), the refdata dates relied on, and the list of things this build rests on that a CA has not
+and the instance) and the list of things this build rests on that a CA has not
 answered yet, so every screen, check and export shows the same list.
 
 Member sets (LLD-5 §5):
@@ -84,7 +84,7 @@ def build_return(tx: Session, instance: ReturnInstance) -> ReturnBuild:
     sections = build_sections(liability_lines, kind=instance.form, hsn_lines=hsn_lines)
     iff_builds = [build_sections(_lines(tx, instance, iff_filed), kind="IFF")] if iff_filed else []
     all_lines = liability_lines if hsn_lines is None else _union(liability_lines, hsn_lines)
-    debit_notes = _debit_notes(tx, instance) if instance.form == "GSTR1" else 0
+    debit_notes = _debit_notes(tx, instance)  # a debit note has no return, so count by the instance's own dates
     return ReturnBuild(
         instance=instance,
         sections=sections,
@@ -94,7 +94,7 @@ def build_return(tx: Session, instance: ReturnInstance) -> ReturnBuild:
         members=tuple(sorted({f"{ln.doc_number}|{ln.source_kind}|{ln.source_id}" for ln in all_lines})),
         line_items=sections.line_items,
         fingerprint=_fingerprint(instance, all_lines, debit_notes),
-        refdata_as_of={},  # classification used the dated thresholds at confirm; nothing is read here
+        refdata_as_of={},  # nothing is read from refdata here: classification used its dated thresholds at confirm
         ca_flags=_flags(tx, instance, all_lines, sections, debit_notes),
         debit_notes=debit_notes,
         draft=instance.status != "filed_locked",

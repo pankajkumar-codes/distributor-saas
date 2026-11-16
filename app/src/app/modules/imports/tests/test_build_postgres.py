@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.modules.filing.interface import build_return, ensure_instances, instances_between
 
 from .conftest import PG_ADMIN_URL, ctx, new_business, scalar, user_id
-from .test_confirm_postgres import XLSX, confirm, line, month, monthly, real_readers, stage  # noqa: F401
+from .test_confirm_postgres import OCT, XLSX, confirm, line, month, monthly, real_readers, stage  # noqa: F401
 from .test_parse_postgres import GSTIN
 from .test_uploads_postgres import get, post, run_jobs, shop, upload  # noqa: F401
 
@@ -129,7 +129,8 @@ def test_a_qrmp_quarter_adds_its_iff_month_to_table_12_and_still_reconciles(shop
     r = post(pg, f"/api/v1/b/{biz}/filing-profile/frequency", {"frequency": "quarterly", "effective_from": "2026-10-01"},
              key=uuid.uuid4().hex)
     assert r.status_code in (200, 201), r.text
-    rows = [line("INV-1"), line("INV-3", buyer="29DEMOC9999C1Z1")]
+    rows = [line("INV-1"), line("INV-3", buyer="29DEMOC9999C1Z1"),
+            line("DN-1", kind="Debit note", original="INV-1", original_date=OCT)]
     assert confirm(shop, stage(shop, rows)).status_code == 200
     with pg.app_rw.begin() as c:
         ctx(c, user_id(pg.owner, "alice"), biz)
@@ -141,4 +142,6 @@ def test_a_qrmp_quarter_adds_its_iff_month_to_table_12_and_still_reconciles(shop
     assert [r.invoice_number for r in ib.sections.b2b] == ["INV-3"] and ib.sections.hsn_b2b == ()
     assert qb.sections.b2b == () and len(qb.sections.hsn_b2b) == 1  # Table 12 covers the IFF month
     assert qb.liability.taxable_value == Decimal("400") and qb.gap.is_zero()
-    assert qb.debit_notes == 0 and ib.debit_notes == 0
+    # the debit note is dated in the IFF month: no return holds it, so the IFF and the quarter both say so
+    assert ib.debit_notes == 1 and qb.debit_notes == 1
+    assert "debit_notes_unsummed" in {f.code for f in ib.ca_flags} | {f.code for f in qb.ca_flags}
