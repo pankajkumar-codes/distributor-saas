@@ -148,15 +148,15 @@
   note: "At least 10 characters. PO to confirm."
 
 - key: auth.password_max_length
-  value: "128"
+  value: "99"
   type: integer
   kind: product
   valid_from: 2026-11-16
   source_url: team/docs/lld-1.md
-  source_title: "LLD-1 L1-9 (the 128-character upper limit is unchanged)"
+  source_title: "LLD-1 L1-9; lowered from 128 to 99, the longest password a Cognito user pool takes (D-061)"
   last_checked: 2026-11-16
   status: provisional
-  note: "A longer password is refused with its own message."
+  note: "A longer password is refused with its own message. 99 is the Cognito limit as I know it; not checked against the current AWS page."
 
 - key: auth.password_require_upper
   value: "true"
