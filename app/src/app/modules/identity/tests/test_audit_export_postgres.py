@@ -159,3 +159,37 @@ def test_a_file_that_is_gone_or_a_day_old_reports_expired(team):
     for job_id in (gone, old):  # the file is still there for `old`; the rule may just not have run yet
         assert status(client, tid, job_id).json() == {"status": "expired", "url": None, "rows": None,
                                                       "error_code": None}
+
+
+def test_audit_periods_are_one_to_thirty_one_days_and_never_in_the_future(team):
+    """D-062: the list and the export share these rules; nothing given means the last 7 days."""
+    from datetime import date, timedelta
+
+    from platform_common.clock import Clock
+
+    client, _, _, tid, _, _ = team
+    today = Clock().today()
+    url = f"/api/v1/b/{tid}/audit-log"
+
+    def listed(**q):
+        return client.get(url, params=q, headers=H("alice"))
+
+    def code(r):
+        return r.json()["error"]["code"]
+
+    assert listed().status_code == 200  # the default window
+    one_day = {"from": today.isoformat(), "to": today.isoformat()}
+    assert listed(**one_day).status_code == 200
+    month = {"from": (today - timedelta(days=30)).isoformat(), "to": today.isoformat()}
+    assert listed(**month).status_code == 200  # 31 days inclusive
+    too_long = {"from": (today - timedelta(days=31)).isoformat(), "to": today.isoformat()}
+    assert (listed(**too_long).status_code, code(listed(**too_long))) == (422, "date_range_too_long")
+    future = {"from": today.isoformat(), "to": (today + timedelta(days=1)).isoformat()}
+    assert (listed(**future).status_code, code(listed(**future))) == (422, "date_in_future")
+    assert code(listed(**{"from": (today + timedelta(days=1)).isoformat()})) == "date_in_future"
+    assert code(listed(**{"from": "2026-01-01"})) == "date_range_too_long"  # an old `from` alone is refused, not cut
+
+    assert export(client, tid, **one_day).status_code == 202
+    assert code(export(client, tid, **too_long)) == "date_range_too_long"
+    assert code(export(client, tid, **{"to": (today + timedelta(days=3)).isoformat()})) == "date_in_future"
+    assert isinstance(today, date)

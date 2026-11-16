@@ -30,6 +30,8 @@ const KINDS: { value: Kind; label: string }[] = [
   { value: "support", label: "Support" },
 ];
 const POLL_MS = 2000;
+/** Today's date in India as YYYY-MM-DD: the latest day the server accepts. */
+const todayIst = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
 const EXPORT_WORDS: Record<string, string> = {
   narrow_filter: "That's too many entries for one file. Choose a shorter period, a kind or a person, then export again.",
   not_allowed: "You no longer have access to the audit log.",
@@ -69,6 +71,7 @@ export function AuditPage() {
   const [actor, setActor] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const today = todayIst();
   const filters = { kind: (kind || undefined) as Kind | undefined, actor: actor || undefined, from: from || undefined, to: to || undefined };
 
   const list = useInfiniteQuery<Page, ApiError>({
@@ -152,8 +155,16 @@ export function AuditPage() {
         <div className="filters" role="group" aria-label="Filters">
           <SelectField label="Kind" placeholder="All kinds" options={KINDS} value={kind} onChange={(e) => setKind(e.target.value)} />
           <SelectField label="Person" placeholder="Everyone" options={people} value={actor} onChange={(e) => setActor(e.target.value)} />
-          <Field label="From" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-          <Field label="To" type="date" value={to} onChange={(e) => setTo(e.target.value)} hint="Leave both empty for the last year." />
+          <Field label="From" type="date" max={to || today} value={from} onChange={(e) => setFrom(e.target.value)} />
+          <Field
+            label="To"
+            type="date"
+            min={from || undefined}
+            max={today}
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            hint="Up to 31 days, none in the future. Leave both empty for the last 7 days."
+          />
         </div>
 
         <div className="actions">
