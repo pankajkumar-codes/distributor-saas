@@ -39,18 +39,34 @@ def zipped(files: dict[str, bytes]) -> bytes:
     return out.getvalue()
 
 
-def own_invoices_xlsx(gstin) -> bytes:
+# The headers of the product's own-invoices template (imports/readers/own_excel.py COLUMNS); a test keeps them equal.
+TEMPLATE_HEADERS = ["Seller GSTIN", "Document type", "Document number", "Document date", "Original invoice number",
+                    "Original invoice date", "Buyer GSTIN", "Place of supply", "HSN", "Quantity", "Unit",
+                    "Taxable value", "GST rate %", "IGST", "CGST", "SGST/UTGST", "Cess", "Invoice total"]
+
+
+def own_invoices_xlsx(gstin, other=OTHER_GSTIN) -> bytes:
+    """Four made-up documents in the template's layout: a sale to a registered buyer, a sale inside West Bengal, a
+    sale to Karnataka, and a credit note against the first. Every figure is invented; the rates are only what
+    these made-up rows say, not advice."""
     import datetime as dt
 
     import openpyxl
+
+    def row(kind, number, date, state, taxable, rate, igst, cgst, sgst, total, buyer="", original="", original_date=""):
+        return [gstin, kind, number, date, original, original_date, buyer, state, "61091000", 2, "PCS", taxable, rate,
+                igst, cgst, sgst, "", total]
 
     wb = openpyxl.Workbook()
     wb.properties.created = wb.properties.modified = dt.datetime(2026, 1, 1)
     ws = wb.active
     ws.title = "Invoices"
-    ws.append(["Invoice No", "Invoice Date", "Customer", "Customer GSTIN", "Item", "HSN", "Qty", "Rate", "Taxable Value"])
-    ws.append(["DEMO/26/001", "2026-10-03", "Demo Customer One", OTHER_GSTIN, "Cotton shirt", "6109", 4, "499.00", "1996.00"])
-    ws.append(["DEMO/26/002", "2026-10-09", "Demo Customer Two", "", "Face wash", "3304", 2, "175.00", "350.00"])
+    ws.append(TEMPLATE_HEADERS)
+    ws.append(row("Invoice", "DEMO/001", "03-10-2026", "West Bengal", 2000, 5, "", 50, 50, 2100, buyer=other))
+    ws.append(row("Invoice", "DEMO/002", "09-10-2026", "West Bengal", 1000, 5, "", 25, 25, 1050))
+    ws.append(row("Invoice", "DEMO/003", "12-10-2026", "Karnataka", 800, 5, 40, "", "", 840))
+    ws.append(row("Credit note", "DEMO/CN1", "20-10-2026", "West Bengal", 400, 5, "", 10, 10, 420, buyer=other,
+                  original="DEMO/001", original_date="03-10-2026"))
     out = io.BytesIO()
     wb.save(out)
     return out.getvalue()
