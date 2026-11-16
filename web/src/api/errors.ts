@@ -11,6 +11,7 @@ export type ApiError = {
   fix?: string;
   retryAfter?: number; // seconds, from Retry-After on a 429
   challenge?: string; // totp_not_accepted: the provider's next challenge (LLD-1 §5.4)
+  detail?: string; // which request failed and how, for the person to read out to support ("GET /api/v1/… no answer in 30 s")
 };
 
 type Body = {
@@ -18,8 +19,8 @@ type Body = {
   challenge?: string;
 };
 
-export function toApiError(response: Response | undefined, body: unknown): ApiError {
-  if (!response) return { status: 0, code: "network", message: "" };
+export function toApiError(response: Response | undefined, body: unknown, detail?: string): ApiError {
+  if (!response) return { status: 0, code: "network", message: "", ...(detail ? { detail } : {}) };
   const error = (body as Body | undefined)?.error ?? {};
   const challenge = (body as Body | undefined)?.challenge;
   const retry = Number.parseInt(response.headers.get("Retry-After") ?? "", 10);
@@ -31,6 +32,7 @@ export function toApiError(response: Response | undefined, body: unknown): ApiEr
     fix: error.fix,
     retryAfter: Number.isFinite(retry) ? retry : undefined,
     ...(challenge ? { challenge } : {}),
+    ...(detail ? { detail } : {}),
   };
 }
 

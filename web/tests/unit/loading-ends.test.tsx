@@ -50,6 +50,7 @@ describe("a list page whose request gets no answer", () => {
     render(<App />);
     expect(await screen.findByText(/We couldn't reach the server/)).toBeInTheDocument();
     expect(screen.queryByText("Loading…")).not.toBeInTheDocument();
+    expect(screen.getByText(`Details: GET ${api}: no answer in time.`)).toBeInTheDocument(); // which request, for support
     expect(calls()).toBe(1);
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     await vi.waitFor(() => expect(calls()).toBe(2));

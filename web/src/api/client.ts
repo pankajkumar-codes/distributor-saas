@@ -11,7 +11,15 @@ import type { paths } from "./schema";
 export const api = createClient<paths>({
   baseUrl: window.location.origin,
   // Looked up per call, so tests can stub the global fetch.
-  fetch: (request) => globalThis.fetch(request, signalFor(request)),
+  fetch: async (request) => {
+    try {
+      return await globalThis.fetch(request, signalFor(request));
+    } catch (e) {
+      // Say which request, and whether it timed out, so a "couldn't reach the server" can be traced.
+      const how = (e as Error | undefined)?.name === "TimeoutError" ? "no answer in time" : "no connection";
+      throw Object.assign(e instanceof Error ? e : new Error(String(e)), { detail: `${request.method} ${new URL(request.url).pathname}: ${how}` });
+    }
+  },
 });
 
 function signalFor(request: Request): RequestInit | undefined {
@@ -34,10 +42,13 @@ async function once<T>(request: () => Promise<Result<T>>): Promise<T> {
   try {
     result = await request();
   } catch (e) {
-    const error = toApiError(undefined, undefined);
+    const error = toApiError(undefined, undefined, (e as { detail?: string } | undefined)?.detail);
     throw (e as Error | undefined)?.name === "TimeoutError" ? { ...error, code: "timeout" } : error;
   }
-  if (!result.response.ok) throw toApiError(result.response, result.error);
+  if (!result.response.ok) {
+    const { response } = result;
+    throw toApiError(response, result.error, `${new URL(response.url || window.location.href).pathname}: answered ${response.status}`);
+  }
   return result.data as T;
 }
 
