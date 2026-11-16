@@ -645,6 +645,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/own-invoices/crosscheck": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Own Invoices Crosscheck
+         * @description Every difference between the Excel and the invoice PDFs of the seller's own invoices, per document.
+         *     Read-only; never says which side is right. `show_validate_note` is true only with a live Excel and no live PDF.
+         */
+        get: operations["own_invoices_crosscheck_api_v1_b__business_id__own_invoices_crosscheck_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/product-imports": {
         parameters: {
             query?: never;
@@ -1887,6 +1908,34 @@ export interface components {
             /** Months */
             months: components["schemas"]["MonthCoverageOut"][];
         };
+        /** CrossCheckOut */
+        CrossCheckOut: {
+            /** Compared */
+            compared: boolean;
+            excel: components["schemas"]["CrossCheckSideOut"];
+            /** Matching */
+            matching: number;
+            /** Mismatches */
+            mismatches: components["schemas"]["MismatchOut"][];
+            /** Not Compared */
+            not_compared: components["schemas"]["NotComparedOut"][];
+            /** Only In Excel */
+            only_in_excel: components["schemas"]["DocRefOut"][];
+            /** Only In Pdf */
+            only_in_pdf: components["schemas"]["DocRefOut"][];
+            pdf: components["schemas"]["CrossCheckSideOut"];
+            /** Show Validate Note */
+            show_validate_note: boolean;
+        };
+        /** CrossCheckSideOut */
+        CrossCheckSideOut: {
+            /** Documents */
+            documents: number;
+            /** Live */
+            live: boolean;
+            /** Unplaced Rows */
+            unplaced_rows: number;
+        };
         /** CurrentFrequencyOut */
         CurrentFrequencyOut: {
             /**
@@ -1964,6 +2013,27 @@ export interface components {
             gstin?: string | null;
             /** Name */
             name?: string | null;
+        };
+        /** DifferenceOut */
+        DifferenceOut: {
+            /** Excel */
+            excel: string;
+            /**
+             * Field
+             * @enum {string}
+             */
+            field: "doc_date" | "buyer_gstin" | "place_of_supply" | "invoice_total" | "taxable_value" | "igst" | "cgst" | "sgst" | "cess" | "lines";
+            /** Pdf */
+            pdf: string;
+        };
+        /** DocRefOut */
+        DocRefOut: {
+            /** Doc Number */
+            doc_number: string;
+            /** Doc Type */
+            doc_type: string;
+            /** Seller Gstin */
+            seller_gstin: string;
         };
         /**
          * DocumentOut
@@ -2571,6 +2641,16 @@ export interface components {
             /** Role */
             role: string;
         };
+        /** MismatchOut */
+        MismatchOut: {
+            /** Differences */
+            differences: components["schemas"]["DifferenceOut"][];
+            document: components["schemas"]["DocRefOut"];
+            /** Excel Row Ids */
+            excel_row_ids: string[];
+            /** Pdf Row Ids */
+            pdf_row_ids: string[];
+        };
         /** MonthCoverageOut */
         MonthCoverageOut: {
             /** Marketplaces */
@@ -2635,6 +2715,14 @@ export interface components {
              * @enum {string}
              */
             turnover_band: "up_to_threshold" | "above_threshold";
+        };
+        /** NotComparedOut */
+        NotComparedOut: {
+            document: components["schemas"]["DocRefOut"];
+            /** Excel Held Rows */
+            excel_held_rows: number;
+            /** Pdf Held Rows */
+            pdf_held_rows: number;
         };
         /** NoteIn */
         NoteIn: {
@@ -5008,6 +5096,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MemberOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    own_invoices_crosscheck_api_v1_b__business_id__own_invoices_crosscheck_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CrossCheckOut"];
                 };
             };
             /** @description Validation Error */
