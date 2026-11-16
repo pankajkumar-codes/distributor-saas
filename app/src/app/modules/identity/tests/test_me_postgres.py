@@ -17,7 +17,7 @@ from .conftest import PG_ADMIN_URL
 
 pytestmark = pytest.mark.skipif(not PG_ADMIN_URL, reason="PG_ADMIN_URL not set")
 
-NEW = "a brand new passphrase"
+NEW = "Brand-New-Pass-7!"
 WRONG = "not my password at all"
 BUSINESS = {
     "registration": {"kind": "gstin", "gstin": "19AAPFU0939F1ZS"},

@@ -85,7 +85,7 @@ test("forgot password: reset with an emailed code, then sign in with the new pas
   await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible();
   expect(page.url()).toBe("http://localhost:5173/reset"); // the email stays out of the URL
   await page.getByLabel("Digit 1 of 6").fill(await codeFor(email, "reset_code"));
-  await page.getByLabel("New password").fill("nine kites over a harbour");
+  await page.getByLabel("New password").fill("Nine-Kites-77!");
   await noSeriousAxeFindings(page);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
@@ -96,7 +96,7 @@ test("forgot password: reset with an emailed code, then sign in with the new pas
   await page.getByLabel("Password").fill("Seven-Lamps-42!");
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByRole("alert").or(page.locator(".banner")).first()).toBeVisible(); // the old password no longer works
-  await page.getByLabel("Password").fill("nine kites over a harbour");
+  await page.getByLabel("Password").fill("Nine-Kites-77!");
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByRole("heading", { name: "Your business and GST" })).toBeVisible();
 });

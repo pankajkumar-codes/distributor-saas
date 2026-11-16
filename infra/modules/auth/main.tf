@@ -27,11 +27,12 @@ resource "aws_cognito_user_pool" "this" {
   }
 
   password_policy {
-    minimum_length                   = 12
+    # The same policy as refdata auth.password_* (docs/DECISIONS.md D-061); a test fails if they diverge.
+    minimum_length                   = 10
     require_lowercase                = true
     require_uppercase                = true
     require_numbers                  = true
-    require_symbols                  = false
+    require_symbols                  = true
     temporary_password_validity_days = 3
   }
 

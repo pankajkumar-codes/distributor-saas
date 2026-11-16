@@ -46,7 +46,7 @@ When it is ready you will see a green box that prints the exact address:
 
   Ready-made account (a made-up business, Demo Traders):
       email:     demo@example.com
-      password:  seven lamps under a bridge
+      password:  Seven-Lamps-42!
 ```
 
 Open that address in your browser. Leave the PowerShell window open: **sign-up and password-reset codes
