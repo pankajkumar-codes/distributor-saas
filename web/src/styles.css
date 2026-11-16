@@ -136,3 +136,42 @@ fieldset.line { margin: 0.75rem 0; }
 .filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0 16px; margin: 0 0 8px; }
 .qr { display: block; margin: 8px 0; background: #fff; }
 .tag { border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; margin-left: 6px; }
+
+/* Signed-out pages and onboarding (styling spec, Designer 2026-11-16) */
+.page-auth { padding-top: 48px; }
+.page-auth-wide { max-width: 45rem; }
+@media (max-width: 600px) { .page-auth { padding-top: 24px; } }
+.brand { display: flex; align-items: center; gap: 10px; margin: 0 0 24px; }
+.mark { width: 32px; height: 32px; border-radius: 9px; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-weight: 700; font-size: 13px; }
+.stack { display: flex; flex-direction: column; gap: 16px; }
+.stack > .field, .stack > p, .stack > .banner { margin: 0; }
+.stack > .banner { width: 100%; }
+.card.stack { margin-bottom: 16px; }
+.note.centred { text-align: center; margin-top: 4px; }
+.note.forgot { margin: -8px 0 0; font-size: 13px; }
+.btn-block { width: 100%; }
+.actions-end { justify-content: flex-end; }
+@media (max-width: 600px) {
+  .btn-block-phone { width: 100%; }
+  .actions { flex-direction: column-reverse; align-items: stretch; gap: 10px; }
+}
+.progress { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 0 0 14px; }
+.progress span { height: 5px; border-radius: 3px; background: var(--line); }
+.progress span.on { background: var(--accent); }
+input:-webkit-autofill, input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px var(--surface) inset;
+  -webkit-text-fill-color: var(--ink);
+}
+.rules { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+.rules .rule-ok { color: var(--ok); font-weight: 600; }
+.rules span[aria-hidden] { display: inline-block; width: 1.2em; }
+
+/* Option cards for the checkbox and radio groups (onboarding) */
+.radios .opt { position: relative; display: flex; flex-direction: column; justify-content: center; gap: 0; padding: 0; margin: 0 0 10px; background: var(--surface); border: 1.5px solid var(--control); border-radius: 10px; }
+.radios .opt:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.radios .opt:has(:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.radios .opt label.radio { padding: 4px 14px; cursor: pointer; }
+.radios .opt .hint { margin: -4px 14px 10px 44px; }
+.radios .opt input:focus-visible { outline: none; }
+.field .tag { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; background: var(--sunk); color: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 2px 7px; margin-left: 6px; }
+.field select:disabled { cursor: not-allowed; }

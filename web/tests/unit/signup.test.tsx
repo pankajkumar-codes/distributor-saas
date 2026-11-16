@@ -7,7 +7,7 @@ import { tokenStore } from "../../src/auth/tokenStore";
 import { fakeApi, type Reply, type Sent } from "./fakeApi";
 
 const EMAIL = "owner@vashi.example";
-const PASSWORD = "seven lamps under a bridge";
+const PASSWORD = "Seven-Lamps-42!";
 
 let sent: Sent[];
 let reply: (path: string, ...answers: Reply[]) => void;
@@ -96,16 +96,32 @@ describe("sign-up", () => {
 
   it("shows a weak password's fix inline, under a password field on the code step", async () => {
     render(<App />);
-    await stepOne("short");
+    await stepOne("Password-123!");
     reply(VERIFY, {
       status: 422,
-      body: { error: { code: "password_weak", message: "weak", field: "password", fix: "Use at least 10 characters." } },
+      body: { error: { code: "password_weak", message: "weak", field: "password", fix: "That password is too common. Choose another." } },
     });
     await enterCode();
 
     const field = await screen.findByLabelText("Password");
     expect(field).toHaveAttribute("aria-invalid", "true");
-    expect(field).toHaveAccessibleDescription("Use at least 10 characters.");
+    expect(field).toHaveAccessibleDescription("That password is too common. Choose another.");
+  });
+
+  it("keeps Email me a code off until every password rule passes, and lists the rules", async () => {
+    render(<App />);
+    const send = screen.getByRole("button", { name: "Email me a code" });
+    fireEvent.change(screen.getByLabelText("Work email"), { target: { value: "a@b.in" } });
+    expect(send).toBeDisabled();
+    const password = screen.getByLabelText("Password");
+    expect(screen.getByText(/One special character: !@#\$%\^&\*\(\)-_=\+\[\]\{\}\.,\?/)).toBeInTheDocument();
+    for (const weak of ["Short1!", "alllowercase-123!", "ALLUPPERCASE-123!", "NoDigitsHere-!!", "NoSpecial12345"]) {
+      fireEvent.change(password, { target: { value: weak } });
+      expect(send).toBeDisabled();
+    }
+    fireEvent.change(password, { target: { value: "Seven-Lamps-42!" } });
+    expect(send).toBeEnabled();
+    expect(screen.getAllByText("(done)").length).toBe(5);
   });
 
   it("shows a refused code under the code boxes", async () => {
