@@ -3,7 +3,7 @@ import createClient from "openapi-fetch";
 import { endSession, refreshSession } from "../auth/session";
 import { tokenStore } from "../auth/tokenStore";
 import { toApiError, type ApiError } from "./errors";
-import { isAuthPath, withAuthTimeout } from "./timeout";
+import { isAuthPath, READ_TIMEOUT_MS, withAuthTimeout } from "./timeout";
 import type { paths } from "./schema";
 
 // Typed from app/openapi.json (`npm run gen:api`). Same origin only: the API is served
@@ -15,7 +15,8 @@ export const api = createClient<paths>({
 });
 
 function signalFor(request: Request): RequestInit | undefined {
-  return isAuthPath(request.url) ? { signal: withAuthTimeout(request.signal) } : undefined;
+  if (isAuthPath(request.url)) return { signal: withAuthTimeout(request.signal) };
+  return request.method === "GET" ? { signal: withAuthTimeout(request.signal, READ_TIMEOUT_MS) } : undefined;
 }
 
 api.use({
@@ -32,8 +33,9 @@ async function once<T>(request: () => Promise<Result<T>>): Promise<T> {
   let result;
   try {
     result = await request();
-  } catch {
-    throw toApiError(undefined, undefined);
+  } catch (e) {
+    const error = toApiError(undefined, undefined);
+    throw (e as Error | undefined)?.name === "TimeoutError" ? { ...error, code: "timeout" } : error;
   }
   if (!result.response.ok) throw toApiError(result.response, result.error);
   return result.data as T;

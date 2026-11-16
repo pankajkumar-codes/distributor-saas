@@ -183,7 +183,7 @@ export function AuditPage() {
 
         {list.error && (
           <Banner tone="error">
-            {list.error.fix ?? list.error.message ?? errorText(list.error)}{" "}
+            {list.error.status === 0 ? errorText(list.error) : list.error.fix || list.error.message || errorText(list.error)}{" "}
             <Button type="button" variant="link" onClick={() => list.refetch()}>
               Try again
             </Button>

@@ -60,6 +60,7 @@ export function errorText(error: ApiError): string {
 
 /** The server or the network failed, so the same request may work if tried again. */
 export function transient(error: unknown): boolean {
-  const status = (error as ApiError | undefined)?.status;
+  const { status, code } = (error as ApiError | undefined) ?? {};
+  if (code === "timeout") return false; // already waited the full limit once; the screen offers Try again
   return status === 0 || (typeof status === "number" && status >= 500);
 }
