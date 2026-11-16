@@ -5,7 +5,7 @@ import { createBusiness, signUp } from "./helpers";
 // The real button against the real API: no mocked fetch, no mocked session.
 test("Sign out ends the session: protected pages go to sign-in, and a reload stays signed out", async ({ page }, info) => {
   const email = `e2e-signout-${info.project.name}-${Date.now()}@example.com`;
-  const password = "seven lamps under a bridge";
+  const password = "Seven-Lamps-42!";
   await signUp(page, email, password);
   await createBusiness(page);
   const signoutCalls: number[] = [];

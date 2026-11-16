@@ -127,8 +127,8 @@ def test_a_wrong_current_or_weak_new_password_changes_nothing(env):
 
 def test_change_password_shares_the_sign_in_per_email_bucket(env):  # §5.9
     client, _, _, _ = env
-    me = bearer(client)  # one of the ten
-    for _ in range(9):
+    me = bearer(client)  # a right password gives its sign-in try back, so it is not one of the ten
+    for _ in range(10):
         assert change(client, me, current=WRONG).status_code == 422
     r = change(client, me)  # even the right password
     assert r.status_code == 429 and "retry-after" in r.headers

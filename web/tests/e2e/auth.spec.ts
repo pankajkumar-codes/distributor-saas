@@ -12,7 +12,7 @@ test("sign up with an emailed code and land on onboarding", async ({ page }, inf
   await noSeriousAxeFindings(page);
 
   await page.getByLabel("Work email").fill(email);
-  await page.getByLabel("Password").fill("seven lamps under a bridge");
+  await page.getByLabel("Password").fill("Seven-Lamps-42!");
   await page.getByRole("button", { name: "Email me a code" }).click();
   await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible();
   await noSeriousAxeFindings(page);
@@ -36,14 +36,14 @@ test("a reload on the code step asks for the password again", async ({ page }, i
   const email = `e2e-reload-${info.project.name}-${Date.now()}@example.com`;
   await page.goto("/signup");
   await page.getByLabel("Work email").fill(email);
-  await page.getByLabel("Password").fill("seven lamps under a bridge");
+  await page.getByLabel("Password").fill("Seven-Lamps-42!");
   await page.getByRole("button", { name: "Email me a code" }).click();
   await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible();
 
   await page.reload();
   await expect(page.getByText("Enter your password again")).toBeVisible();
   await expect(page.getByText(email)).toBeVisible();
-  await page.getByLabel("Password").fill("seven lamps under a bridge");
+  await page.getByLabel("Password").fill("Seven-Lamps-42!");
   await page.getByLabel("Digit 1 of 6").fill(await codeFor(email));
   await page.getByRole("button", { name: "Create account" }).click();
   await expect(page.getByRole("heading", { name: "Your business and GST" })).toBeVisible();
@@ -51,7 +51,7 @@ test("a reload on the code step asks for the password again", async ({ page }, i
 
 test("a reload keeps the session; sign out, then sign in with the password", async ({ page }, info) => {
   const email = `e2e-session-${info.project.name}-${Date.now()}@example.com`;
-  const password = "seven lamps under a bridge";
+  const password = "Seven-Lamps-42!";
   await signUp(page, email, password);
 
   await page.reload(); // the token was only in memory: /auth/refresh brings it back
@@ -72,7 +72,7 @@ test("a reload keeps the session; sign out, then sign in with the password", asy
 
 test("forgot password: reset with an emailed code, then sign in with the new password", async ({ page }, info) => {
   const email = `e2e-reset-${info.project.name}-${Date.now()}@example.com`;
-  await signUp(page, email, "seven lamps under a bridge");
+  await signUp(page, email, "Seven-Lamps-42!");
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
 
@@ -93,7 +93,7 @@ test("forgot password: reset with an emailed code, then sign in with the new pas
   await expect(page.getByText(/Your password is changed, and you're signed out everywhere/)).toBeVisible();
 
   await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password").fill("seven lamps under a bridge");
+  await page.getByLabel("Password").fill("Seven-Lamps-42!");
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByRole("alert").or(page.locator(".banner")).first()).toBeVisible(); // the old password no longer works
   await page.getByLabel("Password").fill("nine kites over a harbour");
@@ -113,7 +113,7 @@ test("a code request that gets no answer shows an error and the button works aga
   });
   await page.goto("/signup");
   await page.getByLabel("Work email").fill(email);
-  await page.getByLabel("Password").fill("seven lamps under a bridge");
+  await page.getByLabel("Password").fill("Seven-Lamps-42!");
   const button = page.getByRole("button", { name: "Email me a code" });
   await button.click();
   await expect(button).toBeDisabled();
@@ -133,7 +133,7 @@ test("a code request the server fails shows an error and the button works again"
   await page.route("**/api/v1/auth/signup", (route) => route.fulfill({ status: 503, body: "" }));
   await page.goto("/signup");
   await page.getByLabel("Work email").fill(email);
-  await page.getByLabel("Password").fill("seven lamps under a bridge");
+  await page.getByLabel("Password").fill("Seven-Lamps-42!");
   const button = page.getByRole("button", { name: "Email me a code" });
   await button.click();
   await expect(page.getByText("Something went wrong on our side. Nothing was lost; try again.")).toBeVisible();

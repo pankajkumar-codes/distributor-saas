@@ -6,11 +6,13 @@ import { api, call } from "../../api/client";
 import type { components } from "../../api/schema";
 import { errorText, type ApiError } from "../../api/errors";
 import { startSession } from "../../auth/session";
+import { AuthPage } from "../../kit/AuthPage";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { DemoNote } from "../../kit/DemoNote";
 import { Field } from "../../kit/Field";
 import { OtpInput } from "../../kit/OtpInput";
+import { StepProgress } from "../../kit/StepProgress";
 
 type Verified = components["schemas"]["SignedUpOut"];
 
@@ -87,10 +89,10 @@ export function CodeStep({ email, sentAt, password, onResent, onBack, onPassword
   const left = Math.min(CODE_TTL_MS, sentAt + CODE_TTL_MS - now);
 
   return (
-    <main className="page">
-      <p className="step">Step 2 of 4</p>
-      <h1>Check your email</h1>
+    <AuthPage>
+      <StepProgress step={2} title="Check your email" />
       <form onSubmit={submit} noValidate>
+        <div className="card stack">
         <DemoNote />
         {bannerError && <Banner tone="error">{bannerError}</Banner>}
         {resend.isSuccess && !error && <Banner>We sent a new code. Earlier codes no longer work.</Banner>}
@@ -124,15 +126,16 @@ export function CodeStep({ email, sentAt, password, onResent, onBack, onPassword
           Send a new code
         </Button>
         <p className="note">The code works for 10 minutes. After 5 wrong tries it stops working and you can ask for a new one.</p>
+        </div>
         <div className="actions">
-          <Button type="button" variant="link" onClick={onBack}>
+          <Button type="button" variant="secondary" onClick={onBack}>
             Back
           </Button>
-          <Button type="submit" busy={verify.isPending}>
+          <Button type="submit" busy={verify.isPending} className="btn-block-phone">
             Create account
           </Button>
         </div>
       </form>
-    </main>
+    </AuthPage>
   );
 }

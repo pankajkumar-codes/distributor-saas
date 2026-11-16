@@ -88,7 +88,7 @@
   source_title: "LLD-1 §12 Audit, events and refdata added (L1-10 for the sign-in limits)"
   last_checked: 2026-10-26
   status: provisional
-  note: "Not in the BRD; LLD-1 L1-10. PO to confirm."
+  note: "Not in the BRD; LLD-1 L1-10. PO to confirm. Counts wrong guesses only: a right password gives its try back (D-060)."
 
 - key: auth.signin_per_ip_per_hour
   value: "100"

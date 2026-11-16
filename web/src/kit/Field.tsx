@@ -1,11 +1,11 @@
 import { useId, type InputHTMLAttributes } from "react";
 
-type Props = InputHTMLAttributes<HTMLInputElement> & { label: string; hint?: string; error?: string };
+type Props = InputHTMLAttributes<HTMLInputElement> & { label: string; hint?: string; error?: string; describedBy?: string };
 
 /** A labelled input with its hint and inline error, both read out with the field. */
-export function Field({ label, hint, error, ...input }: Props) {
+export function Field({ label, hint, error, describedBy, ...input }: Props) {
   const id = useId();
-  const described = [hint && `${id}-hint`, error && `${id}-error`].filter(Boolean).join(" ");
+  const described = [hint && `${id}-hint`, error && `${id}-error`, describedBy].filter(Boolean).join(" ");
   return (
     <div className="field">
       <label htmlFor={id}>{label}</label>

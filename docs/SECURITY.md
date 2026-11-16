@@ -54,6 +54,7 @@ These sharpen the priorities above for the approved design (docs/ARCHITECTURE.md
 | Cross-tenant ID guessing (API, exports, jobs, presigned keys) | Membership check + RLS + S3 keys under the business prefix, issued only by the API | Isolation suite per route and per job type, run as `app_rw` |
 | Account enumeration via sign-up, verify or reset | Uniform reply and timing class on all three; an existing account gets an email, not an error | Byte-identical response and status on all three routes |
 | Code brute force | 5 tries, 10 minutes, per-email and per-IP limits | Sign-up and sign-in code tests |
+| Password guessing at sign-in | 10 tries per email per 15 minutes; only wrong guesses count (a right password gives its try back, D-060), the per-IP limit counts every request | Sign-in limit tests |
 | Stolen access token after sign-out | 5-minute tokens + per-request session check | Session tests |
 | CSRF on refresh | `SameSite=Strict`, path-scoped cookie, Origin check | Refresh from another origin is refused |
 | Share-link guessing or replay | 128-bit token, hashed at rest, expiry, revoke, IP throttle, uniform 404 | Share-link tests |
