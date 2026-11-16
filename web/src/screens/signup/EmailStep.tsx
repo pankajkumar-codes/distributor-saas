@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { api, call } from "../../api/client";
 import { errorText, type ApiError } from "../../api/errors";
 import { passwordOk } from "../../auth/passwordRules";
+import { usePasswordPolicy } from "../../auth/usePasswordPolicy";
 import { AuthPage } from "../../kit/AuthPage";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
@@ -18,8 +19,9 @@ export function EmailStep({ initialEmail, initialPassword, onSent }: Props) {
   const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState(initialPassword);
   const [missing, setMissing] = useState<{ email?: string; password?: string }>({});
+  const policy = usePasswordPolicy().data;
   const send = useMutation<unknown, ApiError, string>({
-    mutationFn: (to) => call(() => api.POST("/api/v1/auth/signup", { body: { email: to } }), { refresh: false }),
+    mutationFn: (to) => call(() => api.POST("/api/v1/auth/signup", { body: { email: to, password } }), { refresh: false }),
     onSuccess: (_, to) => onSent(to, password),
   });
 
@@ -35,6 +37,7 @@ export function EmailStep({ initialEmail, initialPassword, onSent }: Props) {
 
   const error = send.error;
   const emailError = missing.email ?? (error?.field === "email" ? errorText(error) : undefined);
+  const passwordError = missing.password ?? (error?.field === "password" ? errorText(error) : undefined);
 
   return (
     <AuthPage wide>
@@ -60,7 +63,7 @@ export function EmailStep({ initialEmail, initialPassword, onSent }: Props) {
           onChange={(e) => setPassword(e.target.value)}
           describedBy="signup-password-rules"
           hint="You sign in with your email and this password. Very common passwords aren't accepted."
-          error={missing.password}
+          error={passwordError}
         />
         <PasswordRules password={password} id="signup-password-rules" />
         <p className="note">
@@ -69,7 +72,7 @@ export function EmailStep({ initialEmail, initialPassword, onSent }: Props) {
         </p>
         </div>
         <div className="actions actions-end">
-          <Button type="submit" busy={send.isPending} disabled={!passwordOk(password)} className="btn-block-phone">
+          <Button type="submit" busy={send.isPending} disabled={!passwordOk(password, policy)} className="btn-block-phone">
             Email me a code
           </Button>
         </div>

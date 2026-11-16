@@ -19,7 +19,7 @@ from platform_common.errors import Deny, Invalid, deny_response, request_id
 from platform_common.mailer import Mailer
 
 from .providers import auth_provider, mailer
-from .service import reset, sessions, signin, signup
+from .service import passwords, reset, sessions, signin, signup
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -32,6 +32,11 @@ _LOCAL_ORIGINS = ("http://localhost:5173", "http://127.0.0.1:5173")
 
 class EmailBody(BaseModel):
     email: str = Field(max_length=254)
+
+
+class SignupBody(BaseModel):
+    email: str = Field(max_length=254)
+    password: str = Field(max_length=1024)  # checked against the rules before a code is sent; never stored here
 
 
 class VerifyBody(BaseModel):
@@ -128,6 +133,7 @@ class ErrorDetail(BaseModel):
     message: str
     field: str | None = None
     fix: str | None = None
+    unmet: list[str] | None = None  # password_weak only: the ids of the password rules not met
 
 
 class ErrorOut(BaseModel):
@@ -151,14 +157,40 @@ def error_responses(*statuses: int) -> dict:
     return {status: {"model": ErrorOut, "description": _ERROR_DESCRIPTIONS[status]} for status in statuses}
 
 
+class PasswordRuleOut(BaseModel):
+    id: str  # length, upper, lower, digit or special: the ids `unmet` in a password_weak error uses
+    label: str
+
+
+class PasswordPolicyOut(BaseModel):
+    min_length: int
+    max_length: int
+    specials: str  # the special characters that count
+    rules: list[PasswordRuleOut]  # in the order to show them
+
+
+@router.get("/password-policy", response_model=PasswordPolicyOut)
+def password_policy(clock: Annotated[Clock, Depends(get_clock)], request: Request, response: Response):
+    """The password rules in force, from refdata, so the screens never carry their own copy. Public: it is the same
+    for everyone and a person choosing a password is not signed in yet. Cached for a minute in the process and by the
+    browser, so it cannot be used to make the database work."""
+    response.headers["Cache-Control"] = f"public, max-age={passwords.POLICY_CACHE_SECONDS}"
+    policy = passwords.cached_policy(clock.today(), request_id(request))
+    return PasswordPolicyOut(
+        min_length=policy.min_length, max_length=policy.max_length, specials=policy.specials,
+        rules=[PasswordRuleOut(id=i, label=label) for i, label in policy.rules()])
+
+
 @router.post("/signup", status_code=202, response_model=CodeSent, responses=error_responses(422, 429))
 def signup_request(
-    body: EmailBody,
+    body: SignupBody,
     request: Request,
     mail: Annotated[Mailer, Depends(mailer)],
     clock: Annotated[Clock, Depends(get_clock)],
 ):
-    terms = signup.request_code(_email(body.email), _client_ip(request), request_id(request), mail, clock.today())
+    terms = signup.request_code(
+        _email(body.email), body.password, _client_ip(request), request_id(request), mail, clock.today()
+    )
     return CodeSent(code_ttl_minutes=terms.ttl_minutes, code_max_tries=terms.max_tries)
 
 

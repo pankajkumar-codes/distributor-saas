@@ -28,7 +28,7 @@ from platform_common.uow import Principal, UnitOfWork, unit_of_work
 
 from ..interface import list_my_businesses, resolve_principal
 from . import limits
-from .passwords import check_password
+from .passwords import check_password, read_policy
 
 log = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ def change_password(
 ) -> None:
     """§5.9. Raises Invalid("password_weak" or "password_unchanged"), Deny("session_invalid"),
     RateLimited or CurrentPasswordWrong."""
-    check_password(new)  # before anything else, so a weak password spends no try
+    check_password(new, read_policy(today, request_id), field="new_password")  # before anything else: no try spent
     if new == current:
         raise Invalid("password_unchanged", "choose a password you aren't using now", field="new_password")
     with unit_of_work(Principal(user_sub=caller.user_sub, request_id=request_id)) as uow:  # tx A

@@ -1,25 +1,26 @@
-/** The characters that count as the special one. Shown on screen next to the rule. */
-export const SPECIAL_CHARACTERS = "!@#$%^&*()-_=+[]{}.,?";
+import type { PasswordPolicy } from "./usePasswordPolicy";
 
-export type PasswordRule = { id: string; label: string; ok: boolean };
+export type PasswordRule = { id: string; label: string; ok: boolean | null };
 
 /**
- * The sign-up password rules, checked as the person types. The server stays the authority
- * (it also refuses very common passwords); this only keeps "Email me a code" off until the
- * visible rules pass. Pankaj's rule, 2026-11-16.
+ * The rules to show, from the server's list (GET /auth/password-policy), ticked as the person types. The list, its
+ * wording, the length and the allowed special characters are all the server's; only "does this text meet rule X"
+ * lives here. A rule id this screen does not know gets `ok: null`: it is listed, never blocks, and the server
+ * decides (it stays the authority for every rule, and also refuses very common passwords).
  */
-export function passwordRules(password: string): PasswordRule[] {
-  return [
-    { id: "length", label: "At least 10 characters", ok: [...password].length >= 10 },
-    { id: "upper", label: "One uppercase letter", ok: /[A-Z]/.test(password) },
-    { id: "lower", label: "One lowercase letter", ok: /[a-z]/.test(password) },
-    { id: "digit", label: "One digit", ok: /[0-9]/.test(password) },
-    {
-      id: "special",
-      label: `One special character: ${SPECIAL_CHARACTERS}`,
-      ok: [...password].some((c) => SPECIAL_CHARACTERS.includes(c)),
-    },
-  ];
+export function passwordRules(password: string, policy: PasswordPolicy): PasswordRule[] {
+  const chars = [...password];
+  const test: Record<string, boolean> = {
+    length: chars.length >= policy.min_length && chars.length <= policy.max_length,
+    upper: /[A-Z]/.test(password),
+    lower: /[a-z]/.test(password),
+    digit: /[0-9]/.test(password),
+    special: chars.some((c) => policy.specials.includes(c)),
+  };
+  return policy.rules.map((r) => ({ id: r.id, label: r.label, ok: r.id in test ? test[r.id] : null }));
 }
 
-export const passwordOk = (password: string) => passwordRules(password).every((r) => r.ok);
+/** False only while a rule we can check is not met. With no policy yet (loading, or the call failed) the server decides. */
+export function passwordOk(password: string, policy: PasswordPolicy | undefined): boolean {
+  return !policy || passwordRules(password, policy).every((r) => r.ok !== false);
+}
