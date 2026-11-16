@@ -33,6 +33,8 @@ ignore_imports =
     app.modules.catalog.** -> app.modules.identity.interface
 ; imports' parse job re-checks the queuing user's role when it runs, as catalog's import jobs do.
     app.modules.imports.** -> app.modules.identity.interface
+; imports' confirm assigns each new document to its return and checks the period is open (LLD-7 §4, LLD-5 §4).
+    app.modules.imports.** -> app.modules.filing.interface
 ; imports' parse job checks a file's seller GSTIN against the business's own (platform-reader-spec §1 rule 8).
     app.modules.imports.** -> app.modules.business.interface
 ; sales checks buyers and products through catalog and states through business (LLD-4 §8.1).
