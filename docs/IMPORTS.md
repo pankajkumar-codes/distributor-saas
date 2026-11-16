@@ -405,6 +405,18 @@ job's transaction is open, for at most `max_seconds` plus a short grace. Limit: 
 are keyed to their own hold reasons, so a `pdf_unclear` row offers only "set aside" for now. Verified here on Linux,
 PostgreSQL 16, Python 3.13, synthetic PDFs only; not in a Lambda.
 
+## Excel versus PDF cross-check (R1-M6 slice 3, `crosscheck.py`)
+
+`GET /b/{b}/own-invoices/crosscheck` (owner, admin, CA; billing and strangers get 404). Read-only, computed on request, no table: nothing is stored and nothing reaches a return. It lists every difference between the Excel and the PDF-read rows of the seller's own invoices; it never says which side is right.
+
+- **Which rows.** Rows of live runs (staged or confirmed, never discarded) of report types `invoices` (Excel) and `invoices_pdf`. A row set aside is left out, as it will be from the return, so the difference it makes shows. An undecided held row (including `pdf_unclear`) makes its document `not_compared` (counted per side), never a false mismatch; an accepted or fixed held row counts, with a fixed place of supply applied. Invalid rows and rows with no document number or seller GSTIN cannot be placed on a document and are counted as `unplaced_rows`. A record several live files carry is counted once: `duplicate` and `already_imported` rows are skipped (they are the same record as a row of another file), and a later file's `changed` row replaces the older row with the same key, so a cumulative Excel (January, then January plus February) does not count January twice.
+- **Per document**, matched on seller GSTIN, document type, document number (trimmed, case-folded) and the financial year of the document date, as the confirm check does. Compared: document date, buyer GSTIN, place of supply (a name and a code of the same state agree), the sum of taxable value, IGST, CGST, SGST/UTGST and cess, the invoice total, and the number of lines. An amount that is not a number is not read as zero: its document is `not_compared`. A blank amount column is zero. `live` comes from the runs, so an Excel with a header and no rows still counts as an upload for the note. Money is exact Decimal equality; no rounding tolerance is applied (a CA question, OPEN_QUESTIONS). A different line split with the same sums is not a difference.
+- **Response.** `only_in_excel`, `only_in_pdf`, `mismatches` (per field: Excel value, PDF value; plus the row ids of both sides so the screen can colour the cells), `not_compared`, `matching`, per-side `live`, `documents`, `unplaced_rows`, and `compared` (an Excel and a PDF upload are both live). Cell values of buyer names and descriptions are not stored, so none can appear.
+- **`show_validate_note`** is the R1 rule: true only with a live Excel upload and no live PDF upload. The web thread shows the note "upload invoices and we can validate" from this flag.
+- **Too-complex PDFs.** A PDF that runs out of time or memory in the sandbox is now rejected as `pdf_too_complex` ("This PDF is too complex for us to read here. Type the rows or upload the Excel."), since it fails the same way every time; other unreadable files stay `read_failed`.
+- **Size.** It loads every live own-invoice row of the business on each request: fine for the first customers. Add a month filter or a row cap before real history builds up (owner: R1-M6 follow-up, not yet done).
+- **Not claimed.** Nothing here was run on a real invoice pair. A PDF with an unreadable required field stages invalid rows, which cannot be confirmed (R1-M7 confirm check), so it is listed as `unplaced_rows` here and the way forward is the Excel.
+
 ## Retention of uploads (R1-M3, TD-18)
 
 `retention.purge_uploads()` (the third rule of the retention Lambda, after `purge_drafts`) does two things in the
