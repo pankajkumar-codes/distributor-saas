@@ -345,6 +345,12 @@ Confirms are serialised per business (a second advisory lock beside the report-t
 
 Only the own-invoice reader maps documents. A platform profile whose refdata `treatment_confirmed` is not true is refused with `treatment_unconfirmed` and its `open_ca_items`; the screen says the treatment is not settled yet, never that the data is wrong. `POST /uploads/none-this-month` and `GET` record that a section has nothing for a month (audited, counts only).
 
+## Build a return from confirmed documents (R1-M7 slice 3, `filing/build.py`)
+
+`imports.v_filing_lines` publishes the current line of every confirmed own-upload invoice and credit note (a superseded line is not shown); `filing.v_supply_lines` unions it with `sales.v_filing_lines` in view contract v1 (LLD-5 §3, columns unchanged, tested). `build_return(tx, instance)` is the one place that sums a return: a monthly GSTR-1 or an IFF uses the lines assigned to it; a QRMP quarter uses its own plus skipped IFFs forwarded to it for the liability tables, and its own plus every IFF month for Table 12, and its reconciliation adds the filed IFF months' liability. Each section row carries `source_refs` of the form `file name row N`. The result has a fingerprint over the instance, the debit-note count and every member line (stable in any order; one paisa or one line more changes it), `ca_flags`, `draft` (true until the return is locked) and `debit_notes`.
+
+What is not in the build: debit notes (no supply class yet, so no section) and marketplace documents. `imports.v_unsummed_documents` lets the build count the debit notes dated in the period; the return shows them as "not in this return yet, needs CA check". **M8 must refuse, or warn with an explicit acknowledgement, on export while `debit_notes > 0`.** The units come from the file as typed (upper-cased; blank is `NA`); any unit not on the refdata UQC list is named in a `uqc_unlisted` flag, and the mapping itself needs a CA check. Every build lists what it rests on and the CA has not answered (`ca_flags`: the builder's pending items, exports/SEZ/reverse charge/advances/nil-exempt, marketplace reports, UQC mapping), for the returns screen and the CA pack. S4 adds the checks and S5 the returns API.
+
 ## Own sales invoices, PDF (R1-M6 slice 1, `imports/pdf/`)
 
 Wired into uploads in slice 2b (below). Slice 1 added the reader and its handoff. `InvoiceReader.read(pdf, limits)` returns `ReadResult(invoices, unreadable_pages)`; each
