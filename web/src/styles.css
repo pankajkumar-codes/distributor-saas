@@ -6,7 +6,7 @@
   --surface: #ffffff;
   --sunk: #ecebe5;
   --line: #dedcd4;
-  --control: #8d9094; /* edge of inputs and buttons: 3:1 on white (WCAG 1.4.11); --line stays for cards and rules */
+  --control: #85888c; /* edge of inputs and buttons: 3:1 on white (WCAG 1.4.11); --line stays for cards and rules */
   --ink: #1a1d21;
   --muted: #585d63;
   --accent: #0f5f57;
@@ -56,7 +56,7 @@ a { color: var(--accent); text-underline-offset: 2px; }
 .page { max-width: 28rem; margin: 0 auto; padding: 24px 16px 48px; }
 h1 { font-family: var(--display); font-weight: 600; font-size: 30px; line-height: 1.15; margin: 0 0 16px; text-wrap: balance; }
 h2 { font-size: 18px; margin: 24px 0 12px; text-wrap: balance; }
-@media (max-width: 700px) { h1 { font-size: 24px; } .btn, .btn-secondary { min-height: 44px; } }
+@media (max-width: 700px) { h1 { font-size: 24px; } .btn, .btn-secondary { min-height: 44px; } .field input, .field select, .otp input { font-size: 16px; } /* iOS Safari zooms a focused field under 16px */ }
 .step { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin: 0 0 4px; }
 .field { margin: 0 0 16px; }
 .field label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
