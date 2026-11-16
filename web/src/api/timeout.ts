@@ -7,6 +7,7 @@
 export const AUTH_TIMEOUT_MS = 20_000;
 // A list or detail page that gets no answer in this time shows "We couldn't reach the server" with Try again,
 // instead of "Loading…" for ever. Only reads (GET) are limited: a write that is given up may still have happened.
+// This covers every GET, so a large download (exports, the CA pack in M8) must use its own limit or opt out.
 export const READ_TIMEOUT_MS = 30_000;
 
 /** The time limit joined with the caller's own abort signal, if it has one: either one ends the request. */
