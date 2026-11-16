@@ -9,7 +9,8 @@ from ..readers.own_excel import COLUMNS
 from .interface import ExtractedInvoice
 
 SHEET = "PDF"
-_HEADERS = [c.header for c in COLUMNS]
+UNCLEAR_HEADER = "Unclear fields"  # names only (never values): the fields the reader could not read
+_HEADERS = [c.header for c in COLUMNS] + [UNCLEAR_HEADER]
 
 
 def to_table(invoices: tuple[ExtractedInvoice, ...], *, filename: str, pdf: bytes) -> SourceTable:
@@ -22,6 +23,8 @@ def to_table(invoices: tuple[ExtractedInvoice, ...], *, filename: str, pdf: byte
                 "Buyer GSTIN": inv.buyer_gstin, "Place of supply": inv.place_of_supply,
                 "Invoice total": inv.invoice_total,
             }
+            unclear = set(inv.unclear) | (set(line.unclear) if line is not None else set())
+            cells[UNCLEAR_HEADER] = ", ".join(sorted(unclear))
             if line is not None:
                 cells.update({"HSN": line.hsn, "Quantity": line.quantity, "Unit": line.unit,
                               "Taxable value": line.taxable_value, "GST rate %": line.gst_rate, "IGST": line.igst,

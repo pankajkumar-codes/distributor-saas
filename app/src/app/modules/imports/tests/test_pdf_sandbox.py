@@ -8,7 +8,7 @@ import time
 import pytest
 
 from app.modules.imports.pdf import Limits, PdfRefused
-from app.modules.imports.pdf.sandbox import read_sandboxed
+from app.modules.imports.pdf.sandbox import SandboxUnavailable, read_sandboxed
 
 from .fixtures.pdf import SELLER, bomb, one_invoice, pdf
 
@@ -75,6 +75,18 @@ def test_the_wall_clock_kills_a_child_that_runs_too_long(monkeypatch):
     with pytest.raises(PdfRefused) as e:
         run(one_invoice())
     assert e.value.code == "too_slow"
+
+
+def test_a_parser_that_cannot_be_started_is_not_a_refusal_of_the_file(monkeypatch):
+    import subprocess
+
+    def cannot(*args, **kwargs):
+        raise OSError("fork failed: /secret/path")
+
+    monkeypatch.setattr(subprocess, "run", cannot)
+    with pytest.raises(SandboxUnavailable) as e:
+        run(one_invoice())
+    assert not isinstance(e.value, PdfRefused) and "/secret" not in str(e.value)
 
 
 def test_the_child_gets_no_environment_beyond_the_code_path(monkeypatch):

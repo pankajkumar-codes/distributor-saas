@@ -1117,6 +1117,92 @@
         "title": "CoverageOut",
         "type": "object"
       },
+      "CrossCheckOut": {
+        "properties": {
+          "compared": {
+            "title": "Compared",
+            "type": "boolean"
+          },
+          "excel": {
+            "$ref": "#/components/schemas/CrossCheckSideOut"
+          },
+          "matching": {
+            "title": "Matching",
+            "type": "integer"
+          },
+          "mismatches": {
+            "items": {
+              "$ref": "#/components/schemas/MismatchOut"
+            },
+            "title": "Mismatches",
+            "type": "array"
+          },
+          "not_compared": {
+            "items": {
+              "$ref": "#/components/schemas/NotComparedOut"
+            },
+            "title": "Not Compared",
+            "type": "array"
+          },
+          "only_in_excel": {
+            "items": {
+              "$ref": "#/components/schemas/DocRefOut"
+            },
+            "title": "Only In Excel",
+            "type": "array"
+          },
+          "only_in_pdf": {
+            "items": {
+              "$ref": "#/components/schemas/DocRefOut"
+            },
+            "title": "Only In Pdf",
+            "type": "array"
+          },
+          "pdf": {
+            "$ref": "#/components/schemas/CrossCheckSideOut"
+          },
+          "show_validate_note": {
+            "title": "Show Validate Note",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "show_validate_note",
+          "compared",
+          "excel",
+          "pdf",
+          "matching",
+          "only_in_excel",
+          "only_in_pdf",
+          "mismatches",
+          "not_compared"
+        ],
+        "title": "CrossCheckOut",
+        "type": "object"
+      },
+      "CrossCheckSideOut": {
+        "properties": {
+          "documents": {
+            "title": "Documents",
+            "type": "integer"
+          },
+          "live": {
+            "title": "Live",
+            "type": "boolean"
+          },
+          "unplaced_rows": {
+            "title": "Unplaced Rows",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "live",
+          "documents",
+          "unplaced_rows"
+        ],
+        "title": "CrossCheckSideOut",
+        "type": "object"
+      },
       "CurrentFrequencyOut": {
         "properties": {
           "effective_from": {
@@ -1373,6 +1459,64 @@
           }
         },
         "title": "CustomerPatch",
+        "type": "object"
+      },
+      "DifferenceOut": {
+        "properties": {
+          "excel": {
+            "title": "Excel",
+            "type": "string"
+          },
+          "field": {
+            "enum": [
+              "doc_date",
+              "buyer_gstin",
+              "place_of_supply",
+              "invoice_total",
+              "taxable_value",
+              "igst",
+              "cgst",
+              "sgst",
+              "cess",
+              "lines"
+            ],
+            "title": "Field",
+            "type": "string"
+          },
+          "pdf": {
+            "title": "Pdf",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "excel",
+          "pdf"
+        ],
+        "title": "DifferenceOut",
+        "type": "object"
+      },
+      "DocRefOut": {
+        "properties": {
+          "doc_number": {
+            "title": "Doc Number",
+            "type": "string"
+          },
+          "doc_type": {
+            "title": "Doc Type",
+            "type": "string"
+          },
+          "seller_gstin": {
+            "title": "Seller Gstin",
+            "type": "string"
+          }
+        },
+        "required": [
+          "seller_gstin",
+          "doc_type",
+          "doc_number"
+        ],
+        "title": "DocRefOut",
         "type": "object"
       },
       "DocumentOut": {
@@ -3298,6 +3442,42 @@
         "title": "MembershipOut",
         "type": "object"
       },
+      "MismatchOut": {
+        "properties": {
+          "differences": {
+            "items": {
+              "$ref": "#/components/schemas/DifferenceOut"
+            },
+            "title": "Differences",
+            "type": "array"
+          },
+          "document": {
+            "$ref": "#/components/schemas/DocRefOut"
+          },
+          "excel_row_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Excel Row Ids",
+            "type": "array"
+          },
+          "pdf_row_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Pdf Row Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "document",
+          "differences",
+          "excel_row_ids",
+          "pdf_row_ids"
+        ],
+        "title": "MismatchOut",
+        "type": "object"
+      },
       "MonthCoverageOut": {
         "properties": {
           "marketplaces": {
@@ -3555,6 +3735,28 @@
           "items"
         ],
         "title": "NonesOut",
+        "type": "object"
+      },
+      "NotComparedOut": {
+        "properties": {
+          "document": {
+            "$ref": "#/components/schemas/DocRefOut"
+          },
+          "excel_held_rows": {
+            "title": "Excel Held Rows",
+            "type": "integer"
+          },
+          "pdf_held_rows": {
+            "title": "Pdf Held Rows",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "document",
+          "excel_held_rows",
+          "pdf_held_rows"
+        ],
+        "title": "NotComparedOut",
         "type": "object"
       },
       "NoteIn": {
@@ -8835,6 +9037,49 @@
         "summary": "Reactivate Member",
         "tags": [
           "team"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/own-invoices/crosscheck": {
+      "get": {
+        "description": "Every difference between the Excel and the invoice PDFs of the seller's own invoices, per document.\nRead-only; never says which side is right. `show_validate_note` is true only with a live Excel and no live PDF.",
+        "operationId": "own_invoices_crosscheck_api_v1_b__business_id__own_invoices_crosscheck_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CrossCheckOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Own Invoices Crosscheck",
+        "tags": [
+          "imports"
         ]
       }
     },
