@@ -165,10 +165,13 @@ describe("signOut", () => {
     vi.useFakeTimers();
     try {
       const done = signOut();
-      await vi.advanceTimersByTimeAsync(4_900);
+      await vi.advanceTimersByTimeAsync(1_900);
       expect(tokenStore.get()).toBe("t1"); // still waiting for the server
       await vi.advanceTimersByTimeAsync(200);
       await done;
+      // The answer never came, so the old cookie may still be there: no refresh with it until the next sign-in.
+      expect(await refreshSession()).toBe("signed_out");
+      expect(server.sent.filter((s) => s.path === "/api/v1/auth/refresh")).toHaveLength(0);
     } finally {
       vi.useRealTimers();
       globalThis.fetch = real;
