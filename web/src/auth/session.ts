@@ -61,6 +61,7 @@ export function onSessionChange(listener: Listener): () => void {
 
 /** Keep a token from sign-up, sign-in or a refresh, and hand it to the other tabs. */
 export function startSession(accessToken: string, expiresIn: number, change: Change = "new") {
+  signOutUnconfirmed = false;
   tokenStore.set(accessToken, expiresIn);
   bus()?.postMessage({ type: "token", accessToken, expiresIn, change } satisfies Message);
   emit(true, change);
@@ -74,6 +75,7 @@ export function startSession(accessToken: string, expiresIn: number, change: Cha
 export type RefreshResult = "ok" | "signed_out" | "unavailable";
 
 async function refreshNow(background: boolean, rejected: string | null): Promise<RefreshResult> {
+  if (signOutUnconfirmed) return "signed_out";
   // Another tab refreshed while this one waited for the lock: use its token, unless it is
   // the very token the server just refused.
   const held = tokenStore.get();
@@ -129,12 +131,18 @@ export function endSession() {
   emit(false);
 }
 
-// A sign-out that waits on a stalled server must still sign the user out of this tab.
-const SIGNOUT_TIMEOUT_MS = 5_000;
+// A sign-out that waits on a stalled server must still sign the user out of this tab, and quickly: the person
+// is looking at a button that said "Sign out". The server finishes the job on its own if it is merely slow.
+const SIGNOUT_TIMEOUT_MS = 2_000;
+
+// True when the server's answer to a sign-out never arrived (too slow, offline). The browser may then still hold
+// the old refresh cookie, so until the next sign-in this tab does not ask the server to refresh with it: the
+// sign-in page would otherwise sign the person straight back in, or a slow sign-out would later end their new session.
+let signOutUnconfirmed = false;
 
 /**
  * Ends the session on the server, then in every tab. However the server answers (204, a
- * refusal such as 401 or 403, a 5xx, a network error, or no answer within 5 s) this tab is
+ * refusal such as 401 or 403, a 5xx, a network error, or no answer within 2 s) this tab is
  * signed out, and the call neither throws nor hangs: a Sign out button must never do nothing.
  */
 export async function signOut({ rememberPage = true }: { rememberPage?: boolean } = {}) {
@@ -151,6 +159,7 @@ export async function signOut({ rememberPage = true }: { rememberPage?: boolean 
     });
   } catch {
     // Offline or too slow: the server session stays until it expires, but this tab still signs out.
+    signOutUnconfirmed = true;
   } finally {
     clearTimeout(timer);
   }
@@ -170,6 +179,7 @@ export function resetSessionForTests() {
   receivedAt = 0;
   inFlight = null;
   leftOnPurpose = false;
+  signOutUnconfirmed = false;
   listeners.clear();
   tokenStore.clear();
 }
