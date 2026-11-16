@@ -56,7 +56,7 @@ export function CodeStep({ email, sentAt, password, onResent, onBack, onPassword
     },
   });
   const resend = useMutation<unknown, ApiError>({
-    mutationFn: () => call(() => api.POST("/api/v1/auth/signup", { body: { email } }), { refresh: false }),
+    mutationFn: () => call(() => api.POST("/api/v1/auth/signup", { body: { email, password } }), { refresh: false }),
     onSuccess: () => {
       setCode("");
       onResent(Date.now());
@@ -119,6 +119,10 @@ export function CodeStep({ email, sentAt, password, onResent, onBack, onPassword
         </p>
         <Button type="button" variant="link" busy={resend.isPending} onClick={() => {
             verify.reset();
+            if (!password) {
+              setIncomplete("Enter your password again first. We check it before we send a new code.");
+              return;
+            }
             resend.mutate();
           }}>
           Send a new code

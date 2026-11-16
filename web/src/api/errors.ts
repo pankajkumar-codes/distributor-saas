@@ -9,12 +9,13 @@ export type ApiError = {
   message: string;
   field?: string;
   fix?: string;
+  unmet?: string[]; // password_weak: the ids of the password rules not met
   retryAfter?: number; // seconds, from Retry-After on a 429
   challenge?: string; // totp_not_accepted: the provider's next challenge (LLD-1 §5.4)
 };
 
 type Body = {
-  error?: { code?: string; message?: string; field?: string; fix?: string };
+  error?: { code?: string; message?: string; field?: string; fix?: string; unmet?: string[] };
   challenge?: string;
 };
 
@@ -29,6 +30,7 @@ export function toApiError(response: Response | undefined, body: unknown): ApiEr
     message: error.message ?? "",
     field: error.field,
     fix: error.fix,
+    unmet: error.unmet,
     retryAfter: Number.isFinite(retry) ? retry : undefined,
     ...(challenge ? { challenge } : {}),
   };

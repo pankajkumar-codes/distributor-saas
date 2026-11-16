@@ -37,7 +37,7 @@ function open(path: string) {
 async function signIn() {
   await screen.findByRole("heading", { name: "Sign in" });
   fireEvent.change(screen.getByLabelText("Email"), { target: { value: EMAIL } });
-  fireEvent.change(screen.getByLabelText("Password"), { target: { value: "seven lamps under a bridge" } });
+  fireEvent.change(screen.getByLabelText("Password"), { target: { value: "Seven-Lamps-42!" } });
   fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
 }
 

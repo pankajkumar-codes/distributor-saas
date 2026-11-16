@@ -7,6 +7,7 @@ import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { DemoNote } from "../../kit/DemoNote";
 import { Field } from "../../kit/Field";
+import { PasswordRules } from "../../kit/PasswordRules";
 
 type Props = { initialEmail: string; initialPassword: string; onSent: (email: string, password: string) => void };
 
@@ -15,7 +16,7 @@ export function EmailStep({ initialEmail, initialPassword, onSent }: Props) {
   const [password, setPassword] = useState(initialPassword);
   const [missing, setMissing] = useState<{ email?: string; password?: string }>({});
   const send = useMutation<unknown, ApiError, string>({
-    mutationFn: (to) => call(() => api.POST("/api/v1/auth/signup", { body: { email: to } }), { refresh: false }),
+    mutationFn: (to) => call(() => api.POST("/api/v1/auth/signup", { body: { email: to, password } }), { refresh: false }),
     onSuccess: (_, to) => onSent(to, password),
   });
 
@@ -54,9 +55,9 @@ export function EmailStep({ initialEmail, initialPassword, onSent }: Props) {
           autoComplete="new-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          hint="At least 10 characters, with no spaces at the start or end; a few unrelated words work well. Very common passwords aren't accepted. You sign in with your email and this password."
-          error={missing.password}
+          error={missing.password ?? (error?.field === "password" ? errorText(error) : undefined)}
         />
+        <PasswordRules unmet={error?.field === "password" ? error.unmet : undefined} />
         <p className="note">
           We email you a 6-digit code to confirm the address. If this email already has an account, you see this same
           message.

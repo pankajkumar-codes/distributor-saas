@@ -3,8 +3,9 @@
 import pytest
 
 from app.modules.identity import codes
-from app.modules.identity.service.passwords import MAX_LENGTH, MIN_LENGTH, _common, check_password
-from platform_common.errors import Invalid
+from app.modules.identity.service.passwords import PasswordWeak, Policy, _common, check_password
+
+POLICY = Policy(10, 128, True, True, True, True, "!@#$%^&*()-_=+[]{}.,?")
 
 
 def test_the_bundled_list_has_ten_thousand_entries():
@@ -12,32 +13,48 @@ def test_the_bundled_list_has_ten_thousand_entries():
     assert "password" in _common()
 
 
-@pytest.mark.parametrize(
-    "password",
-    ["correct horse battery", "x" * MIN_LENGTH, "é" * MIN_LENGTH, "a" * MAX_LENGTH, "no classes needed here"],
-)
-def test_long_uncommon_passwords_pass_with_no_class_rules(password):
-    check_password(password)
+@pytest.mark.parametrize("password", ["Correct-Horse-42!", "Aa1!" + "x" * 6, "Aa1!" + "é" * 6, "Aa1!" + "a" * 124])
+def test_passwords_meeting_every_rule_pass(password):
+    check_password(password, POLICY)
 
 
 @pytest.mark.parametrize(
-    ("password", "fix_word"),
+    ("password", "unmet"),
     [
-        ("short", "at least"),
-        ("x" * (MIN_LENGTH - 1), "at least"),
-        ("x" * (MAX_LENGTH + 1), "at most"),
-        ("1234567890", "common"),
-        ("QWERTYUIOP", "common"),  # the list is compared case-insensitively
-        (" correct horse battery", "spaces"),
-        ("correct horse battery\t", "spaces"),
+        ("short", ["length", "upper", "digit", "special"]),
+        ("alllowercase123!", ["upper"]),
+        ("ALLUPPERCASE123!", ["lower"]),
+        ("NoDigitsHere!!", ["digit"]),
+        ("NoSpecial12345", ["special"]),
+        ("Aa1!" + "x" * 125, ["too_long"]),
+        (" Correct-Horse-42!", ["edge_space"]),
     ],
 )
-def test_weak_passwords_are_refused_with_a_fix(password, fix_word):
-    with pytest.raises(Invalid) as e:
-        check_password(password)
+def test_weak_passwords_list_every_unmet_rule(password, unmet):
+    with pytest.raises(PasswordWeak) as e:
+        check_password(password, POLICY)
     assert (e.value.code, e.value.status, e.value.field) == ("password_weak", 422, "password")
-    assert fix_word in e.value.fix
+    assert e.value.unmet == unmet
     assert password not in str(e.value.body())  # the password is never echoed
+    assert e.value.body()["error"]["unmet"] == unmet
+
+
+def test_a_rule_the_policy_switches_off_is_not_checked():
+    loose = Policy(10, 128, False, False, False, False, "!")
+    check_password("alllowercasewords", loose)
+
+
+def test_a_common_password_is_refused_when_the_policy_lets_it_through_otherwise():
+    loose = Policy(8, 128, False, False, False, False, "!")
+    with pytest.raises(PasswordWeak) as e:
+        check_password("Password", loose)
+    assert e.value.unmet == ["common"]
+
+
+def test_the_field_name_is_the_callers():
+    with pytest.raises(PasswordWeak) as e:
+        check_password("x", POLICY, field="new_password")
+    assert e.value.field == "new_password"
 
 
 def test_the_licence_notice_ships_next_to_the_list():

@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from make_samples import DEMO_GSTIN  # noqa: E402
 
 EMAIL = "demo@example.com"
-PASSWORD = "seven lamps under a bridge"
+PASSWORD = "Seven-Lamps-42!"
 OUTBOX = Path(os.environ.get("MAIL_OUTBOX", "/srv/build/mail/outbox.jsonl"))
 ORIGIN = "http://localhost:5173"  # the API only answers sign-in cookies for its own web origin
 
@@ -73,7 +73,7 @@ def main(base):
     if status == 200:
         token = body["access_token"]
     else:
-        need(*call(base, "POST", "/auth/signup", {"email": EMAIL}), (202,), "sign-up")
+        need(*call(base, "POST", "/auth/signup", {"email": EMAIL, "password": PASSWORD}), (202,), "sign-up")
         status, body = call(base, "POST", "/auth/signup/verify",
                             {"email": EMAIL, "code": code_for(EMAIL), "password": PASSWORD})
         token = need(status, body, (200,), "verify")["access_token"]

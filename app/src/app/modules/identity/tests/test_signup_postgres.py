@@ -13,7 +13,7 @@ from sqlalchemy import text
 
 from platform_common.authprovider import AuthRefused
 
-from .auth_env import EMAIL, auth_env, last, one, sign_up, verify
+from .auth_env import EMAIL, PASSWORD, auth_env, last, one, sign_up, verify
 from .conftest import PG_ADMIN_URL
 
 pytestmark = pytest.mark.skipif(not PG_ADMIN_URL, reason="PG_ADMIN_URL not set")
@@ -49,8 +49,8 @@ def test_sign_up_and_verify_creates_the_user_session_and_audit_row(env):
 def test_sign_up_reply_is_identical_for_a_registered_email(env):  # AC-2
     client, _, mail, _ = env
     verify(client, sign_up(client, mail).params["code"])
-    new = client.post("/api/v1/auth/signup", json={"email": "ravi@example.com"})
-    old = client.post("/api/v1/auth/signup", json={"email": EMAIL})
+    new = client.post("/api/v1/auth/signup", json={"email": "ravi@example.com", "password": PASSWORD})
+    old = client.post("/api/v1/auth/signup", json={"email": EMAIL, "password": PASSWORD})
     assert (new.status_code, new.content) == (old.status_code, old.content)
     assert (last(mail).template, last(mail).params) == ("already_registered", {})
 
@@ -110,14 +110,14 @@ def test_sixth_code_request_per_email_in_an_hour_is_429(env):  # AC-1
     client, _, mail, _ = env
     for _ in range(5):
         sign_up(client, mail)
-    r = client.post("/api/v1/auth/signup", json={"email": EMAIL.upper()})
+    r = client.post("/api/v1/auth/signup", json={"email": EMAIL.upper(), "password": PASSWORD})
     assert r.status_code == 429 and int(r.headers["retry-after"]) >= 1
 
 
 @pytest.mark.parametrize("email", ["no-at-sign", "a@b", "two@@example.com", "sp ace@example.com"])
 def test_malformed_email_is_422(env, email):
     client, _, _, _ = env
-    r = client.post("/api/v1/auth/signup", json={"email": email})
+    r = client.post("/api/v1/auth/signup", json={"email": email, "password": PASSWORD})
     assert (r.status_code, r.json()["error"]["code"]) == (422, "email_invalid")
 
 
@@ -146,7 +146,7 @@ def test_the_code_lifetime_and_tries_come_from_refdata(env, monkeypatch):
     real = limits.value_on
     monkeypatch.setattr(limits, "value_on", lambda tx, key, on: rows.get(key) or real(tx, key, on))
     for email in ("new@example.com", EMAIL):  # registered or not, the reply is the same
-        r = client.post("/api/v1/auth/signup", json={"email": email})
+        r = client.post("/api/v1/auth/signup", json={"email": email, "password": PASSWORD})
         assert (r.status_code, r.json()) == (202, {"status": "code_sent", "code_ttl_minutes": 7, "code_max_tries": 3})
     with admin.connect() as c:
         code = c.execute(
@@ -156,3 +156,24 @@ def test_the_code_lifetime_and_tries_come_from_refdata(env, monkeypatch):
             )
         ).one()
     assert code.max_tries == 3 and code.ttl.total_seconds() == 7 * 60
+
+
+def test_a_weak_password_is_refused_before_any_code_is_sent_and_lists_every_unmet_rule(env):
+    client, _, mail, admin = env
+    r = client.post("/api/v1/auth/signup", json={"email": EMAIL, "password": "shortpass"})
+    assert r.status_code == 422
+    error = r.json()["error"]
+    assert (error["code"], error["field"]) == ("password_weak", "password")
+    assert error["unmet"] == ["length", "upper", "digit", "special"]
+    assert "at least 10 characters" in error["fix"] and "shortpass" not in r.text
+    assert mail.sent == []  # no code went out
+    assert one(admin, "select count(*) from identity.pending_signups") == 0
+
+
+def test_the_password_rules_come_from_refdata_through_a_public_endpoint(env):
+    client, _, _, _ = env
+    r = client.get("/api/v1/auth/password-policy")  # no sign-in
+    assert r.status_code == 200
+    body = r.json()
+    assert (body["min_length"], body["max_length"], body["specials"]) == (10, 128, "!@#$%^&*()-_=+[]{}.,?")
+    assert [x["id"] for x in body["rules"]] == ["length", "upper", "lower", "digit", "special"]

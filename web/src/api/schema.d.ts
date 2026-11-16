@@ -4,6 +4,27 @@
  */
 
 export interface paths {
+    "/api/v1/auth/password-policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Password Policy
+         * @description The password rules in force, from refdata, so the screens never carry their own copy. Public: it is the same
+         *     for everyone and a person choosing a password is not signed in yet.
+         */
+        get: operations["password_policy_api_v1_auth_password_policy_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/refresh": {
         parameters: {
             query?: never;
@@ -2213,6 +2234,8 @@ export interface components {
             fix?: string | null;
             /** Message */
             message: string;
+            /** Unmet */
+            unmet?: string[] | null;
         };
         /** ErrorOut */
         ErrorOut: {
@@ -2742,6 +2765,24 @@ export interface components {
             current_password: string;
             /** New Password */
             new_password: string;
+        };
+        /** PasswordPolicyOut */
+        PasswordPolicyOut: {
+            /** Max Length */
+            max_length: number;
+            /** Min Length */
+            min_length: number;
+            /** Rules */
+            rules: components["schemas"]["PasswordRuleOut"][];
+            /** Specials */
+            specials: string;
+        };
+        /** PasswordRuleOut */
+        PasswordRuleOut: {
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
         };
         /** PasswordSetOut */
         PasswordSetOut: {
@@ -3309,6 +3350,13 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** SignupBody */
+        SignupBody: {
+            /** Email */
+            email: string;
+            /** Password */
+            password: string;
+        };
         /** StateCode */
         StateCode: {
             /** Code */
@@ -3593,6 +3641,26 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    password_policy_api_v1_auth_password_policy_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasswordPolicyOut"];
+                };
+            };
+        };
+    };
     refresh_api_v1_auth_refresh_post: {
         parameters: {
             query?: never;
@@ -3853,7 +3921,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["EmailBody"];
+                "application/json": components["schemas"]["SignupBody"];
             };
         };
         responses: {
