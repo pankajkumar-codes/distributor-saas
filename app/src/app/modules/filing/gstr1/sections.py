@@ -50,6 +50,23 @@ PENDING = (
 )
 QUARTER_PENDING = "gstr1-examples Part B [CA]: the quarter's Table 12 covers its IFF months"
 
+# What a business owner reads for each item above: (stable code, plain sentence). Provisional product copy,
+# to be reviewed with the CA; the team's wording above stays as the record of what is being asked.
+_PLAIN = (
+    ("credit_notes_in_hsn", "Credit notes are taken off in the HSN summary. Your CA should confirm this."),
+    ("row_tax_rounding", "The tax on each row is the sum of the tax on your invoice lines. Your CA should confirm"
+                         " how it should be rounded."),
+    ("hsn_quantity_decimals", "Quantities in the HSN summary keep three decimal places here, and the file you upload"
+                              " later may round them. Your CA should confirm this."),
+    ("negative_consumer_sales", "A consumer sale that adds up to a negative amount for one state is kept here."
+                                " The GST offline tool may not accept it. Ask your CA what to do with it."),
+    ("own_sales_not_via_operator", "Your own sales are shown as ordinary sales, not as sales made through an"
+                                   " e-commerce operator. Your CA should confirm this."),
+    ("quarter_hsn_covers_months", "For a quarterly filer, the HSN summary for the quarter also covers the invoices"
+                                  " reported month by month. Your CA should confirm this."),
+)  # fmt: skip
+PENDING_PLAIN = dict(zip((*PENDING, QUARTER_PENDING), _PLAIN, strict=True))
+
 
 class BadSupplyLine(ValueError):
     """A supply line the builder must not guess about (CLAUDE.md rule 10)."""

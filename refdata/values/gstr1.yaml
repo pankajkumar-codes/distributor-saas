@@ -36,3 +36,16 @@
   last_checked: 2026-10-24
   status: provisional
   note: "Comparison >. Offline tool V3.2.4 enforces > 100000 (template b2cl validation)."
+
+# Whether a B2CS row that nets negative may be exported (LLD-5 C-12, RM45-13). Product flag: false until QA confirms the
+# offline tool takes a negative B2CS row; flipped by a refdata PR when it does. Check C-12 reads it.
+- key: gstr1_offline.allow_negative_b2cs
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2017-07-01
+  source_url: team/docs/lld-5.md
+  source_title: "LLD-5 §6 C-12 and QA open item 3: default false"
+  last_checked: 2026-11-16
+  status: provisional
+  note: "False: a negative B2CS row is reported as a block. QA open item 3 (does the offline tool import a negative B2CS row) decides."

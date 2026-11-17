@@ -1,6 +1,57 @@
 {
   "components": {
     "schemas": {
+      "AcceptFindingIn": {
+        "properties": {
+          "check_code": {
+            "pattern": "^[A-Z]-[0-9]{2}$",
+            "title": "Check Code",
+            "type": "string"
+          },
+          "note": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Note",
+            "type": "string"
+          },
+          "subject_fp": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Fp"
+          }
+        },
+        "required": [
+          "check_code",
+          "note"
+        ],
+        "title": "AcceptFindingIn",
+        "type": "object"
+      },
+      "AcceptFindingOut": {
+        "properties": {
+          "accepted": {
+            "title": "Accepted",
+            "type": "integer"
+          },
+          "check_code": {
+            "title": "Check Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "check_code",
+          "accepted"
+        ],
+        "title": "AcceptFindingOut",
+        "type": "object"
+      },
       "AcceptOut": {
         "properties": {
           "business_id": {
@@ -299,7 +350,7 @@
         "type": "object"
       },
       "AuditExportIn": {
-        "description": "The screen's filters; the period follows the list's rules (both ends included,\n`to` defaults to today, at most MAX_RANGE_DAYS).",
+        "description": "The screen's filters; the period follows the list's rules (both ends included,\n`to` defaults to today, 1 to AUDIT_MAX_DAYS days, none in the future).",
         "properties": {
           "actor": {
             "anyOf": [
@@ -501,6 +552,338 @@
         "title": "AuditRowOut",
         "type": "object"
       },
+      "B2BPage": {
+        "properties": {
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/B2BRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "section": {
+            "const": "b2b",
+            "title": "Section",
+            "type": "string"
+          }
+        },
+        "required": [
+          "has_more",
+          "next_cursor",
+          "fingerprint",
+          "section",
+          "rows"
+        ],
+        "title": "B2BPage",
+        "type": "object"
+      },
+      "B2BRowOut": {
+        "properties": {
+          "cess": {
+            "title": "Cess",
+            "type": "string"
+          },
+          "cgst": {
+            "title": "Cgst",
+            "type": "string"
+          },
+          "igst": {
+            "title": "Igst",
+            "type": "string"
+          },
+          "invoice_date": {
+            "title": "Invoice Date",
+            "type": "string"
+          },
+          "invoice_number": {
+            "title": "Invoice Number",
+            "type": "string"
+          },
+          "invoice_value": {
+            "title": "Invoice Value",
+            "type": "string"
+          },
+          "pos_state_code": {
+            "title": "Pos State Code",
+            "type": "string"
+          },
+          "rate": {
+            "title": "Rate",
+            "type": "string"
+          },
+          "recipient_gstin": {
+            "title": "Recipient Gstin",
+            "type": "string"
+          },
+          "recipient_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipient Name"
+          },
+          "sgst": {
+            "title": "Sgst",
+            "type": "string"
+          },
+          "source_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Refs",
+            "type": "array"
+          },
+          "taxable_value": {
+            "title": "Taxable Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "taxable_value",
+          "igst",
+          "cgst",
+          "sgst",
+          "cess",
+          "source_refs",
+          "recipient_gstin",
+          "recipient_name",
+          "invoice_number",
+          "invoice_date",
+          "invoice_value",
+          "pos_state_code",
+          "rate"
+        ],
+        "title": "B2BRowOut",
+        "type": "object"
+      },
+      "B2CLPage": {
+        "properties": {
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/B2CLRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "section": {
+            "const": "b2cl",
+            "title": "Section",
+            "type": "string"
+          }
+        },
+        "required": [
+          "has_more",
+          "next_cursor",
+          "fingerprint",
+          "section",
+          "rows"
+        ],
+        "title": "B2CLPage",
+        "type": "object"
+      },
+      "B2CLRowOut": {
+        "properties": {
+          "cess": {
+            "title": "Cess",
+            "type": "string"
+          },
+          "cgst": {
+            "title": "Cgst",
+            "type": "string"
+          },
+          "igst": {
+            "title": "Igst",
+            "type": "string"
+          },
+          "invoice_date": {
+            "title": "Invoice Date",
+            "type": "string"
+          },
+          "invoice_number": {
+            "title": "Invoice Number",
+            "type": "string"
+          },
+          "invoice_value": {
+            "title": "Invoice Value",
+            "type": "string"
+          },
+          "pos_state_code": {
+            "title": "Pos State Code",
+            "type": "string"
+          },
+          "rate": {
+            "title": "Rate",
+            "type": "string"
+          },
+          "sgst": {
+            "title": "Sgst",
+            "type": "string"
+          },
+          "source_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Refs",
+            "type": "array"
+          },
+          "taxable_value": {
+            "title": "Taxable Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "taxable_value",
+          "igst",
+          "cgst",
+          "sgst",
+          "cess",
+          "source_refs",
+          "invoice_number",
+          "invoice_date",
+          "invoice_value",
+          "pos_state_code",
+          "rate"
+        ],
+        "title": "B2CLRowOut",
+        "type": "object"
+      },
+      "B2CSPage": {
+        "properties": {
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/B2CSRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "section": {
+            "const": "b2cs",
+            "title": "Section",
+            "type": "string"
+          }
+        },
+        "required": [
+          "has_more",
+          "next_cursor",
+          "fingerprint",
+          "section",
+          "rows"
+        ],
+        "title": "B2CSPage",
+        "type": "object"
+      },
+      "B2CSRowOut": {
+        "properties": {
+          "cess": {
+            "title": "Cess",
+            "type": "string"
+          },
+          "cgst": {
+            "title": "Cgst",
+            "type": "string"
+          },
+          "igst": {
+            "title": "Igst",
+            "type": "string"
+          },
+          "pos_state_code": {
+            "title": "Pos State Code",
+            "type": "string"
+          },
+          "rate": {
+            "title": "Rate",
+            "type": "string"
+          },
+          "sgst": {
+            "title": "Sgst",
+            "type": "string"
+          },
+          "source_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Refs",
+            "type": "array"
+          },
+          "taxable_value": {
+            "title": "Taxable Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "taxable_value",
+          "igst",
+          "cgst",
+          "sgst",
+          "cess",
+          "source_refs",
+          "pos_state_code",
+          "rate"
+        ],
+        "title": "B2CSRowOut",
+        "type": "object"
+      },
       "BlockerOut": {
         "properties": {
           "ca_items": {
@@ -538,6 +921,324 @@
           "ca_items"
         ],
         "title": "BlockerOut",
+        "type": "object"
+      },
+      "CDNRPage": {
+        "properties": {
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/CDNRRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "section": {
+            "const": "cdnr",
+            "title": "Section",
+            "type": "string"
+          }
+        },
+        "required": [
+          "has_more",
+          "next_cursor",
+          "fingerprint",
+          "section",
+          "rows"
+        ],
+        "title": "CDNRPage",
+        "type": "object"
+      },
+      "CDNRRowOut": {
+        "properties": {
+          "cess": {
+            "title": "Cess",
+            "type": "string"
+          },
+          "cgst": {
+            "title": "Cgst",
+            "type": "string"
+          },
+          "igst": {
+            "title": "Igst",
+            "type": "string"
+          },
+          "note_date": {
+            "title": "Note Date",
+            "type": "string"
+          },
+          "note_number": {
+            "title": "Note Number",
+            "type": "string"
+          },
+          "note_type": {
+            "title": "Note Type",
+            "type": "string"
+          },
+          "note_value": {
+            "title": "Note Value",
+            "type": "string"
+          },
+          "original_doc_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Doc Date"
+          },
+          "original_doc_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Doc Number"
+          },
+          "pos_state_code": {
+            "title": "Pos State Code",
+            "type": "string"
+          },
+          "rate": {
+            "title": "Rate",
+            "type": "string"
+          },
+          "recipient_gstin": {
+            "title": "Recipient Gstin",
+            "type": "string"
+          },
+          "recipient_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipient Name"
+          },
+          "sgst": {
+            "title": "Sgst",
+            "type": "string"
+          },
+          "source_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Refs",
+            "type": "array"
+          },
+          "taxable_value": {
+            "title": "Taxable Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "taxable_value",
+          "igst",
+          "cgst",
+          "sgst",
+          "cess",
+          "source_refs",
+          "recipient_gstin",
+          "recipient_name",
+          "note_number",
+          "note_date",
+          "note_value",
+          "pos_state_code",
+          "rate",
+          "original_doc_number",
+          "original_doc_date",
+          "note_type"
+        ],
+        "title": "CDNRRowOut",
+        "type": "object"
+      },
+      "CDNURPage": {
+        "properties": {
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/CDNURRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "section": {
+            "const": "cdnur",
+            "title": "Section",
+            "type": "string"
+          }
+        },
+        "required": [
+          "has_more",
+          "next_cursor",
+          "fingerprint",
+          "section",
+          "rows"
+        ],
+        "title": "CDNURPage",
+        "type": "object"
+      },
+      "CDNURRowOut": {
+        "properties": {
+          "cess": {
+            "title": "Cess",
+            "type": "string"
+          },
+          "cgst": {
+            "title": "Cgst",
+            "type": "string"
+          },
+          "igst": {
+            "title": "Igst",
+            "type": "string"
+          },
+          "note_date": {
+            "title": "Note Date",
+            "type": "string"
+          },
+          "note_number": {
+            "title": "Note Number",
+            "type": "string"
+          },
+          "note_type": {
+            "title": "Note Type",
+            "type": "string"
+          },
+          "note_value": {
+            "title": "Note Value",
+            "type": "string"
+          },
+          "original_doc_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Doc Date"
+          },
+          "original_doc_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Doc Number"
+          },
+          "pos_state_code": {
+            "title": "Pos State Code",
+            "type": "string"
+          },
+          "rate": {
+            "title": "Rate",
+            "type": "string"
+          },
+          "sgst": {
+            "title": "Sgst",
+            "type": "string"
+          },
+          "source_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Refs",
+            "type": "array"
+          },
+          "taxable_value": {
+            "title": "Taxable Value",
+            "type": "string"
+          },
+          "ur_type": {
+            "title": "Ur Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "taxable_value",
+          "igst",
+          "cgst",
+          "sgst",
+          "cess",
+          "source_refs",
+          "note_number",
+          "note_date",
+          "note_value",
+          "pos_state_code",
+          "rate",
+          "original_doc_number",
+          "original_doc_date",
+          "note_type",
+          "ur_type"
+        ],
+        "title": "CDNURRowOut",
+        "type": "object"
+      },
+      "CaFlagOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "text"
+        ],
+        "title": "CaFlagOut",
         "type": "object"
       },
       "CashBuyerIn": {
@@ -1461,6 +2162,31 @@
         "title": "CustomerPatch",
         "type": "object"
       },
+      "DebitNotesOut": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "notice": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notice"
+          }
+        },
+        "required": [
+          "count",
+          "notice"
+        ],
+        "title": "DebitNotesOut",
+        "type": "object"
+      },
       "DifferenceOut": {
         "properties": {
           "excel": {
@@ -2167,6 +2893,33 @@
         "title": "EwayIn",
         "type": "object"
       },
+      "ExportGateOut": {
+        "description": "Whether an export could start now, and why not (R1-M8). Nothing is exported by this read.",
+        "properties": {
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "reasons": {
+            "items": {
+              "$ref": "#/components/schemas/ReasonOut"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "to_accept": {
+            "title": "To Accept",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ready",
+          "reasons",
+          "to_accept"
+        ],
+        "title": "ExportGateOut",
+        "type": "object"
+      },
       "FilingProfileOut": {
         "properties": {
           "current": {
@@ -2216,6 +2969,95 @@
           "warnings"
         ],
         "title": "FilingProfileOut",
+        "type": "object"
+      },
+      "FindingGroupOut": {
+        "properties": {
+          "accepted": {
+            "title": "Accepted",
+            "type": "integer"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "level": {
+            "enum": [
+              "block",
+              "warn",
+              "info"
+            ],
+            "title": "Level",
+            "type": "string"
+          },
+          "needs_ca_check": {
+            "title": "Needs Ca Check",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "code",
+          "accepted",
+          "level",
+          "count",
+          "needs_ca_check"
+        ],
+        "title": "FindingGroupOut",
+        "type": "object"
+      },
+      "FindingOut": {
+        "properties": {
+          "accepted": {
+            "title": "Accepted",
+            "type": "boolean"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "level": {
+            "enum": [
+              "block",
+              "warn",
+              "info"
+            ],
+            "title": "Level",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "needs_ca_check": {
+            "title": "Needs Ca Check",
+            "type": "boolean"
+          },
+          "source_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Refs",
+            "type": "array"
+          },
+          "subject_fp": {
+            "title": "Subject Fp",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "level",
+          "message",
+          "source_refs",
+          "subject_fp",
+          "needs_ca_check",
+          "accepted"
+        ],
+        "title": "FindingOut",
         "type": "object"
       },
       "FrequencyIn": {
@@ -2449,6 +3291,67 @@
         "title": "GstRatesOut",
         "type": "object"
       },
+      "HSNRowOut": {
+        "properties": {
+          "cess": {
+            "title": "Cess",
+            "type": "string"
+          },
+          "cgst": {
+            "title": "Cgst",
+            "type": "string"
+          },
+          "hsn": {
+            "title": "Hsn",
+            "type": "string"
+          },
+          "igst": {
+            "title": "Igst",
+            "type": "string"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "string"
+          },
+          "rate": {
+            "title": "Rate",
+            "type": "string"
+          },
+          "sgst": {
+            "title": "Sgst",
+            "type": "string"
+          },
+          "source_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Refs",
+            "type": "array"
+          },
+          "taxable_value": {
+            "title": "Taxable Value",
+            "type": "string"
+          },
+          "uqc": {
+            "title": "Uqc",
+            "type": "string"
+          }
+        },
+        "required": [
+          "taxable_value",
+          "igst",
+          "cgst",
+          "sgst",
+          "cess",
+          "source_refs",
+          "hsn",
+          "uqc",
+          "rate",
+          "quantity"
+        ],
+        "title": "HSNRowOut",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -2460,6 +3363,39 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "Heads": {
+        "properties": {
+          "cess": {
+            "title": "Cess",
+            "type": "string"
+          },
+          "cgst": {
+            "title": "Cgst",
+            "type": "string"
+          },
+          "igst": {
+            "title": "Igst",
+            "type": "string"
+          },
+          "sgst": {
+            "title": "Sgst",
+            "type": "string"
+          },
+          "taxable_value": {
+            "title": "Taxable Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "taxable_value",
+          "igst",
+          "cgst",
+          "sgst",
+          "cess"
+        ],
+        "title": "Heads",
         "type": "object"
       },
       "HomeOut": {
@@ -2532,6 +3468,94 @@
           "attention"
         ],
         "title": "HomeOut",
+        "type": "object"
+      },
+      "HsnB2bPage": {
+        "properties": {
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/HSNRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "section": {
+            "const": "hsn_b2b",
+            "title": "Section",
+            "type": "string"
+          }
+        },
+        "required": [
+          "has_more",
+          "next_cursor",
+          "fingerprint",
+          "section",
+          "rows"
+        ],
+        "title": "HsnB2bPage",
+        "type": "object"
+      },
+      "HsnB2cPage": {
+        "properties": {
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/HSNRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "section": {
+            "const": "hsn_b2c",
+            "title": "Section",
+            "type": "string"
+          }
+        },
+        "required": [
+          "has_more",
+          "next_cursor",
+          "fingerprint",
+          "section",
+          "rows"
+        ],
+        "title": "HsnB2cPage",
         "type": "object"
       },
       "ImportOut": {
@@ -4802,6 +5826,30 @@
         "title": "ReadinessOut",
         "type": "object"
       },
+      "ReasonOut": {
+        "properties": {
+          "code": {
+            "enum": [
+              "not_open",
+              "blocks",
+              "debit_notes",
+              "reconciliation"
+            ],
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ReasonOut",
+        "type": "object"
+      },
       "RecoveryBody": {
         "properties": {
           "email": {
@@ -5054,6 +6102,100 @@
           "note"
         ],
         "title": "ResolveIn",
+        "type": "object"
+      },
+      "ReturnDetailOut": {
+        "properties": {
+          "banner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Banner"
+          },
+          "ca_flags": {
+            "items": {
+              "$ref": "#/components/schemas/CaFlagOut"
+            },
+            "title": "Ca Flags",
+            "type": "array"
+          },
+          "debit_notes": {
+            "$ref": "#/components/schemas/DebitNotesOut"
+          },
+          "draft": {
+            "title": "Draft",
+            "type": "boolean"
+          },
+          "export": {
+            "$ref": "#/components/schemas/ExportGateOut"
+          },
+          "finding_groups": {
+            "items": {
+              "$ref": "#/components/schemas/FindingGroupOut"
+            },
+            "title": "Finding Groups",
+            "type": "array"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/FindingOut"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "instance": {
+            "$ref": "#/components/schemas/ReturnOut"
+          },
+          "line_items": {
+            "title": "Line Items",
+            "type": "integer"
+          },
+          "members_count": {
+            "title": "Members Count",
+            "type": "integer"
+          },
+          "report_only": {
+            "const": true,
+            "default": true,
+            "title": "Report Only",
+            "type": "boolean"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/app__modules__filing__api__SectionOut"
+            },
+            "title": "Sections",
+            "type": "array"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/TotalsOut"
+          }
+        },
+        "required": [
+          "instance",
+          "draft",
+          "banner",
+          "fingerprint",
+          "line_items",
+          "members_count",
+          "totals",
+          "sections",
+          "debit_notes",
+          "ca_flags",
+          "findings",
+          "finding_groups",
+          "export"
+        ],
+        "title": "ReturnDetailOut",
         "type": "object"
       },
       "ReturnOut": {
@@ -5495,77 +6637,11 @@
         "title": "RunOut",
         "type": "object"
       },
-      "SectionOut": {
-        "properties": {
-          "enabled": {
-            "title": "Enabled",
-            "type": "boolean"
-          },
-          "held_rows": {
-            "title": "Held Rows",
-            "type": "integer"
-          },
-          "needs_ca_check": {
-            "title": "Needs Ca Check",
-            "type": "boolean"
-          },
-          "requirement_note": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Requirement Note"
-          },
-          "section": {
-            "enum": [
-              "amazon",
-              "flipkart",
-              "meesho",
-              "own_invoices_excel",
-              "own_invoices_pdf"
-            ],
-            "title": "Section",
-            "type": "string"
-          },
-          "status": {
-            "enum": [
-              "not uploaded",
-              "processing",
-              "ready",
-              "rows held"
-            ],
-            "title": "Status",
-            "type": "string"
-          },
-          "uploads": {
-            "items": {
-              "$ref": "#/components/schemas/app__modules__imports__api__UploadOut"
-            },
-            "title": "Uploads",
-            "type": "array"
-          }
-        },
-        "required": [
-          "section",
-          "enabled",
-          "status",
-          "uploads",
-          "held_rows",
-          "needs_ca_check",
-          "requirement_note"
-        ],
-        "title": "SectionOut",
-        "type": "object"
-      },
       "SectionsOut": {
         "properties": {
           "sections": {
             "items": {
-              "$ref": "#/components/schemas/SectionOut"
+              "$ref": "#/components/schemas/app__modules__imports__api__SectionOut"
             },
             "title": "Sections",
             "type": "array"
@@ -5928,6 +7004,26 @@
           "role"
         ],
         "title": "TenantOut",
+        "type": "object"
+      },
+      "TotalsOut": {
+        "properties": {
+          "gap": {
+            "$ref": "#/components/schemas/Heads"
+          },
+          "liability": {
+            "$ref": "#/components/schemas/Heads"
+          },
+          "table_12": {
+            "$ref": "#/components/schemas/Heads"
+          }
+        },
+        "required": [
+          "liability",
+          "table_12",
+          "gap"
+        ],
+        "title": "TotalsOut",
         "type": "object"
       },
       "TotpBody": {
@@ -6378,6 +7474,37 @@
         "title": "ReasonIn",
         "type": "object"
       },
+      "app__modules__filing__api__SectionOut": {
+        "properties": {
+          "name": {
+            "enum": [
+              "b2b",
+              "b2cl",
+              "b2cs",
+              "cdnr",
+              "cdnur",
+              "hsn_b2b",
+              "hsn_b2c"
+            ],
+            "title": "Name",
+            "type": "string"
+          },
+          "rows_count": {
+            "title": "Rows Count",
+            "type": "integer"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/Heads"
+          }
+        },
+        "required": [
+          "name",
+          "rows_count",
+          "totals"
+        ],
+        "title": "SectionOut",
+        "type": "object"
+      },
       "app__modules__identity__api_team__ReasonIn": {
         "properties": {
           "reason": {
@@ -6409,6 +7536,72 @@
           }
         },
         "title": "ConfirmIn",
+        "type": "object"
+      },
+      "app__modules__imports__api__SectionOut": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "held_rows": {
+            "title": "Held Rows",
+            "type": "integer"
+          },
+          "needs_ca_check": {
+            "title": "Needs Ca Check",
+            "type": "boolean"
+          },
+          "requirement_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requirement Note"
+          },
+          "section": {
+            "enum": [
+              "amazon",
+              "flipkart",
+              "meesho",
+              "own_invoices_excel",
+              "own_invoices_pdf"
+            ],
+            "title": "Section",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "not uploaded",
+              "processing",
+              "ready",
+              "rows held"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "uploads": {
+            "items": {
+              "$ref": "#/components/schemas/app__modules__imports__api__UploadOut"
+            },
+            "title": "Uploads",
+            "type": "array"
+          }
+        },
+        "required": [
+          "section",
+          "enabled",
+          "status",
+          "uploads",
+          "held_rows",
+          "needs_ca_check",
+          "requirement_note"
+        ],
+        "title": "SectionOut",
         "type": "object"
       },
       "app__modules__imports__api__UploadOut": {
@@ -10517,6 +11710,230 @@
           }
         },
         "summary": "List Returns",
+        "tags": [
+          "filing"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/returns/{instance_id}": {
+      "get": {
+        "operationId": "get_return_api_v1_b__business_id__returns__instance_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "instance_id",
+            "required": true,
+            "schema": {
+              "title": "Instance Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReturnDetailOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Return",
+        "tags": [
+          "filing"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/returns/{instance_id}/check-acceptances": {
+      "post": {
+        "operationId": "accept_finding_api_v1_b__business_id__returns__instance_id__check_acceptances_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "instance_id",
+            "required": true,
+            "schema": {
+              "title": "Instance Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptFindingIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcceptFindingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Accept Finding",
+        "tags": [
+          "filing"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/returns/{instance_id}/sections/{section}": {
+      "get": {
+        "operationId": "get_section_api_v1_b__business_id__returns__instance_id__sections__section__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "instance_id",
+            "required": true,
+            "schema": {
+              "title": "Instance Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "section",
+            "required": true,
+            "schema": {
+              "title": "Section",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 12,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "discriminator": {
+                    "mapping": {
+                      "b2b": "#/components/schemas/B2BPage",
+                      "b2cl": "#/components/schemas/B2CLPage",
+                      "b2cs": "#/components/schemas/B2CSPage",
+                      "cdnr": "#/components/schemas/CDNRPage",
+                      "cdnur": "#/components/schemas/CDNURPage",
+                      "hsn_b2b": "#/components/schemas/HsnB2bPage",
+                      "hsn_b2c": "#/components/schemas/HsnB2cPage"
+                    },
+                    "propertyName": "section"
+                  },
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/B2BPage"
+                    },
+                    {
+                      "$ref": "#/components/schemas/B2CLPage"
+                    },
+                    {
+                      "$ref": "#/components/schemas/B2CSPage"
+                    },
+                    {
+                      "$ref": "#/components/schemas/CDNRPage"
+                    },
+                    {
+                      "$ref": "#/components/schemas/CDNURPage"
+                    },
+                    {
+                      "$ref": "#/components/schemas/HsnB2bPage"
+                    },
+                    {
+                      "$ref": "#/components/schemas/HsnB2cPage"
+                    }
+                  ],
+                  "title": "Response Get Section Api V1 B  Business Id  Returns  Instance Id  Sections  Section  Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Section",
         "tags": [
           "filing"
         ]

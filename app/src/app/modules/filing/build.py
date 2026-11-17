@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 from app.modules.refdata import uqc_codes
 
 from .gstr1 import Amounts, Gstr1Sections, SupplyLine, build_sections
-from .gstr1.sections import hsn_total, liability, reconciliation_gap
+from .gstr1.sections import PENDING_PLAIN, hsn_total, liability, reconciliation_gap
 from .periods import BOUND, ReturnInstance, instances_between
 
 _LINE_COLUMNS = (
@@ -62,6 +62,7 @@ class ReturnBuild:
     ca_flags: tuple[CaFlag, ...]
     debit_notes: int  # confirmed debit notes dated in this period that are not in the return
     draft: bool  # a return is a draft until it is marked filed and locked
+    lines: tuple[SupplyLine, ...] = ()  # every member line (liability and Table 12), for the checks
 
 
 def build_return(tx: Session, instance: ReturnInstance) -> ReturnBuild:
@@ -98,6 +99,7 @@ def build_return(tx: Session, instance: ReturnInstance) -> ReturnBuild:
         ca_flags=_flags(tx, instance, all_lines, sections, debit_notes),
         debit_notes=debit_notes,
         draft=instance.status != "filed_locked",
+        lines=tuple(all_lines),
     )
 
 
@@ -162,7 +164,7 @@ def _debit_notes(tx: Session, instance: ReturnInstance) -> int:
 def _flags(
     tx: Session, instance: ReturnInstance, lines: list[SupplyLine], sections: Gstr1Sections, debit_notes: int
 ) -> tuple[CaFlag, ...]:
-    flags = [CaFlag("pending", t) for t in sections.pending]
+    flags = [CaFlag(*PENDING_PLAIN[t]) for t in sections.pending]  # plain words; the team text stays in sections.py
     if debit_notes:
         flags.append(CaFlag("debit_notes_unsummed", f"{debit_notes} debit note(s) are not in this return yet: needs CA check."))
     flags += [CaFlag(code, t) for code, t in M7_OMISSIONS if code != "debit_notes" or not debit_notes]

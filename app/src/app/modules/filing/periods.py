@@ -139,6 +139,14 @@ def _instance(r, rolled_forward_from=None) -> ReturnInstance:
     )  # fmt: skip
 
 
+def get_instance(tx: Session, instance_id: uuid.UUID) -> ReturnInstance | None:
+    """This business's instance by id (RLS and the bound business both apply), or None."""
+    r = tx.execute(
+        text(f"select {_COLUMNS} from filing.return_instances where {BOUND} and id = :id"), {"id": instance_id}
+    ).one_or_none()
+    return None if r is None else _instance(r)
+
+
 def filer_on(tx: Session, gstin: str, on: date) -> Literal["monthly", "qrmp"]:
     row = filing_frequency_on(tx, gstin, on)
     if row is None:

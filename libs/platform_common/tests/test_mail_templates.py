@@ -10,6 +10,7 @@ PARAMS = {
     "signup_code": {"code": "042424"},
     "reset_code": {"code": "042424"},
     "totp_recovery_code": {"code": "042424"},
+    "demo_totp_code": {"code": "042424"},
     "invitation": {"business_name": "Vashi Essentials", "inviter_name": "Asha", "role_label": "Billing",
                    "link": "https://app.example.in/invite/t0ken"},
 }

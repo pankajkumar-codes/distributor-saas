@@ -66,6 +66,22 @@ def test_a_retried_code_request_replaces_the_first_code_and_never_locks_the_user
     assert verify(client, second).status_code == 200
 
 
+def test_the_routes_anyone_can_call_read_the_policy_once_a_minute_not_per_request(env, monkeypatch):
+    from app.modules.identity.service import passwords
+
+    client, _, mail, _ = env
+    passwords.clear_policy_cache()
+    reads = []
+    real = passwords.read_policy
+    monkeypatch.setattr(passwords, "read_policy", lambda *a, **k: reads.append(1) or real(*a, **k))
+    for _ in range(3):  # sign-up request and verify, and a reset verify, all with a weak password
+        client.post("/api/v1/auth/signup", json={"email": EMAIL, "password": "short"})
+        client.post("/api/v1/auth/signup/verify", json={"email": EMAIL, "code": "000000", "password": "short"})
+        client.post("/api/v1/auth/reset/verify", json={"email": EMAIL, "code": "000000", "new_password": "short"})
+    assert len(reads) == 1 and mail.sent == []
+    passwords.clear_policy_cache()
+
+
 def test_weak_password_spends_no_try_and_wrong_code_does(env):  # AC-3
     client, _, mail, admin = env
     code = sign_up(client, mail).params["code"]

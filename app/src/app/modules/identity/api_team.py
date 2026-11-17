@@ -32,7 +32,7 @@ from platform_common.errors import AppError, Conflict, Deny, Invalid, RateLimite
 from platform_common.idempotency import run_once
 from platform_common.ids import uuid7
 from platform_common.mailer import Mailer, send_after_commit
-from platform_common.paging import DateRange, PageParams, date_range, page_params
+from platform_common.paging import DateRange, PageParams, bounded_range, page_params
 from platform_common.permissions import Permission, Role, has_permission, matrix, require, require_reason
 from platform_common.uow import BusinessUoW, MeUoW, UnitOfWork, parse_id
 
@@ -48,6 +48,17 @@ router = APIRouter(tags=["team"])
 INVITE_EXPIRY_DAYS = 7  # identity.invite_expiry_days
 INVITES_PER_BUSINESS_PER_DAY = 20  # identity.invites_per_business_per_day
 AUDIT_PAGE = 50
+AUDIT_DEFAULT_DAYS = 7  # no period given: the last 7 days
+AUDIT_MAX_DAYS = 31  # a period is 1 to 31 days, none in the future (D-065)
+
+
+def audit_range(
+    date_from: date | None = Query(None, alias="from"),
+    date_to: date | None = Query(None, alias="to"),
+    clock: Clock = Depends(get_clock),
+) -> DateRange:
+    return bounded_range(date_from, date_to, clock.today(), default_days=AUDIT_DEFAULT_DAYS, max_days=AUDIT_MAX_DAYS)
+
 
 ROLE_LABELS = {"owner": "Owner", "admin": "Admin", "billing": "Billing", "ca": "CA"}
 
@@ -616,7 +627,7 @@ def audit_log(
     cursor: str | None = Query(None, max_length=200),
     kind: AuditKind | None = None,
     actor: uuid.UUID | None = None,
-    dates: DateRange = Depends(date_range),
+    dates: DateRange = Depends(audit_range),
 ):
     """Newest first, AUDIT_PAGE rows a page. Periods are Indian dates, both ends included."""
     bid = _business(uow)
@@ -634,7 +645,7 @@ def audit_log(
 
 class AuditExportIn(BaseModel):
     """The screen's filters; the period follows the list's rules (both ends included,
-    `to` defaults to today, at most MAX_RANGE_DAYS)."""
+    `to` defaults to today, 1 to AUDIT_MAX_DAYS days, none in the future)."""
 
     kind: AuditKind | None = None
     actor: uuid.UUID | None = None
@@ -668,7 +679,7 @@ def export_audit_log(
 ):
     """Queues the CSV of what the list shows for these filters. The export is logged as
     `audit.export` in the same unit of work; poll GET .../exports/{job_id}."""
-    dates = date_range(body.date_from, body.date_to, clock)
+    dates = audit_range(body.date_from, body.date_to, clock)
     filters = audit_log_service.Filters(body.kind, body.actor, dates.date_from, dates.date_to)
     return run_once(
         uow.tx,

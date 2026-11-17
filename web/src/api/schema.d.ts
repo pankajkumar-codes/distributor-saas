@@ -984,6 +984,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/returns/{instance_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Return */
+        get: operations["get_return_api_v1_b__business_id__returns__instance_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/returns/{instance_id}/check-acceptances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept Finding */
+        post: operations["accept_finding_api_v1_b__business_id__returns__instance_id__check_acceptances_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/returns/{instance_id}/sections/{section}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Section */
+        get: operations["get_section_api_v1_b__business_id__returns__instance_id__sections__section__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/rows/{row_id}/resolve": {
         parameters: {
             query?: never;
@@ -1637,6 +1688,22 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AcceptFindingIn */
+        AcceptFindingIn: {
+            /** Check Code */
+            check_code: string;
+            /** Note */
+            note: string;
+            /** Subject Fp */
+            subject_fp?: string | null;
+        };
+        /** AcceptFindingOut */
+        AcceptFindingOut: {
+            /** Accepted */
+            accepted: number;
+            /** Check Code */
+            check_code: string;
+        };
         /** AcceptOut */
         AcceptOut: {
             /**
@@ -1718,7 +1785,7 @@ export interface components {
         /**
          * AuditExportIn
          * @description The screen's filters; the period follows the list's rules (both ends included,
-         *     `to` defaults to today, at most MAX_RANGE_DAYS).
+         *     `to` defaults to today, 1 to AUDIT_MAX_DAYS days, none in the future).
          */
         AuditExportIn: {
             /** Actor */
@@ -1776,6 +1843,127 @@ export interface components {
             reason: string | null;
             target: components["schemas"]["Target"];
         };
+        /** B2BPage */
+        B2BPage: {
+            /** Fingerprint */
+            fingerprint: string;
+            /** Has More */
+            has_more: boolean;
+            /** Next Cursor */
+            next_cursor: string | null;
+            /** Rows */
+            rows: components["schemas"]["B2BRowOut"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            section: "b2b";
+        };
+        /** B2BRowOut */
+        B2BRowOut: {
+            /** Cess */
+            cess: string;
+            /** Cgst */
+            cgst: string;
+            /** Igst */
+            igst: string;
+            /** Invoice Date */
+            invoice_date: string;
+            /** Invoice Number */
+            invoice_number: string;
+            /** Invoice Value */
+            invoice_value: string;
+            /** Pos State Code */
+            pos_state_code: string;
+            /** Rate */
+            rate: string;
+            /** Recipient Gstin */
+            recipient_gstin: string;
+            /** Recipient Name */
+            recipient_name: string | null;
+            /** Sgst */
+            sgst: string;
+            /** Source Refs */
+            source_refs: string[];
+            /** Taxable Value */
+            taxable_value: string;
+        };
+        /** B2CLPage */
+        B2CLPage: {
+            /** Fingerprint */
+            fingerprint: string;
+            /** Has More */
+            has_more: boolean;
+            /** Next Cursor */
+            next_cursor: string | null;
+            /** Rows */
+            rows: components["schemas"]["B2CLRowOut"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            section: "b2cl";
+        };
+        /** B2CLRowOut */
+        B2CLRowOut: {
+            /** Cess */
+            cess: string;
+            /** Cgst */
+            cgst: string;
+            /** Igst */
+            igst: string;
+            /** Invoice Date */
+            invoice_date: string;
+            /** Invoice Number */
+            invoice_number: string;
+            /** Invoice Value */
+            invoice_value: string;
+            /** Pos State Code */
+            pos_state_code: string;
+            /** Rate */
+            rate: string;
+            /** Sgst */
+            sgst: string;
+            /** Source Refs */
+            source_refs: string[];
+            /** Taxable Value */
+            taxable_value: string;
+        };
+        /** B2CSPage */
+        B2CSPage: {
+            /** Fingerprint */
+            fingerprint: string;
+            /** Has More */
+            has_more: boolean;
+            /** Next Cursor */
+            next_cursor: string | null;
+            /** Rows */
+            rows: components["schemas"]["B2CSRowOut"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            section: "b2cs";
+        };
+        /** B2CSRowOut */
+        B2CSRowOut: {
+            /** Cess */
+            cess: string;
+            /** Cgst */
+            cgst: string;
+            /** Igst */
+            igst: string;
+            /** Pos State Code */
+            pos_state_code: string;
+            /** Rate */
+            rate: string;
+            /** Sgst */
+            sgst: string;
+            /** Source Refs */
+            source_refs: string[];
+            /** Taxable Value */
+            taxable_value: string;
+        };
         /** BlockerOut */
         BlockerOut: {
             /** Ca Items */
@@ -1788,6 +1976,113 @@ export interface components {
             label: string;
             /** Rows */
             rows: number[];
+        };
+        /** CDNRPage */
+        CDNRPage: {
+            /** Fingerprint */
+            fingerprint: string;
+            /** Has More */
+            has_more: boolean;
+            /** Next Cursor */
+            next_cursor: string | null;
+            /** Rows */
+            rows: components["schemas"]["CDNRRowOut"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            section: "cdnr";
+        };
+        /** CDNRRowOut */
+        CDNRRowOut: {
+            /** Cess */
+            cess: string;
+            /** Cgst */
+            cgst: string;
+            /** Igst */
+            igst: string;
+            /** Note Date */
+            note_date: string;
+            /** Note Number */
+            note_number: string;
+            /** Note Type */
+            note_type: string;
+            /** Note Value */
+            note_value: string;
+            /** Original Doc Date */
+            original_doc_date: string | null;
+            /** Original Doc Number */
+            original_doc_number: string | null;
+            /** Pos State Code */
+            pos_state_code: string;
+            /** Rate */
+            rate: string;
+            /** Recipient Gstin */
+            recipient_gstin: string;
+            /** Recipient Name */
+            recipient_name: string | null;
+            /** Sgst */
+            sgst: string;
+            /** Source Refs */
+            source_refs: string[];
+            /** Taxable Value */
+            taxable_value: string;
+        };
+        /** CDNURPage */
+        CDNURPage: {
+            /** Fingerprint */
+            fingerprint: string;
+            /** Has More */
+            has_more: boolean;
+            /** Next Cursor */
+            next_cursor: string | null;
+            /** Rows */
+            rows: components["schemas"]["CDNURRowOut"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            section: "cdnur";
+        };
+        /** CDNURRowOut */
+        CDNURRowOut: {
+            /** Cess */
+            cess: string;
+            /** Cgst */
+            cgst: string;
+            /** Igst */
+            igst: string;
+            /** Note Date */
+            note_date: string;
+            /** Note Number */
+            note_number: string;
+            /** Note Type */
+            note_type: string;
+            /** Note Value */
+            note_value: string;
+            /** Original Doc Date */
+            original_doc_date: string | null;
+            /** Original Doc Number */
+            original_doc_number: string | null;
+            /** Pos State Code */
+            pos_state_code: string;
+            /** Rate */
+            rate: string;
+            /** Sgst */
+            sgst: string;
+            /** Source Refs */
+            source_refs: string[];
+            /** Taxable Value */
+            taxable_value: string;
+            /** Ur Type */
+            ur_type: string;
+        };
+        /** CaFlagOut */
+        CaFlagOut: {
+            /** Code */
+            code: string;
+            /** Text */
+            text: string;
         };
         /** CashBuyerIn */
         CashBuyerIn: {
@@ -2099,6 +2394,13 @@ export interface components {
             /** Name */
             name?: string | null;
         };
+        /** DebitNotesOut */
+        DebitNotesOut: {
+            /** Count */
+            count: number;
+            /** Notice */
+            notice: string | null;
+        };
         /** DifferenceOut */
         DifferenceOut: {
             /** Excel */
@@ -2316,6 +2618,18 @@ export interface components {
             /** Vehicle No */
             vehicle_no?: string | null;
         };
+        /**
+         * ExportGateOut
+         * @description Whether an export could start now, and why not (R1-M8). Nothing is exported by this read.
+         */
+        ExportGateOut: {
+            /** Ready */
+            ready: boolean;
+            /** Reasons */
+            reasons: components["schemas"]["ReasonOut"][];
+            /** To Accept */
+            to_accept: number;
+        };
         /** FilingProfileOut */
         FilingProfileOut: {
             current: components["schemas"]["CurrentFrequencyOut"] | null;
@@ -2326,6 +2640,42 @@ export interface components {
             /** Warnings */
             warnings: string[];
             window: components["schemas"]["WindowOut"];
+        };
+        /** FindingGroupOut */
+        FindingGroupOut: {
+            /** Accepted */
+            accepted: number;
+            /** Code */
+            code: string;
+            /** Count */
+            count: number;
+            /**
+             * Level
+             * @enum {string}
+             */
+            level: "block" | "warn" | "info";
+            /** Needs Ca Check */
+            needs_ca_check: boolean;
+        };
+        /** FindingOut */
+        FindingOut: {
+            /** Accepted */
+            accepted: boolean;
+            /** Code */
+            code: string;
+            /**
+             * Level
+             * @enum {string}
+             */
+            level: "block" | "warn" | "info";
+            /** Message */
+            message: string;
+            /** Needs Ca Check */
+            needs_ca_check: boolean;
+            /** Source Refs */
+            source_refs: string[];
+            /** Subject Fp */
+            subject_fp: string;
         };
         /** FrequencyIn */
         FrequencyIn: {
@@ -2420,10 +2770,46 @@ export interface components {
             /** Rates */
             rates: string[];
         };
+        /** HSNRowOut */
+        HSNRowOut: {
+            /** Cess */
+            cess: string;
+            /** Cgst */
+            cgst: string;
+            /** Hsn */
+            hsn: string;
+            /** Igst */
+            igst: string;
+            /** Quantity */
+            quantity: string;
+            /** Rate */
+            rate: string;
+            /** Sgst */
+            sgst: string;
+            /** Source Refs */
+            source_refs: string[];
+            /** Taxable Value */
+            taxable_value: string;
+            /** Uqc */
+            uqc: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** Heads */
+        Heads: {
+            /** Cess */
+            cess: string;
+            /** Cgst */
+            cgst: string;
+            /** Igst */
+            igst: string;
+            /** Sgst */
+            sgst: string;
+            /** Taxable Value */
+            taxable_value: string;
         };
         /** HomeOut */
         HomeOut: {
@@ -2446,6 +2832,38 @@ export interface components {
             insights: {
                 [key: string]: unknown;
             } | null;
+        };
+        /** HsnB2bPage */
+        HsnB2bPage: {
+            /** Fingerprint */
+            fingerprint: string;
+            /** Has More */
+            has_more: boolean;
+            /** Next Cursor */
+            next_cursor: string | null;
+            /** Rows */
+            rows: components["schemas"]["HSNRowOut"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            section: "hsn_b2b";
+        };
+        /** HsnB2cPage */
+        HsnB2cPage: {
+            /** Fingerprint */
+            fingerprint: string;
+            /** Has More */
+            has_more: boolean;
+            /** Next Cursor */
+            next_cursor: string | null;
+            /** Rows */
+            rows: components["schemas"]["HSNRowOut"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            section: "hsn_b2c";
         };
         /** ImportOut */
         ImportOut: {
@@ -3151,6 +3569,16 @@ export interface components {
             /** Ok */
             ok: boolean;
         };
+        /** ReasonOut */
+        ReasonOut: {
+            /**
+             * Code
+             * @enum {string}
+             */
+            code: "not_open" | "blocks" | "debit_notes" | "reconciliation";
+            /** Message */
+            message: string;
+        };
         /** RecoveryBody */
         RecoveryBody: {
             /** Email */
@@ -3232,6 +3660,37 @@ export interface components {
             note: string;
             /** Value */
             value?: string | null;
+        };
+        /** ReturnDetailOut */
+        ReturnDetailOut: {
+            /** Banner */
+            banner: string | null;
+            /** Ca Flags */
+            ca_flags: components["schemas"]["CaFlagOut"][];
+            debit_notes: components["schemas"]["DebitNotesOut"];
+            /** Draft */
+            draft: boolean;
+            export: components["schemas"]["ExportGateOut"];
+            /** Finding Groups */
+            finding_groups: components["schemas"]["FindingGroupOut"][];
+            /** Findings */
+            findings: components["schemas"]["FindingOut"][];
+            /** Fingerprint */
+            fingerprint: string;
+            instance: components["schemas"]["ReturnOut"];
+            /** Line Items */
+            line_items: number;
+            /** Members Count */
+            members_count: number;
+            /**
+             * Report Only
+             * @default true
+             * @constant
+             */
+            report_only: true;
+            /** Sections */
+            sections: components["schemas"]["app__modules__filing__api__SectionOut"][];
+            totals: components["schemas"]["TotalsOut"];
         };
         /** ReturnOut */
         ReturnOut: {
@@ -3368,33 +3827,10 @@ export interface components {
                 [key: string]: string;
             }[];
         };
-        /** SectionOut */
-        SectionOut: {
-            /** Enabled */
-            enabled: boolean;
-            /** Held Rows */
-            held_rows: number;
-            /** Needs Ca Check */
-            needs_ca_check: boolean;
-            /** Requirement Note */
-            requirement_note: string | null;
-            /**
-             * Section
-             * @enum {string}
-             */
-            section: "amazon" | "flipkart" | "meesho" | "own_invoices_excel" | "own_invoices_pdf";
-            /**
-             * Status
-             * @enum {string}
-             */
-            status: "not uploaded" | "processing" | "ready" | "rows held";
-            /** Uploads */
-            uploads: components["schemas"]["app__modules__imports__api__UploadOut"][];
-        };
         /** SectionsOut */
         SectionsOut: {
             /** Sections */
-            sections: components["schemas"]["SectionOut"][];
+            sections: components["schemas"]["app__modules__imports__api__SectionOut"][];
         };
         /**
          * ShipToIn
@@ -3521,6 +3957,12 @@ export interface components {
             /** Name */
             name: string;
             role: components["schemas"]["Role"];
+        };
+        /** TotalsOut */
+        TotalsOut: {
+            gap: components["schemas"]["Heads"];
+            liability: components["schemas"]["Heads"];
+            table_12: components["schemas"]["Heads"];
         };
         /** TotpBody */
         TotpBody: {
@@ -3687,6 +4129,17 @@ export interface components {
             /** Reason */
             reason?: string | null;
         };
+        /** SectionOut */
+        app__modules__filing__api__SectionOut: {
+            /**
+             * Name
+             * @enum {string}
+             */
+            name: "b2b" | "b2cl" | "b2cs" | "cdnr" | "cdnur" | "hsn_b2b" | "hsn_b2c";
+            /** Rows Count */
+            rows_count: number;
+            totals: components["schemas"]["Heads"];
+        };
         /** ReasonIn */
         app__modules__identity__api_team__ReasonIn: {
             /** Reason */
@@ -3696,6 +4149,29 @@ export interface components {
         app__modules__imports__api__ConfirmIn: {
             /** Changed */
             changed?: components["schemas"]["ChangedChoice"][];
+        };
+        /** SectionOut */
+        app__modules__imports__api__SectionOut: {
+            /** Enabled */
+            enabled: boolean;
+            /** Held Rows */
+            held_rows: number;
+            /** Needs Ca Check */
+            needs_ca_check: boolean;
+            /** Requirement Note */
+            requirement_note: string | null;
+            /**
+             * Section
+             * @enum {string}
+             */
+            section: "amazon" | "flipkart" | "meesho" | "own_invoices_excel" | "own_invoices_pdf";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "not uploaded" | "processing" | "ready" | "rows held";
+            /** Uploads */
+            uploads: components["schemas"]["app__modules__imports__api__UploadOut"][];
         };
         /** UploadOut */
         app__modules__imports__api__UploadOut: {
@@ -5998,6 +6474,109 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReturnsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_return_api_v1_b__business_id__returns__instance_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instance_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReturnDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    accept_finding_api_v1_b__business_id__returns__instance_id__check_acceptances_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instance_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptFindingIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcceptFindingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_section_api_v1_b__business_id__returns__instance_id__sections__section__get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+            };
+            header?: never;
+            path: {
+                instance_id: string;
+                section: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["B2BPage"] | components["schemas"]["B2CLPage"] | components["schemas"]["B2CSPage"] | components["schemas"]["CDNRPage"] | components["schemas"]["CDNURPage"] | components["schemas"]["HsnB2bPage"] | components["schemas"]["HsnB2cPage"];
                 };
             };
             /** @description Validation Error */
