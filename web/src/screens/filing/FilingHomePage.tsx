@@ -130,6 +130,11 @@ export function FilingHomePage() {
                             <Link to={`/b/${businessId}/filing/${r.instance_id}`}>Review the draft</Link>
                           </div>
                         )}
+                        {r.form === "GSTR3B" && canPrepareReturns(business.role) && (
+                          <div>
+                            <Link to={`/b/${businessId}/filing/${r.instance_id}/worksheet`}>Open the worksheet</Link>
+                          </div>
+                        )}
                       </td>
                       <td>
                         <DueDate row={r} />
