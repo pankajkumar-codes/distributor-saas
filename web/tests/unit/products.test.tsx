@@ -74,6 +74,13 @@ describe("the products list", () => {
     expect(await screen.findByText("No products match.")).toBeInTheDocument();
   });
 
+  it("has a Home link back to the business's filing home", async () => {
+    server.reply(LIST, page([]));
+    open();
+    await screen.findByText(/No products yet/);
+    expect(screen.getByRole("link", { name: "Home" })).toHaveAttribute("href", "/b/b-1/home");
+  });
+
   it("opens on the filter a Home link names", async () => {
     server.reply(LIST, page([]));
     open("/b/b-1/products?filter=rate_unconfirmed");

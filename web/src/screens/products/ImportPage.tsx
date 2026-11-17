@@ -130,8 +130,10 @@ export function ImportPage() {
     mutationFn: async () => {
       const text = await call(() => api.GET("/api/v1/b/{business_id}/products/import-template", { params: { path }, parseAs: "text" }));
       const url = URL.createObjectURL(new Blob([text as string], { type: "text/csv" }));
-      const a = Object.assign(document.createElement("a"), { href: url, download: "products-template.csv" });
+      const a = Object.assign(document.createElement("a"), { href: url, download: "products-template.csv", hidden: true });
+      document.body.append(a); // Firefox ignores a click on a link that is not in the page
       a.click();
+      a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1000); // Safari drops the download if it is revoked at once
     },
   });
@@ -206,6 +208,11 @@ export function ImportPage() {
                 Download the template
               </Button>
             </p>
+            {template.error && (
+              <Banner tone="error">
+                The template didn't download. {errorText(template.error)}
+              </Banner>
+            )}
             <div className="field">
               <label htmlFor="import-file">File</label>
               <input
