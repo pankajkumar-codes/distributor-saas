@@ -26,11 +26,14 @@ from sqlalchemy.orm import Session
 
 from app.modules.refdata import value_on
 
-from .parsing import FileRejected, read_table, sheet_names
+from .parsing import FileRejected, sheet_names
+from .parsing.files import read_head
 from .readers import SECTIONS, readers_for
+from .readers.base import HEADER_ROWS
 
 PDF_MAGIC = b"%PDF-"
 OLE_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"  # an old .xls (or .doc): not read here
+UTF32_LE_BOM = b"\xff\xfe\x00\x00"  # starts like a UTF-16 one; it is UTF-32, which we do not read
 ZIP_MAGICS = (b"PK\x03\x04", b"PK\x05\x06")
 ENTRY_FACTOR = 4  # entries (folders included) allowed per file the bundle may hold
 JUNK_NAMES = {".ds_store", "thumbs.db", "desktop.ini"}
@@ -43,6 +46,7 @@ REASONS = {
     "old_excel": "This is an old Excel file (.xls). Save it as .xlsx and add it again.",
     "not_a_report": "This file type is not used.",
     "unreadable": "We could not read this file.",
+    "utf16": "This text file is saved as UTF-16. Save it as CSV UTF-8 and add it again.",
     "no_match": "We could not tell which report this is.",
     "ambiguous": "This matches more than one report, so we did not guess.",
     "not_selected": "This report is not selected for your business.",
@@ -272,6 +276,8 @@ def _section_of(data: bytes) -> tuple[str | None, str | None]:
     xlsx = _is_xlsx(data)
     if data.startswith(ZIP_MAGICS) and not xlsx:
         return None, "not_a_report"  # another Office file or a zip we did not open
+    if not xlsx and (data.startswith(b"\xfe\xff") or data.startswith(b"\xff\xfe") and not data.startswith(UTF32_LE_BOM)):
+        return None, "utf16"  # what Excel's "Unicode Text" makes; said in words, not as "not a report"
     if not xlsx and (b"\x00" in data[:4096]):
         return None, "not_a_report"  # binary: an image or anything else
     readers = [r for s in SECTIONS if s != "own_invoices_pdf" for r in readers_for(s)]
@@ -294,13 +300,13 @@ def _tables(data: bytes, readers: list, xlsx: bool):
     Help sheet is not read); one with a single sheet is read whatever it is called; several unnamed sheets give
     None (nothing to go on). Text is read as a CSV, under a made-up name: the real name is never consulted."""
     if not xlsx:
-        return [read_table(data, "content.csv")]
+        return [read_head(data, "content.csv", rows=HEADER_ROWS)]
     names = sheet_names(data)
     wanted = [s for s in names if any(_same(getattr(r, "sheet", None), s) for r in readers)]
     if wanted:
-        return [read_table(data, "content.xlsx", sheet=s) for s in wanted]
+        return [read_head(data, "content.xlsx", sheet=s, rows=HEADER_ROWS) for s in wanted]
     if len(names) == 1:
-        return [read_table(data, "content.xlsx", sheet=names[0])]
+        return [read_head(data, "content.xlsx", sheet=names[0], rows=HEADER_ROWS)]
     return None
 
 

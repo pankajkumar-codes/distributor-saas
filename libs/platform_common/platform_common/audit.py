@@ -77,6 +77,11 @@ ALLOWED_DATA: dict[str, frozenset[str]] = {
     # Uploads (LLD-7 §11): the section and ids only, never a file's contents or name.
     "imports.upload_received": frozenset({"section", "upload_id"}),
     "imports.rejected": frozenset({"section", "upload_id", "reason"}),
+    # A zip of reports (bundle plan): ids and counts only, never a file name from inside it.
+    "imports.bundle_upload": frozenset({"bundle_id"}),
+    "imports.bundle_classified": frozenset({"bundle_id", "files", "used", "not_used", "not_selected"}),
+    "imports.bundle_staged": frozenset({"bundle_id", "uploads"}),
+    "imports.bundle_rejected": frozenset({"bundle_id", "reason"}),
     "imports.run_discarded": frozenset({"run_id", "section"}),
     # A user's decision on a held row; the note is the audit reason. No cell values.
     "imports.row_set_aside": frozenset({"run_id", "row_id", "hold_reason"}),

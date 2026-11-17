@@ -322,3 +322,27 @@ def test_the_sheet_rule_is_the_reading_steps_rule():
 def test_the_same_bundle_classifies_the_same_every_time():
     entries = [("a.csv", amazon.b2c_good()), ("f.xlsx", flipkart.good()), ("p.pdf", REPORTS["own_invoices_pdf"])]
     assert sort(entries) == sort(entries)
+
+
+# -- header-only reading and UTF-16 (PR 2) -----------------------------------------------------------------------
+
+
+def test_utf16_text_is_said_in_words_not_as_not_a_report():
+    o = one([("sales.csv", b"\xff\xfe" + "Seller Gstin\n".encode("utf-16-le"))])
+    assert (o.state, o.reason_code) == ("not_used", "utf16")
+    assert "UTF-8" in o.reason
+    # without a byte-order mark it is still just a binary file
+    assert one([("sales.csv", "Seller Gstin\n".encode("utf-16-le"))]).reason_code == "not_a_report"
+
+
+def test_classifying_reads_only_the_header_rows():
+    from app.modules.imports.parsing.files import read_head
+    from app.modules.imports.readers.base import HEADER_ROWS
+
+    rows = "\n".join(["h1,h2"] + [f"{i},x" for i in range(5000)]).encode()
+    assert len(read_head(rows, "a.csv", rows=HEADER_ROWS).rows) == HEADER_ROWS
+    book = own_excel.workbook([own_excel.line(f"INV-{i}") for i in range(300)])
+    head = read_head(book, "a.xlsx", sheet="Invoices", rows=HEADER_ROWS)
+    assert len(head.rows) == HEADER_ROWS and head.rows[0] == read_table(book, "a.xlsx", sheet="Invoices").rows[0]
+    # a file sorted from its head is sorted the same as one read whole
+    assert one([("a.xlsx", book)]).section == "own_invoices_excel"
