@@ -10,7 +10,7 @@ import { Button } from "../../kit/Button";
 import { Field } from "../../kit/Field";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
-import { useBuildWorksheet, useSaveEntries, useWorksheet, type Outward, type Worksheet } from "./worksheet";
+import { useBuildWorksheet, useSaveEntries, useWorksheetExcel, useWorksheet, type Outward, type Worksheet } from "./worksheet";
 import { HEAD_NAME, TABLES, typedHeads } from "./worksheetRows";
 
 const TAX_HEADS = ["igst", "cgst", "sgst", "cess"] as const;
@@ -101,11 +101,32 @@ const typedOnly = (entries: Record<string, string>) => {
   return out;
 };
 
-/** What the seller types. Remounted (by `key`) on every save so the boxes always show what is stored. */
+/** The Excel file holds the build and what was last saved; an unsaved box is not in it. */
+function ExcelButton({ businessId, instanceId }: { businessId: string; instanceId: string }) {
+  const excel = useWorksheetExcel(businessId, instanceId);
+  return (
+    <div>
+      <Button
+        variant="secondary"
+        busy={excel.isPending}
+        onClick={() => excel.mutate(undefined, { onSuccess: (r) => window.location.assign(r.url) })}
+      >
+        Download as Excel
+      </Button>
+      <span className="hint"> The file has what you have saved, not boxes you are still typing in.</span>
+      {excel.isError && <Banner tone="error">{errorText(excel.error)}</Banner>}
+    </div>
+  );
+}
+
+/** What the seller types. The boxes keep what was typed, also when someone else has saved in the meantime. */
 function EntriesForm({ businessId, instanceId, ws }: { businessId: string; instanceId: string; ws: Worksheet }) {
   const save = useSaveEntries(businessId, instanceId);
   const [values, setValues] = useState<Record<string, string>>(() => typedOnly(ws.entries));
   const [saved, setSaved] = useState(false);
+  // The save these boxes were last in step with. A second save from an old one is refused by the server, so a stale
+  // form can never overwrite what someone else saved without the person choosing to see it first.
+  const [baseSeq, setBaseSeq] = useState<number | null>(ws.entries_seq);
   const err: ApiError | null = save.error;
   const set = (name: string, v: string) => {
     setSaved(false);
@@ -115,7 +136,21 @@ function EntriesForm({ businessId, instanceId, ws }: { businessId: string; insta
     e.preventDefault();
     const entries: Record<string, string> = {};
     for (const [k, v] of Object.entries(values)) if (v.trim() !== "") entries[k] = v;
-    save.mutate({ entries, based_on_seq: ws.entries_seq }, { onSuccess: () => setSaved(true) });
+    save.mutate(
+      { entries, based_on_seq: baseSeq },
+      {
+        onSuccess: (r) => {
+          setBaseSeq(r.entries_seq);
+          setSaved(true);
+        },
+      },
+    );
+  };
+  const showSaved = () => {
+    setValues(typedOnly(ws.entries));
+    setBaseSeq(ws.entries_seq);
+    setSaved(false);
+    save.reset();
   };
   const stale = err?.code === "worksheet_changed";
   return (
@@ -165,7 +200,15 @@ function EntriesForm({ businessId, instanceId, ws }: { businessId: string; insta
           </dl>
         </section>
       )}
-      {err && !err.field && <Banner tone="error">{stale ? "Someone else saved this worksheet while you were typing. Your boxes now show what they saved; type your changes again." : errorText(err)}</Banner>}
+      {stale && (
+        <Banner tone="error">
+          <p>Your changes were not saved. Someone else saved this worksheet while you were typing. Your boxes still show what you typed.</p>
+          <Button type="button" variant="secondary" onClick={showSaved}>
+            Show what was saved instead
+          </Button>
+        </Banner>
+      )}
+      {err && !err.field && !stale && <Banner tone="error">{errorText(err)}</Banner>}
       {err?.field && <Banner tone="error">Some amounts need a change. {errorText(err)}</Banner>}
       {saved && <Banner>Saved.</Banner>}
       <Button type="submit" busy={save.isPending}>
@@ -234,8 +277,9 @@ export function WorksheetPage() {
                 {ws.built ? "Build again" : "Build the worksheet"}
               </Button>
             </p>
+            {ws.built && <ExcelButton businessId={businessId} instanceId={instanceId} />}
             {ws.outward && <OutwardCard o={ws.outward} />}
-            <EntriesForm key={ws.entries_seq ?? "none"} businessId={businessId} instanceId={instanceId} ws={ws} />
+            <EntriesForm businessId={businessId} instanceId={instanceId} ws={ws} />
           </>
         )}
       </main>

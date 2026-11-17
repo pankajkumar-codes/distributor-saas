@@ -54,6 +54,7 @@ const BY_CODE: Record<string, string> = {
   changed_during_export: "The return changed while the file was being made. Check it and try again.",
   not_allowed: "Your role can't do this.",
   worksheet_blocked: "Fix the items in your GSTR-1 first, then build the worksheet again.",
+  worksheet_not_built: "Build the worksheet first.",
   worksheet_changed: "This worksheet was saved by someone else while you were typing.",
   cannot_accept: "This can't be accepted. It has to be fixed.",
   period_not_open: "This return is already marked filed.",

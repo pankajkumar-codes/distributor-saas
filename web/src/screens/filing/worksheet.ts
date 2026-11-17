@@ -6,6 +6,7 @@ import type { components } from "../../api/schema";
 
 export type Worksheet = components["schemas"]["WorksheetOut"];
 export type Outward = components["schemas"]["OutwardOut"];
+export type ExcelOut = components["schemas"]["ExcelOut"];
 export type EntriesOut = components["schemas"]["EntriesOut"];
 
 const path = (businessId: string, instanceId: string) => ({ business_id: businessId, instance_id: instanceId });
@@ -36,5 +37,12 @@ export function useSaveEntries(businessId: string, instanceId: string) {
   return useMutation<EntriesOut, ApiError, { entries: Record<string, string>; based_on_seq: number | null }>({
     mutationFn: (body) => call(() => api.PUT("/api/v1/b/{business_id}/returns/{instance_id}/worksheet/entries", { params: { path: path(businessId, instanceId) }, body })),
     onSettled: () => queryClient.invalidateQueries({ queryKey: worksheetKey(businessId, instanceId) }),
+  });
+}
+
+/** GET …/worksheet/excel: the file as it is now, as a 60-second link. */
+export function useWorksheetExcel(businessId: string, instanceId: string) {
+  return useMutation<ExcelOut, ApiError>({
+    mutationFn: () => call(() => api.GET("/api/v1/b/{business_id}/returns/{instance_id}/worksheet/excel", { params: { path: path(businessId, instanceId) } })),
   });
 }

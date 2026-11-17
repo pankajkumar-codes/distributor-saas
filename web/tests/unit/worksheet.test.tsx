@@ -99,6 +99,42 @@ describe("GSTR-3B worksheet", () => {
     expect(await screen.findByText("Saved.")).toBeInTheDocument();
   });
 
+  it("keeps what was typed and says so when someone else has saved, and a second save still goes against the old save", async () => {
+    server.reply(WS, sheet({ entries: { "t4a.other.cgst": "100.00", "t4a.other.sgst": "100.00" }, entries_seq: 3 }), sheet({ entries: { "t4a.other.cgst": "999.00", "t4a.other.sgst": "999.00" }, entries_seq: 4 }));
+    server.reply(`${WS}/entries`, { status: 409, body: { error: { code: "worksheet_changed", message: "Changed." } } }, { status: 409, body: { error: { code: "worksheet_changed", message: "Changed." } } });
+    open();
+    const other = (await screen.findByText("(5) All other ITC")).closest("fieldset") as HTMLElement;
+    fireEvent.change(within(other).getByLabelText("Central Tax (State/UT Tax is the same)"), { target: { value: "250.50" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save what I entered" }));
+    expect(await screen.findByText(/Someone else saved this worksheet while you were typing/)).toBeInTheDocument();
+    await waitFor(() => expect(sentTo(WS, "GET")).toHaveLength(2)); // the refetch has happened
+    expect(within(other).getByLabelText("Central Tax (State/UT Tax is the same)")).toHaveValue("250.50"); // not replaced
+    expect(screen.getByText(/Someone else saved this worksheet/)).toBeInTheDocument(); // not cleared by the refetch
+    fireEvent.click(screen.getByRole("button", { name: "Save what I entered" }));
+    await waitFor(() => expect(sentTo(`${WS}/entries`, "PUT")).toHaveLength(2));
+    expect(sentTo(`${WS}/entries`, "PUT")[1].body).toEqual({ entries: { "t4a.other.cgst": "250.50" }, based_on_seq: 3 }); // still the old save
+    fireEvent.click(await screen.findByRole("button", { name: "Show what was saved instead" }));
+    expect(within(other).getByLabelText("Central Tax (State/UT Tax is the same)")).toHaveValue("999.00");
+    expect(screen.queryByText(/Someone else saved this worksheet/)).toBeNull();
+  });
+
+  it("downloads the Excel file from a fresh link once it is built", async () => {
+    server.reply(WS, sheet());
+    server.reply(`${WS}/excel`, { status: 200, body: { url: "https://files.example/w.xlsx", name: "w.xlsx", version: 2, entries_seq: null, out_of_date: false } });
+    const assign = vi.fn();
+    vi.stubGlobal("location", { ...window.location, assign });
+    open();
+    fireEvent.click(await screen.findByRole("button", { name: "Download as Excel" }));
+    await waitFor(() => expect(assign).toHaveBeenCalledWith("https://files.example/w.xlsx"));
+  });
+
+  it("offers no Excel download before the worksheet is built", async () => {
+    server.reply(WS, sheet({ built: false, outward: null }));
+    open();
+    await screen.findByRole("button", { name: "Build the worksheet" });
+    expect(screen.queryByRole("button", { name: "Download as Excel" })).toBeNull();
+  });
+
   it("puts the server's words under the box it names", async () => {
     server.reply(WS, sheet());
     server.reply(`${WS}/entries`, { status: 422, body: { error: { code: "entry_invalid", message: "x", field: "t4b.rev_other.igst", fix: "An amount cannot be negative." } } });
