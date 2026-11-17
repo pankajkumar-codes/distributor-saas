@@ -35,7 +35,7 @@ const CHECKS: Record<string, string> = {
   "A-04": "Invoice number also used in another financial year",
 };
 const LEVEL: Record<string, { label: string; chip: string; order: number }> = {
-  block: { label: "Fix before you use this", chip: "chip chip-bad", order: 0 },
+  block: { label: "Look at this first", chip: "chip chip-bad", order: 0 },
   warn: { label: "Please check", chip: "chip chip-warn", order: 1 },
   info: { label: "For your information", chip: "chip chip-info", order: 2 },
 };
@@ -147,6 +147,7 @@ function Section({ businessId, instanceId, name, title, hint, count, fingerprint
               </thead>
               <tbody>
                 {pages.flatMap((p, i) =>
+                  // The columns are table-driven per section, so the typed rows are read by key here.
                   (p.rows as unknown as Record<string, unknown>[]).map((r, j) => (
                     <tr key={`${i}-${j}`}>
                       {cols.map((c) => (
@@ -240,7 +241,7 @@ export function ReturnPage() {
                 <p>The checks found nothing to look at.</p>
               ) : (
                 <>
-                  {blocking > 0 && <Banner tone="error">{blocking === 1 ? "1 item needs" : `${blocking} items need`} fixing before you use this return.</Banner>}
+                  {blocking > 0 && <Banner tone="error">{blocking === 1 ? "1 item" : `${blocking} items`} to look at first. Some of these checks rest on rules a CA has not confirmed yet.</Banner>}
                   {groups.map((g) => (
                     <FindingGroup key={g.code} group={g} findings={d.findings} />
                   ))}

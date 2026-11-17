@@ -63,14 +63,14 @@ describe("A return (read-only)", () => {
     open();
     expect(await screen.findByText(/Draft: not filed/)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /GSTR-1 for October 2026/ })).toBeInTheDocument();
-    const summaries = screen.getAllByText(/Fix before you use this|Please check/).map((e) => e.textContent);
-    expect(summaries[0]).toBe("Fix before you use this"); // blocking group first
+    const summaries = screen.getAllByText(/Look at this first|Please check/).map((e) => e.textContent);
+    expect(summaries[0]).toBe("Look at this first"); // blocking group first
     expect(screen.getByText("HSN code missing")).toBeInTheDocument();
     const tax = screen.getByText("Tax does not equal taxable value times rate").closest("details")!;
     expect(within(tax).getByText("2 items")).toBeInTheDocument();
     expect(within(tax).getByText("Needs a CA check")).toBeInTheDocument();
     expect(within(tax).getByText(/A-01 message 2/)).toBeInTheDocument();
-    expect(screen.getByText(/1 item needs fixing/)).toBeInTheDocument();
+    expect(screen.getByText(/1 item to look at first/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /download|export|file/i })).toBeNull();
   });
 
