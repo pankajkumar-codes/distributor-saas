@@ -96,7 +96,7 @@ def run(ctx: jobs.JobContext) -> dict:
     view = jobs.get(uow, ctx.job_id)
     if view is None or not view.natural_key:
         raise jobs.JobFailed("not_found")
-    raw, version, seq = view.natural_key.split(":")[:3]
+    raw, version, seq, *_attempt = view.natural_key.split(":")
     inst = periods.get_instance(tx, uuid.UUID(raw))
     if inst is None or inst.form != "GSTR3B":
         raise jobs.JobFailed("not_found")
