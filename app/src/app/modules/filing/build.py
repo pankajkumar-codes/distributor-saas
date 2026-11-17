@@ -62,6 +62,7 @@ class ReturnBuild:
     ca_flags: tuple[CaFlag, ...]
     debit_notes: int  # confirmed debit notes dated in this period that are not in the return
     draft: bool  # a return is a draft until it is marked filed and locked
+    lines: tuple[SupplyLine, ...] = ()  # every member line (liability and Table 12), for the checks
 
 
 def build_return(tx: Session, instance: ReturnInstance) -> ReturnBuild:
@@ -98,6 +99,7 @@ def build_return(tx: Session, instance: ReturnInstance) -> ReturnBuild:
         ca_flags=_flags(tx, instance, all_lines, sections, debit_notes),
         debit_notes=debit_notes,
         draft=instance.status != "filed_locked",
+        lines=tuple(all_lines),
     )
 
 

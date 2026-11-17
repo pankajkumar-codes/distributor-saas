@@ -2,6 +2,7 @@
 shape sales produces for a finalized document, and the GSTR-1 section builder."""
 
 from ..build import CaFlag, ReturnBuild, build_return
+from ..checks import Finding, run_checks
 from ..periods import (
     DocumentRef,
     PeriodLocked,
@@ -18,6 +19,7 @@ __all__ = [
     "BadSupplyLine",
     "CaFlag",
     "DocumentRef",
+    "Finding",
     "Gstr1Sections",
     "PeriodLocked",
     "ReturnBuild",
@@ -29,5 +31,6 @@ __all__ = [
     "ensure_instances",
     "instances_between",
     "reconciliation_gap",
+    "run_checks",
     "target_return_instance",
 ]
