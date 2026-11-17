@@ -118,6 +118,15 @@ def c12_negative_b2cs(tx: Session, b: ReturnBuild) -> list[Finding]:
         for r in b.sections.b2cs if any(getattr(r.amounts, h) < 0 for h in heads)
     ]
 
+_RELIED_ON_PLAIN = {
+    "gstr1.b2cl_threshold": "the limit for large sales to consumers",
+    "hsn.pattern": "the format of an HSN code",
+    "hsn.min_digits_up_to_threshold": "how many HSN digits are required",
+    "hsn.min_digits_above_threshold": "how many HSN digits are required",
+    "invoice.number.max_length": "the rules for invoice numbers",
+    "invoice.number.charset": "the rules for invoice numbers",
+}
+
 
 def c16_provisional_values(tx: Session, b: ReturnBuild) -> list[Finding]:
     unconfirmed = []
@@ -130,7 +139,8 @@ def c16_provisional_values(tx: Session, b: ReturnBuild) -> list[Finding]:
             unconfirmed.append(key)
     if not unconfirmed:
         return []
-    return [Finding("C-16", "warn", "These values are not confirmed by a CA yet: " + ", ".join(unconfirmed) + ".", (),
+    plain = list(dict.fromkeys(_RELIED_ON_PLAIN[k] for k in unconfirmed))
+    return [Finding("C-16", "warn", "A CA has not confirmed these rules yet: " + ", ".join(plain) + ".", (),
                     _fp("C-16", *unconfirmed), True)]
 
 
