@@ -33,6 +33,7 @@ ACTIONS: dict[str, tuple[str, str]] = {
     "member.role_change": ("Changed a member's role", "team_settings"),
     "members.deactivate": ("Deactivated a member", "team_settings"),
     "members.reactivate": ("Reactivated a member", "team_settings"),
+    "returns.filed": ("Marked a return filed", "gst_filing"),
     "returns.unlock": ("Unlocked a filed period", "gst_filing"),
     "documents.s34_override": ("Overrode the credit-note time limit", "invoices"),
     "filing.accept_warning": ("Accepted a filing warning", "gst_filing"),

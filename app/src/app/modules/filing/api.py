@@ -21,7 +21,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query
 from fastapi import status as http
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.modules.business.interface import (
     filing_frequency_on,
@@ -37,7 +37,7 @@ from platform_common.errors import Conflict, Deny, Invalid
 from platform_common.permissions import Permission, require
 from platform_common.uow import BusinessUoW, parse_id
 
-from . import acceptance, export_job, periods
+from . import acceptance, export_job, lock, periods
 from .build import build_return
 from .checks import run_checks
 from .gate import accepted_key, export_gate
@@ -465,3 +465,95 @@ def start_export(instance_id: str, uow: BusinessUoW) -> ExportRef:
 def export_status(instance_id: str, job_id: str, uow: BusinessUoW) -> ExportStatusOut:
     inst = _instance_or_404(uow, instance_id)
     return ExportStatusOut(**export_job.status(uow, inst.id, parse_id(job_id)))
+
+
+# -- Mark filed, lock, unlock (R1-M8 slice 5) --------------------------------------------------------------------
+
+LOCK = [Depends(require(Permission.RETURNS_LOCK))]
+UNLOCK = [Depends(require(Permission.RETURNS_UNLOCK))]
+
+
+class AcceptChangedIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str
+
+
+class FiledIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    filed_on: date
+    arn: str
+    accept_changed: AcceptChangedIn | None = None  # what was filed differs from the file we made, and why
+
+
+class FiledOut(BaseModel):
+    status: Literal["filed_locked"]
+    filed_on: date
+    arn: str
+    snapshot_version: int
+    changed_since_export: bool
+    has_file: bool  # a file of the locked return is kept and can be downloaded again
+
+
+class DocumentRef(BaseModel):
+    section: str
+    number: str
+
+
+class DifferenceOut(BaseModel):
+    added: list[DocumentRef]
+    removed: list[DocumentRef]
+    changed: list[DocumentRef]
+    summaries: list[str]  # summary tables (B2CS, HSN) whose figures differ
+
+
+class SnapshotRefOut(BaseModel):
+    purpose: Literal["export", "lock"]
+    version: int
+
+
+class ChangesOut(BaseModel):
+    reference: SnapshotRefOut | None  # the file the user took, or None when no file was made yet
+    same: bool
+    difference: DifferenceOut
+
+
+class UnlockIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str
+
+
+class UnlockOut(BaseModel):
+    status: Literal["unlocked"]
+
+
+@router.get("/returns/{instance_id}/changes", dependencies=LOCK)
+def changes_since_export(instance_id: str, uow: BusinessUoW) -> ChangesOut:
+    """The return as it is now against the file the user took, by document number, for the confirm step of marking filed."""
+    inst = _instance_or_404(uow, instance_id)
+    return ChangesOut(**lock.changes(uow, inst.id))
+
+
+@router.post("/returns/{instance_id}/filed", dependencies=LOCK)
+def mark_filed(instance_id: str, body: FiledIn, uow: BusinessUoW, clock: Today) -> FiledOut:
+    """Records the filing and locks the return as it is now. 409 `changed_since_export` when it differs from the file the user
+    took, unless `accept_changed` gives a reason; 409 `period_not_open` when it is already locked."""
+    inst = _instance_or_404(uow, instance_id)
+    reason = None if body.accept_changed is None else body.accept_changed.reason
+    return FiledOut(**lock.mark_filed(uow, inst.id, body.filed_on, body.arn, reason, clock.today()))
+
+
+@router.get("/returns/{instance_id}/lock-file", dependencies=PREPARE)
+def lock_file(instance_id: str, uow: BusinessUoW) -> ExportStatusOut:
+    """The file of a locked return, from its lock snapshot, with 60-second links."""
+    inst = _instance_or_404(uow, instance_id)
+    return ExportStatusOut(**lock.lock_files(uow, inst.id))
+
+
+@router.post("/returns/{instance_id}/unlock", dependencies=UNLOCK)
+def unlock_return(instance_id: str, body: UnlockIn, uow: BusinessUoW) -> UnlockOut:
+    """Owner only, with a reason. The snapshots stay; marking filed again is a relock."""
+    inst = _instance_or_404(uow, instance_id)
+    return UnlockOut(**lock.unlock(uow, inst.id, body.reason))
