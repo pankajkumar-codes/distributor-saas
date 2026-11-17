@@ -220,15 +220,32 @@ def test_a_password_protected_entry_is_refused():
 
 
 @pytest.mark.filterwarnings("ignore:Duplicate name")
-def test_two_files_of_one_name_are_refused_even_in_other_folders_or_cases():
-    assert refused(zip_of([("a/report.csv", b"1"), ("b/Report.CSV", b"2")])).code == "duplicate_name"
+def test_the_same_name_in_the_same_place_twice_is_refused():
     assert refused(zip_of([("x.csv", b"1"), ("x.csv", b"2")])).code == "duplicate_name"
+    assert refused(zip_of([("a/x.csv", b"1"), ("a/X.CSV", b"2")])).code == "duplicate_name"
+
+
+def test_one_name_in_two_folders_keeps_both_told_apart_by_their_folder():
+    files = open_bundle(zip_of([("Jan/report.csv", b"1"), ("Feb/Report.csv", b"2"), ("other.csv", b"3")]), LIMITS)
+    assert [f.name for f in files] == ["Jan - report.csv", "Feb - Report.csv", "other.csv"]
+    assert [f.n for f in files] == [1, 2, 3]
+    # One at the top and one in a folder: the folder one is told apart. Still clashing after that is refused.
+    top = open_bundle(zip_of([("report.csv", b"1"), ("Jan/report.csv", b"2")]), LIMITS)
+    assert [f.name for f in top] == ["report.csv", "Jan - report.csv"]
+    assert refused(zip_of([("a/x/r.csv", b"1"), ("b/x/r.csv", b"2")])).code == "duplicate_name"
+
+
+def test_the_same_name_in_two_inner_zips_is_told_apart_by_the_zip_names():
+    inner1 = zip_of([("r.csv", b"1")])
+    inner2 = zip_of([("r.csv", b"2")])
+    files = open_bundle(zip_of([("jan.zip", inner1), ("feb.zip", inner2)]), LIMITS)
+    assert [f.name for f in files] == ["jan - r.csv", "feb - r.csv"]
 
 
 def test_folders_are_fine_and_only_the_base_name_is_kept():
     files = open_bundle(zip_of([("Q2 folder/amazon/MTR_B2C-July.csv", amazon.b2c_good()), ("Q2 folder/", b"")]), LIMITS)
     assert [f.name for f in files] == ["MTR_B2C-July.csv"]
-    assert "Q2" not in repr(files)  # the path the person zipped is not kept anywhere
+    assert "Q2" not in repr(files)  # the path the person zipped is not kept anywhere (only a clash uses a folder name)
 
 
 def test_too_many_files_is_refused_nested_ones_counted():

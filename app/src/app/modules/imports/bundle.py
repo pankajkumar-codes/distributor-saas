@@ -108,17 +108,36 @@ class Outcome:
 
 
 def open_bundle(content: bytes, limits: Limits) -> list[BundleFile]:
-    """The files of the zip, flat, in archive order. Raises BundleRefused when a guard fails."""
-    files: list[BundleFile] = []
-    seen: set[str] = set()
+    """The files of the zip, flat, in archive order. Raises BundleRefused when a guard fails.
+
+    Two files with one base name in different folders (`Jan/report.xlsx`, `Feb/report.xlsx`) are a normal way to zip a
+    month of reports, not a safety matter: each gets its folder's name in front (`Jan - report.xlsx`). The same
+    name in the same place twice, or a clash that remains after that, still refuses the zip."""
+    entries: list[tuple[str, str, bytes, int]] = []  # (folder, base name, data, size)
     budget = [limits.max_total_bytes]  # shared by every level, so a zip of zips cannot get round the cap
-    _open(content, limits, 0, files, seen, budget)
-    if not files:
+    _open(content, limits, 0, "", entries, budget)
+    if not entries:
         raise BundleRefused("empty_zip")
-    return files
+    names = _unique_names(entries)
+    return [BundleFile(n=i, name=name, data=data, size=size)
+            for i, (name, (_, _, data, size)) in enumerate(zip(names, entries, strict=True), 1)]
 
 
-def _open(content: bytes, limits: Limits, depth: int, files: list[BundleFile], seen: set[str],
+def _key(name: str) -> str:
+    return unicodedata.normalize("NFC", name).casefold()
+
+
+def _unique_names(entries: list[tuple[str, str, bytes, int]]) -> list[str]:
+    counts: dict[str, int] = {}
+    for _, base, _, _ in entries:
+        counts[_key(base)] = counts.get(_key(base), 0) + 1
+    names = [f"{folder} - {base}" if folder and counts[_key(base)] > 1 else base for folder, base, _, _ in entries]
+    if len({_key(n) for n in names}) != len(names):
+        raise BundleRefused("duplicate_name")
+    return names
+
+
+def _open(content: bytes, limits: Limits, depth: int, label: str, entries: list[tuple[str, str, bytes, int]],
           budget: list[int]) -> None:
     try:
         archive = zipfile.ZipFile(io.BytesIO(content))
@@ -134,35 +153,33 @@ def _open(content: bytes, limits: Limits, depth: int, files: list[BundleFile], s
             raise BundleRefused("encrypted")
         if stat.S_ISLNK(info.external_attr >> 16):
             raise BundleRefused("symlink")
-        base = _base_name(info.filename)
-        if len(files) + 1 > limits.max_files:
+        folder, base = _folder_and_base(info.filename)
+        folder = folder or label  # a file at the top of an inner zip is told apart by that zip's name
+        if len(entries) + 1 > limits.max_files:
             raise BundleRefused("too_many_files")
         if info.file_size > limits.max_file_bytes:
             # Listed as too large and never inflated. The declared size is only trusted to say "too big": a file that
             # claims to be small and inflates past the cap is stopped by `_inflate`.
-            _add(files, seen, base, b"", info.file_size)
+            entries.append((folder, base, b"", info.file_size))
             continue
         data = _inflate(archive, info, min(limits.max_file_bytes, budget[0]))
         budget[0] -= len(data)
         if _is_nested_zip(data):
             if depth + 1 > limits.max_depth:
                 raise BundleRefused("too_deep")
-            _open(data, limits, depth + 1, files, seen, budget)
+            _open(data, limits, depth + 1, _stem(base), entries, budget)
             continue
-        _add(files, seen, base, data, len(data))
+        entries.append((folder, base, data, len(data)))
 
 
-def _add(files: list[BundleFile], seen: set[str], name: str, data: bytes, size: int) -> None:
-    key = unicodedata.normalize("NFC", name).casefold()
-    if key in seen:
-        raise BundleRefused("duplicate_name")
-    seen.add(key)
-    files.append(BundleFile(n=len(files) + 1, name=name, data=data, size=size))
+def _stem(name: str) -> str:
+    return name.rsplit(".", 1)[0] if "." in name else name
 
 
-def _base_name(raw: str) -> str:
-    """The last part of an entry's path. A path that climbs out (`..`), starts at a root or a drive, or holds a
-    control character is refused; the folders a person zipped are fine and are dropped."""
+def _folder_and_base(raw: str) -> tuple[str, str]:
+    """The immediate folder (its name only, used to tell two clashing names apart) and the base name of an entry. A path
+    that climbs out (`..`), starts at a root or a drive, or holds a control character is refused; the rest of the folders
+    a person zipped are dropped."""
     path = raw.replace("\\", "/")
     parts = path.split("/")
     if path.startswith("/") or (len(path) > 1 and path[1] == ":") or ".." in parts or any(map(_unsafe_char, path)):
@@ -170,7 +187,8 @@ def _base_name(raw: str) -> str:
     base = parts[-1].strip()
     if not base:
         raise BundleRefused("unsafe_name")
-    return base
+    folders = parts[:-1]
+    return (folders[-1].strip() if folders else ""), base
 
 
 BIDI_CONTROLS = frozenset("\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069")  # can make a name read backwards
