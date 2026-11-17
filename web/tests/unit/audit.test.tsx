@@ -93,6 +93,19 @@ describe("the audit log", () => {
     expect(screen.queryByText(/limited to 31 days/)).toBeNull(); // the server's own words are not shown
   });
 
+  it.each([
+    ["date_range_reversed", "The From date must be on or before the To date."],
+    ["date_in_future", "Choose days up to today. Dates that have not come yet can't be shown."],
+  ])("says %s in plain words, not the server's", async (code, words) => {
+    server.reply(LOG, page([row()]), { status: 422, body: { error: { code, message: "developer words", field: "to" } } });
+    open();
+    await screen.findByRole("table");
+    fireEvent.change(screen.getByLabelText("From"), { target: { value: "2026-01-01" } });
+    expect(await screen.findByText(words)).toBeInTheDocument();
+    expect(screen.queryByText(/developer words/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+  });
+
   it("exports what the filters show and offers the file when it is ready", async () => {
     server.reply(LOG, page([row()]));
     open();
