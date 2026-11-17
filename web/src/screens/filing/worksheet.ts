@@ -62,7 +62,7 @@ export function useWorksheetPdfStatus(businessId: string, instanceId: string, jo
     queryKey: [...worksheetKey(businessId, instanceId), "pdf", jobId],
     queryFn: () => call(() => api.GET("/api/v1/b/{business_id}/returns/{instance_id}/worksheet/pdf/{job_id}", { params: { path: { ...path(businessId, instanceId), job_id: jobId ?? "" } } })),
     enabled: jobId !== null,
-    refetchInterval: (q) => (q.state.data?.status === "queued" || q.state.data?.status === "rendering" ? 1500 : false),
+    refetchInterval: (q) => (q.state.status === "success" && (q.state.data?.status === "queued" || q.state.data?.status === "rendering") ? 1500 : false), // an error stops it; the last answer is still held
     retry: false,
     gcTime: 0,
   });

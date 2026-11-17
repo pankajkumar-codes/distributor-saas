@@ -149,6 +149,28 @@ describe("GSTR-3B worksheet", () => {
     expect(screen.getByRole("button", { name: "Make a PDF" })).toBeEnabled();
   });
 
+  it("stops asking and lets the person try again when the PDF status fails after a queued answer", async () => {
+    server.reply(WS, sheet());
+    server.reply(`POST ${WS}/pdf`, { status: 202, body: { job_id: "job-3" } });
+    server.reply(`${WS}/pdf/job-3`, { status: 200, body: { status: "queued" } }, { status: 500 });
+    open();
+    fireEvent.click(await screen.findByRole("button", { name: "Make a PDF" }));
+    expect(await screen.findByText(/We couldn't make the PDF/, undefined, { timeout: 4000 })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Make a PDF" })).toBeEnabled();
+    const asked = sentTo(`${WS}/pdf/job-3`, "GET").length;
+    expect(asked).toBe(2);
+    await new Promise((r) => setTimeout(r, 3300)); // two more intervals would have passed
+    expect(sentTo(`${WS}/pdf/job-3`, "GET")).toHaveLength(asked);
+  }, 15000);
+
+  it("shows the server's words when the PDF cannot be started", async () => {
+    server.reply(WS, sheet());
+    server.reply(`POST ${WS}/pdf`, { status: 409, body: { error: { code: "worksheet_not_available", message: "x", fix: "Your plan does not include this yet." } } });
+    open();
+    fireEvent.click(await screen.findByRole("button", { name: "Make a PDF" }));
+    expect(await screen.findByText(/Your plan does not include this yet/)).toBeInTheDocument();
+  });
+
   it("offers no Excel download before the worksheet is built", async () => {
     server.reply(WS, sheet({ built: false, outward: null }));
     open();
