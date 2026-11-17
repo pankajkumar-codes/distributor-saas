@@ -100,6 +100,20 @@ describe("A return (read-only)", () => {
     expect(within(section).queryByText("INV-3")).toBeNull();
   });
 
+  it("stops when a later page comes from a different build, and hides the rows already shown", async () => {
+    server.reply(DETAIL, detail());
+    server.reply(B2B, page("fp-1", { has_more: true, next_cursor: "100" }), page("fp-2"));
+    open();
+    await screen.findByText(/Draft: not filed/);
+    const section = screen.getByText("Sales to businesses (B2B)").closest("details")!;
+    section.open = true;
+    fireEvent(section, new Event("toggle"));
+    expect(await within(section).findByText("INV-3")).toBeInTheDocument();
+    fireEvent.click(within(section).getByRole("button", { name: "Show more rows" }));
+    expect(await within(section).findByText(/This return changed while you were reading it/)).toBeInTheDocument();
+    expect(within(section).queryByText("INV-3")).toBeNull();
+  });
+
   it("shows the debit-note notice", async () => {
     server.reply(DETAIL, detail({ debit_notes: { count: 2, notice: "2 debit note(s) are not in this return yet. They need a CA check." } }));
     open();
