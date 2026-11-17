@@ -92,6 +92,7 @@ export function OwnInvoicesCard({ businessId, label, hint, canUpload }: Props) {
             />
             {problems.length > 0 && (
               <div id={`${id}-problem`} className="error">
+                <p>Nothing was sent. Fix this and choose the files again:</p>
                 {problems.map((p) => (
                   <p key={p}>{p}</p>
                 ))}

@@ -7,6 +7,8 @@ import { uploadTo } from "../../api/upload";
 import { pollDelay } from "../../api/useJob";
 import { settled, type Section, type Upload } from "./sections";
 
+const POLL_GIVE_UP_MS = 10 * 60 * 1000;
+
 export const uploadsKey = (businessId: string) => ["b", businessId, "uploads"];
 
 /** Follows one upload until the server has settled it (parsed, rejected, stored or expired). */
@@ -29,8 +31,9 @@ export function useUploads(businessId: string, section: Section | null, enabled 
       (await call(() => api.GET("/api/v1/b/{business_id}/uploads", { params: { path: { business_id: businessId }, query: { section: section ?? undefined } } }))).uploads,
     enabled: enabled && Boolean(businessId),
     // While a file in the list is still being read, look again every few seconds, so its answer appears on its own.
-    refetchInterval: poll ? (q) => (q.state.data?.some((u) => !settled(u)) ? 3000 : false) : false,
-    refetchIntervalInBackground: poll,
+    // Only while the tab is showing, and not for a file that has sat unsettled for ten minutes (a lost job).
+    refetchInterval: poll ? (q) => (q.state.data?.some((u) => !settled(u) && Date.now() - Date.parse(u.created_at) < POLL_GIVE_UP_MS) ? 3000 : false) : false,
+    refetchIntervalInBackground: false,
   });
 }
 
