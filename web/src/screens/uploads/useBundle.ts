@@ -16,6 +16,17 @@ const bundleKey = (businessId: string, bundleId: string | null) => ["b", busines
 const BUSY = new Set<Bundle["status"]>(["pending", "received", "staging"]);
 const GIVE_UP_MS = 15 * 60 * 1000;
 
+/** True when a bundle is still being worked on but the page has stopped looking (it is older than 15 minutes). */
+export function pollingGaveUp(b: Pick<Bundle, "status" | "created_at">, staging: boolean): boolean {
+  const busy = BUSY.has(b.status) || (staging && b.status === "classified");
+  return busy && Date.now() - Date.parse(b.created_at) > GIVE_UP_MS;
+}
+
+/** A file name for the screen: the invisible text-direction controls that can make a name read as another name are removed. */
+export function shownName(name: string): string {
+  return name.replace(/[\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, "");
+}
+
 /**
  * Follows one bundle. It looks again every few seconds while the server sorts or stages it, and stops once
  * it is ready for the user (classified), staged, rejected or expired. `staging` is true right after the user

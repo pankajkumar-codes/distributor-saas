@@ -106,6 +106,23 @@ describe("a zip of reports", () => {
     expect(sent(`${ONE}/stage`, "POST")).toHaveLength(0);
   });
 
+  it("removes text-direction controls from the names it shows", async () => {
+    open("owner", "/b/b-1/uploads?bundle=bd-1");
+    server.reply(`GET ${ONE}`, bundle("classified", [file(1, "inv\u202Egpj.exe.csv")], { file_name: "re\u202Eports.zip" }));
+    const z = await card();
+    expect(await z.findByText("invgpj.exe.csv")).toBeInTheDocument();
+    expect(z.getByText("reports.zip")).toBeInTheDocument();
+    expect(z.getByLabelText("What invgpj.exe.csv is")).toBeInTheDocument();
+  });
+
+  it("says so when it has stopped looking and the server is still sorting", async () => {
+    open("owner", "/b/b-1/uploads?bundle=bd-1");
+    server.reply(`GET ${ONE}`, bundle("received", [], { created_at: new Date(Date.now() - 20 * 60 * 1000).toISOString() }));
+    const z = await card();
+    expect(await z.findByText(/taking longer than usual/)).toBeInTheDocument();
+    expect(z.queryByText(/Sorting your files/)).not.toBeInTheDocument();
+  });
+
   it("moves a file to another report, and shows the server's refusal in words", async () => {
     open("owner", "/b/b-1/uploads?bundle=bd-1");
     server.reply(`GET ${ONE}`, bundle("classified", [file(1, "amazon-oct.csv")]));
