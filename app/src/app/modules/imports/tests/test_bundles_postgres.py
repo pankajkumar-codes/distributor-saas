@@ -198,6 +198,11 @@ def test_nothing_readable_cannot_be_moved(shop):
     r = patch(pg, f"/api/v1/b/{biz}/upload-bundles/{bundle_id}/files/{n}", {"section": "amazon"})
     assert r.status_code == 422 and r.json()["error"]["code"] == "file_cannot_be_moved"
     assert patch(pg, f"/api/v1/b/{biz}/upload-bundles/{bundle_id}/files/99", {"section": "amazon"}).status_code == 404
+    # dropping first does not open the way: the sorting's reason still holds
+    base = f"/api/v1/b/{biz}/upload-bundles/{bundle_id}/files/{n}"
+    assert patch(pg, base, {"section": None}).status_code == 200
+    again = patch(pg, base, {"section": "amazon"})
+    assert again.status_code == 422 and again.json()["error"]["code"] == "file_cannot_be_moved"
 
 
 # --- staging -------------------------------------------------------------------------------------------------------
@@ -234,6 +239,9 @@ def test_staging_makes_one_ordinary_upload_per_file_that_is_read_and_asking_twic
     # reader's own words (these made-up files carry another GSTIN than the test business)
     assert all(status != "received" for status, _ in state.values()), state
     assert state["sales.xlsx"][0] == "rejected" and state["sales.xlsx"][1] != "wrong_gstin"  # a Flipkart workbook to Amazon
+    for sql in ("update imports.bundle_uploads set n = n", "delete from imports.bundle_uploads"):  # rows exist now
+        with pytest.raises(DBAPIError, match="insert-only"), pg.owner.connect() as c:
+            c.execute(text(sql))
     # staging again after it finished changes nothing
     assert post(pg, f"{base}/stage").json()["job_id"] == one.json()["job_id"]
     assert scalar(pg.owner, "select count(*) from imports.uploads") == 4

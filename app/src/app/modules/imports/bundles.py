@@ -9,7 +9,10 @@ confirm stay exactly as they are for a single upload.
 
 The two jobs run on the worker Lambda (1024 MB, 900 s). Peak memory is about the zip, plus everything it inflates to
 (capped at `imports.bundle.max_total_bytes`, 100 MB, shared by every level), plus one file being copied out; it is not
-proportional to row counts, because classification reads only each table's header rows.
+proportional to row counts, because classification reads only each table's header rows (an xlsx's shared-strings
+part is still read whole, so memory is bounded by the 100 MB cap, not by the header).
+Staging puts each file to the store before its row is written; if a later file fails, the rows roll back and the objects
+already put stay under keys no row points at until the 90-day expiry.
 
 Every query filters `business_id` explicitly as well as relying on row-level security.
 """
@@ -75,6 +78,7 @@ class FileView:
     moved: bool
     reason_code: str | None
     reason: str | None
+    found_reason_code: str | None  # why the sorting left it out, whatever the user did since
     note: str | None
     upload_id: uuid.UUID | None  # once staged
 
@@ -233,7 +237,7 @@ def files(uow: UnitOfWork, bundle_id: uuid.UUID) -> list[FileView]:
         reason = engine.REASONS.get(code) if code else None
         out.append(FileView(
             n=r.n, file_name=r.file_name, size_bytes=r.size_bytes, found_section=r.section, section=section,
-            state=state, moved=bool(r.chosen), reason_code=code, reason=reason,
+            state=state, moved=bool(r.chosen), reason_code=code, reason=reason, found_reason_code=r.reason_code,
             note=PDF_NOTE if state == "used" and section == "own_invoices_pdf" else None, upload_id=r.upload_id,
         ))
     return out
@@ -250,7 +254,7 @@ def choose(uow: UnitOfWork, bundle_id: uuid.UUID, n: int, section: str | None) -
     if section is not None:
         if section not in SECTIONS:
             raise Invalid("unknown_section", "That isn't an upload section.", field="section")
-        if view.reason_code in IMMOVABLE:
+        if view.found_reason_code in IMMOVABLE:  # the sorting's reason, so dropping a file first changes nothing
             raise Invalid("file_cannot_be_moved", "There is nothing in this file we can read.", field="section")
         if section not in selectable(uow):
             raise Invalid("section_not_selected", "That report is not selected for your business.", field="section")
