@@ -112,7 +112,8 @@ def test_an_export_stores_the_file_the_snapshot_and_what_it_relied_on(ex):
     run(queue)
     s = status(pg, b, inst, job).json()
     assert s["status"] == "ready" and s["version"] == 1 and len(s["files"]) == 1
-    assert s["ready_to_upload"] is True and s["unverified_tables"] == []
+    # nobody has uploaded a file like this to the portal yet: never "ready to upload" until that is recorded in refdata
+    assert s["unverified_tables"] == [] and s["portal_tested"] is False and s["ready_to_upload"] is False
     assert s["not_in_file"] == list(export_job.NOT_IN_FILE)
     [f] = pg.owner.connect().execute(text("select * from filing.export_files")).all()
     body = stored(store, b, f.object_key)
@@ -335,3 +336,62 @@ def test_the_export_tables_are_insert_only(ex):
     with pytest.raises(DBAPIError):
         with pg.owner.begin() as c:
             c.execute(text("delete from filing.export_files"))
+
+
+def test_a_file_is_ready_to_upload_only_when_the_portal_has_accepted_one_like_it_and_no_table_is_unverified(ex, monkeypatch):
+    pg, b, inst, stage, queue, _ = ex
+    monkeypatch.setattr(export_job, "_portal_verified", lambda tx: True)
+    job = start(pg, b, inst).json()["job_id"]
+    run(queue)
+    s = status(pg, b, inst, job).json()
+    assert s["portal_tested"] is True and s["ready_to_upload"] is True
+    stage.fp = "e" * 64
+    stage.lines = lines()  # a credit note to a registered buyer: cdnr has no sample
+    two = start(pg, b, inst).json()["job_id"]
+    run(queue)
+    s = status(pg, b, inst, two).json()
+    assert s["portal_tested"] is True and s["ready_to_upload"] is False
+
+
+def test_the_shipped_refdata_says_the_portal_has_not_been_tried(ex):
+    pg, b, inst, stage, queue, _ = ex
+    with pg.app_rw.begin() as c:
+        assert export_job._portal_verified(c) is False
+
+
+def test_a_failed_job_does_not_lock_the_user_out(ex, monkeypatch):
+    pg, b, inst, stage, queue, store = ex
+    one = start(pg, b, inst).json()["job_id"]
+    real = export_job.make_files
+
+    def broken(tx, model):
+        raise jobs.JobFailed("store_unavailable")
+
+    monkeypatch.setattr(export_job, "make_files", broken)
+    run(queue)
+    assert status(pg, b, inst, one).json()["error_code"] == "store_unavailable"
+    monkeypatch.setattr(export_job, "make_files", real)
+    two = start(pg, b, inst).json()["job_id"]  # a new click gets a new job, not the failed one
+    assert two != one
+    assert start(pg, b, inst).json()["job_id"] == two  # and a second click joins that one
+    run(queue)
+    assert status(pg, b, inst, two).json()["status"] == "ready"
+    assert status(pg, b, inst, one).json()["status"] == "failed"  # the old job still tells what happened
+    assert start(pg, b, inst).json()["job_id"] == two  # unchanged and finished: joins it
+
+
+def test_a_return_refused_by_the_job_for_not_ready_can_be_asked_again_once_a_warning_is_accepted(ex):
+    from app.modules.filing.checks import Finding
+
+    pg, b, inst, stage, queue, _ = ex
+    job = start(pg, b, inst).json()["job_id"]
+    stage.findings = [Finding("C-16", "warn", "m", (), "c" * 64)]  # the job sees a warning the click did not
+    run(queue)
+    assert status(pg, b, inst, job).json()["error_code"] == "not_ready"
+    ok = pg.client.post(f"/api/v1/b/{b}/returns/{inst}/check-acceptances", headers=as_user("alice"),
+                        json={"check_code": "C-16", "subject_fp": "c" * 64, "note": "CA to confirm"})
+    assert ok.status_code == 200
+    again = start(pg, b, inst).json()["job_id"]
+    assert again != job
+    run(queue)
+    assert status(pg, b, inst, again).json()["status"] == "ready"

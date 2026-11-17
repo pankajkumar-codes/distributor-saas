@@ -60,3 +60,14 @@
   last_checked: 2026-11-16
   status: provisional
   note: "False: a negative B2CS row is reported as a block. QA open item 3 (does the offline tool import a negative B2CS row) decides."
+
+- key: gstr1.portal_file.verified
+  value: "false"
+  type: boolean
+  kind: tax
+  valid_from: 2017-07-01
+  source_url: https://www.gst.gov.in/
+  source_title: "No source yet: set to true only by a reviewed change after the test upload (T1 to T4, team/engineering/r1-m8-gstr1-export.md) has been accepted by the GST portal"
+  last_checked: 2026-11-17
+  status: provisional
+  note: "While false, an exported file is never called ready to upload: it has not been through the portal. The file is still made and can be downloaded."

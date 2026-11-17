@@ -2699,6 +2699,11 @@ export interface components {
              */
             not_in_file: string[];
             /**
+             * Portal Tested
+             * @default false
+             */
+            portal_tested: boolean;
+            /**
              * Ready To Upload
              * @default false
              */

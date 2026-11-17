@@ -199,7 +199,8 @@ class ExportStatusOut(BaseModel):
     files: list[ExportFileOut] = []
     not_in_file: list[str] = []  # tables the file does not carry yet, to be entered on the portal
     unverified_tables: list[str] = []  # tables written without a tool sample behind them
-    ready_to_upload: bool = False  # never true while a table is unverified
+    portal_tested: bool = False  # false until a file like this has been accepted by the portal (the test upload)
+    ready_to_upload: bool = False  # true only when portal_tested and no table is unverified
 
 
 class AcceptFindingOut(BaseModel):

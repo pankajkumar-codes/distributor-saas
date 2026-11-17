@@ -2990,6 +2990,11 @@
             "title": "Not In File",
             "type": "array"
           },
+          "portal_tested": {
+            "default": false,
+            "title": "Portal Tested",
+            "type": "boolean"
+          },
           "ready_to_upload": {
             "default": false,
             "title": "Ready To Upload",

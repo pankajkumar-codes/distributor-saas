@@ -13,7 +13,8 @@ the model, splits it on document boundaries (files of at most `gstr1.offline_too
 and finds the snapshot if it already committed; two jobs never share a key.
 
 `status` hands out 60-second links to the files of a finished export. A file made while a table has no tool sample behind it
-(`render_json.unverified_tables`) is shown with that list and is never "ready to upload".
+(`render_json.unverified_tables`) is shown with that list and is never "ready to upload"; nor is any file until `gstr1.portal_file.verified` says a file like it
+has been through the portal.
 """
 
 import hashlib
@@ -42,15 +43,35 @@ from .render_json import UNVERIFIED, render_json
 JOB = "filing.export"
 AREA = "exports"
 CONTENT_TYPE = "application/json"
-LINK_SECONDS = 60
 
 
 def _snapshot_id(job_id: uuid.UUID) -> uuid.UUID:
     return uuid.uuid5(job_id, "filing.export.snapshot")
 
 
-def _key(instance_id: uuid.UUID, fingerprint: str) -> str:
-    return f"{instance_id}:{fingerprint}"
+def _key(instance_id: uuid.UUID, fingerprint: str, attempt: int = 0) -> str:
+    """The return and its fingerprint; a later request after a failed job adds a counter, so a failure never locks a user out."""
+    base = f"{instance_id}:{fingerprint}"
+    return base if attempt == 0 else f"{base}:{attempt}"
+
+
+def _failed_before(tx, instance_id: uuid.UUID, fingerprint: str, business: uuid.UUID) -> int:
+    """The attempt number a new request for this return as it is now should use: one more than the failed jobs it has had."""
+    base = _key(instance_id, fingerprint)
+    keys = {
+        r.natural_key: r.status
+        for r in tx.execute(
+            text(
+                "select natural_key, status from platform.jobs where business_id = :b and type = :t"
+                " and (natural_key = :k or natural_key like :k || ':%')"
+            ),
+            {"b": business, "t": JOB, "k": base},
+        )
+    }
+    attempt = 0
+    while keys.get(_key(instance_id, fingerprint, attempt)) == "failed":
+        attempt += 1
+    return attempt
 
 
 def start(uow: UnitOfWork, instance_id: uuid.UUID) -> uuid.UUID:
@@ -73,7 +94,8 @@ def start(uow: UnitOfWork, instance_id: uuid.UUID) -> uuid.UUID:
         raise Conflict("not_renderable", str(exc)) from exc
     if model.empty:
         raise Conflict("nothing_to_file", "There is nothing in this return to put in a file.")
-    return jobs.create(uow, JOB, natural_key=_key(inst.id, build.fingerprint))
+    attempt = _failed_before(uow.tx, inst.id, build.fingerprint, business)
+    return jobs.create(uow, JOB, natural_key=_key(inst.id, build.fingerprint, attempt))
 
 
 def make_files(tx, model: ExportModel) -> list[tuple[bytes, int]]:
@@ -100,7 +122,8 @@ def run(ctx: jobs.JobContext) -> dict:
     view = jobs.get(uow, ctx.job_id)
     if view is None or not view.natural_key or ":" not in view.natural_key:
         raise jobs.JobFailed("not_found")
-    raw_instance, fingerprint = view.natural_key.split(":", 1)
+    raw_instance, _, rest = view.natural_key.partition(":")
+    fingerprint = rest.partition(":")[0]  # a later request after a failure adds a counter
     inst = periods.get_instance(tx, uuid.UUID(raw_instance))
     if inst is None:
         raise jobs.JobFailed("not_found")
@@ -198,6 +221,7 @@ def status(uow: UnitOfWork, instance_id: uuid.UUID, job_id: uuid.UUID) -> dict:
     store = get_store()
     name = f"GSTR1_{inst.gstin}_{inst.period_end:%m%Y}"
     unverified = _unverified(uow, inst, sid)
+    verified = _portal_verified(uow.tx)
     return {
         "status": "ready",
         "version": (job.result or {}).get("version"),
@@ -208,8 +232,14 @@ def status(uow: UnitOfWork, instance_id: uuid.UUID, job_id: uuid.UUID) -> dict:
         ],
         "not_in_file": list(NOT_IN_FILE),
         "unverified_tables": unverified,
-        "ready_to_upload": not unverified,
+        "portal_tested": verified,
+        "ready_to_upload": verified and not unverified,
     }  # fmt: skip
+
+
+def _portal_verified(tx) -> bool:
+    """Whether a file of this kind has been accepted by the portal (`gstr1.portal_file.verified`, false until the test upload)."""
+    return value_on(tx, "gstr1.portal_file.verified", get_clock().today()) is True
 
 
 def _unverified(uow: UnitOfWork, inst, sid: uuid.UUID) -> list[str]:

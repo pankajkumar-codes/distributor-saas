@@ -135,3 +135,4 @@ def test_a_broken_check_closes_the_door_and_m9_can_install_and_remove_its_own(mo
     finally:
         entitlement.set_check(None)
     assert allowed() is False  # back to the default
+
