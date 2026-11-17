@@ -17,6 +17,7 @@ import { RadioGroup } from "../../kit/RadioGroup";
 import { SelectField } from "../../kit/SelectField";
 import { TopBar } from "../../kit/TopBar";
 import { RateHistory } from "./RateHistory";
+import { saleRateText } from "./saleRate";
 import { useGstRates } from "./useGstRates";
 
 type Detail = components["schemas"]["ProductDetailOut"];
@@ -125,6 +126,7 @@ export function ProductPage() {
   const [rate, setRate] = useState("");
   const [validFrom, setValidFrom] = useState(todayIst());
   const [stale, setStale] = useState(false);
+  const [advanced, setAdvanced] = useState(false);
   const rates = useGstRates(validFrom, isNew && values.tax_category === "taxable");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const latest = product.data ?? null;
@@ -148,6 +150,16 @@ export function ProductPage() {
   useEffect(() => {
     if (rates.data && rate && !rates.data.includes(rate)) setRate("");
   }, [rates.data, rate]);
+
+  // The rate list answers for one date. Say why it is empty instead of showing a dropdown with nothing in it.
+  const dateOk = /^\d{4}-\d{2}-\d{2}$/.test(validFrom);
+  const ratesReady = Boolean(rates.data && rates.data.length > 0);
+  const ratesPlaceholder = !dateOk ? "Enter a date first" : rates.isPending ? "Loading rates…" : rates.error ? "Rates unavailable" : "Choose…";
+  const ratesNote = !dateOk
+    ? "Enter the date the rate applies from (under Advanced)."
+    : rates.data?.length === 0
+      ? "No GST rates are on file for that date. Check the date under Advanced."
+      : undefined;
 
   const saved = (p: Detail) => {
     queryClient.setQueryData(["b", businessId, "product", p.id], p);
@@ -261,6 +273,7 @@ export function ProductPage() {
     return `Now saved as: ${typeof now === "boolean" ? (now ? "yes" : "no") : now || "(blank)"}`;
   };
   const hint = (field: keyof Values, normal?: string) => theirs(field) ?? warningFor(field) ?? normal;
+  const advancedOpen = advanced || Boolean(errorFor("valid_from"));
   const set = (field: keyof Values) => (e: { target: { value: string } }) => setValues({ ...values, [field]: e.target.value });
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -300,17 +313,26 @@ export function ProductPage() {
           />
           <SelectField
             label="Unit"
+            placeholder={units.isPending ? "Loading units…" : "Choose…"}
             options={(units.data ?? []).map((u) => ({ value: u.code, label: `${u.name} (${u.code})` }))}
             value={values.uqc}
             onChange={set("uqc")}
             hint={hint("uqc")}
             error={errorFor("uqc")}
           />
+          {units.error && (
+            <Banner tone="error">
+              We couldn't load the list of units. {errorText(units.error)}{" "}
+              <Button type="button" variant="link" onClick={() => units.refetch()}>
+                Try again
+              </Button>
+            </Banner>
+          )}
           <Field
             label="Sale rate per unit, excluding GST (₹)"
             inputMode="decimal"
             value={values.sale_rate}
-            onChange={set("sale_rate")}
+            onChange={(e) => setValues({ ...values, sale_rate: saleRateText(e.target.value) })}
             hint={hint("sale_rate")}
             error={errorFor("sale_rate")}
           />
@@ -332,21 +354,39 @@ export function ProductPage() {
 
           {isNew && values.tax_category === "taxable" && (
             <>
-              <Field
-                label="Rate applies from"
-                type="date"
-                value={validFrom}
-                onChange={(e) => setValidFrom(e.target.value)}
-                error={errorFor("valid_from")}
-              />
               <SelectField
                 label="GST rate"
+                placeholder={ratesPlaceholder}
+                disabled={!ratesReady}
                 options={(rates.data ?? []).map((r) => ({ value: r, label: formatRate(r) }))}
                 value={chosenRate}
                 onChange={(e) => setRate(e.target.value)}
-                hint="The rate your CA advised. The list is the GST rates in force on that date."
-                error={errorFor("rate") ?? (rates.error ? errorText(rates.error) : undefined)}
+                hint={ratesNote ?? "The rate your CA advised. The list is the GST rates in force on the date the rate starts (under Advanced)."}
+                error={errorFor("rate")}
               />
+              {rates.error && (
+                <Banner tone="error">
+                  We couldn't load the GST rates. {errorText(rates.error)}{" "}
+                  <Button type="button" variant="link" onClick={() => rates.refetch()}>
+                    Try again
+                  </Button>
+                </Banner>
+              )}
+              <p>
+                <Button type="button" variant="link" aria-expanded={advancedOpen} aria-controls="advanced-rate" onClick={() => setAdvanced(!advanced)}>
+                  Advanced
+                </Button>
+              </p>
+              <div id="advanced-rate" hidden={!advancedOpen}>
+                <Field
+                  label="Rate applies from"
+                  type="date"
+                  value={validFrom}
+                  onChange={(e) => setValidFrom(e.target.value)}
+                  hint="The date this GST rate starts. It is today unless the rate began earlier."
+                  error={errorFor("valid_from")}
+                />
+              </div>
             </>
           )}
           </fieldset>

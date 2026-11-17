@@ -102,6 +102,9 @@ export function ProductsPage() {
     <>
       <TopBar title={business.display_name} gstin={business.gstin} />
       <main className="page page-wide">
+        <p className="step">
+          <Link to={`/b/${businessId}/home`}>Home</Link>
+        </p>
         <div className="actions">
           <h1>Products</h1>
           {canEditCatalog(business.role) && (
