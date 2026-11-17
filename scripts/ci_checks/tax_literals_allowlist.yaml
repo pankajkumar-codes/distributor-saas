@@ -234,3 +234,6 @@
 - path: app/src/app/modules/filing/api.py
   value: "500"
   reason: "longest note kept with an accepted warning; an input size cap, not a tax rule"
+- path: app/src/app/modules/filing/lock.py
+  value: "32"
+  reason: "width of the ARN column (varchar(32)); input hygiene, no cited ARN format exists"

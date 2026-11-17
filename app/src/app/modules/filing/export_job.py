@@ -112,6 +112,24 @@ def make_files(tx, model: ExportModel) -> list[tuple[bytes, int]]:
     return out
 
 
+def store_parts(uow: UnitOfWork, sid: uuid.UUID, files: list[tuple[bytes, int]]) -> None:
+    """Put each file under a key made from the snapshot id, then record it (sha256, size, rows) against the snapshot.
+    Call it in the transaction that writes the snapshot; a retry writes the same keys."""
+    p = uow.principal
+    store = get_store()
+    for n, (data, rows) in enumerate(files, 1):
+        key = key_for(p.business_id, AREA, sid, f"part{n}.json")
+        store.put(p.business_id, key, data, CONTENT_TYPE)
+        uow.tx.execute(
+            text(
+                "insert into filing.export_files (snapshot_id, business_id, part_no, object_key, sha256, size_bytes,"
+                " row_count) values (:s, :b, :n, :k, :h, :z, :r)"
+            ),
+            {"s": sid, "b": p.business_id, "n": n, "k": key, "h": hashlib.sha256(data).hexdigest(), "z": len(data),
+             "r": rows},
+        )  # fmt: skip
+
+
 @jobs.handler(JOB)
 def run(ctx: jobs.JobContext) -> dict:
     uow = ctx.uow
@@ -152,22 +170,8 @@ def run(ctx: jobs.JobContext) -> dict:
     files = make_files(tx, model)
     ctx.progress(0, len(files))
 
-    store = get_store()
-    stored: list[tuple[int, str, bytes, int]] = []
-    for n, (data, rows) in enumerate(files, 1):
-        key = key_for(p.business_id, AREA, sid, f"part{n}.json")
-        store.put(p.business_id, key, data, CONTENT_TYPE)
-        stored.append((n, key, data, rows))
     snap = snapshots.write_snapshot(uow, inst, build, purpose="export", snapshot_id=sid)
-    for n, key, data, rows in stored:
-        tx.execute(
-            text(
-                "insert into filing.export_files (snapshot_id, business_id, part_no, object_key, sha256, size_bytes,"
-                " row_count) values (:s, :b, :n, :k, :h, :z, :r)"
-            ),
-            {"s": sid, "b": p.business_id, "n": n, "k": key, "h": hashlib.sha256(data).hexdigest(), "z": len(data),
-             "r": rows},
-        )  # fmt: skip
+    store_parts(uow, sid, files)
     relied = {accepted_key(f) for f in findings if f.level == "warn"}
     acceptance_ids = [
         r.id
@@ -185,7 +189,7 @@ def run(ctx: jobs.JobContext) -> dict:
             [{"s": sid, "b": p.business_id, "a": a} for a in acceptance_ids],
         )
     audit.record(uow, "filing.exported", "return_instance", inst.id,
-                 data={"snapshot_id": str(sid), "version": snap.version, "parts": len(stored)})  # fmt: skip
+                 data={"snapshot_id": str(sid), "version": snap.version, "parts": len(files)})  # fmt: skip
     return _result(tx, sid, snap.version)
 
 
@@ -211,6 +215,13 @@ def status(uow: UnitOfWork, instance_id: uuid.UUID, job_id: uuid.UUID) -> dict:
         raise Conflict("download_not_available", "Downloading the file is not available for your plan yet.")
     sid = uuid.UUID((job.result or {})["snapshot_id"])
     inst = periods.get_instance(uow.tx, instance_id)
+    return files_of(uow, inst, sid, (job.result or {}).get("version"))
+
+
+def files_of(uow: UnitOfWork, inst, sid: uuid.UUID, version: int | None) -> dict:
+    """The ready answer for a stored snapshot's files: 60-second links, what is not in the file, what is unverified.
+    The caller has checked the entitlement."""
+    business = uow.principal.business_id
     rows = uow.tx.execute(
         text(
             "select part_no, object_key, size_bytes, row_count from filing.export_files where snapshot_id = :s"
@@ -224,7 +235,7 @@ def status(uow: UnitOfWork, instance_id: uuid.UUID, job_id: uuid.UUID) -> dict:
     verified = _portal_verified(uow.tx)
     return {
         "status": "ready",
-        "version": (job.result or {}).get("version"),
+        "version": version,
         "files": [
             {"part": r.part_no, "rows": r.row_count, "size_bytes": r.size_bytes,
              "url": store.presign_get(business, r.object_key, download_name=f"{name}_part{r.part_no}.json")}

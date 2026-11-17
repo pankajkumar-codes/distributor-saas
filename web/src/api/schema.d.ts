@@ -1001,6 +1001,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/returns/{instance_id}/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Changes Since Export
+         * @description The return as it is now against the file the user took, by document number, for the confirm step of marking filed.
+         */
+        get: operations["changes_since_export_api_v1_b__business_id__returns__instance_id__changes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/returns/{instance_id}/check-acceptances": {
         parameters: {
             query?: never;
@@ -1056,6 +1076,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/returns/{instance_id}/filed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark Filed
+         * @description Records the filing and locks the return as it is now. 409 `changed_since_export` when it differs from the file the user
+         *     took, unless `accept_changed` gives a reason; 409 `period_not_open` when it is already locked.
+         */
+        post: operations["mark_filed_api_v1_b__business_id__returns__instance_id__filed_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/returns/{instance_id}/lock-file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lock File
+         * @description The file of a locked return, from its lock snapshot, with 60-second links.
+         */
+        get: operations["lock_file_api_v1_b__business_id__returns__instance_id__lock_file_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/returns/{instance_id}/sections/{section}": {
         parameters: {
             query?: never;
@@ -1067,6 +1128,26 @@ export interface paths {
         get: operations["get_section_api_v1_b__business_id__returns__instance_id__sections__section__get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/returns/{instance_id}/unlock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Unlock Return
+         * @description Owner only, with a reason. The snapshots stay; marking filed again is a relock.
+         */
+        post: operations["unlock_return_api_v1_b__business_id__returns__instance_id__unlock_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1726,6 +1807,11 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AcceptChangedIn */
+        AcceptChangedIn: {
+            /** Reason */
+            reason: string;
+        };
         /** AcceptFindingIn */
         AcceptFindingIn: {
             /** Check Code */
@@ -2141,6 +2227,13 @@ export interface components {
             /** Row Id */
             row_id: string;
         };
+        /** ChangesOut */
+        ChangesOut: {
+            difference: components["schemas"]["app__modules__filing__api__DifferenceOut"];
+            reference: components["schemas"]["SnapshotRefOut"] | null;
+            /** Same */
+            same: boolean;
+        };
         /** ChannelsIn */
         ChannelsIn: {
             /** Amazon */
@@ -2439,18 +2532,6 @@ export interface components {
             /** Notice */
             notice: string | null;
         };
-        /** DifferenceOut */
-        DifferenceOut: {
-            /** Excel */
-            excel: string;
-            /**
-             * Field
-             * @enum {string}
-             */
-            field: "doc_date" | "buyer_gstin" | "place_of_supply" | "invoice_total" | "taxable_value" | "igst" | "cgst" | "sgst" | "cess" | "lines";
-            /** Pdf */
-            pdf: string;
-        };
         /** DocRefOut */
         DocRefOut: {
             /** Doc Number */
@@ -2512,6 +2593,13 @@ export interface components {
             taxable_total: string;
             /** Utgst */
             utgst: boolean;
+        };
+        /** DocumentRef */
+        DocumentRef: {
+            /** Number */
+            number: string;
+            /** Section */
+            section: string;
         };
         /** DraftIn */
         DraftIn: {
@@ -2720,6 +2808,38 @@ export interface components {
             unverified_tables: string[];
             /** Version */
             version?: number | null;
+        };
+        /** FiledIn */
+        FiledIn: {
+            accept_changed?: components["schemas"]["AcceptChangedIn"] | null;
+            /** Arn */
+            arn: string;
+            /**
+             * Filed On
+             * Format: date
+             */
+            filed_on: string;
+        };
+        /** FiledOut */
+        FiledOut: {
+            /** Arn */
+            arn: string;
+            /** Changed Since Export */
+            changed_since_export: boolean;
+            /**
+             * Filed On
+             * Format: date
+             */
+            filed_on: string;
+            /** Has File */
+            has_file: boolean;
+            /** Snapshot Version */
+            snapshot_version: number;
+            /**
+             * Status
+             * @constant
+             */
+            status: "filed_locked";
         };
         /** FilingProfileOut */
         FilingProfileOut: {
@@ -3240,7 +3360,7 @@ export interface components {
         /** MismatchOut */
         MismatchOut: {
             /** Differences */
-            differences: components["schemas"]["DifferenceOut"][];
+            differences: components["schemas"]["app__modules__imports__api__DifferenceOut"][];
             document: components["schemas"]["DocRefOut"];
             /** Excel Row Ids */
             excel_row_ids: string[];
@@ -3973,6 +4093,16 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** SnapshotRefOut */
+        SnapshotRefOut: {
+            /**
+             * Purpose
+             * @enum {string}
+             */
+            purpose: "export" | "lock";
+            /** Version */
+            version: number;
+        };
         /** StateCode */
         StateCode: {
             /** Code */
@@ -4116,6 +4246,19 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** UnlockIn */
+        UnlockIn: {
+            /** Reason */
+            reason: string;
+        };
+        /** UnlockOut */
+        UnlockOut: {
+            /**
+             * Status
+             * @constant
+             */
+            status: "unlocked";
+        };
         /** UploadStartIn */
         UploadStartIn: {
             /** File Name */
@@ -4220,6 +4363,17 @@ export interface components {
             /** Reason */
             reason?: string | null;
         };
+        /** DifferenceOut */
+        app__modules__filing__api__DifferenceOut: {
+            /** Added */
+            added: components["schemas"]["DocumentRef"][];
+            /** Changed */
+            changed: components["schemas"]["DocumentRef"][];
+            /** Removed */
+            removed: components["schemas"]["DocumentRef"][];
+            /** Summaries */
+            summaries: string[];
+        };
         /** SectionOut */
         app__modules__filing__api__SectionOut: {
             /**
@@ -4240,6 +4394,18 @@ export interface components {
         app__modules__imports__api__ConfirmIn: {
             /** Changed */
             changed?: components["schemas"]["ChangedChoice"][];
+        };
+        /** DifferenceOut */
+        app__modules__imports__api__DifferenceOut: {
+            /** Excel */
+            excel: string;
+            /**
+             * Field
+             * @enum {string}
+             */
+            field: "doc_date" | "buyer_gstin" | "place_of_supply" | "invoice_total" | "taxable_value" | "igst" | "cgst" | "sgst" | "cess" | "lines";
+            /** Pdf */
+            pdf: string;
         };
         /** SectionOut */
         app__modules__imports__api__SectionOut: {
@@ -6610,6 +6776,38 @@ export interface operations {
             };
         };
     };
+    changes_since_export_api_v1_b__business_id__returns__instance_id__changes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instance_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     accept_finding_api_v1_b__business_id__returns__instance_id__check_acceptances_post: {
         parameters: {
             query?: never;
@@ -6711,6 +6909,74 @@ export interface operations {
             };
         };
     };
+    mark_filed_api_v1_b__business_id__returns__instance_id__filed_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instance_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FiledIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FiledOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    lock_file_api_v1_b__business_id__returns__instance_id__lock_file_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instance_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportStatusOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_section_api_v1_b__business_id__returns__instance_id__sections__section__get: {
         parameters: {
             query?: {
@@ -6733,6 +6999,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["B2BPage"] | components["schemas"]["B2CLPage"] | components["schemas"]["B2CSPage"] | components["schemas"]["CDNRPage"] | components["schemas"]["CDNURPage"] | components["schemas"]["HsnB2bPage"] | components["schemas"]["HsnB2cPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unlock_return_api_v1_b__business_id__returns__instance_id__unlock_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instance_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnlockIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnlockOut"];
                 };
             };
             /** @description Validation Error */
