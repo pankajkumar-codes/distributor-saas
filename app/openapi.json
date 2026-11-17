@@ -5424,6 +5424,39 @@
         "title": "Person",
         "type": "object"
       },
+      "PlanOut": {
+        "properties": {
+          "free_for_now": {
+            "title": "Free For Now",
+            "type": "boolean"
+          },
+          "gst_note": {
+            "title": "Gst Note",
+            "type": "string"
+          },
+          "monthly_rupees": {
+            "title": "Monthly Rupees",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "quarterly_rupees": {
+            "title": "Quarterly Rupees",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "monthly_rupees",
+          "quarterly_rupees",
+          "gst_note",
+          "free_for_now"
+        ],
+        "title": "PlanOut",
+        "type": "object"
+      },
       "PlatformMonthOut": {
         "properties": {
           "complete": {
@@ -11016,6 +11049,49 @@
         "summary": "Own Invoices Crosscheck",
         "tags": [
           "imports"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/plan": {
+      "get": {
+        "description": "The GST-filing plan and its prices, and whether it is free for now (`plans.FREE_FOR_NOW`). Read-only; nothing is charged.",
+        "operationId": "get_plan_api_v1_b__business_id__plan_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Plan",
+        "tags": [
+          "filing"
         ]
       }
     },

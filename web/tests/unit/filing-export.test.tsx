@@ -270,3 +270,24 @@ describe("A locked return", () => {
     }
   });
 });
+
+describe("The plan beside the file (R1-M9)", () => {
+  const PLAN = "/api/v1/b/b-1/plan";
+  const plan = (free: boolean) => ({ status: 200, body: { name: "GST filing", monthly_rupees: 499, quarterly_rupees: 1499, gst_note: "plus 18% GST on our fee", free_for_now: free } });
+
+  it("shows the prices and says free for now when the server says so", async () => {
+    server.reply(DETAIL, detail({ export: ready }));
+    server.reply(PLAN, plan(true));
+    open();
+    expect(await screen.findByText(/₹499 a month, or ₹1,499 a quarter, plus 18% GST on our fee/)).toBeInTheDocument();
+    expect(screen.getByText(/free for now/)).toBeInTheDocument();
+  });
+
+  it("does not say free once the server stops saying it", async () => {
+    server.reply(DETAIL, detail({ export: ready }));
+    server.reply(PLAN, plan(false));
+    open();
+    await screen.findByText(/₹499 a month/);
+    expect(screen.queryByText(/free for now/)).toBeNull();
+  });
+});

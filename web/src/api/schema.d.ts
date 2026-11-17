@@ -688,6 +688,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Plan
+         * @description The GST-filing plan and its prices, and whether it is free for now (`plans.FREE_FOR_NOW`). Read-only; nothing is charged.
+         */
+        get: operations["get_plan_api_v1_b__business_id__plan_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/product-imports": {
         parameters: {
             query?: never;
@@ -3691,6 +3711,19 @@ export interface components {
              */
             user_id: string;
         };
+        /** PlanOut */
+        PlanOut: {
+            /** Free For Now */
+            free_for_now: boolean;
+            /** Gst Note */
+            gst_note: string;
+            /** Monthly Rupees */
+            monthly_rupees: number;
+            /** Name */
+            name: string;
+            /** Quarterly Rupees */
+            quarterly_rupees: number;
+        };
         /** PlatformMonthOut */
         PlatformMonthOut: {
             /** Complete */
@@ -6201,6 +6234,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CrossCheckOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_plan_api_v1_b__business_id__plan_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanOut"];
                 };
             };
             /** @description Validation Error */

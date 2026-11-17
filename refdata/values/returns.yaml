@@ -86,7 +86,7 @@
   source_title: "SMFG India Credit knowledge-center page \"GST Return Due Dates & Compliance Calendar 2026\" (updated 13 Oct 2026), a lender article, not GSTN or CBIC: Category X states named on the page: Maharashtra, Gujarat, Karnataka, Tamil Nadu, Andhra Pradesh (the page says 'among others' and gives no full list)"
   last_checked: 2026-11-13
   status: provisional
-  note: "Only the states the page names; any other state has no date until the official list is read (a null date, never a guess). GST state codes, comma-separated."
+  note: "Only the states the page names; any other state has no date until the official list is read (a null date, never a guess). GST state codes, comma-separated. This is a gap in our list, not a West Bengal rule: the GST portal due-date calendar is national and covers every state (Pankaj, 2026-11-17)."
 
 - key: due.gstr3b.quarterly.group_b.day
   value: "24"
@@ -108,7 +108,7 @@
   source_title: "SMFG India Credit knowledge-center page \"GST Return Due Dates & Compliance Calendar 2026\" (updated 13 Oct 2026), a lender article, not GSTN or CBIC: Category Y states named on the page: Uttar Pradesh, Rajasthan, Punjab, West Bengal (the page says 'among others' and gives no full list)"
   last_checked: 2026-11-13
   status: provisional
-  note: "Only the states the page names; any other state has no date until the official list is read (a null date, never a guess). GST state codes, comma-separated."
+  note: "Only the states the page names; any other state has no date until the official list is read (a null date, never a guess). GST state codes, comma-separated. This is a gap in our list, not a West Bengal rule: the GST portal due-date calendar is national and covers every state (Pankaj, 2026-11-17)."
 
 - key: iff.max_taxable_value
   value: "5000000.00"

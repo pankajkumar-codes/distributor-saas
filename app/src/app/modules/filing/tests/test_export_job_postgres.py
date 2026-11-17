@@ -185,6 +185,7 @@ def test_the_download_hook_fails_closed_outside_demo_and_local(ex, monkeypatch):
     r = start(pg, b, inst)
     assert r.status_code == 409 and error_code(r) == "download_not_available" and queue.sent == []
     entitlement.set_check(None)
+    monkeypatch.setattr(entitlement.plans, "FREE_FOR_NOW", False)  # R1 opens it for everyone; this is the rule behind it
     monkeypatch.setattr(entitlement, "debug_env", lambda: False)  # the default outside local and test
     assert error_code(start(pg, b, inst)) == "download_not_available"
     entitlement.set_check(lambda tx, business: True)  # what M9 will say for a paid plan
@@ -409,3 +410,17 @@ def test_a_return_refused_by_the_job_for_not_ready_can_be_asked_again_once_a_war
     assert again != job
     run(queue)
     assert status(pg, b, inst, again).json()["status"] == "ready"
+
+
+def test_the_plan_shows_the_prices_and_says_free_for_now_until_the_one_flag_is_removed(ex, monkeypatch):
+    pg, b, inst, stage, queue, _ = ex
+    r = pg.client.get(f"/api/v1/b/{b}/plan", headers=as_user("alice"))
+    assert r.status_code == 200
+    assert r.json() == {"name": "GST filing", "monthly_rupees": 499, "quarterly_rupees": 1499,
+                        "gst_note": "plus 18% GST on our fee", "free_for_now": True}  # fmt: skip
+    assert start(pg, b, inst).status_code == 202  # free for now: the download is open to this business
+    monkeypatch.setattr(entitlement.plans, "FREE_FOR_NOW", False)
+    assert pg.client.get(f"/api/v1/b/{b}/plan", headers=as_user("alice")).json()["free_for_now"] is False
+    other = new_business(pg, "mallory")  # another tenant's plan is not readable with this user's token
+    assert pg.client.get(f"/api/v1/b/{b}/plan", headers=as_user("mallory")).status_code in (403, 404)
+    assert other
