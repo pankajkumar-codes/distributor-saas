@@ -53,6 +53,8 @@ const BY_CODE: Record<string, string> = {
   file_too_large: "The file came out too large for the portal. Contact support.",
   changed_during_export: "The return changed while the file was being made. Check it and try again.",
   not_allowed: "Your role can't do this.",
+  worksheet_blocked: "Fix the items in your GSTR-1 first, then build the worksheet again.",
+  worksheet_changed: "This worksheet was saved by someone else while you were typing.",
   cannot_accept: "This can't be accepted. It has to be fixed.",
   period_not_open: "This return is already marked filed.",
   changed_since_export: "This return has changed since the file you took.",
