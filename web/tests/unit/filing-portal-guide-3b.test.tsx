@@ -43,6 +43,7 @@ describe("GSTR-3B portal guide", () => {
     const steps = within(screen.getByRole("list")).getAllByRole("listitem");
     expect(steps).toHaveLength(GUIDE_3B_STEPS("October 2026").length);
     for (const li of steps) expect(within(li).getByText("Not checked").getAttribute("title")).toBe(GUIDE_3B_NOT_CHECKED);
+    for (const li of steps) expect(within(li).getByText(GUIDE_3B_NOT_CHECKED)).toBeTruthy();
     expect(screen.getByText(/October 2026/, { selector: "p" }).textContent).toContain("enter and submit it on the GST portal yourself");
     expect(screen.getAllByText(/To be confirmed/).length).toBeGreaterThan(0);
   });
@@ -56,7 +57,7 @@ describe("GSTR-3B portal guide", () => {
     expect(text).not.toMatch(/net payable|₹/);
   });
 
-  it("is a not-found page for a GSTR-1, an unknown id and an unknown id", async () => {
+  it("is a not-found page for a GSTR-1 and an unknown id", async () => {
     server.reply(LIST, list(row(G1, "GSTR1")));
     open(G1);
     expect(await screen.findByRole("heading", { name: "We couldn't find that page" })).toBeTruthy();
