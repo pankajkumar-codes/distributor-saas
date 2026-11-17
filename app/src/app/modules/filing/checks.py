@@ -16,7 +16,7 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from app.modules.business.interface import check_gstin, fy_of, gstin_state, hsn_band_missing, hsn_min_digits
-from app.modules.refdata import RefdataMissing, provenance_on, state_name, value_on
+from app.modules.refdata import RefdataMissing, provenance_on, state_name, uqc_codes, value_on
 
 from .build import ReturnBuild
 from .gstr1 import SupplyLine
@@ -46,11 +46,18 @@ def _fp(code: str, *parts: str) -> str:
     return hashlib.sha256("|".join((code, *parts)).encode()).hexdigest()
 
 
+def _line_fp(code: str, ln: SupplyLine) -> str:
+    """What an acceptance is tied to: the document and every figure and code on the line, so a corrected line under the
+    same file name and row is a different subject and needs a new acceptance (Lead review of #163)."""
+    return _fp(
+        code, ln.source_ref, str(ln.source_id), ln.doc_number, str(ln.doc_date), ln.doc_kind, ln.supply_class,
+        ln.pos_state_code, ln.gstin, ln.counterparty_gstin or "", str(ln.rate), ln.hsn or "", ln.uqc or "",
+        str(ln.quantity), str(ln.taxable_value), str(ln.igst), str(ln.cgst), str(ln.sgst), str(ln.cess),
+    )  # fmt: skip
+
+
 def _per_line(code, level, lines, message, *, ca=False) -> list[Finding]:
-    return [
-        Finding(code, level, message(ln), (ln.source_ref,), _fp(code, ln.source_ref, str(ln.source_id)), ca)
-        for ln in lines
-    ]
+    return [Finding(code, level, message(ln), (ln.source_ref,), _line_fp(code, ln), ca) for ln in lines]
 
 
 def _unit(ln: SupplyLine) -> str:
@@ -95,6 +102,16 @@ def c05_place_of_supply(tx: Session, b: ReturnBuild) -> list[Finding]:
     bad = [ln for ln in b.lines if state_name(tx, ln.pos_state_code, ln.doc_date) is None]
     return _per_line("C-05", "block", bad,
                      lambda ln: f"{_unit(ln)} ({ln.source_ref}): the place of supply is not a known state code.")
+
+
+def c18_unit_not_listed(tx: Session, b: ReturnBuild) -> list[Finding]:
+    """A unit the portal's list does not have would be refused by the portal, and mapping it is a guess, so it blocks the
+    export (R1-M8). A blank unit is read as 'NA', which is not in our list of the portal's units either."""
+    known = uqc_codes(tx, b.instance.period_end)
+    return _per_line("C-18", "block", [ln for ln in b.lines if ln.uqc not in known],
+                     lambda ln: f"{_unit(ln)} ({ln.source_ref}): " + (
+                         "there is no unit, and the portal's list needs one." if ln.uqc == "NA"
+                         else "the unit is not on the portal's list."))  # fmt: skip
 
 
 def c10_hsn_digits(tx: Session, b: ReturnBuild) -> list[Finding]:
@@ -192,7 +209,7 @@ def a4_number_in_two_years(tx: Session, b: ReturnBuild) -> list[Finding]:
 
 CHECKS: tuple[Callable[[Session, ReturnBuild], list[Finding]], ...] = (
     c01_missing_hsn, c02_customer_gstin, c03_document_number, c04_duplicate_number, c05_place_of_supply,
-    c10_hsn_digits, c12_negative_b2cs, c16_provisional_values,
+    c10_hsn_digits, c12_negative_b2cs, c16_provisional_values, c18_unit_not_listed,
     a1_tax_arithmetic, a2_heads_vs_place_of_supply, a3_cgst_sgst_differ, a4_number_in_two_years,
 )  # fmt: skip
 

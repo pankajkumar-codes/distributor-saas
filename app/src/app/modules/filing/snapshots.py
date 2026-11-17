@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from platform_common.errors import Conflict
 from platform_common.ids import uuid7
 from platform_common.uow import BusinessUoW
 
@@ -103,7 +104,12 @@ def write_snapshot(
     accept_reason: str | None = None,
     difference: dict | None = None,
 ) -> Snapshot:
-    """Write the build as the next version of this instance's snapshots. Must run in the caller's transaction."""
+    """Write the build as the next version of this instance's snapshots. Must run in the caller's transaction.
+
+    The advisory lock is taken before the version is read, which needs the usual READ COMMITTED: under REPEATABLE READ a
+    second writer would fail on `unique (instance_id, version)` rather than write a duplicate. The caller supplies a
+    `snapshot_id` it generated on the server (never one from a client) so that its own retry finds the snapshot it wrote.
+    """
     if purpose not in PURPOSES:
         raise ValueError(f"unknown snapshot purpose {purpose!r}")
     if build.instance.id != instance.id:
@@ -116,12 +122,12 @@ def write_snapshot(
     )
     sid = snapshot_id or uuid7()
     existing = tx.execute(
-        text(
-            "select id, version, purpose, fingerprint from filing.return_snapshots where id = :s and instance_id = :i"
-        ),
-        {"s": sid, "i": instance.id},
+        text("select id, instance_id, version, purpose, fingerprint from filing.return_snapshots where id = :s"),
+        {"s": sid},
     ).first()
     if existing:  # a retry of a write that already committed
+        if (existing.instance_id, existing.purpose, existing.fingerprint) != (instance.id, purpose, build.fingerprint):
+            raise Conflict("snapshot_id_reused", "That snapshot number was already used for something else.")
         return Snapshot(existing.id, existing.version, existing.purpose, existing.fingerprint, False)
     version = tx.execute(
         text("select coalesce(max(version), 0) + 1 from filing.return_snapshots where instance_id = :i"),

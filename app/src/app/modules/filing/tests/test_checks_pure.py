@@ -63,3 +63,15 @@ def test_the_finding_fingerprint_moves_with_the_row():
 
 def test_every_value_a_build_relies_on_has_plain_words():
     assert set(checks.RELIED_ON) <= set(checks._RELIED_ON_PLAIN)
+
+
+def test_a_corrected_line_under_the_same_file_and_row_is_a_new_subject():
+    old = ln(1, cgst=Decimal("1"))
+    new = replace(old, sgst=Decimal("5"))  # same document id and source_ref, different figures
+    assert old.source_id == new.source_id and old.source_ref == new.source_ref
+    a = checks.a3_cgst_sgst_differ(None, build(old))[0]
+    b = checks.a3_cgst_sgst_differ(None, build(new))[0]
+    assert a.subject_fp != b.subject_fp
+    for field, value in (("taxable_value", Decimal("101")), ("igst", Decimal("1")), ("cess", Decimal("1")),
+                         ("hsn", "6110"), ("uqc", "KGS"), ("rate", Decimal("12"))):  # fmt: skip
+        assert checks.a3_cgst_sgst_differ(None, build(replace(old, **{field: value})))[0].subject_fp != a.subject_fp

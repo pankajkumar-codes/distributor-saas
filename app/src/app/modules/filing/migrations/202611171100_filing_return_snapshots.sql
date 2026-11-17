@@ -78,7 +78,8 @@ create table filing.snapshot_members (
     source_id uuid not null,
     via_instance uuid not null,
     primary key (snapshot_id, source_kind, source_id),
-    foreign key (snapshot_id, business_id) references filing.return_snapshots (id, business_id)
+    foreign key (snapshot_id, business_id) references filing.return_snapshots (id, business_id),
+    foreign key (via_instance, business_id) references filing.return_instances (id, business_id)
 );
 create index snapshot_members_by_source on filing.snapshot_members (business_id, source_id);
 

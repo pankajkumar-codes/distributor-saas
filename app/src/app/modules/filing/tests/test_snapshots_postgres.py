@@ -159,6 +159,8 @@ def test_a_snapshot_cannot_be_changed_or_removed_by_anyone(ret):
         "update filing.snapshot_members set via_instance = gen_random_uuid()",
         "delete from filing.snapshot_members",
         "truncate filing.snapshot_lines",
+        "truncate filing.snapshot_members",
+        "truncate filing.return_snapshots cascade",
     ):
         with pytest.raises(DBAPIError, match="insert-only"), pg.owner.connect() as c:
             c.execute(text(sql))
@@ -218,3 +220,76 @@ def test_the_rows_of_a_build_are_numbered_in_section_order():
     assert [r["row_no"] for r in rows] == list(range(1, len(rows) + 1))
     order = [r["section"] for r in rows]
     assert order == sorted(order, key=["b2b", "b2cl", "b2cs", "cdnr", "cdnur", "hsn_b2b", "hsn_b2c"].index)
+
+
+def test_a_snapshot_id_used_again_for_another_purpose_is_a_plain_conflict(ret):
+    from platform_common.errors import Conflict
+
+    pg, b, inst = ret
+    sid = uuid.uuid4()
+    write(pg, b, inst, purpose="export", snapshot_id=sid)
+    with pytest.raises(Conflict):
+        write(pg, b, inst, purpose="lock", snapshot_id=sid)
+    assert scalar(pg.owner, "select count(*) from filing.return_snapshots") == 1
+
+
+def test_the_same_id_with_another_fingerprint_is_refused(ret):
+    from platform_common.errors import Conflict
+
+    pg, b, inst = ret
+    sid = uuid.uuid4()
+    write(pg, b, inst, purpose="export", snapshot_id=sid)
+    uid = user_id(pg.owner, "alice")
+    with pg.app_rw.begin() as c:
+        ctx(c, uid, b)
+        instance = periods.get_instance(c, inst)
+        uow = SimpleNamespace(tx=c, principal=SimpleNamespace(business_id=b, user_id=uid))
+        with pytest.raises(Conflict):
+            snapshots.write_snapshot(
+                uow, instance, build_of(instance, lines(), fingerprint="b" * 64), purpose="export", snapshot_id=sid
+            )
+
+
+def test_a_member_cannot_name_another_businesss_instance(ret):
+    pg, b, inst = ret
+    s = write(pg, b, inst, purpose="export")
+    with pytest.raises(DBAPIError, match="foreign key"), pg.owner.connect() as c:
+        c.execute(
+            text(
+                "insert into filing.snapshot_members (snapshot_id, business_id, source_kind, source_id, via_instance)"
+                " values (:s, :b, 'own_invoice', gen_random_uuid(), gen_random_uuid())"
+            ),
+            {"s": s.id, "b": b},
+        )
+
+
+def test_totals_survive_the_round_trip_as_exact_text(ret):
+    pg, b, inst = ret
+    s = write(pg, b, inst, purpose="export")
+    t = scalar(pg.owner, "select totals from filing.return_snapshots where id = :s", s=s.id)
+    assert t["liability"] == {h: "0" for h in ("taxable_value", "igst", "cgst", "sgst", "cess")}
+    assert t["documents"] == 0 and isinstance(t["line_items"], int)
+
+
+def test_the_read_only_role_reads_its_own_and_a_support_grant_cannot_write(ret):
+    pg, b, inst = ret
+    s = write(pg, b, inst, purpose="export")
+    uid = user_id(pg.owner, "alice")
+    with pg.owner.execution_options(isolation_level="READ COMMITTED").begin() as c:
+        ctx(c, uid, b, role="app_ro")
+        assert c.execute(text("select count(*) from filing.return_snapshots")).scalar() == 1
+    with pytest.raises(DBAPIError), pg.owner.execution_options(isolation_level="READ COMMITTED").begin() as c:
+        ctx(c, uid, b, role="app_ro")
+        c.execute(text("delete from filing.return_snapshots"))
+    with pg.app_rw.begin() as c:
+        ctx(c, uid, b, grant=uuid.uuid4())  # a support grant is bound: tenant writes are refused
+        with pytest.raises(DBAPIError, match="row-level security"):
+            c.execute(
+                text(
+                    "insert into filing.return_snapshots (id, business_id, instance_id, version, purpose, fingerprint,"
+                    " builder_version, refdata_as_of) values (gen_random_uuid(), :b, :i, 9, 'export', repeat('a', 64),"
+                    " 'x', '{}')"
+                ),
+                {"b": b, "i": inst},
+            )
+    assert s.version == 1
