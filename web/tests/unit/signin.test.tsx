@@ -224,3 +224,29 @@ it("keeps cached answers through a plain token refresh, and drops them for a new
   startSession("t3", 3600, "new");
   expect(client.getQueryData(["me", "businesses"])).toBeUndefined();
 });
+
+describe("after a sign-out the server did not confirm", () => {
+  it("tells the person on the sign-in page, and when the one retry has ended it", async () => {
+    server.reply(REFRESH, { status: 200, body: { access_token: "tok", expires_in: 3600 } });
+    server.reply(ME, { status: 200, body: { businesses: [A] } });
+    open("/b/b-1/home");
+    await screen.findByRole("heading", { name: HOME });
+    server.reply("/api/v1/auth/signout", { status: 503 }, { status: 204 });
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    expect(await screen.findByText(/We could not end your session on our server\. If this computer is shared, close the browser/)).toBeInTheDocument();
+    expect(await screen.findByText("Your session on our server has now ended.", {}, { timeout: 8000 })).toBeInTheDocument();
+    expect(screen.queryByText(/We could not end your session/)).toBeNull();
+    expect(server.sent.filter((s) => s.path === "/api/v1/auth/signout")).toHaveLength(2);
+  }, 15000);
+
+  it("says nothing when the server ended it", async () => {
+    server.reply(REFRESH, { status: 200, body: { access_token: "tok", expires_in: 3600 } });
+    server.reply(ME, { status: 200, body: { businesses: [A] } });
+    open("/b/b-1/home");
+    await screen.findByRole("heading", { name: HOME });
+    server.reply("/api/v1/auth/signout", { status: 204 });
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    await screen.findByRole("heading", { name: "Sign in" });
+    expect(screen.queryByText(/We could not end your session/)).toBeNull();
+  });
+});
