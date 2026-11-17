@@ -58,6 +58,9 @@ export function SecurityPage() {
       forget();
       setAsking(false);
       refreshMe();
+    } else if (e.status === 0 || e.status >= 500) {
+      // No answer or a server fault: the change may still have gone through, so show what is true now.
+      refreshMe();
     }
   };
 

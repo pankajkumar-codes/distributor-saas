@@ -157,6 +157,17 @@ describe("Settings › Two-step sign-in", () => {
     expect(screen.queryByText(/We recommend/)).toBeNull(); // billing isn't asked to
   });
 
+  it("reloads the status when a turn-off gets no good answer, since it may have gone through", async () => {
+    server.reply(BUSINESSES, mine("billing"));
+    server.reply(ME, me(true), me(false));
+    server.reply(TOTP, refused(503, "unavailable"));
+    open("/b/b-1/settings/security");
+    fireEvent.click(await screen.findByRole("button", { name: "Turn off two-step sign-in" }));
+    fireEvent.click(screen.getByRole("button", { name: "Yes, turn it off" }));
+    expect(await screen.findByRole("button", { name: "Turn on two-step sign-in" })).toBeInTheDocument();
+    expect(server.sent.filter((s) => s.path === ME).length).toBeGreaterThanOrEqual(2);
+  });
+
   it("sends the user to sign in again, and back here, when the sign-in is too old to turn it off", async () => {
     server.reply(BUSINESSES, mine());
     server.reply(ME, me(true));
