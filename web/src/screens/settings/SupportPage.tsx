@@ -8,6 +8,7 @@ import type { components } from "../../api/schema";
 import { useMyBusinesses } from "../../auth/useMyBusinesses";
 import { formatDateTimeIst } from "../../format/dates";
 import { Banner } from "../../kit/Banner";
+import { ErrorDetail } from "../../kit/ErrorDetail";
 import { Button } from "../../kit/Button";
 import { Field } from "../../kit/Field";
 import { NotFound } from "../../kit/NotFound";
@@ -98,7 +99,7 @@ export function SupportPage() {
   if (businesses.error) {
     return (
       <main className="page">
-        <Banner tone="error">{errorText(businesses.error)}</Banner>
+        <Banner tone="error">{errorText(businesses.error)}<ErrorDetail error={businesses.error} /></Banner>
       </main>
     );
   }
@@ -137,7 +138,7 @@ export function SupportPage() {
         {failed && <Banner tone="error">{failed.message || errorText(failed)}</Banner>}
         {grants.error && (
           <Banner tone="error">
-            {errorText(grants.error)}{" "}
+            {errorText(grants.error)}<ErrorDetail error={grants.error} />{" "}
             <Button type="button" variant="link" onClick={() => grants.refetch()}>
               Try again
             </Button>
