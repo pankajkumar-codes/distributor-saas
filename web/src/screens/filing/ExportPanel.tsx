@@ -4,6 +4,7 @@ import { errorText } from "../../api/errors";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { useExportStatus, useStartExport, type ExportStatus } from "./export";
+import { PlanNotice } from "./PlanNotice";
 import { PortalGuide } from "./PortalGuide";
 import type { ReturnDetail } from "./returns";
 
@@ -73,6 +74,7 @@ export function ExportPanel({ businessId, instanceId, gate, fingerprint, periodL
   return (
     <section className="card" aria-labelledby="file">
       <h2 id="file">Your GSTR-1 file</h2>
+      <PlanNotice businessId={businessId} />
       {!gate.ready && (
         <div className="stack">
           {gate.reasons.map((r) => (
@@ -102,7 +104,7 @@ export function ExportPanel({ businessId, instanceId, gate, fingerprint, periodL
       {status.isError && <Banner tone="error">We couldn't check on your file. {errorText(status.error)}</Banner>}
       {s?.status === "failed" && <Banner tone="error">{FAILED[s.error_code ?? ""] ?? "We couldn't make the file. Try again, or contact support."}</Banner>}
       {s?.status === "ready" && <FileResult file={s} title={`Your file (version ${s.version})`} />}
-      {s?.status === "ready" && <PortalGuide periodLabel={periodLabel} />}
+      {s?.status === "ready" && <PortalGuide periodLabel={periodLabel} readyToUpload={s.ready_to_upload} />}
     </section>
   );
 }

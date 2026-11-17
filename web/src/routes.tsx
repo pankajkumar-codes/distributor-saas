@@ -18,6 +18,7 @@ import { ImportPage } from "./screens/products/ImportPage";
 import { ProductPage } from "./screens/products/ProductPage";
 import { ProductsPage } from "./screens/products/ProductsPage";
 import { ResetPage } from "./screens/reset/ResetPage";
+import { SettingsPage } from "./screens/settings/SettingsPage";
 import { AuditPage } from "./screens/settings/AuditPage";
 import { SecurityPage } from "./screens/settings/SecurityPage";
 import { CompanyPage } from "./screens/settings/CompanyPage";
@@ -54,6 +55,7 @@ export const routes: RouteObject[] = [
         { path: "/b/:businessId/invoices/:draftId", element: <PageTitle title="Invoice"><RequireAuth><InvoicePage /></RequireAuth></PageTitle> },
       ]
     : []),
+  { path: "/b/:businessId/settings", element: <PageTitle title="Business setup"><RequireAuth><SettingsPage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/settings/company", element: <PageTitle title="Business details"><RequireAuth><CompanyPage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/settings/filing", element: <PageTitle title="Filing frequency"><RequireAuth><FilingPage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/settings/support", element: <PageTitle title="Support access"><RequireAuth><SupportPage /></RequireAuth></PageTitle> },
