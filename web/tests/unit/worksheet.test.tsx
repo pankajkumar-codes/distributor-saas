@@ -128,11 +128,33 @@ describe("GSTR-3B worksheet", () => {
     await waitFor(() => expect(assign).toHaveBeenCalledWith("https://files.example/w.xlsx"));
   });
 
+  it("makes the PDF in the background: queued, then a link, and links to the portal guide", async () => {
+    server.reply(WS, sheet());
+    server.reply(`POST ${WS}/pdf`, { status: 202, body: { job_id: "job-1" } });
+    server.reply(`${WS}/pdf/job-1`, { status: 200, body: { status: "queued" } }, { status: 200, body: { status: "ready", url: "https://files.example/w.pdf" } });
+    open();
+    expect(await screen.findByRole("link", { name: "How to enter this on the GST portal" })).toHaveAttribute("href", `/b/b-1/filing/${INST}/portal-guide-3b`);
+    fireEvent.click(screen.getByRole("button", { name: "Make a PDF" }));
+    expect(await screen.findByRole("button", { name: "Making the PDF…" })).toBeDisabled();
+    expect(await screen.findByRole("link", { name: "Download the PDF" }, { timeout: 4000 })).toHaveAttribute("href", "https://files.example/w.pdf");
+  });
+
+  it("says so when the PDF could not be made", async () => {
+    server.reply(WS, sheet());
+    server.reply(`POST ${WS}/pdf`, { status: 202, body: { job_id: "job-2" } });
+    server.reply(`${WS}/pdf/job-2`, { status: 200, body: { status: "failed", error_code: "render_failed" } });
+    open();
+    fireEvent.click(await screen.findByRole("button", { name: "Make a PDF" }));
+    expect(await screen.findByText(/We couldn't make the PDF/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Make a PDF" })).toBeEnabled();
+  });
+
   it("offers no Excel download before the worksheet is built", async () => {
     server.reply(WS, sheet({ built: false, outward: null }));
     open();
     await screen.findByRole("button", { name: "Build the worksheet" });
     expect(screen.queryByRole("button", { name: "Download as Excel" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Make a PDF" })).toBeNull();
   });
 
   it("puts the server's words under the box it names", async () => {
