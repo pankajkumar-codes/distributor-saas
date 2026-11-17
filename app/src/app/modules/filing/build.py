@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 from app.modules.refdata import uqc_codes
 
 from .gstr1 import Amounts, Gstr1Sections, SupplyLine, build_sections
-from .gstr1.sections import hsn_total, liability, reconciliation_gap
+from .gstr1.sections import PENDING_PLAIN, hsn_total, liability, reconciliation_gap
 from .periods import BOUND, ReturnInstance, instances_between
 
 _LINE_COLUMNS = (
@@ -164,7 +164,7 @@ def _debit_notes(tx: Session, instance: ReturnInstance) -> int:
 def _flags(
     tx: Session, instance: ReturnInstance, lines: list[SupplyLine], sections: Gstr1Sections, debit_notes: int
 ) -> tuple[CaFlag, ...]:
-    flags = [CaFlag("pending", t) for t in sections.pending]
+    flags = [CaFlag(*PENDING_PLAIN[t]) for t in sections.pending]  # plain words; the team text stays in sections.py
     if debit_notes:
         flags.append(CaFlag("debit_notes_unsummed", f"{debit_notes} debit note(s) are not in this return yet: needs CA check."))
     flags += [CaFlag(code, t) for code, t in M7_OMISSIONS if code != "debit_notes" or not debit_notes]

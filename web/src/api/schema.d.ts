@@ -1810,6 +1810,127 @@ export interface components {
             reason: string | null;
             target: components["schemas"]["Target"];
         };
+        /** B2BPage */
+        B2BPage: {
+            /** Fingerprint */
+            fingerprint: string;
+            /** Has More */
+            has_more: boolean;
+            /** Next Cursor */
+            next_cursor: string | null;
+            /** Rows */
+            rows: components["schemas"]["B2BRowOut"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            section: "b2b";
+        };
+        /** B2BRowOut */
+        B2BRowOut: {
+            /** Cess */
+            cess: string;
+            /** Cgst */
+            cgst: string;
+            /** Igst */
+            igst: string;
+            /** Invoice Date */
+            invoice_date: string;
+            /** Invoice Number */
+            invoice_number: string;
+            /** Invoice Value */
+            invoice_value: string;
+            /** Pos State Code */
+            pos_state_code: string;
+            /** Rate */
+            rate: string;
+            /** Recipient Gstin */
+            recipient_gstin: string;
+            /** Recipient Name */
+            recipient_name: string | null;
+            /** Sgst */
+            sgst: string;
+            /** Source Refs */
+            source_refs: string[];
+            /** Taxable Value */
+            taxable_value: string;
+        };
+        /** B2CLPage */
+        B2CLPage: {
+            /** Fingerprint */
+            fingerprint: string;
+            /** Has More */
+            has_more: boolean;
+            /** Next Cursor */
+            next_cursor: string | null;
+            /** Rows */
+            rows: components["schemas"]["B2CLRowOut"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            section: "b2cl";
+        };
+        /** B2CLRowOut */
+        B2CLRowOut: {
+            /** Cess */
+            cess: string;
+            /** Cgst */
+            cgst: string;
+            /** Igst */
+            igst: string;
+            /** Invoice Date */
+            invoice_date: string;
+            /** Invoice Number */
+            invoice_number: string;
+            /** Invoice Value */
+            invoice_value: string;
+            /** Pos State Code */
+            pos_state_code: string;
+            /** Rate */
+            rate: string;
+            /** Sgst */
+            sgst: string;
+            /** Source Refs */
+            source_refs: string[];
+            /** Taxable Value */
+            taxable_value: string;
+        };
+        /** B2CSPage */
+        B2CSPage: {
+            /** Fingerprint */
+            fingerprint: string;
+            /** Has More */
+            has_more: boolean;
+            /** Next Cursor */
+            next_cursor: string | null;
+            /** Rows */
+            rows: components["schemas"]["B2CSRowOut"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            section: "b2cs";
+        };
+        /** B2CSRowOut */
+        B2CSRowOut: {
+            /** Cess */
+            cess: string;
+            /** Cgst */
+            cgst: string;
+            /** Igst */
+            igst: string;
+            /** Pos State Code */
+            pos_state_code: string;
+            /** Rate */
+            rate: string;
+            /** Sgst */
+            sgst: string;
+            /** Source Refs */
+            source_refs: string[];
+            /** Taxable Value */
+            taxable_value: string;
+        };
         /** BlockerOut */
         BlockerOut: {
             /** Ca Items */
@@ -1822,6 +1943,106 @@ export interface components {
             label: string;
             /** Rows */
             rows: number[];
+        };
+        /** CDNRPage */
+        CDNRPage: {
+            /** Fingerprint */
+            fingerprint: string;
+            /** Has More */
+            has_more: boolean;
+            /** Next Cursor */
+            next_cursor: string | null;
+            /** Rows */
+            rows: components["schemas"]["CDNRRowOut"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            section: "cdnr";
+        };
+        /** CDNRRowOut */
+        CDNRRowOut: {
+            /** Cess */
+            cess: string;
+            /** Cgst */
+            cgst: string;
+            /** Igst */
+            igst: string;
+            /** Note Date */
+            note_date: string;
+            /** Note Number */
+            note_number: string;
+            /** Note Type */
+            note_type: string;
+            /** Note Value */
+            note_value: string;
+            /** Original Doc Date */
+            original_doc_date: string | null;
+            /** Original Doc Number */
+            original_doc_number: string | null;
+            /** Pos State Code */
+            pos_state_code: string;
+            /** Rate */
+            rate: string;
+            /** Recipient Gstin */
+            recipient_gstin: string;
+            /** Recipient Name */
+            recipient_name: string | null;
+            /** Sgst */
+            sgst: string;
+            /** Source Refs */
+            source_refs: string[];
+            /** Taxable Value */
+            taxable_value: string;
+        };
+        /** CDNURPage */
+        CDNURPage: {
+            /** Fingerprint */
+            fingerprint: string;
+            /** Has More */
+            has_more: boolean;
+            /** Next Cursor */
+            next_cursor: string | null;
+            /** Rows */
+            rows: components["schemas"]["CDNURRowOut"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            section: "cdnur";
+        };
+        /** CDNURRowOut */
+        CDNURRowOut: {
+            /** Cess */
+            cess: string;
+            /** Cgst */
+            cgst: string;
+            /** Igst */
+            igst: string;
+            /** Note Date */
+            note_date: string;
+            /** Note Number */
+            note_number: string;
+            /** Note Type */
+            note_type: string;
+            /** Note Value */
+            note_value: string;
+            /** Original Doc Date */
+            original_doc_date: string | null;
+            /** Original Doc Number */
+            original_doc_number: string | null;
+            /** Pos State Code */
+            pos_state_code: string;
+            /** Rate */
+            rate: string;
+            /** Sgst */
+            sgst: string;
+            /** Source Refs */
+            source_refs: string[];
+            /** Taxable Value */
+            taxable_value: string;
+            /** Ur Type */
+            ur_type: string;
         };
         /** CaFlagOut */
         CaFlagOut: {
@@ -2500,6 +2721,29 @@ export interface components {
             /** Rates */
             rates: string[];
         };
+        /** HSNRowOut */
+        HSNRowOut: {
+            /** Cess */
+            cess: string;
+            /** Cgst */
+            cgst: string;
+            /** Hsn */
+            hsn: string;
+            /** Igst */
+            igst: string;
+            /** Quantity */
+            quantity: string;
+            /** Rate */
+            rate: string;
+            /** Sgst */
+            sgst: string;
+            /** Source Refs */
+            source_refs: string[];
+            /** Taxable Value */
+            taxable_value: string;
+            /** Uqc */
+            uqc: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -2539,6 +2783,38 @@ export interface components {
             insights: {
                 [key: string]: unknown;
             } | null;
+        };
+        /** HsnB2bPage */
+        HsnB2bPage: {
+            /** Fingerprint */
+            fingerprint: string;
+            /** Has More */
+            has_more: boolean;
+            /** Next Cursor */
+            next_cursor: string | null;
+            /** Rows */
+            rows: components["schemas"]["HSNRowOut"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            section: "hsn_b2b";
+        };
+        /** HsnB2cPage */
+        HsnB2cPage: {
+            /** Fingerprint */
+            fingerprint: string;
+            /** Has More */
+            has_more: boolean;
+            /** Next Cursor */
+            next_cursor: string | null;
+            /** Rows */
+            rows: components["schemas"]["HSNRowOut"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            section: "hsn_b2c";
         };
         /** ImportOut */
         ImportOut: {
@@ -3490,19 +3766,6 @@ export interface components {
             warnings: {
                 [key: string]: string;
             }[];
-        };
-        /** SectionRowsOut */
-        SectionRowsOut: {
-            /** Has More */
-            has_more: boolean;
-            /** Next Cursor */
-            next_cursor: string | null;
-            /** Rows */
-            rows: {
-                [key: string]: string | number | string[] | null;
-            }[];
-            /** Section */
-            section: string;
         };
         /** SectionsOut */
         SectionsOut: {
@@ -6217,7 +6480,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SectionRowsOut"];
+                    "application/json": components["schemas"]["B2BPage"] | components["schemas"]["B2CLPage"] | components["schemas"]["B2CSPage"] | components["schemas"]["CDNRPage"] | components["schemas"]["CDNURPage"] | components["schemas"]["HsnB2bPage"] | components["schemas"]["HsnB2cPage"];
                 };
             };
             /** @description Validation Error */

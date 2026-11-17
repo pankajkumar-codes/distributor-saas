@@ -59,3 +59,7 @@ def test_the_finding_fingerprint_moves_with_the_row():
     a = checks.a3_cgst_sgst_differ(None, build(ln(1, cgst=Decimal("1"))))[0]
     b = checks.a3_cgst_sgst_differ(None, build(ln(2, cgst=Decimal("1"))))[0]
     assert a.subject_fp != b.subject_fp
+
+
+def test_every_value_a_build_relies_on_has_plain_words():
+    assert set(checks.RELIED_ON) <= set(checks._RELIED_ON_PLAIN)

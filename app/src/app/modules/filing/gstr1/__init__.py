@@ -15,6 +15,7 @@ from .model import (
 from .sections import (
     HSN_TAB,
     PENDING,
+    PENDING_PLAIN,
     QUARTER_PENDING,
     ROUTE,
     BadSupplyLine,
@@ -28,6 +29,7 @@ __all__ = [
     "HEADS",
     "HSN_TAB",
     "PENDING",
+    "PENDING_PLAIN",
     "QUARTER_PENDING",
     "ROUTE",
     "Amounts",
