@@ -57,8 +57,11 @@ def test_a_section_lists_its_rows_with_source_references_and_exact_amounts(shop)
     assert row["invoice_number"] == "INV-3" and Decimal(row["taxable_value"]) == 200 and Decimal(row["cgst"]) == 18
     assert row["source_refs"] and all(s.startswith("a.xlsx row ") for s in row["source_refs"])
     assert "recipient_gstin" in row
-    hsn = get(pg, f"/api/v1/b/{biz}/returns/{inst}/sections/hsn_b2c").json()["rows"]
-    assert hsn and all(h["source_refs"] for h in hsn)
+    whole = get(pg, f"/api/v1/b/{biz}/returns/{inst}").json()
+    assert d["section"] == "b2b" and d["fingerprint"] == whole["fingerprint"]  # a screen can tell pages of one build apart
+    hsn_page = get(pg, f"/api/v1/b/{biz}/returns/{inst}/sections/hsn_b2c").json()
+    hsn = hsn_page["rows"]
+    assert hsn_page["section"] == "hsn_b2c" and hsn and all(h["source_refs"] and {"hsn", "uqc", "quantity"} <= h.keys() for h in hsn)
 
 
 def test_bad_section_cursor_and_ids_are_refused(shop):  # noqa: F811
