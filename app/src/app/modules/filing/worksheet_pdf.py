@@ -107,7 +107,7 @@ def run(ctx: jobs.JobContext) -> dict:
     now = get_clock().now()
     model = excel.SheetModel(
         gstin=inst.gstin, period_label=periods.period_label(inst), version=latest.version,
-        built_at=f"{latest.built_at:%d %b %Y %H:%M} UTC", generated_at=f"{now:%d %b %Y %H:%M}",
+        built_at=f"{latest.built_at:%d %b %Y %H:%M} UTC", generated_at=f"{now:%d %b %Y %H:%M} UTC",
         out_of_date=worksheet.is_out_of_date(tx, inst, latest), outward=latest.outward,
         entries=cur.entry if cur else {}, flags=tuple(latest.outward["flags"]),
     )  # fmt: skip

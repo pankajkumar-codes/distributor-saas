@@ -187,7 +187,7 @@ def worksheet_excel(instance_id: str, uow: BusinessUoW, clock: Annotated[Clock, 
     entries = cur.entry if cur else {}
     model = excel.SheetModel(
         gstin=inst.gstin, period_label=periods.period_label(inst), version=latest.version,
-        built_at=f"{latest.built_at:%d %b %Y %H:%M} UTC", generated_at=f"{clock.now():%d %b %Y %H:%M}",
+        built_at=f"{latest.built_at:%d %b %Y %H:%M} UTC", generated_at=f"{clock.now():%d %b %Y %H:%M} UTC",
         out_of_date=out_of_date, outward=latest.outward, entries=entries, flags=tuple(latest.outward["flags"]),
     )  # fmt: skip
     data = excel.render(model)
