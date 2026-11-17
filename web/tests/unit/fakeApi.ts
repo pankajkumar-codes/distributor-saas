@@ -13,7 +13,8 @@ export function fakeApi() {
     const json = (request.headers.get("Content-Type") ?? "").startsWith("multipart/") ? "" : await request.clone().text();
     sent.push({ path, url: request.url, method: request.method, headers: request.headers, body: json ? JSON.parse(json) : null, request: request.clone() });
     // With nothing queued, refresh says "no session" and anything else is a server error.
-    const answer: Reply = replies[path]?.shift() ?? { status: path === "/api/v1/auth/refresh" ? 401 : 500 };
+    // A reply queued under "POST /path" answers only that method; one queued under "/path" answers any.
+    const answer: Reply = replies[`${request.method} ${path}`]?.shift() ?? replies[path]?.shift() ?? { status: path === "/api/v1/auth/refresh" ? 401 : 500 };
     await answer.wait; // lets a test hold a reply back to look at the loading state
     return new Response(answer.body === undefined ? null : JSON.stringify(answer.body), {
       status: answer.status,
