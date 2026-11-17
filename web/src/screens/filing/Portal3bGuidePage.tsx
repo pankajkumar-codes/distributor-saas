@@ -75,11 +75,13 @@ export function Portal3bGuidePage() {
                 <span className="chip chip-warn" title={GUIDE_3B_NOT_CHECKED}>
                   Not checked
                 </span>
+                <span className="hint"> {GUIDE_3B_NOT_CHECKED}</span>
               </li>
             ))}
           </ol>
           <p className="hint">
-            Draft wording. The step order and screen names are checked against the live portal before launch, in the same test as the GSTR-1 guide. The official GSTR-3B Excel utility can also make a file for the portal's offline upload, for Tables 3.1, 3.1.1 and 3.2 only. Whether we offer that file in a later release is not decided.
+            Draft wording. The step order and screen names are checked against the live portal before launch, in the same test as the GSTR-1 guide. The official GSTR-3B Excel utility can also make a file for the portal's offline upload, for Tables 3.1, 3.1.1 and 3.2 only. Whether we offer that file in a later release is not decided.{" "}
+            <span className="chip chip-warn">Not checked</span> We have not tried that utility.
           </p>
         </section>
       </main>
