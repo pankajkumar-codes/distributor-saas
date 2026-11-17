@@ -8,22 +8,26 @@ not allow it (the same hook as the GSTR-1 file), the response says the worksheet
 """
 
 import uuid
+from typing import Annotated
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from platform_common.errors import Deny
+from platform_common.clock import Clock, get_clock
+from platform_common.errors import Conflict, Deny
 from platform_common.permissions import Permission, require
+from platform_common.storage import get_store, key_for
 from platform_common.uow import BusinessUoW
 
 from . import entitlement, periods, worksheet
 from .build import build_return
-from .gstr3b import FLAG_TEXT
+from .gstr3b import FLAG_TEXT, excel
 from .gstr3b.entries import net_itc
 from .gstr3b.labels import OFFSET_NOTE, PORTAL_NOTE, WORKSHEET_LABEL
 
 router = APIRouter(prefix="/b/{business_id}", tags=["filing"])
 PREPARE = [Depends(require(Permission.RETURNS_PREPARE))]
+XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
 class AmountsOut(BaseModel):
@@ -105,16 +109,9 @@ def _outward_out(v: worksheet.Version) -> OutwardOut:
     )  # fmt: skip
 
 
-@router.get("/returns/{instance_id}/worksheet", dependencies=PREPARE)
-def get_worksheet(instance_id: str, uow: BusinessUoW) -> WorksheetOut:
-    inst = _instance_or_404(uow, instance_id)
+def _live(uow: BusinessUoW, inst, g1, latest) -> tuple[bool, str | None]:
+    """Whether the GSTR-1 has changed since the latest build, and why a new build is not possible now (None: it is)."""
     tx = uow.tx
-    g1 = worksheet.gstr1_of(tx, inst)
-    latest = worksheet.latest_version(tx, inst.id)
-    if not entitlement.allowed(tx, uow.principal.business_id):
-        return WorksheetOut(available=False, built=latest is not None, out_of_date=False, can_build=False,
-                            build_blocked_by=None, outward=None, entries={}, entries_seq=None, net_itc={})  # fmt: skip
-    cur = worksheet.current_entry(tx, inst.id)
     out_of_date, blocked = False, None
     if g1 is None:
         blocked = "There is no GSTR-1 for this period yet."
@@ -126,6 +123,20 @@ def get_worksheet(instance_id: str, uow: BusinessUoW) -> WorksheetOut:
             blocked = f"{n} item{'s' if n != 1 else ''} to fix in your GSTR-1 first."
     if inst.status != "open":
         blocked = "This return is not open."
+    return out_of_date, blocked
+
+
+@router.get("/returns/{instance_id}/worksheet", dependencies=PREPARE)
+def get_worksheet(instance_id: str, uow: BusinessUoW) -> WorksheetOut:
+    inst = _instance_or_404(uow, instance_id)
+    tx = uow.tx
+    g1 = worksheet.gstr1_of(tx, inst)
+    latest = worksheet.latest_version(tx, inst.id)
+    if not entitlement.allowed(tx, uow.principal.business_id):
+        return WorksheetOut(available=False, built=latest is not None, out_of_date=False, can_build=False,
+                            build_blocked_by=None, outward=None, entries={}, entries_seq=None, net_itc={})  # fmt: skip
+    cur = worksheet.current_entry(tx, inst.id)
+    out_of_date, blocked = _live(uow, inst, g1, latest)
     entries = cur.entry if cur else {}
     return WorksheetOut(
         available=True, built=latest is not None, out_of_date=out_of_date, can_build=blocked is None,
@@ -147,3 +158,39 @@ def put_entries(instance_id: str, body: EntriesIn, uow: BusinessUoW) -> EntriesO
     worksheet.require_allowed(uow)
     e = worksheet.save_entries(uow, inst, dict(body.entries), body.based_on_seq)
     return EntriesOut(entries=e.entry, entries_seq=e.seq or None, net_itc=net_itc(e.entry) if e.entry else {})
+
+
+class ExcelOut(BaseModel):
+    url: str  # a link that works for 60 seconds
+    name: str
+    version: int  # the build the file shows
+    entries_seq: int | None
+    out_of_date: bool  # the file says so too
+
+
+@router.get("/returns/{instance_id}/worksheet/excel", dependencies=PREPARE)
+def worksheet_excel(instance_id: str, uow: BusinessUoW, clock: Annotated[Clock, Depends(get_clock)]) -> ExcelOut:
+    """The worksheet as it is now (latest build and typed entries) as an Excel file, stored with the exports and given as a
+    60-second link. 409 when the plan does not allow it or nothing has been built."""
+    inst = _instance_or_404(uow, instance_id)
+    worksheet.require_allowed(uow)
+    tx = uow.tx
+    latest = worksheet.latest_version(tx, inst.id)
+    if latest is None:
+        raise Conflict("worksheet_not_built", "Build the worksheet first.")
+    out_of_date, _ = _live(uow, inst, worksheet.gstr1_of(tx, inst), latest)
+    cur = worksheet.current_entry(tx, inst.id)
+    entries = cur.entry if cur else {}
+    model = excel.SheetModel(
+        gstin=inst.gstin, period_label=periods.period_label(inst), version=latest.version,
+        built_at=f"{latest.built_at:%d %b %Y %H:%M} UTC", generated_at=f"{clock.now():%d %b %Y %H:%M}",
+        out_of_date=out_of_date, outward=latest.outward, entries=entries, flags=tuple(latest.outward["flags"]),
+    )  # fmt: skip
+    data = excel.render(model)
+    business = uow.principal.business_id
+    key = key_for(business, "exports", latest.id, f"v{latest.version}-e{cur.seq if cur else 0}.xlsx")
+    store = get_store()
+    store.put(business, key, data, XLSX)
+    name = f"GSTR3B_worksheet_{inst.gstin}_{inst.period_end:%m%Y}.xlsx"
+    return ExcelOut(url=store.presign_get(business, key, download_name=name), name=name, version=latest.version,
+                    entries_seq=cur.seq if cur else None, out_of_date=out_of_date)  # fmt: skip

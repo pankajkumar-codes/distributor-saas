@@ -3304,6 +3304,46 @@
         "title": "EwayIn",
         "type": "object"
       },
+      "ExcelOut": {
+        "properties": {
+          "entries_seq": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entries Seq"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "out_of_date": {
+            "title": "Out Of Date",
+            "type": "boolean"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "url",
+          "name",
+          "version",
+          "entries_seq",
+          "out_of_date"
+        ],
+        "title": "ExcelOut",
+        "type": "object"
+      },
       "ExportFileOut": {
         "properties": {
           "part": {
@@ -13461,6 +13501,58 @@
           }
         },
         "summary": "Put Entries",
+        "tags": [
+          "filing"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/returns/{instance_id}/worksheet/excel": {
+      "get": {
+        "description": "The worksheet as it is now (latest build and typed entries) as an Excel file, stored with the exports and given as a\n60-second link. 409 when the plan does not allow it or nothing has been built.",
+        "operationId": "worksheet_excel_api_v1_b__business_id__returns__instance_id__worksheet_excel_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "instance_id",
+            "required": true,
+            "schema": {
+              "title": "Instance Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExcelOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Worksheet Excel",
         "tags": [
           "filing"
         ]
