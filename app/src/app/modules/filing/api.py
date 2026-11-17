@@ -20,7 +20,7 @@ from decimal import Decimal
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.modules.business.interface import (
     filing_frequency_on,
@@ -172,11 +172,115 @@ class ReturnDetailOut(BaseModel):
     finding_groups: list[FindingGroupOut]
 
 
-class SectionRowsOut(BaseModel):
-    section: str
-    rows: list[dict[str, str | int | None | list[str]]]
+class RowBase(Heads):
+    """Every section row: the five heads (strings) and where the figures came from (file and row)."""
+
+    source_refs: list[str]
+
+
+class B2BRowOut(RowBase):
+    recipient_gstin: str
+    recipient_name: str | None
+    invoice_number: str
+    invoice_date: str
+    invoice_value: str
+    pos_state_code: str
+    rate: str
+
+
+class B2CLRowOut(RowBase):
+    invoice_number: str
+    invoice_date: str
+    invoice_value: str
+    pos_state_code: str
+    rate: str
+
+
+class B2CSRowOut(RowBase):
+    pos_state_code: str
+    rate: str
+
+
+class CDNRRowOut(RowBase):
+    recipient_gstin: str
+    recipient_name: str | None
+    note_number: str
+    note_date: str
+    note_value: str
+    pos_state_code: str
+    rate: str
+    original_doc_number: str | None
+    original_doc_date: str | None
+    note_type: str
+
+
+class CDNURRowOut(RowBase):
+    note_number: str
+    note_date: str
+    note_value: str
+    pos_state_code: str
+    rate: str
+    original_doc_number: str | None
+    original_doc_date: str | None
+    note_type: str
+    ur_type: str
+
+
+class HSNRowOut(RowBase):
+    hsn: str
+    uqc: str
+    rate: str
+    quantity: str
+
+
+class _Page(BaseModel):
     has_more: bool
     next_cursor: str | None
+    fingerprint: str  # of the build these rows came from: a screen must not mix pages with different ones
+
+
+class B2BPage(_Page):
+    section: Literal["b2b"]
+    rows: list[B2BRowOut]
+
+
+class B2CLPage(_Page):
+    section: Literal["b2cl"]
+    rows: list[B2CLRowOut]
+
+
+class B2CSPage(_Page):
+    section: Literal["b2cs"]
+    rows: list[B2CSRowOut]
+
+
+class CDNRPage(_Page):
+    section: Literal["cdnr"]
+    rows: list[CDNRRowOut]
+
+
+class CDNURPage(_Page):
+    section: Literal["cdnur"]
+    rows: list[CDNURRowOut]
+
+
+class HsnB2bPage(_Page):
+    section: Literal["hsn_b2b"]
+    rows: list[HSNRowOut]
+
+
+class HsnB2cPage(_Page):
+    section: Literal["hsn_b2c"]
+    rows: list[HSNRowOut]
+
+
+SectionRowsOut = Annotated[
+    B2BPage | B2CLPage | B2CSPage | CDNRPage | CDNURPage | HsnB2bPage | HsnB2cPage, Field(discriminator="section")
+]
+_PAGES = {
+    "b2b": B2BPage, "b2cl": B2CLPage, "b2cs": B2CSPage, "cdnr": CDNRPage, "cdnur": CDNURPage,
+    "hsn_b2b": HsnB2bPage, "hsn_b2c": HsnB2cPage,
+}  # fmt: skip
 
 
 def _s(v) -> str:
@@ -269,8 +373,9 @@ def get_section(
         raise Invalid("invalid_cursor", "That page marker is not valid.", field="cursor") from None
     if start < 0:
         raise Invalid("invalid_cursor", "That page marker is not valid.", field="cursor")
-    rows = getattr(build_return(uow.tx, inst).sections, section)
+    b = build_return(uow.tx, inst)
+    rows = getattr(b.sections, section)
     page = rows[start : start + PAGE]
     more = start + PAGE < len(rows)
-    return SectionRowsOut(section=section, rows=[_row(r) for r in page], has_more=more,
-                          next_cursor=str(start + PAGE) if more else None)
+    return _PAGES[section](section=section, rows=[_row(r) for r in page], has_more=more,
+                           next_cursor=str(start + PAGE) if more else None, fingerprint=b.fingerprint)  # fmt: skip
