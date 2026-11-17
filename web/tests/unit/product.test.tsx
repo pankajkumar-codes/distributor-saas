@@ -122,12 +122,82 @@ describe("a new product", () => {
   });
 });
 
+describe("the new product form's lists and fields", () => {
+  it("keeps only digits and one decimal point, up to 2 decimals, in the sale rate", async () => {
+    open("/b/b-1/products/new");
+    await screen.findByRole("option", { name: "Numbers (NOS)" });
+    const box = screen.getByLabelText("Sale rate per unit, excluding GST (₹)");
+    type("Sale rate per unit, excluding GST (₹)", "Rs 1,20a.505.9");
+    expect(box).toHaveValue("120.50");
+    type("Sale rate per unit, excluding GST (₹)", "-4e5");
+    expect(box).toHaveValue("45");
+    type("Sale rate per unit, excluding GST (₹)", "abc");
+    expect(box).toHaveValue("");
+  });
+
+  it("hides the date a rate starts under Advanced, today by default, and opens it when the server names it", async () => {
+    open("/b/b-1/products/new");
+    await screen.findByRole("option", { name: "Numbers (NOS)" });
+    server.reply(RATES, { status: 200, body: { on: todayIst(), rates: ["5", "18"] } });
+    fireEvent.click(screen.getByRole("radio", { name: "Taxable" }));
+    await screen.findByRole("option", { name: "18%" });
+    expect(screen.getByLabelText("Rate applies from")).not.toBeVisible();
+    expect(screen.getByLabelText("Rate applies from")).toHaveValue(todayIst());
+    const advanced = screen.getByRole("button", { name: "Advanced" });
+    expect(advanced).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(advanced);
+    expect(screen.getByLabelText("Rate applies from")).toBeVisible();
+    fireEvent.click(advanced);
+    expect(screen.getByLabelText("Rate applies from")).not.toBeVisible();
+    type("GST rate", "18");
+    server.reply(LIST, { status: 422, body: { error: { code: "invalid", message: "Pick a later date", field: "rate.valid_from" } } });
+    fireEvent.click(screen.getByRole("button", { name: "Add product" }));
+    await screen.findByText("Pick a later date");
+    expect(screen.getByLabelText("Rate applies from")).toBeVisible();
+  });
+
+  it("says why the rate list is empty, and does not leave a blank dropdown", async () => {
+    open("/b/b-1/products/new");
+    await screen.findByRole("option", { name: "Numbers (NOS)" });
+    server.reply(RATES, { status: 200, body: { on: "2017-01-01", rates: [] } });
+    fireEvent.click(screen.getByRole("radio", { name: "Taxable" }));
+    expect(screen.getByLabelText("GST rate")).toBeDisabled();
+    expect(screen.getByRole("option", { name: "Loading rates…" })).toBeInTheDocument();
+    expect(await screen.findByText(/No GST rates are on file for that date/)).toBeInTheDocument();
+    expect(screen.getByLabelText("GST rate")).toBeDisabled();
+  });
+
+  it("shows an error with Try again when the units cannot be loaded", { timeout: 15000 }, async () => {
+    server = fakeApi(); // without the units the other tests start with
+    server.reply(REFRESH, { status: 200, body: { access_token: "t", expires_in: 3600 } });
+    server.reply(ME, me);
+    server.reply(UNITS, { status: 500 }, { status: 500 }, { status: 500 });
+    open("/b/b-1/products/new");
+    expect(await screen.findByText(/We couldn't load the list of units/, undefined, { timeout: 8000 })).toBeInTheDocument();
+    server.reply(UNITS, { status: 200, body: units.body });
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByRole("option", { name: "Numbers (NOS)" })).toBeInTheDocument();
+  });
+
+  it("shows an error with Try again when the GST rates cannot be loaded", { timeout: 15000 }, async () => {
+    open("/b/b-1/products/new");
+    await screen.findByRole("option", { name: "Numbers (NOS)" });
+    server.reply(RATES, { status: 503 }, { status: 503 }, { status: 503 });
+    fireEvent.click(screen.getByRole("radio", { name: "Taxable" }));
+    expect(await screen.findByText(/We couldn't load the GST rates/, undefined, { timeout: 8000 })).toBeInTheDocument();
+    expect(screen.getByLabelText("GST rate")).toBeDisabled();
+    server.reply(RATES, { status: 200, body: { on: todayIst(), rates: ["18"] } });
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByRole("option", { name: "18%" })).toBeInTheDocument();
+  });
+});
+
 describe("editing a product", () => {
   it("sends only what changed, with the version it was opened at", async () => {
     server.reply(ONE, { status: 200, body: detail() });
     open("/b/b-1/products/p-1");
     await screen.findByRole("heading", { name: "Neem soap" });
-    server.reply(ONE, { status: 200, body: detail({ name: "Neem bath soap", version: 4 }) });
+    server.reply(`PATCH ${ONE}`, { status: 200, body: detail({ name: "Neem bath soap", version: 4 }) });
     type("Name", "Neem bath soap");
     type("HSN (optional)", " ");
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
@@ -142,11 +212,11 @@ describe("editing a product", () => {
     open("/b/b-1/products/p-1");
     await screen.findByRole("heading", { name: "Neem soap" });
     server.reply(
-      ONE,
+      `PATCH ${ONE}`,
       { status: 409, body: { error: { code: "stale_record", message: "Someone changed this product since you opened it" } } },
-      { status: 200, body: detail({ sale_rate: "50.00", version: 4 }) },
       { status: 200, body: detail({ sale_rate: "48.00", version: 5 }) },
     );
+    server.reply(`GET ${ONE}`, { status: 200, body: detail({ sale_rate: "50.00", version: 4 }) });
     type("Sale rate per unit, excluding GST (₹)", "48.00");
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     expect(await screen.findByText(/Someone changed this product since you opened it/)).toBeInTheDocument();
@@ -164,11 +234,11 @@ describe("editing a product", () => {
     open("/b/b-1/products/p-1");
     await screen.findByRole("heading", { name: "Neem soap" });
     server.reply(
-      ONE,
+      `PATCH ${ONE}`,
       { status: 409, body: { error: { code: "stale_record", message: "Someone changed this product since you opened it" } } },
-      { status: 200, body: detail({ sale_rate: "50.00", version: 4 }) },
       { status: 200, body: detail({ name: "Neem bath soap", sale_rate: "50.00", version: 5 }) },
     );
+    server.reply(`GET ${ONE}`, { status: 200, body: detail({ sale_rate: "50.00", version: 4 }) });
     type("Name", "Neem bath soap");
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     expect(await screen.findByText("Someone else changed this.")).toBeInTheDocument();
@@ -194,7 +264,8 @@ describe("editing a product", () => {
   });
 
   it("offers Delete only for a product never used, and asks first", async () => {
-    server.reply(ONE, { status: 200, body: detail() }, { status: 204 });
+    server.reply(`GET ${ONE}`, { status: 200, body: detail() });
+    server.reply(`DELETE ${ONE}`, { status: 204 });
     server.reply(LIST, { status: 200, body: { items: [], has_more: false } });
     open("/b/b-1/products/p-1");
     await screen.findByRole("heading", { name: "Neem soap" });
