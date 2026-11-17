@@ -58,6 +58,26 @@ def read_table(content: bytes, filename: str, *, sheet: str | None = None) -> So
     return SourceTable(filename=filename, checksum_sha256=checksum(content), sheet=used_sheet, rows=rows)
 
 
+def read_head(content: bytes, filename: str, *, sheet: str | None = None, rows: int) -> SourceTable:
+    """Only the first `rows` rows of a table, for work that looks at the header alone (telling which report a
+    file is). It reads no further than that, so a large file costs the same as a small one. The table's checksum
+    is of the whole content, as for `read_table`."""
+    if len(content) == 0:
+        raise FileRejected("file is empty")
+    if len(content) > MAX_FILE_BYTES:
+        raise FileRejected(f"file is larger than {MAX_FILE_BYTES // (1024 * 1024)} MB")
+    name = filename.lower()
+    if name.endswith((".csv", ".txt")):
+        if sheet is not None:
+            raise FileRejected("a sheet name only applies to Excel files")
+        grid, used_sheet = _read_csv(content, limit=rows), None
+    elif name.endswith(".xlsx"):
+        grid, used_sheet = _read_xlsx(content, sheet, limit=rows)
+    else:
+        raise FileRejected("unsupported file type; upload .csv or .xlsx")
+    return SourceTable(filename=filename, checksum_sha256=checksum(content), sheet=used_sheet, rows=grid)
+
+
 def sheet_names(content: bytes) -> list[str]:
     """The sheet names of an .xlsx workbook, so a reader can choose its own sheet (a Flipkart workbook
     holds a Help sheet, the sales sheet and the cash-back sheet)."""
@@ -81,7 +101,7 @@ def sheet_names(content: bytes) -> list[str]:
         workbook.close()
 
 
-def _read_csv(content: bytes) -> list[list[str]]:
+def _read_csv(content: bytes, limit: int | None = None) -> list[list[str]]:
     try:
         # utf-8-sig drops the byte-order mark Excel adds when saving "CSV UTF-8".
         text = content.decode("utf-8-sig")
@@ -94,6 +114,8 @@ def _read_csv(content: bytes) -> list[list[str]]:
     rows: list[list[str]] = []
     try:
         for row in csv.reader(io.StringIO(text, newline="")):
+            if limit is not None and len(rows) >= limit:
+                break
             _check_shape(len(rows) + 1, len(row))
             rows.append(row)
     except csv.Error as exc:
@@ -101,7 +123,7 @@ def _read_csv(content: bytes) -> list[list[str]]:
     return rows
 
 
-def _read_xlsx(content: bytes, sheet: str | None) -> tuple[list[list[str]], str]:
+def _read_xlsx(content: bytes, sheet: str | None, limit: int | None = None) -> tuple[list[list[str]], str]:
     try:
         with zipfile.ZipFile(io.BytesIO(content)) as archive:
             inflated = sum(info.file_size for info in archive.infolist())
@@ -137,13 +159,15 @@ def _read_xlsx(content: bytes, sheet: str | None) -> tuple[list[list[str]], str]
         worksheet.reset_dimensions()
         rows: list[list[str]] = []
         for values in worksheet.iter_rows(values_only=True):
+            if limit is not None and len(rows) >= limit:
+                break
             _check_shape(len(rows) + 1, len(values))
             rows.append([_cell_text(v) for v in values])
     finally:
         workbook.close()
 
     # Trailing empty rows are noise.
-    while rows and not any(rows[-1]):
+    while limit is None and rows and not any(rows[-1]):
         rows.pop()
     return rows, sheet
 

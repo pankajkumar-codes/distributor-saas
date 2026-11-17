@@ -22,7 +22,7 @@ from platform_common.permissions import Permission, require
 from platform_common.uow import BusinessUoW, parse_id
 
 from . import jobs as import_jobs
-from . import confirm, coverage, crosscheck, runs, sections, template, uploads
+from . import bundles, confirm, coverage, crosscheck, runs, sections, template, uploads
 
 router = APIRouter(tags=["imports"])
 CREATE = [Depends(require(Permission.UPLOADS_CREATE))]
@@ -481,3 +481,121 @@ def own_invoices_crosscheck(uow: BusinessUoW, clock: Annotated[Clock, Depends(ge
                     for m in out.mismatches],
         not_compared=[NotComparedOut(document=_ref_out(n.doc), excel_held_rows=n.excel_held, pdf_held_rows=n.pdf_held)
                       for n in out.not_compared])
+
+
+# --- Bundle upload: one zip of mixed report files (bundle-upload-plan) -----------------------------------------------
+
+
+class BundleStartIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    file_name: Annotated[str, Field(max_length=uploads.MAX_FILE_NAME)]
+    size_bytes: StrictInt
+
+
+class BundleStartOut(BaseModel):
+    bundle_id: str
+    upload: PresignedPostOut
+
+
+class BundleFileOut(BaseModel):
+    n: int
+    file_name: str
+    size_bytes: int
+    section: Section | None  # where the file goes now
+    found_section: Section | None  # what its content said
+    state: Literal["used", "not_used", "not_selected", "dropped"]
+    moved: bool  # the user chose, rather than the content deciding
+    reason_code: str | None
+    reason: str | None  # plain words, when the file is left out
+    note: str | None
+    upload_id: str | None  # once staged
+
+
+class BundleOut(BaseModel):
+    id: str
+    file_name: str
+    size_bytes: int
+    status: Literal["pending", "received", "classified", "staging", "staged", "rejected", "expired"]
+    reject_reason: str | None
+    reject_message: str | None
+    files: list[BundleFileOut]
+    selectable_sections: list[Section]
+    created_at: datetime
+
+
+class BundleChoiceIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    section: Section | None  # null drops the file
+
+
+def _file_out(f: bundles.FileView) -> BundleFileOut:
+    return BundleFileOut(
+        n=f.n, file_name=f.file_name, size_bytes=f.size_bytes, section=f.section, found_section=f.found_section,
+        state=f.state, moved=f.moved, reason_code=f.reason_code, reason=f.reason, note=f.note,
+        upload_id=None if f.upload_id is None else str(f.upload_id),
+    )
+
+
+def _bundle_out(uow: BusinessUoW, b: bundles.Bundle, views: list[bundles.FileView] | None = None) -> BundleOut:
+    return BundleOut(
+        id=str(b.id), file_name=b.file_name, size_bytes=b.size_bytes, status=b.status, reject_reason=b.reject_reason,
+        reject_message=b.reject_message,
+        files=[_file_out(f) for f in (bundles.files(uow, b.id) if views is None else views)],
+        selectable_sections=bundles.selectable(uow), created_at=b.created_at,
+    )
+
+
+@router.post("/b/{business_id}/upload-bundles", status_code=http.HTTP_201_CREATED, response_model=BundleStartOut,
+             dependencies=CREATE)
+def start_bundle(
+    body: BundleStartIn,
+    request: Request,
+    uow: BusinessUoW,
+    clock: Annotated[Clock, Depends(get_clock)],
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+):
+    """A bundle and a presigned POST for exactly its key, type and declared size."""
+    today = clock.today()
+
+    def start():
+        return {"bundle_id": str(bundles.start(uow, body.file_name, body.size_bytes, today).id)}
+
+    done = run_once(uow.tx, uow.principal.business_id, idempotency_key, method=request.method,
+                    route=request.scope["route"].path, payload=body.model_dump(mode="json"), operation=start)
+    b = bundles.get(uow, parse_id(done["bundle_id"]))
+    if b.status != "pending":
+        raise Conflict("upload_already_started", "This upload has already moved on. Start a new one")
+    post = storage.get_store().presign_post(uow.principal.business_id, b.s3_key, max_bytes=b.size_bytes,
+                                           content_type="application/zip")
+    return BundleStartOut(bundle_id=str(b.id), upload=PresignedPostOut(
+        url=post.url, fields=post.fields, expires_at=post.expires_at))
+
+
+@router.post("/b/{business_id}/upload-bundles/{bundle_id}/complete", status_code=http.HTTP_202_ACCEPTED,
+             response_model=JobRef, dependencies=CREATE)
+def complete_bundle(bundle_id: str, uow: BusinessUoW, clock: Annotated[Clock, Depends(get_clock)]):
+    """The zip finished uploading: check it is there, then queue the sorting. Calling it again returns the same job."""
+    b = bundles.received(uow, parse_id(bundle_id), clock.today())
+    return JobRef(job_id=str(jobs.create(uow, import_jobs.CLASSIFY_BUNDLE, natural_key=str(b.id))))
+
+
+@router.get("/b/{business_id}/upload-bundles/{bundle_id}", response_model=BundleOut, dependencies=VIEW)
+def get_bundle(bundle_id: str, uow: BusinessUoW):
+    return _bundle_out(uow, bundles.get(uow, parse_id(bundle_id)))
+
+
+@router.patch("/b/{business_id}/upload-bundles/{bundle_id}/files/{n}", response_model=BundleOut, dependencies=CREATE)
+def choose_bundle_file(bundle_id: str, n: int, body: BundleChoiceIn, uow: BusinessUoW):
+    """Move a file to another section, or drop it. Nothing is edited: each choice is a new record."""
+    views = bundles.choose(uow, parse_id(bundle_id), n, body.section)
+    return _bundle_out(uow, bundles.get(uow, parse_id(bundle_id)), views)
+
+
+@router.post("/b/{business_id}/upload-bundles/{bundle_id}/stage", status_code=http.HTTP_202_ACCEPTED,
+             response_model=JobRef, dependencies=CREATE)
+def stage_bundle(bundle_id: str, uow: BusinessUoW):
+    """Turn each file that is going to be read into an ordinary upload. Asking again returns the same job."""
+    b = bundles.request_stage(uow, parse_id(bundle_id))
+    return JobRef(job_id=str(jobs.create(uow, import_jobs.STAGE_BUNDLE, natural_key=str(b.id))))
