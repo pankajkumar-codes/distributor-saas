@@ -299,7 +299,7 @@
         "type": "object"
       },
       "AuditExportIn": {
-        "description": "The screen's filters; the period follows the list's rules (both ends included,\n`to` defaults to today, at most MAX_RANGE_DAYS).",
+        "description": "The screen's filters; the period follows the list's rules (both ends included,\n`to` defaults to today, 1 to AUDIT_MAX_DAYS days, none in the future).",
         "properties": {
           "actor": {
             "anyOf": [
