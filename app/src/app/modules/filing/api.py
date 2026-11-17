@@ -32,13 +32,14 @@ from app.modules.business.interface import (
     quarter_start,
 )
 from platform_common.clock import Clock, get_clock
-from platform_common.errors import Deny, Invalid
+from platform_common.errors import Conflict, Deny, Invalid
 from platform_common.permissions import Permission, require
 from platform_common.uow import BusinessUoW
 
-from . import periods
+from . import acceptance, periods
 from .build import build_return
 from .checks import run_checks
+from .gate import accepted_key, export_gate
 from .gstr1 import Amounts
 from .periods import month_end
 
@@ -137,10 +138,12 @@ class FindingOut(BaseModel):
     source_refs: list[str]
     subject_fp: str
     needs_ca_check: bool
+    accepted: bool  # a warning accepted as it is now; a block or an information finding is never "accepted"
 
 
 class FindingGroupOut(BaseModel):
     code: str
+    accepted: int  # how many of its items are accepted
     level: Literal["block", "warn", "info"]
     count: int
     needs_ca_check: bool
@@ -154,6 +157,32 @@ class CaFlagOut(BaseModel):
 class DebitNotesOut(BaseModel):
     count: int
     notice: str | None  # "N debit note(s) are not in this return yet..."; null when there are none
+
+
+class ReasonOut(BaseModel):
+    code: Literal["not_open", "blocks", "debit_notes", "reconciliation"]
+    message: str
+
+
+class ExportGateOut(BaseModel):
+    """Whether an export could start now, and why not (R1-M8). Nothing is exported by this read."""
+
+    ready: bool
+    reasons: list[ReasonOut]
+    to_accept: int  # warnings still waiting for an acceptance
+
+
+class AcceptIn(BaseModel):
+    check_code: str = Field(pattern=r"^[A-Z]-[0-9]{2}$")
+    subject_fp: str | None = Field(
+        default=None, pattern=r"^[0-9a-f]{64}$"
+    )  # none: every current warning with this code
+    note: str = Field(min_length=1, max_length=500)  # why it is accepted: kept with who and when
+
+
+class AcceptOut(BaseModel):
+    check_code: str
+    accepted: int  # newly recorded; saying it again records nothing
 
 
 class ReturnDetailOut(BaseModel):
@@ -170,6 +199,7 @@ class ReturnDetailOut(BaseModel):
     ca_flags: list[CaFlagOut]  # what this return rests on that a CA has not answered
     findings: list[FindingOut]
     finding_groups: list[FindingGroupOut]
+    export: ExportGateOut
 
 
 class RowBase(Heads):
@@ -332,12 +362,19 @@ def get_return(instance_id: str, uow: BusinessUoW) -> ReturnDetailOut:
     findings = run_checks(uow.tx, b)
     due = periods.due_now(uow.tx, inst)
     s = b.sections
+    accepted = acceptance.accepted_set(uow.tx, inst.id)
+    gate = export_gate(inst, b, findings, accepted)
+
+    def _acc(f) -> bool:
+        return f.level == "warn" and accepted_key(f) in accepted
+
     groups: dict[str, FindingGroupOut] = {}
     for f in findings:
         g = groups.get(f.code)
         groups[f.code] = FindingGroupOut(
             code=f.code, level=f.level, count=1 if g is None else g.count + 1,
             needs_ca_check=f.needs_ca_check or (g is not None and g.needs_ca_check),
+            accepted=(0 if g is None else g.accepted) + _acc(f),
         )  # fmt: skip
     return ReturnDetailOut(
         instance=ReturnOut(
@@ -355,9 +392,21 @@ def get_return(instance_id: str, uow: BusinessUoW) -> ReturnDetailOut:
         ),
         ca_flags=[CaFlagOut(code=f.code, text=f.text) for f in b.ca_flags],
         findings=[FindingOut(code=f.code, level=f.level, message=f.message, source_refs=list(f.source_refs),
-                             subject_fp=f.subject_fp, needs_ca_check=f.needs_ca_check) for f in findings],
+                             subject_fp=f.subject_fp, needs_ca_check=f.needs_ca_check, accepted=_acc(f)) for f in findings],
         finding_groups=list(groups.values()),
+        export=ExportGateOut(ready=gate.ready, reasons=[ReasonOut(code=r.code, message=r.message) for r in gate.reasons],
+                             to_accept=gate.to_accept),
     )  # fmt: skip
+
+
+@router.post("/returns/{instance_id}/check-acceptances", dependencies=PREPARE)
+def accept_finding(instance_id: str, body: AcceptIn, uow: BusinessUoW) -> AcceptOut:
+    inst = _instance_or_404(uow, instance_id)
+    if inst.status != "open":
+        raise Conflict("return_not_open", "This return is not open, so nothing can be accepted on it.")
+    findings = run_checks(uow.tx, build_return(uow.tx, inst))
+    n = acceptance.accept(uow, inst, findings, body.check_code, body.subject_fp, body.note)
+    return AcceptOut(check_code=body.check_code, accepted=n)
 
 
 @router.get("/returns/{instance_id}/sections/{section}", dependencies=PREPARE)

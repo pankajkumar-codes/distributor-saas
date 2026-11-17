@@ -1,18 +1,37 @@
 {
   "components": {
     "schemas": {
-      "AcceptOut": {
+      "AcceptIn": {
         "properties": {
-          "business_id": {
-            "format": "uuid",
-            "title": "Business Id",
+          "check_code": {
+            "pattern": "^[A-Z]-[0-9]{2}$",
+            "title": "Check Code",
             "type": "string"
+          },
+          "note": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Note",
+            "type": "string"
+          },
+          "subject_fp": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Fp"
           }
         },
         "required": [
-          "business_id"
+          "check_code",
+          "note"
         ],
-        "title": "AcceptOut",
+        "title": "AcceptIn",
         "type": "object"
       },
       "AccessTokenOut": {
@@ -2842,6 +2861,33 @@
         "title": "EwayIn",
         "type": "object"
       },
+      "ExportGateOut": {
+        "description": "Whether an export could start now, and why not (R1-M8). Nothing is exported by this read.",
+        "properties": {
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "reasons": {
+            "items": {
+              "$ref": "#/components/schemas/ReasonOut"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "to_accept": {
+            "title": "To Accept",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ready",
+          "reasons",
+          "to_accept"
+        ],
+        "title": "ExportGateOut",
+        "type": "object"
+      },
       "FilingProfileOut": {
         "properties": {
           "current": {
@@ -2895,6 +2941,10 @@
       },
       "FindingGroupOut": {
         "properties": {
+          "accepted": {
+            "title": "Accepted",
+            "type": "integer"
+          },
           "code": {
             "title": "Code",
             "type": "string"
@@ -2919,6 +2969,7 @@
         },
         "required": [
           "code",
+          "accepted",
           "level",
           "count",
           "needs_ca_check"
@@ -2928,6 +2979,10 @@
       },
       "FindingOut": {
         "properties": {
+          "accepted": {
+            "title": "Accepted",
+            "type": "boolean"
+          },
           "code": {
             "title": "Code",
             "type": "string"
@@ -2967,7 +3022,8 @@
           "message",
           "source_refs",
           "subject_fp",
-          "needs_ca_check"
+          "needs_ca_check",
+          "accepted"
         ],
         "title": "FindingOut",
         "type": "object"
@@ -5738,6 +5794,30 @@
         "title": "ReadinessOut",
         "type": "object"
       },
+      "ReasonOut": {
+        "properties": {
+          "code": {
+            "enum": [
+              "not_open",
+              "blocks",
+              "debit_notes",
+              "reconciliation"
+            ],
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ReasonOut",
+        "type": "object"
+      },
       "RecoveryBody": {
         "properties": {
           "email": {
@@ -6019,6 +6099,9 @@
             "title": "Draft",
             "type": "boolean"
           },
+          "export": {
+            "$ref": "#/components/schemas/ExportGateOut"
+          },
           "finding_groups": {
             "items": {
               "$ref": "#/components/schemas/FindingGroupOut"
@@ -6077,7 +6160,8 @@
           "debit_notes",
           "ca_flags",
           "findings",
-          "finding_groups"
+          "finding_groups",
+          "export"
         ],
         "title": "ReturnDetailOut",
         "type": "object"
@@ -7358,6 +7442,24 @@
         "title": "ReasonIn",
         "type": "object"
       },
+      "app__modules__filing__api__AcceptOut": {
+        "properties": {
+          "accepted": {
+            "title": "Accepted",
+            "type": "integer"
+          },
+          "check_code": {
+            "title": "Check Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "check_code",
+          "accepted"
+        ],
+        "title": "AcceptOut",
+        "type": "object"
+      },
       "app__modules__filing__api__SectionOut": {
         "properties": {
           "name": {
@@ -7387,6 +7489,20 @@
           "totals"
         ],
         "title": "SectionOut",
+        "type": "object"
+      },
+      "app__modules__identity__api_team__AcceptOut": {
+        "properties": {
+          "business_id": {
+            "format": "uuid",
+            "title": "Business Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "business_id"
+        ],
+        "title": "AcceptOut",
         "type": "object"
       },
       "app__modules__identity__api_team__ReasonIn": {
@@ -11650,6 +11766,67 @@
         ]
       }
     },
+    "/api/v1/b/{business_id}/returns/{instance_id}/check-acceptances": {
+      "post": {
+        "operationId": "accept_finding_api_v1_b__business_id__returns__instance_id__check_acceptances_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "instance_id",
+            "required": true,
+            "schema": {
+              "title": "Instance Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app__modules__filing__api__AcceptOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Accept Finding",
+        "tags": [
+          "filing"
+        ]
+      }
+    },
     "/api/v1/b/{business_id}/returns/{instance_id}/sections/{section}": {
       "get": {
         "operationId": "get_section_api_v1_b__business_id__returns__instance_id__sections__section__get",
@@ -13201,7 +13378,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AcceptOut"
+                  "$ref": "#/components/schemas/app__modules__identity__api_team__AcceptOut"
                 }
               }
             },

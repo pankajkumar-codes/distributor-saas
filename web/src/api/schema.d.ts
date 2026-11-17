@@ -1001,6 +1001,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/returns/{instance_id}/check-acceptances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept Finding */
+        post: operations["accept_finding_api_v1_b__business_id__returns__instance_id__check_acceptances_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/returns/{instance_id}/sections/{section}": {
         parameters: {
             query?: never;
@@ -1671,13 +1688,14 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** AcceptOut */
-        AcceptOut: {
-            /**
-             * Business Id
-             * Format: uuid
-             */
-            business_id: string;
+        /** AcceptIn */
+        AcceptIn: {
+            /** Check Code */
+            check_code: string;
+            /** Note */
+            note: string;
+            /** Subject Fp */
+            subject_fp?: string | null;
         };
         /** AccessTokenOut */
         AccessTokenOut: {
@@ -2585,6 +2603,18 @@ export interface components {
             /** Vehicle No */
             vehicle_no?: string | null;
         };
+        /**
+         * ExportGateOut
+         * @description Whether an export could start now, and why not (R1-M8). Nothing is exported by this read.
+         */
+        ExportGateOut: {
+            /** Ready */
+            ready: boolean;
+            /** Reasons */
+            reasons: components["schemas"]["ReasonOut"][];
+            /** To Accept */
+            to_accept: number;
+        };
         /** FilingProfileOut */
         FilingProfileOut: {
             current: components["schemas"]["CurrentFrequencyOut"] | null;
@@ -2598,6 +2628,8 @@ export interface components {
         };
         /** FindingGroupOut */
         FindingGroupOut: {
+            /** Accepted */
+            accepted: number;
             /** Code */
             code: string;
             /** Count */
@@ -2612,6 +2644,8 @@ export interface components {
         };
         /** FindingOut */
         FindingOut: {
+            /** Accepted */
+            accepted: boolean;
             /** Code */
             code: string;
             /**
@@ -3520,6 +3554,16 @@ export interface components {
             /** Ok */
             ok: boolean;
         };
+        /** ReasonOut */
+        ReasonOut: {
+            /**
+             * Code
+             * @enum {string}
+             */
+            code: "not_open" | "blocks" | "debit_notes" | "reconciliation";
+            /** Message */
+            message: string;
+        };
         /** RecoveryBody */
         RecoveryBody: {
             /** Email */
@@ -3611,6 +3655,7 @@ export interface components {
             debit_notes: components["schemas"]["DebitNotesOut"];
             /** Draft */
             draft: boolean;
+            export: components["schemas"]["ExportGateOut"];
             /** Finding Groups */
             finding_groups: components["schemas"]["FindingGroupOut"][];
             /** Findings */
@@ -4069,6 +4114,13 @@ export interface components {
             /** Reason */
             reason?: string | null;
         };
+        /** AcceptOut */
+        app__modules__filing__api__AcceptOut: {
+            /** Accepted */
+            accepted: number;
+            /** Check Code */
+            check_code: string;
+        };
         /** SectionOut */
         app__modules__filing__api__SectionOut: {
             /**
@@ -4079,6 +4131,14 @@ export interface components {
             /** Rows Count */
             rows_count: number;
             totals: components["schemas"]["Heads"];
+        };
+        /** AcceptOut */
+        app__modules__identity__api_team__AcceptOut: {
+            /**
+             * Business Id
+             * Format: uuid
+             */
+            business_id: string;
         };
         /** ReasonIn */
         app__modules__identity__api_team__ReasonIn: {
@@ -6459,6 +6519,42 @@ export interface operations {
             };
         };
     };
+    accept_finding_api_v1_b__business_id__returns__instance_id__check_acceptances_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instance_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__modules__filing__api__AcceptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_section_api_v1_b__business_id__returns__instance_id__sections__section__get: {
         parameters: {
             query?: {
@@ -7363,7 +7459,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AcceptOut"];
+                    "application/json": components["schemas"]["app__modules__identity__api_team__AcceptOut"];
                 };
             };
             /** @description Validation Error */
