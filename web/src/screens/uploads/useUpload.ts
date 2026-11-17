@@ -7,6 +7,8 @@ import { uploadTo } from "../../api/upload";
 import { pollDelay } from "../../api/useJob";
 import { settled, type Section, type Upload } from "./sections";
 
+const POLL_GIVE_UP_MS = 10 * 60 * 1000;
+
 export const uploadsKey = (businessId: string) => ["b", businessId, "uploads"];
 
 /** Follows one upload until the server has settled it (parsed, rejected, stored or expired). */
@@ -22,12 +24,16 @@ export function useUpload(businessId: string, uploadId: string | null) {
 }
 
 /** The recent uploads of one section, newest first. */
-export function useUploads(businessId: string, section: Section | null, enabled = true) {
+export function useUploads(businessId: string, section: Section | null, enabled = true, poll = false) {
   return useQuery<Upload[], ApiError>({
     queryKey: [...uploadsKey(businessId), "list", section],
     queryFn: async () =>
       (await call(() => api.GET("/api/v1/b/{business_id}/uploads", { params: { path: { business_id: businessId }, query: { section: section ?? undefined } } }))).uploads,
     enabled: enabled && Boolean(businessId),
+    // While a file in the list is still being read, look again every few seconds, so its answer appears on its own.
+    // Only while the tab is showing, and not for a file that has sat unsettled for ten minutes (a lost job).
+    refetchInterval: poll ? (q) => (q.state.data?.some((u) => !settled(u) && Date.now() - Date.parse(u.created_at) < POLL_GIVE_UP_MS) ? 3000 : false) : false,
+    refetchIntervalInBackground: false,
   });
 }
 
@@ -41,22 +47,7 @@ export function useStartUpload(businessId: string, onStarted: (uploadId: string)
   const queryClient = useQueryClient();
   const key = useRef(crypto.randomUUID());
   const mutation = useMutation<string, ApiError, { section: Section; file: File }>({
-    mutationFn: async ({ section, file }) => {
-      const started = await call(() =>
-        api.POST("/api/v1/b/{business_id}/uploads", {
-          params: { path: { business_id: businessId }, header: { "Idempotency-Key": key.current } },
-          body: { section, file_name: file.name, size_bytes: file.size },
-        }),
-      );
-      try {
-        await uploadTo(started.upload, file);
-      } catch (e) {
-        key.current = crypto.randomUUID();
-        throw e;
-      }
-      await call(() => api.POST("/api/v1/b/{business_id}/uploads/{upload_id}/complete", { params: { path: { business_id: businessId, upload_id: started.upload_id } } }));
-      return started.upload_id;
-    },
+    mutationFn: ({ section, file }) => sendFile(businessId, section, file, key),
     onSuccess: (uploadId) => {
       key.current = crypto.randomUUID();
       queryClient.invalidateQueries({ queryKey: uploadsKey(businessId) });
@@ -64,4 +55,22 @@ export function useStartUpload(businessId: string, onStarted: (uploadId: string)
     },
   });
   return { ...mutation, newChoice: () => (key.current = crypto.randomUUID()) };
+}
+
+/** One file: start, post it to storage, complete. `key` is the idempotency key, replaced after a failed send. */
+export async function sendFile(businessId: string, section: Section, file: File, key: { current: string }): Promise<string> {
+  const started = await call(() =>
+    api.POST("/api/v1/b/{business_id}/uploads", {
+      params: { path: { business_id: businessId }, header: { "Idempotency-Key": key.current } },
+      body: { section, file_name: file.name, size_bytes: file.size },
+    }),
+  );
+  try {
+    await uploadTo(started.upload, file);
+  } catch (e) {
+    key.current = crypto.randomUUID();
+    throw e;
+  }
+  await call(() => api.POST("/api/v1/b/{business_id}/uploads/{upload_id}/complete", { params: { path: { business_id: businessId, upload_id: started.upload_id } } }));
+  return started.upload_id;
 }
