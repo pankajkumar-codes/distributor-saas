@@ -63,6 +63,7 @@ class ReturnBuild:
     debit_notes: int  # confirmed debit notes dated in this period that are not in the return
     draft: bool  # a return is a draft until it is marked filed and locked
     lines: tuple[SupplyLine, ...] = ()  # every member line (liability and Table 12), for the checks
+    iff_sections: tuple[Gstr1Sections, ...] = ()  # a quarter's IFF months filed with the IFF; counted in `liability`
 
 
 def build_return(tx: Session, instance: ReturnInstance) -> ReturnBuild:
@@ -100,6 +101,7 @@ def build_return(tx: Session, instance: ReturnInstance) -> ReturnBuild:
         debit_notes=debit_notes,
         draft=instance.status != "filed_locked",
         lines=tuple(all_lines),
+        iff_sections=tuple(iff_builds),
     )
 
 
