@@ -8,6 +8,7 @@ import type { components } from "../../api/schema";
 import { useMyBusinesses } from "../../auth/useMyBusinesses";
 import { formatDateTimeIst } from "../../format/dates";
 import { Banner } from "../../kit/Banner";
+import { ErrorDetail } from "../../kit/ErrorDetail";
 import { Button } from "../../kit/Button";
 import { Field } from "../../kit/Field";
 import { NotFound } from "../../kit/NotFound";
@@ -123,7 +124,7 @@ export function AuditPage() {
   if (businesses.error) {
     return (
       <main className="page">
-        <Banner tone="error">{errorText(businesses.error)}</Banner>
+        <Banner tone="error">{errorText(businesses.error)}<ErrorDetail error={businesses.error} /></Banner>
       </main>
     );
   }
@@ -183,7 +184,7 @@ export function AuditPage() {
 
         {list.error && (
           <Banner tone="error">
-            {list.error.fix ?? list.error.message ?? errorText(list.error)}{" "}
+            {list.error.status === 0 ? errorText(list.error) : list.error.fix || list.error.message || errorText(list.error)}<ErrorDetail error={list.error} />{" "}
             <Button type="button" variant="link" onClick={() => list.refetch()}>
               Try again
             </Button>

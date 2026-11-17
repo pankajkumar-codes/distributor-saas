@@ -3,7 +3,7 @@ import createClient from "openapi-fetch";
 import { endSession, refreshSession } from "../auth/session";
 import { tokenStore } from "../auth/tokenStore";
 import { toApiError, type ApiError } from "./errors";
-import { isAuthPath, withAuthTimeout } from "./timeout";
+import { isAuthPath, READ_TIMEOUT_MS, withAuthTimeout } from "./timeout";
 import type { paths } from "./schema";
 
 // Typed from app/openapi.json (`npm run gen:api`). Same origin only: the API is served
@@ -11,11 +11,20 @@ import type { paths } from "./schema";
 export const api = createClient<paths>({
   baseUrl: window.location.origin,
   // Looked up per call, so tests can stub the global fetch.
-  fetch: (request) => globalThis.fetch(request, signalFor(request)),
+  fetch: async (request) => {
+    try {
+      return await globalThis.fetch(request, signalFor(request));
+    } catch (e) {
+      // Say which request, and whether it timed out, so a "couldn't reach the server" can be traced.
+      const how = (e as Error | undefined)?.name === "TimeoutError" ? "no answer in time" : "no connection";
+      throw Object.assign(e instanceof Error ? e : new Error(String(e)), { detail: `${request.method} ${new URL(request.url).pathname}: ${how}` });
+    }
+  },
 });
 
 function signalFor(request: Request): RequestInit | undefined {
-  return isAuthPath(request.url) ? { signal: withAuthTimeout(request.signal) } : undefined;
+  if (isAuthPath(request.url)) return { signal: withAuthTimeout(request.signal) };
+  return request.method === "GET" ? { signal: withAuthTimeout(request.signal, READ_TIMEOUT_MS) } : undefined;
 }
 
 api.use({
@@ -32,10 +41,14 @@ async function once<T>(request: () => Promise<Result<T>>): Promise<T> {
   let result;
   try {
     result = await request();
-  } catch {
-    throw toApiError(undefined, undefined);
+  } catch (e) {
+    const error = toApiError(undefined, undefined, (e as { detail?: string } | undefined)?.detail);
+    throw (e as Error | undefined)?.name === "TimeoutError" ? { ...error, code: "timeout" } : error;
   }
-  if (!result.response.ok) throw toApiError(result.response, result.error);
+  if (!result.response.ok) {
+    const { response } = result;
+    throw toApiError(response, result.error, `${new URL(response.url || window.location.href).pathname}: answered ${response.status}`);
+  }
   return result.data as T;
 }
 

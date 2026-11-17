@@ -12,6 +12,7 @@ export type ApiError = {
   unmet?: string[]; // password_weak: the ids of the password rules not met
   retryAfter?: number; // seconds, from Retry-After on a 429
   challenge?: string; // totp_not_accepted: the provider's next challenge (LLD-1 §5.4)
+  detail?: string; // which request failed and how, for the person to read out to support ("GET /api/v1/… no answer in 30 s")
 };
 
 type Body = {
@@ -19,8 +20,8 @@ type Body = {
   challenge?: string;
 };
 
-export function toApiError(response: Response | undefined, body: unknown): ApiError {
-  if (!response) return { status: 0, code: "network", message: "" };
+export function toApiError(response: Response | undefined, body: unknown, detail?: string): ApiError {
+  if (!response) return { status: 0, code: "network", message: "", ...(detail ? { detail } : {}) };
   const error = (body as Body | undefined)?.error ?? {};
   const challenge = (body as Body | undefined)?.challenge;
   const retry = Number.parseInt(response.headers.get("Retry-After") ?? "", 10);
@@ -33,6 +34,7 @@ export function toApiError(response: Response | undefined, body: unknown): ApiEr
     unmet: error.unmet,
     retryAfter: Number.isFinite(retry) ? retry : undefined,
     ...(challenge ? { challenge } : {}),
+    ...(detail ? { detail } : {}),
   };
 }
 
@@ -62,6 +64,7 @@ export function errorText(error: ApiError): string {
 
 /** The server or the network failed, so the same request may work if tried again. */
 export function transient(error: unknown): boolean {
-  const status = (error as ApiError | undefined)?.status;
+  const { status, code } = (error as ApiError | undefined) ?? {};
+  if (code === "timeout") return false; // already waited the full limit once; the screen offers Try again
   return status === 0 || (typeof status === "number" && status >= 500);
 }
