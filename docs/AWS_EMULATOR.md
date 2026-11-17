@@ -1,8 +1,8 @@
 # Testing against the AWS emulator (R1-M11 prep)
 
-Decision (Pankaj, 2026-11-18): test AWS-facing code against the emulator first. No real AWS actions and no staging spend until he says so.
+Decision (Pankaj, 2026-11-17): test AWS-facing code against the emulator first. No real AWS actions and no staging spend until he says so.
 
-## What was checked (2026-11-18, from the public repository only)
+## What was checked (2026-11-17, from the public repository only)
 - `github.com/aws/aws-emulator` exists, is published by AWS, and is licensed CC0-1.0 (its `vendor/` folder is Apache-2.0).
 - It is one program that serves an AWS API on HTTPS `127.0.0.1:9297` with a self-signed certificate. You point the SDK at it with environment variables (`AWS_ENDPOINT_URL`). No AWS account is needed. AWS says it is for building and testing only, not production and not security testing.
 - Its workspace has one crate per AWS service. Crates exist for the services we use: S3, SQS, Lambda, SES and SES v2, Cognito user pools (`cognitoidentityprovider`), SSM (Parameter Store), Secrets Manager, KMS, and Bedrock runtime.

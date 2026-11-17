@@ -1,6 +1,6 @@
 """The GST-filing plan a business sees on the last page, and the one place that says it is free for now (R1-M9).
 
-Pankaj's decision (D-073): payments are a placeholder in R1. The plans and their prices are shown, nothing is charged
+Pankaj's decision (D-074): payments are a placeholder in R1. The plans and their prices are shown, nothing is charged
 and no payment provider is connected. `FREE_FOR_NOW` is the single switch. While it is true, `entitlement.allowed` says yes
 to every business and the screen says "free for now". When the payment provider is ready, set it to false and install a real
 check with `entitlement.set_check`; nothing else changes.
