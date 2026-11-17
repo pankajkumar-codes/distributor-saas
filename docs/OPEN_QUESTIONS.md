@@ -252,6 +252,7 @@ Every row in `refdata/` is `provisional`. Before go-live:
 - **Tax difference tolerance (R1-M7 slice 4).** A-01 reports any difference between taxable value x rate and the tax columns, including a paisa of rounding. Whether the return should tolerate a paisa per line, and which figure it carries, is a CA question (CA-2); until then the finding is a warning marked needs CA check.
 - **Negative B2CS (R1-M7 slice 4).** C-12 reports a negative B2CS row as a block-level finding while refdata `gstr1_offline.allow_negative_b2cs` is false; QA open item 3 decides whether the offline tool accepts it.
 - **Unit on export (R1-M8 slice 1).** C-18 blocks a line whose unit is blank (read as NA) or not on the portal's UQC list, with no guessing. A CA mapping of common units (for example a typed "PCS" or "Nos") to portal codes would let these pass; until then the user fixes the unit in the upload.
+- **Snapshot retention and erasure (R1-M8 slice 2).** Snapshots refuse delete for every role, which is right for a filed return. What happens to them when a business closes its account or asks for erasure (a statutory retention period against the right to delete) needs a decision, with the CA and counsel, before launch.
 
 ## Decision handling
 For each answer, update `docs/DECISIONS.md` with the decision, rationale, trade-offs, and approval status. Do not silently turn assumptions into requirements.
