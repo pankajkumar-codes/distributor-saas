@@ -83,8 +83,9 @@ def test_setup_and_confirm_are_refused_while_totp_is_on(env):  # Staff 2, #60
 
 def test_a_wrong_code_turns_nothing_on(env):
     client, idp, mail, admin = env
-    me, sent = bearer(client), len(mail.sent)
+    me = bearer(client)
     secret = client.post("/api/v1/me/totp/setup", headers=me).json()["secret"]
+    sent = len(mail.sent)  # setup prints the demo's code; a wrong confirm sends nothing more
     wrong = "000000" if idp.totp_code(secret) != "000000" else "111111"
     r = client.post("/api/v1/me/totp/confirm", json={"code": wrong}, headers=me)
     assert (r.status_code, r.json()["error"]["code"]) == (422, "totp_not_accepted")
@@ -166,3 +167,38 @@ def test_a_token_the_provider_no_longer_accepts_is_401(env, monkeypatch, route):
         "remove": lambda: client.delete("/api/v1/me/totp", headers=me),
     }[route]()
     assert (r.status_code, r.json()["error"]["code"]) == (401, "session_invalid")
+
+
+def demo_codes(mail):
+    return [p["code"] for t, to, p in mail.sent if t == "demo_totp_code" and to == EMAIL]
+
+
+def test_the_local_demo_prints_the_code_to_turn_two_step_on_and_to_sign_in(env):
+    # An authenticator app cannot show the fake provider's code, so the demo prints it with the other codes.
+    client, idp, mail, _ = env
+    me = bearer(client)
+    secret = client.post("/api/v1/me/totp/setup", headers=me).json()["secret"]
+    assert demo_codes(mail) == [idp.totp_code(secret)]
+    assert client.post("/api/v1/me/totp/confirm", json={"code": demo_codes(mail)[-1]}, headers=me).status_code == 204
+    assert signin(client).json()["step"] == "totp"  # the sign-in step prints it again
+    assert demo_codes(mail) == [idp.totp_code(secret)] * 2
+
+
+def test_the_demo_code_is_never_sent_when_the_environment_is_not_a_debug_one(env, monkeypatch):
+    from app.modules.identity import demo_hint
+
+    client, idp, mail, _ = env
+    monkeypatch.setattr(demo_hint, "debug_env", lambda: False)
+    client.post("/api/v1/me/totp/setup", headers=bearer(client))
+    assert demo_codes(mail) == []
+
+
+def test_a_provider_without_the_demo_helper_prints_nothing(env):
+    from app.modules.identity import demo_hint
+
+    class Real:  # stands in for the Cognito provider
+        pass
+
+    _, _, mail, _ = env
+    demo_hint.print_two_step_code(Real(), mail, email=EMAIL)
+    assert demo_codes(mail) == []
