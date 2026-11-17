@@ -32,6 +32,12 @@ const KINDS: { value: Kind; label: string }[] = [
 const POLL_MS = 2000;
 /** Today's date in India as YYYY-MM-DD: the latest day the server accepts. */
 const todayIst = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
+/** The period rules (D-065). The date pickers stop a future day, but not a period that is too long or back to front. */
+const RANGE_WORDS: Record<string, string> = {
+  date_range_too_long: "Choose a period of 31 days or less.",
+  date_range_reversed: "The From date must be on or before the To date.",
+  date_in_future: "Choose days up to today. Dates that have not come yet can't be shown.",
+};
 const EXPORT_WORDS: Record<string, string> = {
   narrow_filter: "That's too many entries for one file. Choose a shorter period, a kind or a person, then export again.",
   not_allowed: "You no longer have access to the audit log.",
@@ -191,9 +197,12 @@ export function AuditPage() {
             {EXPORT_WORDS[exportState.error_code ?? ""] ?? "We couldn't prepare the file. Try exporting again."}
           </Banner>
         )}
-        {(start.error ?? exported.error) && <Banner tone="error">{errorText((start.error ?? exported.error)!)}</Banner>}
+        {(start.error ?? exported.error) && (
+          <Banner tone="error">{RANGE_WORDS[(start.error ?? exported.error)!.code] ?? errorText((start.error ?? exported.error)!)}</Banner>
+        )}
 
-        {list.error && (
+        {list.error && RANGE_WORDS[list.error.code] && <Banner tone="error">{RANGE_WORDS[list.error.code]}</Banner>}
+        {list.error && !RANGE_WORDS[list.error.code] && (
           <Banner tone="error">
             {list.error.status === 0 ? errorText(list.error) : list.error.fix || list.error.message || errorText(list.error)}<ErrorDetail error={list.error} />{" "}
             <Button type="button" variant="link" onClick={() => list.refetch()}>

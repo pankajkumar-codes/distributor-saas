@@ -88,7 +88,9 @@ describe("the audit log", () => {
     expect(to.max).toMatch(/^\d{4}-\d{2}-\d{2}$/); // today in India: the picker offers no later day
     expect(screen.getByText(/Up to 31 days, none in the future/)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("From"), { target: { value: "2026-01-01" } });
-    expect(await screen.findByText(/limited to 31 days/)).toBeInTheDocument();
+    expect(await screen.findByText("Choose a period of 31 days or less.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull(); // the same dates would be refused again
+    expect(screen.queryByText(/limited to 31 days/)).toBeNull(); // the server's own words are not shown
   });
 
   it("exports what the filters show and offers the file when it is ready", async () => {

@@ -49,7 +49,7 @@ INVITE_EXPIRY_DAYS = 7  # identity.invite_expiry_days
 INVITES_PER_BUSINESS_PER_DAY = 20  # identity.invites_per_business_per_day
 AUDIT_PAGE = 50
 AUDIT_DEFAULT_DAYS = 7  # no period given: the last 7 days
-AUDIT_MAX_DAYS = 31  # a period is 1 to 31 days, none in the future (D-062)
+AUDIT_MAX_DAYS = 31  # a period is 1 to 31 days, none in the future (D-065)
 
 
 def audit_range(

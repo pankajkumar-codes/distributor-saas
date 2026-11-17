@@ -162,7 +162,7 @@ def test_a_file_that_is_gone_or_a_day_old_reports_expired(team):
 
 
 def test_audit_periods_are_one_to_thirty_one_days_and_never_in_the_future(team):
-    """D-062: the list and the export share these rules; nothing given means the last 7 days."""
+    """D-065: the list and the export share these rules; nothing given means the last 7 days."""
     from datetime import date, timedelta
 
     from platform_common.clock import Clock
