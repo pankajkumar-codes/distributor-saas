@@ -294,7 +294,7 @@ describe("a sign-out the server did not confirm", () => {
     server.reply("/api/v1/auth/signout", { status: 500 }, { status: 500 });
     await signOut();
     await vi.advanceTimersByTimeAsync(60_000);
-    expect(signOutNotice()).toBe("not_ended");
+    expect(signOutNotice()).toBe("still_not_ended");
     expect(server.sent.filter((s) => s.path === "/api/v1/auth/signout")).toHaveLength(2);
   });
 

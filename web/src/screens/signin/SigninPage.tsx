@@ -86,6 +86,7 @@ export function SigninPage() {
             We could not end your session on our server. If this computer is shared, close the browser. We will try once more in the background.
           </Banner>
         )}
+        {notice === "still_not_ended" && <Banner>We still could not end your session on our server. If this computer is shared, close the browser.</Banner>}
         {notice === "ended_later" && <Banner>Your session on our server has now ended.</Banner>}
         {passwordReset && !error && <Banner>Your password is changed, and you're signed out everywhere. Sign in with the new password.</Banner>}
         {expired && <Banner tone="error">That took too long. Sign in again.</Banner>}

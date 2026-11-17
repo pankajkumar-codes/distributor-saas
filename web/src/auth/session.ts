@@ -158,14 +158,16 @@ const SIGNOUT_TIMEOUT_MS = 2_000;
 // sign-in page would otherwise sign the person straight back in, or a slow sign-out would later end their new session.
 let signOutUnconfirmed = false;
 let signOutEnded = false; // the one background retry found the server session ended
+let retried = false; // the one background retry has been made
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 const RETRY_AFTER_MS = 5_000;
 const noticeListeners = new Set<() => void>();
 const noticeChanged = () => noticeListeners.forEach((l) => l());
 
 /** What the sign-in page says about the last sign-out: nothing, "we could not end it", or "it has now ended". */
-export type SignOutNotice = "none" | "not_ended" | "ended_later";
-export const signOutNotice = (): SignOutNotice => (signOutUnconfirmed ? "not_ended" : signOutEnded ? "ended_later" : "none");
+export type SignOutNotice = "none" | "not_ended" | "still_not_ended" | "ended_later";
+export const signOutNotice = (): SignOutNotice =>
+  signOutUnconfirmed ? (retried ? "still_not_ended" : "not_ended") : signOutEnded ? "ended_later" : "none";
 export function onSignOutNotice(listener: () => void): () => void {
   noticeListeners.add(listener);
   return () => noticeListeners.delete(listener);
@@ -203,12 +205,14 @@ export async function signOut({ rememberPage = true }: { rememberPage?: boolean 
   const token = tokenStore.get();
   const confirmed = await askSignOut(token);
   signOutEnded = false;
+  retried = false;
   if (!confirmed) {
     signOutUnconfirmed = true;
     if (retryTimer) clearTimeout(retryTimer);
     retryTimer = setTimeout(async () => {
       retryTimer = null;
       if (!signOutUnconfirmed) return; // the person signed in again meanwhile: that session is theirs to keep
+      retried = true;
       if (await askSignOut(null)) {
         signOutUnconfirmed = false;
         signOutEnded = true;
