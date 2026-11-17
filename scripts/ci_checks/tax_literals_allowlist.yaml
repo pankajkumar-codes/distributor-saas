@@ -249,3 +249,30 @@
 - path: app/src/app/modules/filing/plans.py
   value: "1499"
   reason: "our own quarterly fee for the GST-filing plan in rupees (release-plan-v2 section 6, Pankaj); a price list, not a tax rate or threshold. Moves to a billing table when payments are real"
+- path: app/src/app/modules/filing/gstr3b/excel.py
+  value: "2"
+  reason: "spreadsheet column position or column width in the worksheet file; layout, not a tax rule"
+- path: app/src/app/modules/filing/gstr3b/excel.py
+  value: "3"
+  reason: "spreadsheet column position or column width in the worksheet file; layout, not a tax rule"
+- path: app/src/app/modules/filing/gstr3b/excel.py
+  value: "4"
+  reason: "spreadsheet column position or column width in the worksheet file; layout, not a tax rule"
+- path: app/src/app/modules/filing/gstr3b/excel.py
+  value: "7"
+  reason: "spreadsheet column position or column width in the worksheet file; layout, not a tax rule"
+- path: app/src/app/modules/filing/gstr3b/excel.py
+  value: "20"
+  reason: "spreadsheet column position or column width in the worksheet file; layout, not a tax rule"
+- path: app/src/app/modules/filing/gstr3b/excel.py
+  value: "40"
+  reason: "spreadsheet column position or column width in the worksheet file; layout, not a tax rule"
+- path: app/src/app/modules/filing/gstr3b/excel.py
+  value: "50"
+  reason: "spreadsheet column position or column width in the worksheet file; layout, not a tax rule"
+- path: app/src/app/modules/filing/gstr3b/excel.py
+  value: "70"
+  reason: "spreadsheet column position or column width in the worksheet file; layout, not a tax rule"
+- path: app/src/app/modules/filing/api_worksheet.py
+  value: "12"
+  reason: "longest page marker accepted; an input limit, not a tax rule"
