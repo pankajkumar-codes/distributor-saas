@@ -102,6 +102,25 @@ describe("importing products", () => {
     expect(sent(`${RUN}/confirm`)[0].headers.get("Idempotency-Key")).toBeNull();
   });
 
+  it("downloads the template with the sign-in, and says so when it fails instead of staying greyed out", async () => {
+    const TEMPLATE = "/api/v1/b/b-1/products/import-template";
+    const create = vi.fn(() => "blob:t");
+    Object.assign(URL, { createObjectURL: create, revokeObjectURL: vi.fn() });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    server.reply(TEMPLATE, { status: 200, body: undefined, headers: { "Content-Type": "text/csv" } }, { status: 500 });
+    open();
+    const button = await screen.findByRole("button", { name: "Download the template" });
+    fireEvent.click(button);
+    await vi.waitFor(() => expect(click).toHaveBeenCalledTimes(1));
+    expect(sent(TEMPLATE, "GET")[0].headers.get("Authorization")).toBe("Bearer t");
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(document.querySelector("a[download]")).toBeNull(); // the temporary link is removed again
+    fireEvent.click(button);
+    expect(await screen.findByText(/The template didn't download\. Something went wrong on our side/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Download the template" })).toBeEnabled();
+    click.mockRestore();
+  });
+
   it("shows the server's failure, not Imported, when the apply job is done but the run failed", async () => {
     const applyJob = (status: string) => ({ ...job("j-2", status), body: { ...job("j-2", status).body, type: "catalog.import_apply" } });
     server.reply("/api/v1/b/b-1/jobs/j-2", applyJob("running"), applyJob("done"));
