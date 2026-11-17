@@ -1752,7 +1752,7 @@ export interface components {
         /**
          * AuditExportIn
          * @description The screen's filters; the period follows the list's rules (both ends included,
-         *     `to` defaults to today, at most MAX_RANGE_DAYS).
+         *     `to` defaults to today, 1 to AUDIT_MAX_DAYS days, none in the future).
          */
         AuditExportIn: {
             /** Actor */

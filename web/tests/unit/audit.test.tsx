@@ -77,6 +77,22 @@ describe("the audit log", () => {
     expect(sent.has("actor")).toBe(false);
   });
 
+  it("keeps the dates to the last 31 days' rules: none in the future, the server's refusal shown", async () => {
+    server.reply(LOG, page([row()]), {
+      status: 422,
+      body: { error: { code: "date_range_too_long", message: "date range is limited to 31 days", field: "from" } },
+    });
+    open();
+    await screen.findByRole("table");
+    const to = screen.getByLabelText("To") as HTMLInputElement;
+    expect(to.max).toMatch(/^\d{4}-\d{2}-\d{2}$/); // today in India: the picker offers no later day
+    expect(screen.getByText(/Up to 31 days, none in the future/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("From"), { target: { value: "2026-01-01" } });
+    expect(await screen.findByText("Choose a period of 31 days or less.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull(); // the same dates would be refused again
+    expect(screen.queryByText(/limited to 31 days/)).toBeNull(); // the server's own words are not shown
+  });
+
   it("exports what the filters show and offers the file when it is ready", async () => {
     server.reply(LOG, page([row()]));
     open();
