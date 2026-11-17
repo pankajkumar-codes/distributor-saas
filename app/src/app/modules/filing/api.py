@@ -20,6 +20,7 @@ from decimal import Decimal
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query
+from fastapi import status as http
 from pydantic import BaseModel, Field
 
 from app.modules.business.interface import (
@@ -34,9 +35,9 @@ from app.modules.business.interface import (
 from platform_common.clock import Clock, get_clock
 from platform_common.errors import Conflict, Deny, Invalid
 from platform_common.permissions import Permission, require
-from platform_common.uow import BusinessUoW
+from platform_common.uow import BusinessUoW, parse_id
 
-from . import acceptance, periods
+from . import acceptance, export_job, periods
 from .build import build_return
 from .checks import run_checks
 from .gate import accepted_key, export_gate
@@ -178,6 +179,28 @@ class AcceptFindingIn(BaseModel):
         default=None, pattern=r"^[0-9a-f]{64}$"
     )  # none: every current warning with this code
     note: str = Field(min_length=1, max_length=500)  # why it is accepted: kept with who and when
+
+
+class ExportRef(BaseModel):
+    job_id: str
+
+
+class ExportFileOut(BaseModel):
+    part: int
+    rows: int
+    size_bytes: int
+    url: str  # good for 60 seconds
+
+
+class ExportStatusOut(BaseModel):
+    status: Literal["preparing", "ready", "failed"]
+    error_code: str | None = None  # when failed: changed_during_export, not_ready, file_too_large, not_allowed, ...
+    version: int | None = None  # when ready: the snapshot's version
+    files: list[ExportFileOut] = []
+    not_in_file: list[str] = []  # tables the file does not carry yet, to be entered on the portal
+    unverified_tables: list[str] = []  # tables written without a tool sample behind them
+    portal_tested: bool = False  # false until a file like this has been accepted by the portal (the test upload)
+    ready_to_upload: bool = False  # true only when portal_tested and no table is unverified
 
 
 class AcceptFindingOut(BaseModel):
@@ -428,3 +451,17 @@ def get_section(
     more = start + PAGE < len(rows)
     return _PAGES[section](section=section, rows=[_row(r) for r in page], has_more=more,
                            next_cursor=str(start + PAGE) if more else None, fingerprint=b.fingerprint)  # fmt: skip
+
+
+@router.post("/returns/{instance_id}/exports", dependencies=PREPARE, status_code=http.HTTP_202_ACCEPTED)
+def start_export(instance_id: str, uow: BusinessUoW) -> ExportRef:
+    """Queues the file of this return as it is now. Refused (409) when it is not ready, not allowed for the plan or cannot be
+    written as a file; asking again for an unchanged return gives the same job."""
+    inst = _instance_or_404(uow, instance_id)
+    return ExportRef(job_id=str(export_job.start(uow, inst.id)))
+
+
+@router.get("/returns/{instance_id}/exports/{job_id}", dependencies=PREPARE)
+def export_status(instance_id: str, job_id: str, uow: BusinessUoW) -> ExportStatusOut:
+    inst = _instance_or_404(uow, instance_id)
+    return ExportStatusOut(**export_job.status(uow, inst.id, parse_id(job_id)))

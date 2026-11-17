@@ -92,6 +92,8 @@ ALLOWED_DATA: dict[str, frozenset[str]] = {
     "imports.none_this_month": frozenset({"section", "month"}),
     # Accepting a warning on a return as shown (R1-M8): the check code and how many items; the note is the reason.
     "filing.accept_warning": frozenset({"check_code", "count"}),
+    # A GSTR-1 file made from a return (R1-M8): which snapshot, its version and how many files. Never a figure.
+    "filing.exported": frozenset({"snapshot_id", "version", "parts"}),
 }
 
 _INSERT = text(

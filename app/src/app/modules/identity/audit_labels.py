@@ -36,6 +36,7 @@ ACTIONS: dict[str, tuple[str, str]] = {
     "returns.unlock": ("Unlocked a filed period", "gst_filing"),
     "documents.s34_override": ("Overrode the credit-note time limit", "invoices"),
     "filing.accept_warning": ("Accepted a filing warning", "gst_filing"),
+    "filing.exported": ("Prepared a GSTR-1 file", "gst_filing"),
     "imports.changed_line_choice": ("Chose how to treat a changed line", "gst_filing"),
     "support.view": ("Support viewed the business", "support"),
     "support.grant": ("Gave support access", "support"),

@@ -1018,6 +1018,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/returns/{instance_id}/exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Export
+         * @description Queues the file of this return as it is now. Refused (409) when it is not ready, not allowed for the plan or cannot be
+         *     written as a file; asking again for an unchanged return gives the same job.
+         */
+        post: operations["start_export_api_v1_b__business_id__returns__instance_id__exports_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/returns/{instance_id}/exports/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export Status */
+        get: operations["export_status_api_v1_b__business_id__returns__instance_id__exports__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/returns/{instance_id}/sections/{section}": {
         parameters: {
             query?: never;
@@ -2788,6 +2826,17 @@ export interface components {
             /** Vehicle No */
             vehicle_no?: string | null;
         };
+        /** ExportFileOut */
+        ExportFileOut: {
+            /** Part */
+            part: number;
+            /** Rows */
+            rows: number;
+            /** Size Bytes */
+            size_bytes: number;
+            /** Url */
+            url: string;
+        };
         /**
          * ExportGateOut
          * @description Whether an export could start now, and why not (R1-M8). Nothing is exported by this read.
@@ -2799,6 +2848,48 @@ export interface components {
             reasons: components["schemas"]["ReasonOut"][];
             /** To Accept */
             to_accept: number;
+        };
+        /** ExportRef */
+        ExportRef: {
+            /** Job Id */
+            job_id: string;
+        };
+        /** ExportStatusOut */
+        ExportStatusOut: {
+            /** Error Code */
+            error_code?: string | null;
+            /**
+             * Files
+             * @default []
+             */
+            files: components["schemas"]["ExportFileOut"][];
+            /**
+             * Not In File
+             * @default []
+             */
+            not_in_file: string[];
+            /**
+             * Portal Tested
+             * @default false
+             */
+            portal_tested: boolean;
+            /**
+             * Ready To Upload
+             * @default false
+             */
+            ready_to_upload: boolean;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "preparing" | "ready" | "failed";
+            /**
+             * Unverified Tables
+             * @default []
+             */
+            unverified_tables: string[];
+            /** Version */
+            version?: number | null;
         };
         /** FilingProfileOut */
         FilingProfileOut: {
@@ -6712,6 +6803,71 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AcceptFindingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_export_api_v1_b__business_id__returns__instance_id__exports_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instance_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportRef"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_status_api_v1_b__business_id__returns__instance_id__exports__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instance_id: string;
+                job_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportStatusOut"];
                 };
             };
             /** @description Validation Error */
