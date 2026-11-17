@@ -90,7 +90,7 @@ describe("forgot password", () => {
     reply(RESET, { status: 202, body: { status: "code_sent", code_ttl_minutes: 10, code_max_tries: 5 } });
     fireEvent.click(screen.getByRole("button", { name: "Send a new code" }));
     expect(await screen.findByText("We sent a new code. Earlier codes no longer work.")).toBeInTheDocument();
-    expect(screen.getByText(/The code works for 10 minutes\. After 5 wrong tries/)).toBeInTheDocument();
+    expect(await screen.findByText(/The code works for 10 minutes\. After 5 wrong tries/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
     expect(await screen.findByLabelText("Email")).toHaveValue(EMAIL);
   });
