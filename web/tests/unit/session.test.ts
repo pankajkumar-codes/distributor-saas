@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { api, call } from "../../src/api/client";
-import { onSessionChange, refreshSession, resetSessionForTests, signOut, startSession } from "../../src/auth/session";
+import { onSessionChange, onSignOutNotice, refreshSession, resetSessionForTests, signOut, signOutNotice, startSession } from "../../src/auth/session";
 import { tokenStore } from "../../src/auth/tokenStore";
 import { fakeApi } from "./fakeApi";
 
@@ -60,12 +60,26 @@ describe("refreshSession", () => {
     expect(server.paths()).toEqual([REFRESH]);
   });
 
-  it("runs under the 'auth-refresh' Web Lock when the browser has one", async () => {
-    const request = vi.fn((_name: string, run: () => Promise<boolean>) => run());
+  it("runs under the 'auth-refresh' Web Lock when the browser has one, waiting for it no longer than a limit", async () => {
+    const request = vi.fn((_name: string, _options: { signal: AbortSignal }, run: () => Promise<boolean>) => run());
     vi.stubGlobal("navigator", { locks: { request } });
     server.reply(REFRESH, fresh("t1"));
     await refreshSession();
-    expect(request).toHaveBeenCalledWith("auth-refresh", expect.any(Function));
+    expect(request).toHaveBeenCalledWith("auth-refresh", { signal: expect.any(AbortSignal) }, expect.any(Function));
+  });
+
+  it("says 'unavailable' when another tab holds the lock and it is never granted in time", async () => {
+    vi.useFakeTimers();
+    const request = vi.fn(
+      (_name: string, options: { signal: AbortSignal }) =>
+        new Promise((_resolve, reject) => options.signal.addEventListener("abort", () => reject(options.signal.reason))),
+    );
+    vi.stubGlobal("navigator", { locks: { request } });
+    const result = refreshSession();
+    await vi.advanceTimersByTimeAsync(25_000);
+    expect(await result).toBe("unavailable");
+    expect(server.paths()).toEqual([]); // no request was made
+    vi.useRealTimers();
   });
 
   it("uses a token another tab sent in the last 30 seconds instead of calling", async () => {
@@ -249,5 +263,60 @@ describe("call", () => {
       call(() => api.POST("/api/v1/auth/signin", { body: { email: "a@b.in", password: "x" } }), { refresh: false }),
     ).rejects.toMatchObject({ status: 401 });
     expect(server.paths()).toEqual(["/api/v1/auth/signin"]);
+  });
+});
+
+describe("a sign-out the server did not confirm", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("says so, tries once more in the background with the cookie only, and says when it has ended", async () => {
+    vi.useFakeTimers();
+    startSession("t1", 3600);
+    const heardNotice = vi.fn();
+    onSignOutNotice(heardNotice);
+    server.reply("/api/v1/auth/signout", { status: 503 }, { status: 204 });
+    await signOut();
+    expect(signOutNotice()).toBe("not_ended");
+    expect(server.sent.filter((s) => s.path === "/api/v1/auth/signout")).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(5_000);
+    const asks = server.sent.filter((s) => s.path === "/api/v1/auth/signout");
+    expect(asks).toHaveLength(2);
+    expect(asks[1].headers.get("Authorization")).toBeNull();
+    expect(signOutNotice()).toBe("ended_later");
+    expect(heardNotice).toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(server.sent.filter((s) => s.path === "/api/v1/auth/signout")).toHaveLength(2); // one retry, not a loop
+  });
+
+  it("keeps the notice when the one retry fails too, and does not try a third time", async () => {
+    vi.useFakeTimers();
+    startSession("t1", 3600);
+    server.reply("/api/v1/auth/signout", { status: 500 }, { status: 500 });
+    await signOut();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(signOutNotice()).toBe("not_ended");
+    expect(server.sent.filter((s) => s.path === "/api/v1/auth/signout")).toHaveLength(2);
+  });
+
+  it("shows nothing when the server confirmed, and nothing for a refusal that means there is no session", async () => {
+    startSession("t1", 3600);
+    server.reply("/api/v1/auth/signout", { status: 204 });
+    await signOut();
+    expect(signOutNotice()).toBe("none");
+    startSession("t2", 3600);
+    server.reply("/api/v1/auth/signout", { status: 401, body: { error: { code: "session_invalid" } } });
+    await signOut();
+    expect(signOutNotice()).toBe("none");
+  });
+
+  it("leaves a session the person started meanwhile alone: no retry after a new sign-in", async () => {
+    vi.useFakeTimers();
+    startSession("t1", 3600);
+    server.reply("/api/v1/auth/signout", { status: 503 });
+    await signOut();
+    startSession("t2", 3600); // signed in again before the retry
+    expect(signOutNotice()).toBe("none");
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(server.sent.filter((s) => s.path === "/api/v1/auth/signout")).toHaveLength(1);
   });
 });
