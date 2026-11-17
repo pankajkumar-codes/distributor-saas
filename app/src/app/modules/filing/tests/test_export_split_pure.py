@@ -103,6 +103,27 @@ def allowed():
     return entitlement.allowed(None, uuid.uuid4())
 
 
+@pytest.fixture(autouse=True)
+def _payments_on(monkeypatch):
+    """The rule behind the placeholder: these tests are about what happens once `FREE_FOR_NOW` is removed."""
+    monkeypatch.setattr(entitlement.plans, "FREE_FOR_NOW", False)
+
+
+def test_while_free_for_now_every_business_may_download_in_any_environment(monkeypatch):
+    monkeypatch.setattr(entitlement.plans, "FREE_FOR_NOW", True)
+    monkeypatch.delenv("AWS_LAMBDA_FUNCTION_NAME", raising=False)
+    for env in ("prod", "staging", ""):
+        monkeypatch.setenv("PLATFORM_ENV", env)
+        assert allowed() is True, env
+    monkeypatch.setenv("AWS_LAMBDA_FUNCTION_NAME", "worker")
+    assert allowed() is True
+    entitlement.set_check(lambda tx, b: False)  # a real check, once installed, still wins
+    try:
+        assert allowed() is False
+    finally:
+        entitlement.set_check(None)
+
+
 def test_it_is_open_only_in_a_local_or_test_run(monkeypatch):
     monkeypatch.delenv("AWS_LAMBDA_FUNCTION_NAME", raising=False)
     for env, expected in (("local", True), ("test", True), ("dev", False), ("staging", False), ("prod", False),

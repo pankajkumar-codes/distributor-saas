@@ -38,7 +38,7 @@ from platform_common.errors import Conflict, Deny, Invalid
 from platform_common.permissions import Permission, require
 from platform_common.uow import BusinessUoW, parse_id
 
-from . import acceptance, export_job, lock, periods
+from . import acceptance, export_job, lock, periods, plans
 from .build import build_return
 from .checks import run_checks
 from .gate import accepted_key, export_gate
@@ -483,6 +483,26 @@ def start_export(instance_id: str, uow: BusinessUoW) -> ExportRef:
 def export_status(instance_id: str, job_id: str, uow: BusinessUoW) -> ExportStatusOut:
     inst = _instance_or_404(uow, instance_id)
     return ExportStatusOut(**export_job.status(uow, inst.id, parse_id(job_id)))
+
+
+class PlanOut(BaseModel):
+    name: str
+    monthly_rupees: int
+    quarterly_rupees: int
+    gst_note: str
+    free_for_now: bool  # true while payments are a placeholder: nothing is charged
+
+
+@router.get("/plan", dependencies=PREPARE)
+def get_plan() -> PlanOut:
+    """The GST-filing plan and its prices, and whether it is free for now (`plans.FREE_FOR_NOW`). Read-only; nothing is charged."""
+    return PlanOut(
+        name="GST filing",
+        monthly_rupees=plans.FILING_ONLY["monthly"],
+        quarterly_rupees=plans.FILING_ONLY["quarterly"],
+        gst_note=plans.GST_NOTE,
+        free_for_now=plans.FREE_FOR_NOW,
+    )
 
 
 # -- Mark filed, lock, unlock (R1-M8 slice 5) --------------------------------------------------------------------

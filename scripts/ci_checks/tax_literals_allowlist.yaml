@@ -243,3 +243,9 @@
 - path: app/src/app/modules/imports/bundles.py
   value: "10"
   reason: "the longest file extension kept when a long file name is shortened to fit its column; not a tax number"
+- path: app/src/app/modules/filing/plans.py
+  value: "499"
+  reason: "our own monthly fee for the GST-filing plan in rupees (release-plan-v2 section 6, Pankaj); a price list, not a tax rate or threshold. Moves to a billing table when payments are real"
+- path: app/src/app/modules/filing/plans.py
+  value: "1499"
+  reason: "our own quarterly fee for the GST-filing plan in rupees (release-plan-v2 section 6, Pankaj); a price list, not a tax rate or threshold. Moves to a billing table when payments are real"
