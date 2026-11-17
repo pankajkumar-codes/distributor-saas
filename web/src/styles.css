@@ -140,6 +140,9 @@ fieldset.line { margin: 0.75rem 0; }
 /* Signed-out pages and onboarding (styling spec, Designer 2026-11-16) */
 .page-auth { padding-top: 48px; }
 .page-auth-wide { max-width: 45rem; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+.grid2 > * { min-width: 0; }
+@media (max-width: 600px) { .grid2 { grid-template-columns: 1fr; } }
 @media (max-width: 600px) { .page-auth { padding-top: 24px; } }
 .brand { display: flex; align-items: center; gap: 10px; margin: 0 0 24px; }
 .mark { width: 32px; height: 32px; border-radius: 9px; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-weight: 700; font-size: 13px; }
