@@ -80,7 +80,7 @@ class SmallRow:  # B2CS: one row per place of supply and rate
 class HsnLine:
     hsn: str
     uqc: str
-    quantity: Decimal  # rounded half up to 2 decimals here, in the file only (CA-3); the snapshot keeps 3
+    quantity: Decimal  # rounded half up (away from zero on a tie) to 2 decimals here, in the file only: provisional until CA-3
     rate: Decimal
     amounts: Amounts
 
@@ -136,9 +136,19 @@ def _invoices(rows) -> tuple[Invoice, ...]:
     for r in rows:
         by.setdefault((r.invoice_date, r.invoice_number), []).append(r)
     return tuple(
-        Invoice(number, day, g[0].invoice_value, g[0].pos_state_code, _items(g))
+        Invoice(number, day, _same(g, "invoice_value", number), _same(g, "pos_state_code", number), _items(g))
         for (day, number), g in sorted(by.items())
     )
+
+
+def _same(rows, field: str, number: str):
+    """One value for a document whose rows each carry it; rows that disagree are a defect, never picked between."""
+    values = {getattr(r, field) for r in rows}
+    if len(values) != 1:
+        raise NotRenderable(
+            f"The rows of {number} do not agree on one value, so no file can be made. We have been told."
+        )
+    return values.pop()
 
 
 def _parties(pairs) -> tuple[Party, ...]:
@@ -160,8 +170,8 @@ def _notes(rows, *, with_ur: bool = False) -> tuple[Note, ...]:
     for r in rows:
         by.setdefault((r.note_date, r.note_number), []).append(r)
     return tuple(
-        Note(number, day, g[0].note_value, g[0].pos_state_code, g[0].note_type, _items(g),
-             g[0].ur_type if with_ur else None)
+        Note(number, day, _same(g, "note_value", number), _same(g, "pos_state_code", number), g[0].note_type,
+             _items(g), g[0].ur_type if with_ur else None)
         for (day, number), g in sorted(by.items())
     )  # fmt: skip
 

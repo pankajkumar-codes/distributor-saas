@@ -8,8 +8,10 @@ it is not zero. Output is minified UTF-8 and the same model always gives the sam
 What is NOT verified against the portal, and what the test upload (T1 to T4) is for:
 - `chksum` is left out. Whether the portal needs it is unknown (Options.chksum can write a placeholder for test T2).
 - `gt` and `cur_gt` are 0, as in the sample. `fil_dt` is left out unless asked for.
-- The sample holds no B2CL, CDNR or CDNUR table, so those follow the field names of the GSTN GSTR-1 schema with the same
-  system flags as B2B. `unverified_tables` names them so a screen can say so.
+- The sample holds no B2CL, CDNR or CDNUR table, so those use our best recollection of the GSTN names (not checked
+  against any file or schema, and guesses where we do not remember: CDNUR `typ` and `pos`, no `inv_typ` or `rchrg` on B2CL,
+  the system flags on notes), with the same flags as B2B. `unverified_tables` names them; the export must carry that to the
+  screen and not offer the file as ready to upload while one is present (S4).
 - Tables 13 (documents issued) and 14 (tax collected by e-commerce operators) are not written: see `export_model.NOT_IN_FILE`.
 - HSN rows carry no `desc`: we hold no official description text.
 - A monthly return only: `filing_typ` is "M" and a quarterly or IFF file raises `NotRenderable` in the model.
@@ -17,7 +19,7 @@ What is NOT verified against the portal, and what the test upload (T1 to T4) is 
 
 from dataclasses import dataclass
 from datetime import date
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import Decimal
 from typing import Literal
 
 from platform_common.money import PAISE
@@ -27,6 +29,10 @@ from .export_model import ExportModel, HsnLine, Invoice, Item, Note
 FILING_TYPE = "M"
 PLACEHOLDER_CHKSUM = "0000000000000000000000000000000000000000000000000000000000000000"  # a wrong value, for test T2 only: never written by a real export
 UNVERIFIED = ("b2cl", "cdnr", "cdnur")  # no sample of the tool's own JSON for these tables
+
+
+class FigureError(ValueError):
+    """A figure that cannot be written exactly. A defect on our side: the export stops and says so."""
 
 
 @dataclass(frozen=True)
@@ -160,8 +166,14 @@ def _hsn(num: int, r: HsnLine) -> dict:
 
 
 def number(d: Decimal) -> str:
-    """A JSON number: whole numbers without decimals, others with at most two and no trailing zero, never an exponent."""
-    q = d.quantize(PAISE, rounding=ROUND_HALF_UP)
+    """A JSON number: whole numbers without decimals, others with at most two and no trailing zero, never an exponent.
+
+    The file never rounds. Every amount and rate comes from a column of at most two decimals and the HSN quantity is
+    rounded in the model, so a longer value is a defect, and it stops the export instead of reaching the portal a paisa away
+    from the screen and the snapshot."""
+    q = d.quantize(PAISE)
+    if q != d:
+        raise FigureError(f"{d} has more than two decimals")
     if q == q.to_integral_value():
         return str(int(q))
     return format(q.normalize(), "f")

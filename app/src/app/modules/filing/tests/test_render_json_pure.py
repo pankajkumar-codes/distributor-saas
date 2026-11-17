@@ -48,6 +48,8 @@ def doc(**kw):
 
 
 def test_the_part_a_file_is_the_golden_file_byte_for_byte():
+    # The b2b, b2cs and hsn parts follow the one real tool file. The b2cl, cdnr and cdnur parts are our best recollection
+    # of the GSTN names, unverified: if a tool sample or the test upload says otherwise, this golden file changes.
     assert render() == GOLDEN.read_bytes()
 
 
@@ -148,11 +150,30 @@ def test_the_tables_without_a_tool_sample_are_named():
     ("value", "text"),
     [("0", "0"), ("0.00", "0"), ("-0.00", "0"), ("500.00", "500"), ("99.5", "99.5"), ("99.50", "99.5"),
      ("1234.56", "1234.56"), ("0.1", "0.1"), ("1E+3", "1000"), ("1E-2", "0.01"), ("12345678901234.56", "12345678901234.56"),
-     ("0.005", "0.01"), ("0.004", "0"), ("-18.50", "-18.5"), ("100000000000", "100000000000")],
+     ("-18.50", "-18.5"), ("100000000000", "100000000000")],
 )  # fmt: skip
 def test_numbers_are_whole_or_at_most_two_decimals_never_an_exponent_never_a_float(value, text):
     assert rj.number(Decimal(value)) == text
     assert "e" not in text.lower()
+
+
+@pytest.mark.parametrize("value", ["0.005", "0.004", "0.125", "1.001", "-0.005"])
+def test_the_file_never_rounds_a_figure_with_more_than_two_decimals(value):
+    with pytest.raises(rj.FigureError):
+        rj.number(Decimal(value))
+
+
+def test_a_three_place_amount_in_a_model_stops_the_render():
+    lines = [replace(LINES[0], taxable_value=D("100.125"))]
+    with pytest.raises(rj.FigureError):
+        render(lines)
+
+
+def test_rows_of_one_invoice_that_disagree_stop_the_export_and_are_never_picked_between():
+    base = line("INV-9", 5, INV, "B2B", WB, SOAP, "1", "100.00", cgst="9.00", sgst="9.00", value="118.00", buyer=A)
+    other = replace(base, doc_value=D("999.00"), rate=D("5"), hsn="0902", uqc="KGS")
+    with pytest.raises((em.NotRenderable, ValueError)):
+        render([base, other])
 
 
 def test_a_float_is_refused_by_the_writer():
@@ -167,6 +188,15 @@ def test_hsn_quantity_is_rounded_half_up_to_two_decimals_in_the_file_only():
     ]
     row = doc(lines=lines)["hsn"]["hsn_b2c"][0]
     assert row["qty"] == 3.38 and build_of(lines).sections.hsn_b2c[0].quantity == D("3.375")  # 3.375 stays in the build
+
+
+def test_a_negative_hsn_quantity_tie_rounds_away_from_zero_like_a_positive_one():
+    net = [
+        line("INV-1", 5, INV, "B2CS", WB, SOAP, "1", "100.00", cgst="9.00", sgst="9.00", value="118.00"),
+        line("CN-1", 6, CN, "B2CS", WB, SOAP, "2.125", "100.00", cgst="9.00", sgst="9.00", value="118.00",
+             original=("INV-1", date(2026, 10, 5))),
+    ]  # fmt: skip
+    assert doc(lines=net)["hsn"]["hsn_b2c"][0]["qty"] == -1.13  # -1.125 provisional (CA-3), half up away from zero
 
 
 # -- options for the portal test upload ---------------------------------------------------------------------------
