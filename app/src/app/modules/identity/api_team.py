@@ -59,6 +59,7 @@ def audit_range(
 ) -> DateRange:
     return bounded_range(date_from, date_to, clock.today(), default_days=AUDIT_DEFAULT_DAYS, max_days=AUDIT_MAX_DAYS)
 
+
 ROLE_LABELS = {"owner": "Owner", "admin": "Admin", "billing": "Billing", "ca": "CA"}
 
 def app_origin() -> str:
