@@ -24,4 +24,7 @@ export function withAuthTimeout(own?: AbortSignal, ms = AUTH_TIMEOUT_MS): AbortS
   return joined.signal;
 }
 
-export const isAuthPath = (url: string) => new URL(url).pathname.startsWith("/api/v1/auth/");
+// The two-step and password calls on the signed-in account page go to the sign-in provider too, so they get the same
+// limit: a button that says "Turn on" must come back with an error rather than stay greyed out for ever.
+const AUTH_PREFIXES = ["/api/v1/auth/", "/api/v1/me/totp", "/api/v1/me/password"];
+export const isAuthPath = (url: string) => AUTH_PREFIXES.some((prefix) => new URL(url).pathname.startsWith(prefix));

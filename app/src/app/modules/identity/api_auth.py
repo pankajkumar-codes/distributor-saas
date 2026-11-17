@@ -18,6 +18,7 @@ from platform_common.clock import Clock, get_clock
 from platform_common.errors import Deny, Invalid, deny_response, request_id
 from platform_common.mailer import Mailer
 
+from . import demo_hint
 from .providers import auth_provider, mailer
 from .service import passwords, reset, sessions, signin, signup
 
@@ -254,6 +255,7 @@ def signin_password(
     request: Request,
     response: Response,
     idp: Annotated[AuthProvider, Depends(auth_provider)],
+    mail: Annotated[Mailer, Depends(mailer)],
     clock: Annotated[Clock, Depends(get_clock)],
 ):
     _check_origin(request)
@@ -261,6 +263,7 @@ def signin_password(
         _email(body.email), body.password, _client_ip(request), request_id(request), idp, clock.today()
     )
     if isinstance(done, signin.TotpStep):
+        demo_hint.print_two_step_code(idp, mail, email=_email(body.email))  # local demo only; a no-op anywhere else
         return TotpStepOut(challenge=done.challenge)
     return _signed_in(response, done)
 
