@@ -7,6 +7,7 @@ import { PageTitle } from "./kit/PageTitle";
 import { NotFound } from "./kit/NotFound";
 import { BusinessesPage } from "./screens/businesses/BusinessesPage";
 import { FilingHomePage } from "./screens/filing/FilingHomePage";
+import { WorksheetPage } from "./screens/filing/WorksheetPage";
 import { ReturnPage } from "./screens/filing/ReturnPage";
 import { UploadsPage } from "./screens/uploads/UploadsPage";
 import { HomePage } from "./screens/home/HomePage";
@@ -40,6 +41,7 @@ export const routes: RouteObject[] = [
   { path: "/support", element: <PageTitle title="Support"><RequireAuth><SupportBusinessesPage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/home", element: <PageTitle title="Home"><RequireAuth><HomePage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/filing", element: <PageTitle title="Your GST filing"><RequireAuth><FilingHomePage /></RequireAuth></PageTitle> },
+  { path: "/b/:businessId/filing/:instanceId/worksheet", element: <PageTitle title="GSTR-3B worksheet"><RequireAuth><WorksheetPage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/filing/:instanceId", element: <PageTitle title="Your return"><RequireAuth><ReturnPage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/uploads", element: <PageTitle title="Upload your reports"><RequireAuth><UploadsPage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/customers", element: <PageTitle title="Customers"><RequireAuth><CustomersPage /></RequireAuth></PageTitle> },
