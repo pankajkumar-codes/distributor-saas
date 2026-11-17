@@ -16,3 +16,6 @@ const UPLOADERS = new Set(["owner", "admin"]); // uploads.create
 const UPLOAD_VIEWERS = new Set(["owner", "admin", "ca"]); // uploads.view; billing gets a 404
 export const canUpload = (role: string) => UPLOADERS.has(role);
 export const canViewUploads = (role: string) => UPLOAD_VIEWERS.has(role);
+
+const RETURN_PREPARERS = new Set(["owner", "admin", "ca"]); // returns.prepare; billing gets a 404
+export const canPrepareReturns = (role: string) => RETURN_PREPARERS.has(role);
