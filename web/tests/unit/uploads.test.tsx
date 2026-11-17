@@ -65,7 +65,8 @@ describe("upload page", () => {
   it("offers no own-invoices card to a business that sells only on a platform", async () => {
     open("owner", "/b/b-1/uploads", { amazon: false, flipkart: true, meesho: false, own_invoices: false });
     expect(await card("Flipkart")).toBeInTheDocument();
-    expect(screen.getAllByRole("region")).toHaveLength(1);
+    expect(screen.queryByRole("region", { name: "Your own sales invoices" })).toBeNull();
+    expect(screen.getAllByRole("region").map((r) => r.getAttribute("aria-labelledby") && r.querySelector("h2")?.textContent)).toEqual(["A zip of your reports", "Flipkart"]);
   });
 
   it("sends the person to Business details when nothing is chosen yet", async () => {

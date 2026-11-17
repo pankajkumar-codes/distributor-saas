@@ -51,10 +51,15 @@ function MarkFiled({ businessId, instance }: { businessId: string; instance: Ins
   const [arn, setArn] = useState("");
   const [reason, setReason] = useState("");
   const mark = useMarkFiled(businessId, instance.instance_id);
-  const differs = mark.isError && mark.error.code === "changed_since_export";
+  // Once the server has said the return differs, keep asking for the reason, even if a later try fails for another cause
+  // (a bad ARN, say); otherwise the reason box would vanish and the user would lose what they typed.
+  const [differs, setDiffers] = useState(false);
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    mark.mutate({ filed_on: filedOn, arn: arn.trim(), ...(differs ? { reason: reason.trim() } : {}) });
+    mark.mutate(
+      { filed_on: filedOn, arn: arn.trim(), ...(differs ? { reason: reason.trim() } : {}) },
+      { onError: (err) => err.code === "changed_since_export" && setDiffers(true) },
+    );
   };
   const fieldError = (name: string) => (mark.isError && mark.error.field === name ? errorText(mark.error) : undefined);
   return (
