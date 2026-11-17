@@ -3097,6 +3097,145 @@
         "title": "DraftPageOut",
         "type": "object"
       },
+      "DrillOut": {
+        "properties": {
+          "figure": {
+            "title": "Figure",
+            "type": "string"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "out_of_date": {
+            "title": "Out Of Date",
+            "type": "boolean"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/DrillRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State"
+          },
+          "total": {
+            "$ref": "#/components/schemas/AmountsOut"
+          }
+        },
+        "required": [
+          "figure",
+          "state",
+          "rows",
+          "next_cursor",
+          "total",
+          "out_of_date"
+        ],
+        "title": "DrillOut",
+        "type": "object"
+      },
+      "DrillRowOut": {
+        "properties": {
+          "cess": {
+            "title": "Cess",
+            "type": "string"
+          },
+          "cgst": {
+            "title": "Cgst",
+            "type": "string"
+          },
+          "doc_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doc Date"
+          },
+          "doc_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doc Number"
+          },
+          "igst": {
+            "title": "Igst",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "pos_state_code": {
+            "title": "Pos State Code",
+            "type": "string"
+          },
+          "rate": {
+            "title": "Rate",
+            "type": "string"
+          },
+          "section": {
+            "title": "Section",
+            "type": "string"
+          },
+          "sgst": {
+            "title": "Sgst",
+            "type": "string"
+          },
+          "source_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Refs",
+            "type": "array"
+          },
+          "taxable_value": {
+            "title": "Taxable Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "section",
+          "kind",
+          "doc_number",
+          "doc_date",
+          "pos_state_code",
+          "rate",
+          "taxable_value",
+          "igst",
+          "cgst",
+          "sgst",
+          "cess",
+          "source_refs"
+        ],
+        "title": "DrillRowOut",
+        "type": "object"
+      },
       "EmailBody": {
         "properties": {
           "email": {
@@ -13553,6 +13692,105 @@
           }
         },
         "summary": "Worksheet Excel",
+        "tags": [
+          "filing"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/returns/{instance_id}/worksheet/rows": {
+      "get": {
+        "description": "The GSTR-1 rows behind Table 3.1(a), or behind one place of supply of Table 3.2 (`state` is then required): the same\nrows `build` adds up, credit notes negative, so they sum to the figure. Same plan hook as the rest of the worksheet.",
+        "operationId": "worksheet_rows_api_v1_b__business_id__returns__instance_id__worksheet_rows_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "instance_id",
+            "required": true,
+            "schema": {
+              "title": "Instance Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "figure",
+            "required": true,
+            "schema": {
+              "enum": [
+                "3_1_a",
+                "3_2"
+              ],
+              "title": "Figure",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[0-9]{2}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 12,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DrillOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Worksheet Rows",
         "tags": [
           "filing"
         ]

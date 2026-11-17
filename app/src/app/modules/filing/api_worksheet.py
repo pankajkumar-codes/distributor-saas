@@ -8,20 +8,23 @@ not allow it (the same hook as the GSTR-1 file), the response says the worksheet
 """
 
 import uuid
-from typing import Annotated
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
+from app.modules.business.interface import gstin_state
+
 from platform_common.clock import Clock, get_clock
-from platform_common.errors import Conflict, Deny
+from platform_common.errors import Conflict, Deny, Invalid
 from platform_common.permissions import Permission, require
 from platform_common.storage import get_store, key_for
 from platform_common.uow import BusinessUoW
 
 from . import entitlement, periods, worksheet
 from .build import build_return
-from .gstr3b import FLAG_TEXT, excel
+from .gstr1 import Amounts
+from .gstr3b import FLAG_TEXT, drill, excel
 from .gstr3b.entries import net_itc
 from .gstr3b.labels import OFFSET_NOTE, PORTAL_NOTE, WORKSHEET_LABEL
 
@@ -194,3 +197,81 @@ def worksheet_excel(instance_id: str, uow: BusinessUoW, clock: Annotated[Clock, 
     name = f"GSTR3B_worksheet_{inst.gstin}_{inst.period_end:%m%Y}.xlsx"
     return ExcelOut(url=store.presign_get(business, key, download_name=name), name=name, version=latest.version,
                     entries_seq=cur.seq if cur else None, out_of_date=out_of_date)  # fmt: skip
+
+
+# -- Drill-down (W5): the GSTR-1 rows behind a figure ---------------------------------------------------------------------
+
+PAGE = 100
+
+
+class DrillRowOut(BaseModel):
+    section: str
+    kind: str  # invoice, credit_note or b2cs_group
+    doc_number: str | None
+    doc_date: str | None
+    pos_state_code: str
+    rate: str
+    taxable_value: str  # signed: a credit note is negative
+    igst: str
+    cgst: str
+    sgst: str
+    cess: str
+    source_refs: list[str]
+
+
+class DrillOut(BaseModel):
+    figure: str
+    state: str | None
+    rows: list[DrillRowOut]
+    next_cursor: str | None
+    total: AmountsOut  # the sum of every row, not only this page
+    out_of_date: bool  # the GSTR-1 has changed since the build; the rows are the GSTR-1 as it is now
+
+
+@router.get("/returns/{instance_id}/worksheet/rows", dependencies=PREPARE)
+def worksheet_rows(
+    instance_id: str,
+    uow: BusinessUoW,
+    figure: Annotated[Literal["3_1_a", "3_2"], Query()],
+    state: Annotated[str | None, Query(pattern=r"^[0-9]{2}$")] = None,
+    cursor: Annotated[str | None, Query(max_length=12)] = None,
+) -> DrillOut:
+    """The GSTR-1 rows behind Table 3.1(a), or behind one place of supply of Table 3.2 (`state` is then required): the same
+    rows `build` adds up, credit notes negative, so they sum to the figure. Same plan hook as the rest of the worksheet."""
+    inst = _instance_or_404(uow, instance_id)
+    worksheet.require_allowed(uow)
+    if (figure == "3_2") != (state is not None):
+        raise Invalid("invalid_figure", "Give a place of supply for Table 3.2, and only for it.", field="state")
+    try:
+        start = int(cursor) if cursor else 0
+    except ValueError:
+        raise Invalid("invalid_cursor", "That page marker is not valid.", field="cursor") from None
+    if start < 0:
+        raise Invalid("invalid_cursor", "That page marker is not valid.", field="cursor")
+    tx = uow.tx
+    g1 = worksheet.gstr1_of(tx, inst)
+    if g1 is None:
+        raise Conflict("no_gstr1", "There is no GSTR-1 for this period.")
+    b = build_return(tx, g1)
+    latest = worksheet.latest_version(tx, inst.id)
+    rows = drill.rows_behind([b.sections, *b.iff_sections], gstin_state(inst.gstin), figure, state)
+    total = Amounts()
+    for r in rows:
+        total += r.amounts
+    page = rows[start : start + PAGE]
+    more = start + PAGE < len(rows)
+    return DrillOut(
+        figure=figure, state=state, rows=[_drill_row(r) for r in page], next_cursor=str(start + PAGE) if more else None,
+        total=AmountsOut(taxable_value=str(total.taxable_value), igst=str(total.igst), cgst=str(total.cgst),
+                         sgst=str(total.sgst), cess=str(total.cess)),
+        out_of_date=latest is not None and latest.fingerprint != b.fingerprint,
+    )  # fmt: skip
+
+
+def _drill_row(r: drill.DrillRow) -> DrillRowOut:
+    a = r.amounts
+    return DrillRowOut(
+        section=r.section, kind=r.kind, doc_number=r.doc_number, doc_date=r.doc_date.isoformat() if r.doc_date else None,
+        pos_state_code=r.pos_state_code, rate=str(r.rate), taxable_value=str(a.taxable_value), igst=str(a.igst),
+        cgst=str(a.cgst), sgst=str(a.sgst), cess=str(a.cess), source_refs=list(r.source_refs),
+    )  # fmt: skip
