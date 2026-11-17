@@ -303,6 +303,8 @@ export function BusinessPage() {
 
           {step === 3 && (
             <>
+          <section className="card" aria-labelledby="ob-reg">
+          <h2 id="ob-reg">Registration</h2>
           {kind === "gstin" ? (
             <>
               <Field
@@ -346,19 +348,25 @@ export function BusinessPage() {
           )}
 
           <BusinessTypeUpcoming />
-          <Field
-            label="Legal name (as on GST certificate)"
-            autoComplete="organization"
-            value={legalName}
-            onChange={(e) => setLegalName(e.target.value)}
-            error={err("legal_name")}
-          />
-          <Field
-            label="Trade name (optional)"
-            value={tradeName}
-            onChange={(e) => setTradeName(e.target.value)}
-            error={err("trade_name")}
-          />
+          <div className="grid2">
+            <Field
+              label="Legal name (as on GST certificate)"
+              autoComplete="organization"
+              value={legalName}
+              onChange={(e) => setLegalName(e.target.value)}
+              error={err("legal_name")}
+            />
+            <Field
+              label="Trade name (optional)"
+              value={tradeName}
+              onChange={(e) => setTradeName(e.target.value)}
+              error={err("trade_name")}
+            />
+          </div>
+          </section>
+
+          <section className="card" aria-labelledby="ob-turnover">
+          <h2 id="ob-turnover">Turnover and e-invoicing</h2>
 
           <RadioGroup<Band>
             legend="Turnover this financial year (declared)"
@@ -390,7 +398,10 @@ export function BusinessPage() {
             error={err("einvoice_history")}
           />
 
-          <h2>Principal place of business</h2>
+          </section>
+
+          <section className="card" aria-labelledby="ob-address">
+          <h2 id="ob-address">Principal place of business</h2>
           <Field
             label="Address line 1"
             autoComplete="address-line1"
@@ -405,22 +416,24 @@ export function BusinessPage() {
             onChange={(e) => setLine2(e.target.value)}
             error={err("address.line2")}
           />
-          <Field
-            label="City or town"
-            autoComplete="address-level2"
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-            error={err("address.city")}
-          />
-          <Field
-            label="PIN code"
-            autoComplete="postal-code"
-            inputMode="numeric"
-            maxLength={6}
-            value={pin}
-            onChange={(e) => setPin(e.target.value)}
-            error={err("address.pin")}
-          />
+          <div className="grid2">
+            <Field
+              label="City or town"
+              autoComplete="address-level2"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              error={err("address.city")}
+            />
+            <Field
+              label="PIN code"
+              autoComplete="postal-code"
+              inputMode="numeric"
+              maxLength={6}
+              value={pin}
+              onChange={(e) => setPin(e.target.value)}
+              error={err("address.pin")}
+            />
+          </div>
           <SelectField
             label="State"
             options={stateOptions}
@@ -433,6 +446,7 @@ export function BusinessPage() {
             }
             error={err("address.state_code")}
           />
+          </section>
               <Button type="submit">Continue</Button>
             </>
           )}
