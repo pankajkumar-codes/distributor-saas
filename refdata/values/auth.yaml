@@ -145,7 +145,7 @@
   source_title: "Password policy, Pankaj's local test item 1 (supersedes LLD-1 L1-9 character-class wording)"
   last_checked: 2026-11-16
   status: provisional
-  note: "At least 10 characters. PO to confirm."
+  note: "At least 10 characters. PO to confirm. A change to any auth.password_* row reaches sign-up and reset within 60 s (a per-process cache), so for up to a minute a screen and the server may apply different rules."
 
 - key: auth.password_max_length
   value: "128"
