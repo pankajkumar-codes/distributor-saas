@@ -11,6 +11,7 @@ import { useMyBusinesses } from "../../auth/useMyBusinesses";
 import { APP_NAME } from "../../brand";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
+import { DemoTwoStepNote } from "../../kit/DemoNote";
 import { NotFound } from "../../kit/NotFound";
 import { OtpInput } from "../../kit/OtpInput";
 import { TopBar } from "../../kit/TopBar";
@@ -56,6 +57,9 @@ export function SecurityPage() {
     if (e.code === "totp_already_on" || e.code === "totp_already_off") {
       forget();
       setAsking(false);
+      refreshMe();
+    } else if (e.status === 0 || e.status >= 500) {
+      // No answer or a server fault: the change may still have gone through, so show what is true now.
       refreshMe();
     }
   };
@@ -210,6 +214,7 @@ export function SecurityPage() {
         {!on && secret && (
           <section className="card" aria-labelledby="totp-setup">
             <h2 id="totp-setup">Scan this code</h2>
+            <DemoTwoStepNote />
             <p>Open your authenticator app, add an account, and scan this code.</p>
             {qr && <img className="qr" src={qr} alt="QR code for your authenticator app" width={200} height={200} />}
             <p className="hint">
