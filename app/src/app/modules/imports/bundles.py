@@ -297,11 +297,14 @@ def stage(uow: UnitOfWork, bundle_id: uuid.UUID, today: date) -> Bundle:
     opened = {f.n: f for f in engine.open_bundle(content, engine.limits_on(uow.tx, today))}
     store = storage.get_store()
     business = _business(uow)
+    # Every file is checked before the first one is written, so a bundle that changed stages nothing at all.
     for v in views:
         f = opened.get(v.n)
         if f is None or _clip(f.name) != v.file_name or f.size != v.size_bytes or not f.data:
             _reject(uow, bundle_id, "bundle_changed")
             return get(uow, bundle_id)
+    for v in views:
+        f = opened[v.n]
         upload_id = uuid7()
         key = storage.key_for(business, "uploads", upload_id)
         store.put(business, key, f.data, uploads.content_type_for(v.file_name))

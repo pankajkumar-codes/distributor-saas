@@ -268,6 +268,32 @@ def test_a_zip_that_changed_between_listing_and_staging_is_refused_not_staged(sh
     assert scalar(pg.owner, "select count(*) from imports.uploads") == 0
 
 
+def test_a_listing_that_disagrees_for_the_last_file_stages_nothing_at_all(shop, monkeypatch):
+    from dataclasses import replace
+
+    from app.modules.imports import bundle as engine
+
+    pg, biz, _ = shop
+    bundle_id, out = classified(shop, [("a.csv", amazon.b2c_good()), ("b.xlsx", flipkart.good()), ("c.xlsx", own_excel.good())])
+    real = engine.open_bundle
+
+    def changed(content, limits):
+        files = real(content, limits)
+        return files[:-1] + [replace(files[-1], size=files[-1].size + 1)]  # only the last file disagrees
+
+    monkeypatch.setattr(engine, "open_bundle", changed)
+    base = f"/api/v1/b/{biz}/upload-bundles/{bundle_id}"
+    post(pg, f"{base}/stage")
+    run_jobs(shop)
+    done = get(pg, base).json()
+    assert (done["status"], done["reject_reason"]) == ("rejected", "bundle_changed")
+    assert all(f["upload_id"] is None for f in done["files"])
+    for table in ("imports.uploads", "imports.bundle_uploads"):
+        assert scalar(pg.owner, f"select count(*) from {table}") == 0
+    assert scalar(pg.owner, "select count(*) from platform.jobs where type = 'imports.parse'") == 0
+    assert scalar(pg.owner, "select count(*) from platform.audit_log where action = 'imports.upload_received'") == 0
+
+
 # --- who may do what -----------------------------------------------------------------------------------------------
 
 
