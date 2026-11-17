@@ -4,6 +4,7 @@ import { errorText } from "../../api/errors";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { useExportStatus, useStartExport, type ExportStatus } from "./export";
+import { PlanNotice } from "./PlanNotice";
 import { PortalGuide } from "./PortalGuide";
 import type { ReturnDetail } from "./returns";
 
@@ -73,6 +74,7 @@ export function ExportPanel({ businessId, instanceId, gate, fingerprint, periodL
   return (
     <section className="card" aria-labelledby="file">
       <h2 id="file">Your GSTR-1 file</h2>
+      <PlanNotice businessId={businessId} />
       {!gate.ready && (
         <div className="stack">
           {gate.reasons.map((r) => (

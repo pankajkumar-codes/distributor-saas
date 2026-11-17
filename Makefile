@@ -2,7 +2,7 @@
 PY ?= python3
 LOCAL_DB := postgresql://postgres:local-only@localhost:5432/saas
 
-.PHONY: demo demo-stop demo-status setup openapi test isolation-local e2e-local db-up db-down db-migrate run-api smoke-local build renderer-zip
+.PHONY: emulator-smoke demo demo-stop demo-status setup openapi test isolation-local e2e-local db-up db-down db-migrate run-api smoke-local build renderer-zip
 
 demo:             ## the whole product in Docker on this computer, for trying a milestone by hand (docs/LOCAL_DEMO.md)
 	./demo.sh
@@ -28,6 +28,9 @@ test:             ## every unit test (add PG_ADMIN_URL/PG_DSN for the PostgreSQL
 
 isolation-local:  ## database role guards on a fresh database (needs make db-up)
 	PG_DSN=postgresql://postgres:local-only@localhost:5432/postgres $(PY) -m pytest -q tests/isolation
+
+emulator-smoke:  ## our AWS adapters against a local AWS emulator you started yourself (docs/AWS_EMULATOR.md); never reaches real AWS
+	$(PY) scripts/emulator_smoke.py
 
 e2e-local:        ## black-box HTTP tests against the running local service (see tests/e2e)
 	E2E_BASE_URL=http://localhost:8000 $(PY) -m pytest -q tests/e2e
