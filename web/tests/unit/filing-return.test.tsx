@@ -71,7 +71,7 @@ describe("A return (read-only)", () => {
     expect(within(tax).getByText("Needs a CA check")).toBeInTheDocument();
     expect(within(tax).getByText(/A-01 message 2/)).toBeInTheDocument();
     expect(screen.getByText(/1 item to look at first/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /download|export|file/i })).toBeNull();
+    expect(screen.queryByRole("link", { name: /download/i })).toBeNull(); // nothing to download until a file is made
   });
 
   it("loads a section's rows only when it is opened, with the source of each row", async () => {

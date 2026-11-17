@@ -3905,12 +3905,16 @@ export interface components {
         };
         /** ReturnOut */
         ReturnOut: {
+            /** Arn */
+            arn?: string | null;
             /** Due Date */
             due_date: string | null;
             /** Due Date Confirmed */
             due_date_confirmed: boolean;
             /** Due Date Source Url */
             due_date_source_url: string | null;
+            /** Filed On */
+            filed_on?: string | null;
             /**
              * Form
              * @enum {string}

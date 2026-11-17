@@ -60,6 +60,12 @@ def test_marking_filed_after_an_export_locks_the_return_and_keeps_its_file(lk):
     assert r.json() == {"status": "filed_locked", "filed_on": FILED, "arn": "AA1911260000001", "snapshot_version": 2,
                         "changed_since_export": False, "has_file": True}  # fmt: skip
     assert instance_status(pg, inst) == "filed_locked"
+    rows = pg.client.get(f"/api/v1/b/{b}/returns", params={"fy": "2026-27"}, headers=as_user("alice")).json()["returns"]
+    mine = next(x for x in rows if x["instance_id"] == inst)
+    assert (mine["status"], mine["filed_on"], mine["arn"]) == ("filed_locked", FILED, "AA1911260000001")
+    assert pg.client.get(f"/api/v1/b/{b}/returns/{inst}", headers=as_user("alice")).json()["instance"]["arn"] == mine["arn"]
+    other = next(x for x in rows if x["instance_id"] != inst)
+    assert other["filed_on"] is None and other["arn"] is None
     [ev] = pg.owner.connect().execute(text("select * from filing.instance_events where kind = 'filed'")).all()
     assert ev.arn == "AA1911260000001" and str(ev.filed_on) == FILED and ev.snapshot_id is not None
     assert scalar(pg.owner, "select purpose from filing.return_snapshots where id = :s", s=ev.snapshot_id) == "lock"

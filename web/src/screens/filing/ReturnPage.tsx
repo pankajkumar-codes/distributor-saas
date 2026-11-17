@@ -4,13 +4,18 @@ import { Link, useParams } from "react-router-dom";
 
 import { errorText } from "../../api/errors";
 import type { components } from "../../api/schema";
+import { canPrepareReturns } from "../../auth/roles";
 import { useMyBusinesses } from "../../auth/useMyBusinesses";
 import { formatDate } from "../../format/dates";
 import { formatRate, formatRupees } from "../../format/money";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
+import { Field } from "../../kit/Field";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
+import { ExportPanel } from "./ExportPanel";
+import { useAccept } from "./export";
+import { FiledPanel } from "./FiledPanel";
 import { returnKey, useReturnDetail, useSectionRows, type SectionName } from "./returns";
 
 type Heads = components["schemas"]["Heads"];
@@ -91,24 +96,46 @@ function HeadsLine({ heads }: { heads: Heads }) {
   );
 }
 
-function FindingGroup({ group, findings }: { group: Group; findings: Finding[] }) {
+function FindingGroup({ group, findings, businessId, instanceId, canAccept }: { group: Group; findings: Finding[]; businessId: string; instanceId: string; canAccept: boolean }) {
   const level = LEVEL[group.level] ?? LEVEL.info;
   const mine = findings.filter((f) => f.code === group.code);
+  const accept = useAccept(businessId, instanceId);
+  const [note, setNote] = useState("");
+  const waiting = group.level === "warn" ? group.count - group.accepted : 0;
   return (
     <details className="card" open={group.level === "block"}>
       <summary>
         <b>{CHECKS[group.code] ?? "Check"}</b> <span className="tag">{group.code}</span>{" "}
         <span className={level.chip}>{level.label}</span> <span className="chip">{group.count === 1 ? "1 item" : `${group.count} items`}</span>
         {group.needs_ca_check && <span className="chip chip-warn">Needs a CA check</span>}
+        {group.level === "warn" && waiting === 0 && <span className="chip chip-ok">Accepted</span>}
       </summary>
       <ul>
         {mine.map((f) => (
           <li key={f.subject_fp}>
             {f.message}
             {f.source_refs.length > 0 && <span className="hint"> From {f.source_refs.join(", ")}.</span>}
+            {f.level === "warn" && f.accepted && <span className="chip chip-ok">Accepted</span>}
           </li>
         ))}
       </ul>
+      {group.level === "block" && <p className="hint">This has to be fixed in your uploads. It can't be accepted.</p>}
+      {canAccept && waiting > 0 && (
+        <form
+          className="stack"
+          noValidate
+          onSubmit={(e) => {
+            e.preventDefault();
+            accept.mutate({ check_code: group.code, note: note.trim() });
+          }}
+        >
+          <Field label="Why is this fine to file as it is?" value={note} onChange={(e) => setNote(e.target.value)} hint="Your reason is kept with the return. If these rows change later you will be asked again." />
+          {accept.isError && <Banner tone="error">{errorText(accept.error)}</Banner>}
+          <Button type="submit" variant="secondary" busy={accept.isPending} disabled={!note.trim()}>
+            Accept as shown
+          </Button>
+        </form>
+      )}
     </details>
   );
 }
@@ -243,11 +270,13 @@ export function ReturnPage() {
                 <>
                   {blocking > 0 && <Banner tone="error">{blocking === 1 ? "1 item" : `${blocking} items`} to look at first. Some of these checks rest on rules a CA has not confirmed yet.</Banner>}
                   {groups.map((g) => (
-                    <FindingGroup key={g.code} group={g} findings={d.findings} />
+                    <FindingGroup key={g.code} group={g} findings={d.findings} businessId={businessId} instanceId={instanceId} canAccept={canPrepareReturns(business.role) && d.instance.status !== "filed_locked"} />
                   ))}
                 </>
               )}
             </section>
+            {d.export && d.instance.status !== "filed_locked" && <ExportPanel businessId={businessId} instanceId={instanceId} gate={d.export} fingerprint={d.fingerprint} />}
+            <FiledPanel businessId={businessId} instance={d.instance} role={business.role} />
             <section aria-labelledby="sections">
               <h2 id="sections">What is in the return</h2>
               {SECTIONS.map((s) => {
