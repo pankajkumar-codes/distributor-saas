@@ -1,0 +1,149 @@
+"""GSTR-3B worksheet routes (R1-M8b, W2). Numbers to check and enter on the GST portal, never a filing.
+
+GET /returns/{instance}/worksheet shows the latest build of the outward supplies, what the seller typed, whether the GSTR-1 has
+changed since the build, and whether a new build is allowed now. POST .../worksheet/build makes the next version. PUT
+.../worksheet/entries saves what the seller typed. The instance must be this business's GSTR-3B; anything else is a 404.
+There is no net payable, offset, interest or late fee anywhere in these responses. Needs `returns.prepare`. When the plan does
+not allow it (the same hook as the GSTR-1 file), the response says the worksheet exists and carries no figures.
+"""
+
+import uuid
+
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel
+
+from platform_common.errors import Deny
+from platform_common.permissions import Permission, require
+from platform_common.uow import BusinessUoW
+
+from . import entitlement, periods, worksheet
+from .build import build_return
+from .gstr3b import FLAG_TEXT
+from .gstr3b.entries import net_itc
+from .gstr3b.labels import OFFSET_NOTE, PORTAL_NOTE, WORKSHEET_LABEL
+
+router = APIRouter(prefix="/b/{business_id}", tags=["filing"])
+PREPARE = [Depends(require(Permission.RETURNS_PREPARE))]
+
+
+class AmountsOut(BaseModel):
+    taxable_value: str
+    igst: str
+    cgst: str
+    sgst: str
+    cess: str
+
+
+class InterStateOut(BaseModel):
+    pos_state_code: str
+    unregistered_taxable: str
+    unregistered_igst: str
+    source_refs: list[str]
+
+
+class FlagOut(BaseModel):
+    code: str
+    text: str
+
+
+class OutwardOut(BaseModel):
+    version: int
+    built_at: str
+    taxable: AmountsOut  # Table 3.1(a)
+    taxable_refs: list[str]
+    inter_state: list[InterStateOut]  # Table 3.2, unregistered buyers
+    inter_state_taxable: str
+    inter_state_igst: str
+    zero_rate_rows: int
+    flags: list[FlagOut]
+
+
+class WorksheetOut(BaseModel):
+    label: str = WORKSHEET_LABEL
+    note: str = PORTAL_NOTE
+    offset_note: str = OFFSET_NOTE
+    available: bool  # false: the plan does not allow it yet; no figures are returned
+    built: bool
+    out_of_date: bool  # the GSTR-1 has changed since the latest build
+    can_build: bool
+    build_blocked_by: str | None  # a reason in words when can_build is false
+    outward: OutwardOut | None
+    entries: dict[str, str]  # what the seller typed, by `<table>.<row>.<head>`
+    entries_seq: int | None  # the save the screen is showing; send it back with the next save
+    net_itc: dict[str, str]  # Table 4 (C): typed available minus typed reversed, by head. Shown only.
+
+
+class EntriesIn(BaseModel):
+    entries: dict[str, str | int | None]
+    based_on_seq: int | None = None
+
+
+class EntriesOut(BaseModel):
+    entries: dict[str, str]
+    entries_seq: int | None
+    net_itc: dict[str, str]
+
+
+def _instance_or_404(uow: BusinessUoW, instance_id: str):
+    try:
+        iid = uuid.UUID(instance_id)
+    except ValueError:
+        raise Deny("not_found") from None
+    inst = periods.get_instance(uow.tx, iid)
+    if inst is None or inst.form != "GSTR3B":
+        raise Deny("not_found")
+    return inst
+
+
+def _outward_out(v: worksheet.Version) -> OutwardOut:
+    o = v.outward
+    return OutwardOut(
+        version=v.version, built_at=v.built_at.isoformat(), taxable=AmountsOut(**o["taxable"]),
+        taxable_refs=o["taxable_refs"], inter_state=[InterStateOut(**r) for r in o["inter_state"]],
+        inter_state_taxable=o["inter_state_taxable"], inter_state_igst=o["inter_state_igst"],
+        zero_rate_rows=o["zero_rate_rows"], flags=[FlagOut(code=c, text=FLAG_TEXT[c]) for c in o["flags"]],
+    )  # fmt: skip
+
+
+@router.get("/returns/{instance_id}/worksheet", dependencies=PREPARE)
+def get_worksheet(instance_id: str, uow: BusinessUoW) -> WorksheetOut:
+    inst = _instance_or_404(uow, instance_id)
+    tx = uow.tx
+    g1 = worksheet.gstr1_of(tx, inst)
+    latest = worksheet.latest_version(tx, inst.id)
+    if not entitlement.allowed(tx, uow.principal.business_id):
+        return WorksheetOut(available=False, built=latest is not None, out_of_date=False, can_build=False,
+                            build_blocked_by=None, outward=None, entries={}, entries_seq=None, net_itc={})  # fmt: skip
+    cur = worksheet.current_entry(tx, inst.id)
+    out_of_date, blocked = False, None
+    if g1 is None:
+        blocked = "There is no GSTR-1 for this period yet."
+    else:
+        b = build_return(tx, g1)
+        out_of_date = latest is not None and latest.fingerprint != b.fingerprint
+        n = worksheet.blocks_of(tx, b)
+        if n:
+            blocked = f"{n} item{'s' if n != 1 else ''} to fix in your GSTR-1 first."
+    if inst.status != "open":
+        blocked = "This return is not open."
+    entries = cur.entry if cur else {}
+    return WorksheetOut(
+        available=True, built=latest is not None, out_of_date=out_of_date, can_build=blocked is None,
+        build_blocked_by=blocked, outward=None if latest is None else _outward_out(latest), entries=entries,
+        entries_seq=cur.seq if cur else None, net_itc=net_itc(entries) if entries else {},
+    )  # fmt: skip
+
+
+@router.post("/returns/{instance_id}/worksheet/build", dependencies=PREPARE)
+def build_worksheet(instance_id: str, uow: BusinessUoW) -> OutwardOut:
+    inst = _instance_or_404(uow, instance_id)
+    worksheet.require_allowed(uow)
+    return _outward_out(worksheet.build_version(uow, inst))
+
+
+@router.put("/returns/{instance_id}/worksheet/entries", dependencies=PREPARE)
+def put_entries(instance_id: str, body: EntriesIn, uow: BusinessUoW) -> EntriesOut:
+    inst = _instance_or_404(uow, instance_id)
+    worksheet.require_allowed(uow)
+    e = worksheet.save_entries(uow, inst, dict(body.entries), body.based_on_seq)
+    return EntriesOut(entries=e.entry, entries_seq=e.seq or None, net_itc=net_itc(e.entry) if e.entry else {})

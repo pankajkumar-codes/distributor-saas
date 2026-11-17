@@ -1174,6 +1174,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/returns/{instance_id}/worksheet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Worksheet */
+        get: operations["get_worksheet_api_v1_b__business_id__returns__instance_id__worksheet_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/returns/{instance_id}/worksheet/build": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Build Worksheet */
+        post: operations["build_worksheet_api_v1_b__business_id__returns__instance_id__worksheet_build_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/returns/{instance_id}/worksheet/entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Put Entries */
+        put: operations["put_entries_api_v1_b__business_id__returns__instance_id__worksheet_entries_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/rows/{row_id}/resolve": {
         parameters: {
             query?: never;
@@ -2022,6 +2073,19 @@ export interface components {
             pin: string | null;
             /** State Code */
             state_code: string | null;
+        };
+        /** AmountsOut */
+        AmountsOut: {
+            /** Cess */
+            cess: string;
+            /** Cgst */
+            cgst: string;
+            /** Igst */
+            igst: string;
+            /** Sgst */
+            sgst: string;
+            /** Taxable Value */
+            taxable_value: string;
         };
         /**
          * AuditExportIn
@@ -2906,6 +2970,28 @@ export interface components {
             /** Email */
             email: string;
         };
+        /** EntriesIn */
+        EntriesIn: {
+            /** Based On Seq */
+            based_on_seq?: number | null;
+            /** Entries */
+            entries: {
+                [key: string]: string | number | null;
+            };
+        };
+        /** EntriesOut */
+        EntriesOut: {
+            /** Entries */
+            entries: {
+                [key: string]: string;
+            };
+            /** Entries Seq */
+            entries_seq: number | null;
+            /** Net Itc */
+            net_itc: {
+                [key: string]: string;
+            };
+        };
         /** ErrorDetail */
         ErrorDetail: {
             /** Code */
@@ -3077,6 +3163,13 @@ export interface components {
             source_refs: string[];
             /** Subject Fp */
             subject_fp: string;
+        };
+        /** FlagOut */
+        FlagOut: {
+            /** Code */
+            code: string;
+            /** Text */
+            text: string;
         };
         /** FrequencyIn */
         FrequencyIn: {
@@ -3339,6 +3432,17 @@ export interface components {
             /** Import Id */
             import_id: string;
             upload: components["schemas"]["app__modules__catalog__api_imports__UploadOut"];
+        };
+        /** InterStateOut */
+        InterStateOut: {
+            /** Pos State Code */
+            pos_state_code: string;
+            /** Source Refs */
+            source_refs: string[];
+            /** Unregistered Igst */
+            unregistered_igst: string;
+            /** Unregistered Taxable */
+            unregistered_taxable: string;
         };
         /** InviteIn */
         InviteIn: {
@@ -3666,6 +3770,26 @@ export interface components {
             code: string;
             /** Label */
             label: string;
+        };
+        /** OutwardOut */
+        OutwardOut: {
+            /** Built At */
+            built_at: string;
+            /** Flags */
+            flags: components["schemas"]["FlagOut"][];
+            /** Inter State */
+            inter_state: components["schemas"]["InterStateOut"][];
+            /** Inter State Igst */
+            inter_state_igst: string;
+            /** Inter State Taxable */
+            inter_state_taxable: string;
+            taxable: components["schemas"]["AmountsOut"];
+            /** Taxable Refs */
+            taxable_refs: string[];
+            /** Version */
+            version: number;
+            /** Zero Rate Rows */
+            zero_rate_rows: number;
         };
         /** PasswordBody */
         PasswordBody: {
@@ -4545,6 +4669,45 @@ export interface components {
             for_quarter: string;
             /** Opens */
             opens: string | null;
+        };
+        /** WorksheetOut */
+        WorksheetOut: {
+            /** Available */
+            available: boolean;
+            /** Build Blocked By */
+            build_blocked_by: string | null;
+            /** Built */
+            built: boolean;
+            /** Can Build */
+            can_build: boolean;
+            /** Entries */
+            entries: {
+                [key: string]: string;
+            };
+            /** Entries Seq */
+            entries_seq: number | null;
+            /**
+             * Label
+             * @default Worksheet, not a filing
+             */
+            label: string;
+            /** Net Itc */
+            net_itc: {
+                [key: string]: string;
+            };
+            /**
+             * Note
+             * @default Numbers to check and enter on the GST portal.
+             */
+            note: string;
+            /**
+             * Offset Note
+             * @default Offset and payment are done on the GST portal.
+             */
+            offset_note: string;
+            /** Out Of Date */
+            out_of_date: boolean;
+            outward: components["schemas"]["OutwardOut"] | null;
         };
         /** ConfirmIn */
         app__modules__catalog__api_imports__ConfirmIn: {
@@ -7273,6 +7436,106 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UnlockOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_worksheet_api_v1_b__business_id__returns__instance_id__worksheet_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instance_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorksheetOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    build_worksheet_api_v1_b__business_id__returns__instance_id__worksheet_build_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instance_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutwardOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_entries_api_v1_b__business_id__returns__instance_id__worksheet_entries_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instance_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EntriesIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntriesOut"];
                 };
             };
             /** @description Validation Error */
