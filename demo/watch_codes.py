@@ -13,7 +13,7 @@ from pathlib import Path
 path = Path(sys.argv[1] if len(sys.argv) > 1 else "build/mail/outbox.jsonl")
 hide = os.environ.get("HIDE_EMAIL", "")
 pos = path.stat().st_size if path.exists() else 0  # only mail that arrives from now on
-print("Watching for sign-up and reset codes. They will appear here.", flush=True)
+print("Watching for sign-up, password-reset and two-step codes. They will appear here.", flush=True)
 while True:
     if path.exists() and path.stat().st_size > pos:
         with path.open("rb") as f:
@@ -29,6 +29,6 @@ while True:
             if m.get("to") == hide:
                 continue
             code = m.get("params", {}).get("code")
-            what = {"signup_code": "SIGN-UP CODE", "reset_code": "PASSWORD RESET CODE"}.get(m["template"], m["template"])
+            what = {"signup_code": "SIGN-UP CODE", "reset_code": "PASSWORD RESET CODE", "demo_totp_code": "TWO-STEP CODE"}.get(m["template"], m["template"])
             print(f"\n  {what} for {m['to']}:  {code}\n" if code else f"\n  Email '{m['template']}' to {m['to']}\n", flush=True)
     time.sleep(0.5)

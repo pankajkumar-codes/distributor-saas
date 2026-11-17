@@ -22,7 +22,7 @@ PLATFORM_SECTIONS = ("amazon", "flipkart", "meesho")
 
 # Why a row is held (LLD-7 §3 step 5). A reader may only choose from these.
 HOLD_REASONS = ("blank_hsn", "blank_uqc", "unknown_state", "unknown_txn_type", "blank_qty", "sanity",
-                "cashback_adjustment", "price_adjustment")
+                "cashback_adjustment", "price_adjustment", "missing_original", "number_format", "pdf_unclear")
 
 
 class Reader(Protocol):
@@ -44,7 +44,12 @@ class Reader(Protocol):
 
     def classify(self, row: ParsedRow) -> "tuple[StagedRowStatus, str | None] | None":
         """The hold rule, for a row that parsed as valid: (held, reason) with a reason from
-        HOLD_REASONS, (skipped_zero, None) for a zero-value cancel or replacement, or None."""
+        HOLD_REASONS, (skipped_zero, None) for a zero-value cancel or replacement, or None.
+
+        A reader that needs refdata to decide (the state list, a pattern) names the keys in an optional
+        `refdata_keys` attribute; the upload pipeline then calls `classify(row, context)` with
+        `context["states"]` (every state code and name, case-folded) and each key's value. The reader
+        itself still never touches the database."""
 
 
 _registry: dict[str, Reader] = {}
@@ -62,6 +67,11 @@ def readers_for(section: str) -> list[Reader]:
     return [r for r in _registry.values() if r.section == section]
 
 
+def reader_for_run(section: str | None, report_type: str) -> Reader | None:
+    """The registered reader that staged a run: a section's readers have distinct report types."""
+    return next((r for r in readers_for(section) if r.report_type == report_type), None) if section else None
+
+
 def register_platform_readers() -> None:
     """The real readers (R1-M4). Safe to call twice; the API calls it once at start-up."""
     from .amazon import AmazonReader
@@ -72,6 +82,23 @@ def register_platform_readers() -> None:
                    MeeshoReader("sales"), MeeshoReader("returns")):
         if reader.id not in _registry:
             register(reader)
+
+
+def register_own_readers() -> None:
+    """The seller's own invoices: our Excel template (R1-M5) and PDFs (R1-M6). Safe to call twice."""
+    from .own_excel import OwnExcelReader
+
+    from .own_pdf import OwnPdfReader
+
+    for reader in (OwnExcelReader(), OwnPdfReader()):
+        if reader.id not in _registry:
+            register(reader)
+
+
+def register_readers() -> None:
+    """Every real reader; the API calls it once at start-up."""
+    register_platform_readers()
+    register_own_readers()
 
 
 def clear_for_tests() -> None:

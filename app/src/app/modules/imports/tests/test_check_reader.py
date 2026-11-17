@@ -84,3 +84,14 @@ def test_a_workbook_with_several_sheets_never_shows_a_sheet_name_or_file_name(tm
     assert "could not be read" in done.stdout
     for name in ("SUPPLIER-778899", "OTHER-SHEET-X", "ACCT-5551234", "tcs_sales"):
         assert name not in done.stdout + done.stderr
+
+
+def test_an_own_invoice_workbook_is_claimed_and_its_values_are_not_shown(tmp_path):
+    from .fixtures import own_excel as fxo
+
+    done = run(tmp_path, "inv.xlsx", fxo.workbook([fxo.line("ZZ-SECRET-7", buyer="29DEMOC9999C1Z1")]),
+               "--section", "own_invoices_excel")
+    assert done.returncode == 0, done.stdout
+    assert "Reader: own_invoices_excel_v1" in done.stdout
+    for secret in ("ZZ-SECRET-7", "29DEMOC9999C1Z1", fxo.OWN):
+        assert secret not in done.stdout

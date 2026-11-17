@@ -84,3 +84,28 @@ def test_date_range_fills_the_missing_end():
     assert c.get("/x?to=2026-03-31").json()["from"] == "2025-03-31"
     # An old 'from' with no 'to' is still refused rather than silently cut.
     assert c.get("/x?from=2024-01-01").status_code == 422
+
+
+def test_bounded_range_rules():
+    from datetime import date
+
+    from platform_common.errors import Invalid
+    from platform_common.paging import bounded_range
+
+    today = date(2026, 11, 16)
+
+    def rng(f=None, t=None, **kw):
+        return bounded_range(f, t, today, default_days=7, max_days=31, **kw)
+
+    assert rng() == DateRange(date(2026, 11, 10), today)  # the last 7 days, today included
+    assert rng(today, today) == DateRange(today, today)  # one day is the shortest
+    assert rng(date(2026, 10, 17), today).date_from == date(2026, 10, 17)  # 31 days
+    for args, code in [
+        ((date(2026, 10, 16), today), "date_range_too_long"),
+        ((None, date(2026, 11, 17)), "date_in_future"),
+        ((date(2026, 11, 17), None), "date_in_future"),
+        ((today, date(2026, 11, 15)), "date_range_reversed"),
+    ]:
+        with pytest.raises(Invalid) as e:
+            rng(*args)
+        assert e.value.code == code

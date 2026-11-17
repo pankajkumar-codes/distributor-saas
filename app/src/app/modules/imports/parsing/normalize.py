@@ -104,7 +104,7 @@ def parse(table: SourceTable, profile: MappingProfile) -> ParseResult:
         rows.append(_parse_row(offset, cells, labels, columns, profile))
 
     if profile.occurrence_field:
-        _number_occurrences(rows, profile.occurrence_field)
+        _number_occurrences(rows, profile.occurrence_field, profile.occurrence_by_position)
     _flag_duplicates(rows)
 
     mapped = set(columns.values())
@@ -190,7 +190,8 @@ def _parse_row(row_number, cells, labels, columns, profile) -> ParsedRow:
         return row
 
     row.normalized = normalized
-    row.dedup_key = tuple(_canonical(normalized[name]) for name in profile.dedup_key if name != profile.occurrence_field)
+    row.dedup_key = tuple(_key_part(profile.by_name[name], normalized[name])
+                          for name in profile.dedup_key if name != profile.occurrence_field)
     row.content_hash = hashlib.sha256(
         json.dumps({k: _canonical(v) for k, v in normalized.items()}, sort_keys=True).encode()
     ).hexdigest()
@@ -206,16 +207,17 @@ def _raw_labels(headers: list[str]) -> list[str]:
     return labels
 
 
-def _number_occurrences(rows: list[ParsedRow], field_name: str) -> None:
+def _number_occurrences(rows: list[ParsedRow], field_name: str, by_position: bool = False) -> None:
     """For a file with no row id: rows with the same key and the same content are separate records and are
     counted 1, 2, ... in file order. Rows with the same key but different content all keep counter 1, so
-    `_flag_duplicates` marks every one of them a conflict."""
+    `_flag_duplicates` marks every one of them a conflict. With `by_position` every row sharing a key is
+    counted in file order whatever its content (the lines of one document)."""
     groups: dict[tuple[str, ...], list[ParsedRow]] = {}
     for row in rows:
         if row.dedup_key is not None:
             groups.setdefault(row.dedup_key, []).append(row)
     for members in groups.values():
-        same = len({m.content_hash for m in members}) == 1
+        same = by_position or len({m.content_hash for m in members}) == 1
         for n, m in enumerate(members, start=1):
             count = n if same else 1
             m.dedup_key = m.dedup_key + (str(count),)
@@ -311,6 +313,11 @@ def _convert(spec: FieldSpec, value: str):
     if len(results) > 1:
         raise _FieldInvalid("ambiguous_date", f"{value!r} reads as more than one date under this profile")
     return results.pop()
+
+
+def _key_part(spec: FieldSpec, value) -> str:
+    text = _canonical(value)
+    return "".join(text.split()).upper() if spec.key_fold else text
 
 
 def _canonical(value) -> str:

@@ -76,6 +76,9 @@ def _zero(*values) -> bool:
 
 class MeeshoReader(HeaderReader):
     section = "meesho"
+    # Two live rows with this key and different values are a corrected re-issue or a clash: confirm
+    # makes the user pick one (R1-M7 gate, r1-m4-readers section 6).
+    cross_run_key = ("gstin", "sub_order_num", "order_date")
 
     def __init__(self, kind: str):
         self.kind = kind  # "sales" or "returns"

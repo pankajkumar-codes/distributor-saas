@@ -283,7 +283,7 @@
   status: provisional
 
 - key: imports.action.set_aside.effect_note
-  value: "This row is counted as set aside and left out of the return. Your note is kept."
+  value: "This row is counted as set aside and left out of the return. Your note is kept. This cannot be undone: to bring the row back, discard this file and upload it again."
   type: text
   kind: product
   valid_from: 2026-11-13
@@ -540,4 +540,573 @@
   source_url: team/engineering/r1-m4-readers.md
   source_title: "R1-M4 S4b: wording of the pick_state action on a held row (to be settled)"
   last_checked: 2026-11-13
+  status: provisional
+
+- key: imports.held.missing_original.label
+  value: "Original invoice number missing"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m5-own-excel.md
+  source_title: "R1-M5: what a seller reads for a row held as missing_original (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.held.missing_original.effect_note
+  value: "This row is left out of the return until the note names the invoice it corrects."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m5-own-excel.md
+  source_title: "R1-M5: what leaving a missing_original row alone does"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.held.missing_original.accept_allowed
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m5-own-excel.md
+  source_title: "R1-M5: may a missing_original row be accepted as typed? No: a credit or debit note names the invoice it corrects (document-fields.md section 2, Rule 53(1A))"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.held.missing_original.needs_ca_check
+  value: "true"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m5-own-excel.md
+  source_title: "R1-M5: a missing_original row is shown to the CA: a credit or debit note names the invoice it corrects (document-fields.md section 2, Rule 53(1A))"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.held.number_format.label
+  value: "Check this document number"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m5-own-excel.md
+  source_title: "R1-M5: what a seller reads for a row held as number_format (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.held.number_format.effect_note
+  value: "This row is left out of the return until you have checked the number against your invoice."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m5-own-excel.md
+  source_title: "R1-M5: what leaving a number_format row alone does"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.held.number_format.accept_allowed
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m5-own-excel.md
+  source_title: "R1-M5: may a number_format row be accepted as typed? No: the number does not fit the usual 16-character shape (document-fields.md section 1, Rule 46(b)); check it against your invoice"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.held.number_format.needs_ca_check
+  value: "true"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m5-own-excel.md
+  source_title: "R1-M5: a number_format row is shown to the CA: the number does not fit the usual 16-character shape (document-fields.md section 1, Rule 46(b)); check it against your invoice"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.own_invoices.document_number_pattern
+  value: "^[A-Za-z0-9/-]{1,16}$"
+  type: pattern
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/gst/document-fields.md
+  source_title: "Rule 46(b) as cited in team/gst/document-fields.md section 1: at most 16 characters, letters, digits, hyphen and slash. Used only to ask the seller to check a number against the invoice, never to say it is legally invalid"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.requirement.own_invoices_excel.note
+  value: "Own sales invoices: our Excel template, one row per invoice line. Download it from this section."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m5-own-excel.md
+  source_title: "R1-M5: plain words on what the own-invoice Excel section needs (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.profile.own_invoices_excel_v1.verified
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m5-own-excel.md
+  source_title: "R1-M5: our own layout; stays false until the owner has filled one real month and run the local checker"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.pdf.max_pages
+  value: "100"
+  type: integer
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m6-own-pdf.md
+  source_title: "R1-M6 plan section 5 item 6: the most pages in one own-invoice PDF (abuse cap, not a tax rule)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.pdf.max_chars_per_page
+  value: "20000"
+  type: integer
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m6-own-pdf.md
+  source_title: "R1-M6: the most characters on one page before the PDF is refused as too complex (a 19k-character page read in 0.5 s in review)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.pdf.max_documents
+  value: "200"
+  type: integer
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m6-own-pdf.md
+  source_title: "R1-M6 plan section 5 item 6: the most invoices in one PDF"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.pdf.max_seconds
+  value: "20"
+  type: integer
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m6-own-pdf.md
+  source_title: "R1-M6: the wall-clock seconds the PDF parse child may run before it is killed"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.pdf.max_memory_mb
+  value: "512"
+  type: integer
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m6-own-pdf.md
+  source_title: "R1-M6: the child's address-space limit in MB (RLIMIT_AS). Verified on Linux only, not in a Lambda; check on the first deployed arm64 build (docs/IMPORTS.md)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.held.pdf_unclear.label
+  value: "Check this against your invoice"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m6-own-pdf.md
+  source_title: "R1-M6: what a seller reads for a row held as pdf_unclear (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.held.pdf_unclear.effect_note
+  value: "We could not read every detail of this invoice line from the PDF. This row is left out of the return. Set it aside, or correct your invoice and upload it again."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m6-own-pdf.md
+  source_title: "R1-M6: what leaving a pdf_unclear row alone does"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.held.pdf_unclear.accept_allowed
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m6-own-pdf.md
+  source_title: "R1-M6: a pdf_unclear row is not accepted as read: its blanks must be fixed first"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.held.pdf_unclear.needs_ca_check
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m6-own-pdf.md
+  source_title: "R1-M6: a pdf_unclear row is a reading gap, not a tax question"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.requirement.own_invoices_pdf.note
+  value: "Own sales invoices as PDF files that you can select text in (not scans or photos). We read each invoice and you check what we found before anything is used."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m6-own-pdf.md
+  source_title: "R1-M6: plain words on what the own-invoice PDF section needs (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.profile.own_invoices_pdf_v1.verified
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m6-own-pdf.md
+  source_title: "R1-M6: stays false until the owner has run the local checker on his own PDFs"
+  last_checked: 2026-11-14
+  status: provisional
+- key: imports.confirm.profile_not_verified.label
+  value: "We haven't checked this report's layout against a real file yet, so it can't be confirmed."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7: what a seller reads when confirming is refused for this reason (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.confirm.period_date_unconfirmed.label
+  value: "Which date puts these rows in a return is still to be confirmed with a CA, so this file can't be confirmed yet."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7: what a seller reads when confirming is refused for this reason (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.confirm.rows_undecided.label
+  value: "Some rows are on hold. Fix them, use them, or set them aside before confirming."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7: what a seller reads when confirming is refused for this reason (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.confirm.rows_invalid.label
+  value: "Some rows could not be read. Correct them in your file and upload it again."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7: what a seller reads when confirming is refused for this reason (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.confirm.rows_undated.label
+  value: "Some rows have no readable date, so they can't be placed in a return. Correct them in your file and upload it again."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7: what a seller reads when confirming is refused for this reason (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.confirm.rows_conflict.label
+  value: "Some rows in this file repeat the same record with different values. Correct the file and upload it again."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7: what a seller reads when confirming is refused for this reason (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.confirm.document_rows_disagree.label
+  value: "The lines of one document differ on its date, original invoice, buyer GSTIN or total. Correct the file and upload it again."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7: what a seller reads when confirming is refused for this reason (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.confirm.rows_conflict_across_runs.label
+  value: "Another file already has these records with different values. Set aside the rows you do not want, or discard this file."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7: what a seller reads when confirming is refused for this reason (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.confirm.hsn_too_short.label
+  value: "Some HSN codes are shorter than the minimum digits for their date. Enter the full code."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7: what a seller reads when confirming is refused for this reason (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.confirm.hsn_band_missing.label
+  value: "Your turnover band for last year is not set, so the longer HSN code rule is applied. Needs CA check."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7: what a seller reads when confirming is refused for this reason (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.profile.own_invoices_excel_v1.period_field
+  value: "doc_date"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7 decision 3: the date that puts a row in a return, the document date as written on the seller's own invoice. Flipkart and Meesho have no row until CA item 1 is answered"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.profile.amazon_mtr_b2c_v1.period_field
+  value: "credit_note_date,invoice_date"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7 decision 3: the date that puts a row in a return, provisional: the credit note date on a refund row, else the invoice date; needs CA check. Flipkart and Meesho have no row until CA item 1 is answered"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.profile.amazon_mtr_b2b_v1.period_field
+  value: "credit_note_date,invoice_date"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7 decision 3: the date that puts a row in a return, provisional: the credit note date on a refund row, else the invoice date; needs CA check. Flipkart and Meesho have no row until CA item 1 is answered"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.confirm.treatment_unconfirmed.label
+  value: "How this report enters your return is waiting on your CA's answers (listed here). Nothing is wrong with your file; it is kept and can be confirmed once they are in."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7: what a seller reads when confirming is refused for this reason (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.confirm.place_of_supply_disagrees.label
+  value: "The lines of one document name different places of supply. Correct the file and upload it again."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7: what a seller reads when confirming is refused for this reason (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.confirm.row_unusable.label
+  value: "Some rows could not be turned into documents. Correct them in your file and upload it again."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7: what a seller reads when confirming is refused for this reason (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.confirm.document_differs_from_confirmed.label
+  value: "These lines belong to a document you already confirmed, but its date, place of supply, buyer or original invoice differs. Correct the file and upload it again."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7: what a seller reads when confirming is refused for this reason (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.confirm.change_needs_correction_note.label
+  value: "A change to a confirmed document's date, place of supply, buyer or original invoice needs a correction note. Skip this row and ask your CA."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7: what a seller reads when confirming is refused for this reason (wording to be settled)"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.profile.amazon_mtr_b2c_v1.treatment_confirmed
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7 section 9: how this report enters the return waits on the CA's answers; a reviewed change to true, with a mapper in code, switches the platform on"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.profile.amazon_mtr_b2c_v1.open_ca_items
+  value: "M-1,M-2,M-8,M-9,V-2"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7 section 9: the CA question-sheet items (team/program-lead/ca-question-sheet-v1.md) this report's treatment waits on"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.profile.amazon_mtr_b2b_v1.treatment_confirmed
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7 section 9: how this report enters the return waits on the CA's answers; a reviewed change to true, with a mapper in code, switches the platform on"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.profile.amazon_mtr_b2b_v1.open_ca_items
+  value: "M-1,M-2,M-8,M-9,V-2"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7 section 9: the CA question-sheet items (team/program-lead/ca-question-sheet-v1.md) this report's treatment waits on"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.profile.flipkart_sales_v1.treatment_confirmed
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7 section 9: how this report enters the return waits on the CA's answers; a reviewed change to true, with a mapper in code, switches the platform on"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.profile.flipkart_sales_v1.open_ca_items
+  value: "M-1,M-2,M-4,M-8,M-9,V-2"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7 section 9: the CA question-sheet items (team/program-lead/ca-question-sheet-v1.md) this report's treatment waits on"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.profile.flipkart_cashback_v1.treatment_confirmed
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7 section 9: how this report enters the return waits on the CA's answers; a reviewed change to true, with a mapper in code, switches the platform on"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.profile.flipkart_cashback_v1.open_ca_items
+  value: "M-3,H-8,M-4"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7 section 9: the CA question-sheet items (team/program-lead/ca-question-sheet-v1.md) this report's treatment waits on"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.profile.meesho_sales_v1.treatment_confirmed
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7 section 9: how this report enters the return waits on the CA's answers; a reviewed change to true, with a mapper in code, switches the platform on"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.profile.meesho_sales_v1.open_ca_items
+  value: "M-1,M-2,M-4,M-5,M-6,M-7,M-9,V-2"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7 section 9: the CA question-sheet items (team/program-lead/ca-question-sheet-v1.md) this report's treatment waits on"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.profile.meesho_returns_v1.treatment_confirmed
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7 section 9: how this report enters the return waits on the CA's answers; a reviewed change to true, with a mapper in code, switches the platform on"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.profile.meesho_returns_v1.open_ca_items
+  value: "M-1,M-2,M-4,M-5,M-9,V-2"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7 section 9: the CA question-sheet items (team/program-lead/ca-question-sheet-v1.md) this report's treatment waits on"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.profile.own_invoices_excel_v1.treatment_confirmed
+  value: "true"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r1-m7-gstr1-build.md
+  source_title: "R1-M7: the seller's own invoices are mapped as typed (decision 2); tax arithmetic and rates are never decided here"
+  last_checked: 2026-11-14
+  status: provisional
+
+- key: imports.bundle.max_files
+  value: "100"
+  type: integer
+  kind: product
+  valid_from: 2026-11-17
+  source_url: team/engineering/bundle-upload-plan.md
+  source_title: "Bundle plan, decision 4: the most files in one bundle zip, nested zips included (a month of reports from three marketplaces plus invoices)"
+  last_checked: 2026-11-17
+  status: provisional
+
+- key: imports.bundle.max_total_bytes
+  value: "104857600"
+  type: integer
+  kind: product
+  valid_from: 2026-11-17
+  source_url: team/engineering/bundle-upload-plan.md
+  source_title: "Bundle plan, decision 4: the most bytes a bundle may expand to, all levels together (100 MB)"
+  last_checked: 2026-11-17
+  status: provisional
+
+- key: imports.bundle.max_file_bytes
+  value: "20971520"
+  type: integer
+  kind: product
+  valid_from: 2026-11-17
+  source_url: team/engineering/bundle-upload-plan.md
+  source_title: "Bundle plan, decision 4: the most bytes in one file of a bundle (20 MB, as for a single upload); a bigger file is listed as too large and not read"
+  last_checked: 2026-11-17
+  status: provisional
+
+- key: imports.bundle.max_depth
+  value: "1"
+  type: integer
+  kind: product
+  valid_from: 2026-11-17
+  source_url: team/engineering/bundle-upload-plan.md
+  source_title: "Bundle plan, decision 3: how many zips may sit inside the bundle zip (1: one level is opened, a zip inside that is refused)"
+  last_checked: 2026-11-17
   status: provisional

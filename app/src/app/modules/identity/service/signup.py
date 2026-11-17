@@ -29,7 +29,7 @@ from platform_common.uow import Principal, unit_of_work
 from .. import codes
 from ..interface import session_key_from_claims
 from . import limits
-from .passwords import check_password
+from .passwords import cached_policy, check_password
 from .sessions import open_session
 
 HOUR = timedelta(hours=1)
@@ -68,9 +68,14 @@ def _public(request_id: str) -> Principal:
     return Principal(user_sub=None, request_id=request_id)
 
 
-def request_code(email: str, ip: str, request_id: str, mail: Mailer, today: date) -> CodeTerms:
-    """§5.1. Mails a code to a new email, or a sign-in hint to a registered one."""
+def request_code(
+    email: str, password: str, ip: str, request_id: str, mail: Mailer, today: date
+) -> CodeTerms:
+    """§5.1. Mails a code to a new email, or a sign-in hint to a registered one. The password the person typed is
+    checked first, before anything is counted or sent: a weak one is refused here, with every unmet rule listed, and
+    no code goes out. It is not kept; the sign-up is finished by `verify`, which checks it again."""
     email = normalise(email)
+    check_password(password, cached_policy(today, request_id))
     lim = limits.read(
         (
             "auth.code_requests_per_email_per_hour",
@@ -111,7 +116,7 @@ def request_code(email: str, ip: str, request_id: str, mail: Mailer, today: date
 def verify(email: str, code: str, password: str, ip: str, request_id: str, idp: AuthProvider, today: date) -> SignedUp:
     """§5.2. Raises Invalid("password_weak"), RateLimited or CodeNotAccepted."""
     email = normalise(email)
-    check_password(password)  # before the code, so a weak password spends no try (RM3-6)
+    check_password(password, cached_policy(today, request_id))  # before the code, so a weak password spends no try (RM3-6)
     lim = limits.read(("auth.code_checks_per_ip_per_hour", "auth.session_max_days"), today, request_id)
     rate.hit(rate.bucket("code_check:ip", ip), lim["auth.code_checks_per_ip_per_hour"], HOUR)
     digest = codes.code_hmac("signup", email, code)

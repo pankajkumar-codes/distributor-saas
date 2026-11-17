@@ -6,7 +6,7 @@ import { resetSessionForTests } from "../../src/auth/session";
 import { fakeApi, type Reply, type Sent } from "./fakeApi";
 
 const EMAIL = "owner@vashi.example";
-const PASSWORD = "seven lamps under a bridge";
+const PASSWORD = "Seven-Lamps-42!";
 const RESET = "/api/v1/auth/reset";
 const VERIFY = "/api/v1/auth/reset/verify";
 const SENT = { status: 202, body: { status: "code_sent", code_ttl_minutes: 15, code_max_tries: 3 } };

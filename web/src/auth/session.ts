@@ -1,3 +1,4 @@
+import { withAuthTimeout } from "../api/timeout";
 import { tokenStore } from "./tokenStore";
 
 // LLD-1 §11.3. The refresh cookie is HttpOnly, so the page never sees it: a reload asks
@@ -20,7 +21,14 @@ let channel: BroadcastChannel | null = null;
 let receivedAt = 0;
 let inFlight: Promise<RefreshResult> | null = null;
 
+// True from the moment this tab's user pressed the Sign out button until the next sign-in, so
+// the redirect is a plain /signin and does not remember the page they left. (Sign-in-again
+// flows, like the stale sign-in on Security, sign out with the page remembered.)
+let leftOnPurpose = false;
+export const signedOutOnPurpose = () => leftOnPurpose;
+
 function emit(signedIn: boolean, change: Change = "new") {
+  if (signedIn) leftOnPurpose = false;
   listeners.forEach((listener) => listener(signedIn, change));
 }
 
@@ -53,6 +61,7 @@ export function onSessionChange(listener: Listener): () => void {
 
 /** Keep a token from sign-up, sign-in or a refresh, and hand it to the other tabs. */
 export function startSession(accessToken: string, expiresIn: number, change: Change = "new") {
+  signOutUnconfirmed = false;
   tokenStore.set(accessToken, expiresIn);
   bus()?.postMessage({ type: "token", accessToken, expiresIn, change } satisfies Message);
   emit(true, change);
@@ -66,6 +75,7 @@ export function startSession(accessToken: string, expiresIn: number, change: Cha
 export type RefreshResult = "ok" | "signed_out" | "unavailable";
 
 async function refreshNow(background: boolean, rejected: string | null): Promise<RefreshResult> {
+  if (signOutUnconfirmed) return "signed_out";
   // Another tab refreshed while this one waited for the lock: use its token, unless it is
   // the very token the server just refused.
   const held = tokenStore.get();
@@ -76,6 +86,10 @@ async function refreshNow(background: boolean, rejected: string | null): Promise
       method: "POST",
       credentials: "same-origin",
       headers: background ? { "X-Background": "1" } : {},
+      // 20 s limit: a refresh that never answers would leave the app on "Loading" with no way out. If the server did
+      // rotate the cookie and the answer was lost, the next refresh is refused as a reuse and the person signs in
+      // again, which is safe. A timeout reads as "unavailable": a plain message and a manual Try again, no retry loop.
+      signal: withAuthTimeout(),
     });
   } catch {
     return "unavailable";
@@ -117,20 +131,44 @@ export function endSession() {
   emit(false);
 }
 
-/** Ends the session on the server, then in every tab. Never fails from the user's side. */
-export async function signOut() {
+// A sign-out that waits on a stalled server must still sign the user out of this tab, and quickly: the person
+// is looking at a button that said "Sign out". The server finishes the job on its own if it is merely slow.
+const SIGNOUT_TIMEOUT_MS = 2_000;
+
+// True when the server's answer to a sign-out never arrived (too slow, offline). The browser may then still hold
+// the old refresh cookie, so until the next sign-in this tab does not ask the server to refresh with it: the
+// sign-in page would otherwise sign the person straight back in, or a slow sign-out would later end their new session.
+let signOutUnconfirmed = false;
+
+/**
+ * Ends the session on the server, then in every tab. However the server answers (204, a
+ * refusal such as 401 or 403, a 5xx, a network error, or no answer within 2 s) this tab is
+ * signed out, and the call neither throws nor hangs: a Sign out button must never do nothing.
+ */
+export async function signOut({ rememberPage = true }: { rememberPage?: boolean } = {}) {
+  leftOnPurpose = !rememberPage;
   const token = tokenStore.get();
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), SIGNOUT_TIMEOUT_MS);
   try {
     await globalThis.fetch(window.location.origin + SIGNOUT, {
       method: "POST",
       credentials: "same-origin",
       headers: token ? { Authorization: `Bearer ${token}` } : {},
+      signal: abort.signal,
     });
   } catch {
-    // Offline: the server session stays until it expires, but this tab still signs out.
+    // Offline or too slow: the server session stays until it expires, but this tab still signs out.
+    signOutUnconfirmed = true;
+  } finally {
+    clearTimeout(timer);
   }
   tokenStore.clear();
-  bus()?.postMessage({ type: "signed_out" } satisfies Message);
+  try {
+    bus()?.postMessage({ type: "signed_out" } satisfies Message);
+  } catch {
+    // A closed channel only means no other tab hears it; they find out on their next refresh.
+  }
   emit(false);
 }
 
@@ -140,6 +178,8 @@ export function resetSessionForTests() {
   channel = null;
   receivedAt = 0;
   inFlight = null;
+  leftOnPurpose = false;
+  signOutUnconfirmed = false;
   listeners.clear();
   tokenStore.clear();
 }

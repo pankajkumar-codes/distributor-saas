@@ -3,9 +3,15 @@ import { useState, type FormEvent } from "react";
 
 import { api, call } from "../../api/client";
 import { errorText, type ApiError } from "../../api/errors";
+import { passwordOk } from "../../auth/passwordRules";
+import { usePasswordPolicy } from "../../auth/usePasswordPolicy";
+import { AuthPage } from "../../kit/AuthPage";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
+import { DemoNote } from "../../kit/DemoNote";
 import { Field } from "../../kit/Field";
+import { PasswordRules } from "../../kit/PasswordRules";
+import { StepProgress } from "../../kit/StepProgress";
 
 type Props = { initialEmail: string; initialPassword: string; onSent: (email: string, password: string) => void };
 
@@ -13,8 +19,9 @@ export function EmailStep({ initialEmail, initialPassword, onSent }: Props) {
   const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState(initialPassword);
   const [missing, setMissing] = useState<{ email?: string; password?: string }>({});
+  const policy = usePasswordPolicy().data;
   const send = useMutation<unknown, ApiError, string>({
-    mutationFn: (to) => call(() => api.POST("/api/v1/auth/signup", { body: { email: to } }), { refresh: false }),
+    mutationFn: (to) => call(() => api.POST("/api/v1/auth/signup", { body: { email: to, password } }), { refresh: false }),
     onSuccess: (_, to) => onSent(to, password),
   });
 
@@ -30,12 +37,14 @@ export function EmailStep({ initialEmail, initialPassword, onSent }: Props) {
 
   const error = send.error;
   const emailError = missing.email ?? (error?.field === "email" ? errorText(error) : undefined);
+  const passwordError = missing.password ?? (error?.field === "password" ? errorText(error) : undefined);
 
   return (
-    <main className="page">
-      <p className="step">Step 1 of 4</p>
-      <h1>Create your account</h1>
+    <AuthPage wide>
+      <StepProgress step={1} title="Create your account" />
       <form onSubmit={submit} noValidate>
+        <div className="card stack">
+        <DemoNote />
         {error && !error.field && <Banner tone="error">{errorText(error)}</Banner>}
         <Field
           label="Work email"
@@ -52,17 +61,22 @@ export function EmailStep({ initialEmail, initialPassword, onSent }: Props) {
           autoComplete="new-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          hint="At least 10 characters, with no spaces at the start or end; a few unrelated words work well. Very common passwords aren't accepted. You sign in with your email and this password."
-          error={missing.password}
+          describedBy="signup-password-rules"
+          hint="You sign in with your email and this password. Very common passwords aren't accepted."
+          error={passwordError}
         />
+        <PasswordRules password={password} id="signup-password-rules" />
         <p className="note">
           We email you a 6-digit code to confirm the address. If this email already has an account, you see this same
           message.
         </p>
-        <Button type="submit" busy={send.isPending}>
-          Email me a code
-        </Button>
+        </div>
+        <div className="actions actions-end">
+          <Button type="submit" busy={send.isPending} disabled={!passwordOk(password, policy)} className="btn-block-phone">
+            Email me a code
+          </Button>
+        </div>
       </form>
-    </main>
+    </AuthPage>
   );
 }

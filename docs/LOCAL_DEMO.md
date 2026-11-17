@@ -46,7 +46,7 @@ When it is ready you will see a green box that prints the exact address:
 
   Ready-made account (a made-up business, Demo Traders):
       email:     demo@example.com
-      password:  seven lamps under a bridge
+      password:  Seven-Lamps-42!
 ```
 
 Open that address in your browser. Leave the PowerShell window open: **sign-up and password-reset codes
@@ -116,7 +116,12 @@ so you create a business through the sign-up page.
   reports are rejected as "We can't read this file's columns" until R1-M4. Everything the demo says about
   the file (its layout is unchecked) is true.
 - Sign-in uses an in-memory stand-in for Cognito. Email is replaced by the codes in your terminal.
-- Own-invoice Excel and PDF readers come in R1-M5 and R1-M6, so those uploads are refused in plain words.
+- **Two-step sign-in** (Settings, Two-step sign-in): an authenticator app on your phone cannot give the right code
+  here, because the stand-in has its own code. When you press Turn on, and each time you sign in with it on, the
+  demo prints `TWO-STEP CODE for <email>: 123456` in the same terminal as the sign-up codes (`./demo.sh codes`
+  shows them again), and the page says so. Type that code. Real Cognito and a real phone app work as normal
+  outside the demo. If the page does not answer within 20 seconds it says it could not reach the server.
+- The own-invoice Excel reader is real (R1-M5). Its sample is read, previewed and can be confirmed into documents (R1-M7, step 14 below). The PDF reader arrives in R1-M6. Confirming Amazon, Flipkart or Meesho files is refused on purpose, until the CA settles how their rows are treated.
 - Retention (clean-up of old uploads) is switched off, as it ships.
 
 ## 4. Test guide for R1-M3 (uploading your reports)
@@ -134,12 +139,15 @@ business. Step 13 is where you sign up as yourself.
 | 5 | Amazon card: choose `demo-orders-wrong-gstin.csv`, **Upload**. | A red message: **This file is for a different GSTIN than your business.** Nothing is kept. |
 | 6 | Amazon card: choose `not-a-report.csv`. | A red message: **We can't read this file's columns. Check it is the right report.** |
 | 7 | Meesho card: choose `demo-orders-bundle.zip` (a zip of two files). | **Read.** `.\demo.ps1 status` shows two previews from it (3 rows and 2 rows). |
-| 8 | Your own sales invoices card: choose `demo-own-invoices.xlsx`. | A red message: **We can't read this kind of report yet.** (Reading your own invoices is a later milestone.) |
+| 8 | Your own sales invoices card: choose `demo-own-invoices.xlsx`, **Upload**. | **Read.** `.\demo.ps1 status` shows a preview of your own invoices with new rows. Step 14 confirms it. |
 | 9 | Amazon card: upload `demo-orders-good.csv` again. | **Read.** No duplicate rows are made: the same file is recognised. |
 | 10 | While a file says "Reading...", reload the page. | The card keeps following the upload and finishes. |
 | 11 | Set a held row aside: `.\demo.ps1 tool set-aside DEMO-2002 "Checked with the seller: not ours"` | `done`. `.\demo.ps1 status` shows the row as decided, and the Flipkart section now says 1 row held. Set `DEMO-2003` aside too and it says **ready**. |
 | 12 | Throw a preview away: take the run id from `.\demo.ps1 status` and run `.\demo.ps1 tool discard <run id>` | `discarded`. That section goes back to "not uploaded", and you can upload the file again. |
 | 13 | Sign out, sign up as yourself (code from the terminal), create a different business. Look at its Upload page. | It is empty: you cannot see Demo Traders' files. |
+| 14 | Confirm your own invoices: take the run id from `.\demo.ps1 status`, then `.\demo.ps1 tool confirm-check <run id>`, then `.\demo.ps1 tool confirm <run id>` | `confirm-check` lists anything that stops a confirm (for example a profile not yet verified). The demo sets `DEMO_READERS=1`, which opens that gate for this synthetic file only; on a real deployment it stays shut until the owner's real-file check. `confirm` prints the number of documents and lines made. Running it again changes nothing. |
+
+The on-screen GSTR-1 draft built from confirmed documents arrives with a later part of R1-M7. Every figure there is a draft built from the uploaded files and is not filed.
 
 Things that are deliberately not there yet: the preview and "held rows" screens in the browser (the web shows
 each upload's status; `status` shows the rest), "accept this row as the file states it" (switched off until the
@@ -173,7 +181,14 @@ Work down this list.
 6. **The build failed (red lines).** The usual causes are no internet while it builds, or Docker is out of disk
    space or memory (Docker Desktop > Settings > Resources). Free space, then `.\demo.ps1 stop` and `.\demo.ps1`.
 7. **"unknown flag: --wait" or "compose" is not a command.** Docker Desktop is too old. Update it to 4.20 or newer.
-8. **Still stuck?** Save the logs and send them with a screenshot of the PowerShell window:
+8. **"Email me a code" greys out and nothing happens, or the code step says "did not accept the address".** Open the
+   page at exactly `http://localhost:5173` (the address the green box printed), not an IP address or a computer
+   name: the server only accepts sign-in from that address. A sign-up request that gets no answer is given up
+   after 20 seconds and the screen says it could not reach the server, so the button works again. The demo sends
+   no email: the 6-digit code appears in the terminal window where you started the demo (`./demo.sh codes`
+   shows it again), and the sign-up screens in the demo say so. If the request itself keeps failing, run
+   `docker compose -f docker-compose.demo.yml logs api` and send the last 30 lines.
+9. **Still stuck?** Save the logs and send them with a screenshot of the PowerShell window:
 
 ```powershell
 docker compose -f docker-compose.demo.yml logs --no-color > demo-logs.txt

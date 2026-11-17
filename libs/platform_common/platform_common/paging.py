@@ -54,3 +54,27 @@ def date_range(
     if (date_to - date_from).days + 1 > MAX_RANGE_DAYS:
         raise Invalid("date_range_too_long", f"date range is limited to {MAX_RANGE_DAYS} days", field="from")
     return DateRange(date_from=date_from, date_to=date_to)
+
+
+def bounded_range(
+    date_from: date | None,
+    date_to: date | None,
+    today: date,
+    *,
+    default_days: int,
+    max_days: int,
+    allow_future: bool = False,
+) -> DateRange:
+    """Inclusive on both ends, at least one day (`from` equal to `to`), at most `max_days`, and no day after
+    `today` unless `allow_future`. A missing `to` is today; a missing `from` is `default_days` ending at `to`."""
+    date_to = date_to or today
+    if not allow_future and date_to > today:
+        raise Invalid("date_in_future", "'to' is a day that has not come yet", field="to")
+    date_from = date_from or date_to - timedelta(days=default_days - 1)
+    if not allow_future and date_from > today:
+        raise Invalid("date_in_future", "'from' is a day that has not come yet", field="from")
+    if date_from > date_to:
+        raise Invalid("date_range_reversed", "'from' is after 'to'", field="from")
+    if (date_to - date_from).days + 1 > max_days:
+        raise Invalid("date_range_too_long", f"date range is limited to {max_days} days", field="from")
+    return DateRange(date_from=date_from, date_to=date_to)

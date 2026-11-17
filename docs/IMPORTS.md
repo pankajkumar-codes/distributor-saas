@@ -274,6 +274,176 @@ blank (`FieldSpec.blank_tokens`, applied to the mapped fields of this profile). 
   until someone has run it on a real report and the headers all matched; flipping a flag is then a reviewed refdata change.
 - **Not built: the choose-reader endpoint.** No two real readers claim one layout, so `needs_choice` cannot happen (EM, 2026-11-13).
 
+## Own sales invoices, Excel (R1-M5 slice 1, `readers/own_excel.py`)
+
+The `own_invoices_excel` section reads our own template: one row per invoice line on a sheet named `Invoices`
+(a CSV with the same headers is read too; other sheets, such as `How to fill`, are not read). `own_excel.COLUMNS` is
+the one list of columns, so the template download (slice 2) and the reader cannot drift. The profile ships unverified
+(`imports.profile.own_invoices_excel_v1.verified` false) until the owner has filled one real month and run the local
+checker (`python scripts/check_reader.py --section own_invoices_excel file.xlsx`). The section is `enabled: true` since
+slice 2, which adds the template download.
+
+- **Template download (slice 2, `template.py`):** `GET /b/{b}/uploads/own-invoices-template` (`uploads.view`: owner, admin and
+  CA; billing and strangers get 404) returns an .xlsx built in code from `own_excel.COLUMNS`: an `Invoices` sheet with the
+  header row and no values (the Document type cell offers the three types), and a `How to fill` sheet the reader does not
+  read. That sheet says in plain words that exports, SEZ supplies, reverse charge, advances, nil-rated or exempt supplies
+  and e-commerce operator sales are not supported yet and must not be entered as ordinary rows. A test reads the generated
+  workbook back through the reader, so the headers cannot drift. The blank template uploads as an empty run. The
+  marketplace coverage view stays platform-only: an own-invoice run still carries its `months` (from the document date),
+  so the `from`/`to` filters on uploads and sections apply to it; whether the build wants an own-invoice coverage row is
+  R1-M7's to say.
+- **Kept:** the seller GSTIN (every row; the whole file is refused unless it is the business's own, as for platform
+  files), document type, number and date, the original invoice number and date of a note, the buyer GSTIN (the only
+  buyer detail: the template has no name or address column and any extra column is not stored), place of supply, HSN,
+  quantity, unit, taxable value, the rate as typed, the four tax amounts as typed, and the document total. Money is
+  `Decimal` with the typed text kept. A rate of 0 is kept as typed.
+- **Held:** `unknown_txn_type` (a document type other than Invoice, Credit note or Debit note),
+  `missing_original` (a note with no original invoice number), `number_format` (a number that does
+  not match refdata `imports.own_invoices.document_number_pattern`: the wording says to check it against the invoice,
+  never that it is invalid), `blank_hsn` and `blank_qty` and `blank_uqc` (unit), `unknown_state` (place of supply blank
+  or not a state name or code in refdata), `sanity` (a rate outside 0 to 100, IGST together with CGST or SGST, CGST
+  different from SGST). The two new reasons are never acceptable as typed and carry the CA flag (D-053).
+- **Not checked here (R1-M7 conditions):** taxable value times rate against the tax, intra- against inter-state from
+  the place of supply, the HSN's minimum digits, and any period. Exports, SEZ supplies, reverse charge, advances,
+  nil-rated or exempt marking and an e-commerce operator's GSTIN have no column and are not supported yet.
+- **Identity:** seller GSTIN, document type, document number (each upper-cased with spaces removed for the key only)
+  and the line's position within that document in the file. A later file with the same document and other values,
+  with lines in another order, or with the same number reused in another financial year shows those rows as `changed`
+  against a confirmed earlier file (or `duplicate` against a live one), never as a silent second copy.
+- **Known limit (gate for R1-M7):** two different documents that carry the same number in one file are not caught by the
+  reader. They are counted as lines 1 and 2 of one document (a test pins this), with no hold and no conflict, because
+  a document's lines share a number by nature. The build must not assume the reader caught reused numbers: it has to
+  check that the rows of one document agree on date, original invoice, buyer GSTIN and total (the template repeats the
+  total on every line).
+
+## Confirm check (R1-M7 slice 1, `confirm.py`)
+
+`GET /b/{b}/runs/{run}/confirm-check` (`uploads.view`: owner, admin, CA; billing and other businesses 404; a run that is not staged 409 `run_not_staged`) says whether a staged run could be confirmed and, if not, why. It is read-only and decides nothing about tax. The confirm itself is slice 2.
+
+Included rows are `new` and `changed` rows and held rows the user accepted or fixed; never a set-aside row, and never `already_imported`, `duplicate` or `skipped_zero` rows (counted in `left_out`). Each blocker has a code, refdata wording (`imports.confirm.<code>.label`), a count and up to 20 row numbers, never a cell value, GSTIN or document number:
+
+| Code | When |
+|---|---|
+| `profile_not_verified` | the layout is not verified (LLD-7 L7-13). A local demo (`DEMO_READERS=1` in a debug environment, never on Lambda) opens this gate so synthetic files can be taken end to end; production profiles stay unverified. |
+| `period_date_unconfirmed` | the profile has no `imports.profile.<id>.period_field` row. Flipkart and Meesho have none until the CA answers (question sheet M-4). |
+| `rows_undecided`, `rows_invalid`, `rows_conflict` | a held row has no decision; a row could not be read; the file repeats a record with other values. Nothing is left out silently. |
+| `document_rows_disagree` | lines of one document (own invoices: seller GSTIN, type, number, and the financial year of its date) differ on date, original invoice, buyer GSTIN or total. |
+| `rows_conflict_across_runs` | a reader with a `cross_run_key` (Meesho: GSTIN, sub-order number, order date) has a live row of another file with the same key and different values. The user may set aside the new row (the only decision offered on a `new` or `changed` row, and only for such a clash); an older confirmed row stays. Reported even while the period date is open. |
+| `hsn_too_short` | an included row's HSN (a fix replaces it) is shorter than `business.hsn_min_digits` for its date. With no turnover band the stricter count applies and the note `hsn_band_missing` says so (needs CA check). |
+
+**Known performance limit.** Because `allowed_actions` on a `new` or `changed` row depends on the cross-file clash, every row-list or single-row request for a staged run of a reader with a `cross_run_key` (Meesho) loads every row of that run and the matching rows of other live runs to work out the clash. That is fine for a month of a small seller and slow for a very large file. The fix is a cap on rows per run or a query that fetches only the keys on the page; it can be a later slice.
+
+The date used is the profile's `period_field` (a comma list, the first present wins), never the coverage `months` label (D-052). See D-056.
+
+## Confirm into documents (R1-M7 slice 2, `confirm.py`, `documents.py`)
+
+`POST /runs/{id}/confirm` turns a checked preview into confirmed documents and lines (insert-only tables, one document per seller GSTIN, kind, folded number and financial year of its date) and assigns each to a return once, by the filing period of the profile's period date. It runs the confirm check first and refuses with `confirm_blocked` while anything blocks. Other refusals: `changes_undecided` (a changed row nobody decided), `change_needs_correction_note` (an accepted change needs a note), `run_stale` (rows moved since the check), `period_locked` (409). Re-confirming the same run changes nothing.
+
+Confirm locks the run row and the report type first, then re-runs every gate (`check`) inside the same transaction, so a file confirmed by someone else between a check and the confirm is seen, not missed. A row with no readable document date is an invalid row at staging and so blocks the confirm (`rows_invalid`); `rows_undated` guards the same case if a reader ever lets one through. A PDF row whose required field is unreadable also becomes an invalid row, which the check treats as undecidable: the seller corrects the source and uploads again.
+
+Confirms are serialised per business (a second advisory lock beside the report-type lock). **Condition on a future PDF `treatment_confirmed` flag:** see OPEN_QUESTIONS; an Excel and a PDF run of the same invoice must not attach duplicate lines.
+
+Only the own-invoice reader maps documents. A platform profile whose refdata `treatment_confirmed` is not true is refused with `treatment_unconfirmed` and its `open_ca_items`; the screen says the treatment is not settled yet, never that the data is wrong. `POST /uploads/none-this-month` and `GET` record that a section has nothing for a month (audited, counts only).
+
+## Build a return from confirmed documents (R1-M7 slice 3, `filing/build.py`)
+
+`imports.v_filing_lines` publishes the current line of every confirmed own-upload invoice and credit note (a superseded line is not shown); `filing.v_supply_lines` unions it with `sales.v_filing_lines` in view contract v1 (LLD-5 §3, columns unchanged, tested). `build_return(tx, instance)` is the one place that sums a return: a monthly GSTR-1 or an IFF uses the lines assigned to it; a QRMP quarter uses its own plus skipped IFFs forwarded to it for the liability tables, and its own plus every IFF month for Table 12, and its reconciliation adds the filed IFF months' liability. Each section row carries `source_refs` of the form `file name row N`. The result has a fingerprint over the instance, the debit-note count and every member line (stable in any order; one paisa or one line more changes it), `ca_flags`, `draft` (true until the return is locked) and `debit_notes`.
+
+What is not in the build: debit notes (no supply class yet, so no section) and marketplace documents. `imports.v_unsummed_documents` lets the build count the debit notes dated in the instance's own period (a debit note has no return of its own, so an IFF month and the quarter that holds it both show it); the return shows them as "not in this return yet, needs CA check". **M8 must refuse, or warn with an explicit acknowledgement, on export while `debit_notes > 0`.** The units come from the file as typed (upper-cased; blank is `NA`, which is not on the list either); any unit not on the refdata UQC list, blank ones included, is named in a `uqc_unlisted` flag, and the mapping itself needs a CA check. Every build lists what it rests on and the CA has not answered (`ca_flags`: the builder's pending items, exports/SEZ/reverse charge/advances/nil-exempt, marketplace reports, UQC mapping), for the returns screen and the CA pack. S4 adds the checks and S5 the returns API.
+
+## Checks over a build (R1-M7 slice 4, `filing/checks.py`)
+
+`run_checks(tx, build)` returns the findings for a build, in registry order. **Report-only:** nothing blocks, changes a value or stops a build in M7; `level` (block, warn, info) is what the export in R1-M8 will act on. A finding has a code, a message that names the row (file and row number), `source_refs`, a `subject_fp` that moves when its rows move (for acceptances later) and `needs_ca_check`. It is read-only and gives the same findings twice for the same build.
+
+LLD-5 §6 checks built: C-01 missing HSN, C-02 customer GSTIN (shape and check digit), C-03 document number length and characters (refdata `invoice.number.*`, provisional), C-04 same number twice in one financial year for one GSTIN and kind (case-insensitive), C-05 unknown place of supply, C-10 HSN digits below the minimum (`hsn_min_digits`; `needs_ca_check` while the turnover band is unset), C-12 a B2CS row netting negative (refdata `gstr1_offline.allow_negative_b2cs`, false until QA open item 3), C-16 relied-on refdata values not confirmed. Own-invoice and arithmetic findings (decision 6, no tolerance chosen, any difference shown): A-01 tax is not taxable x rate (difference shown), A-02 heads do not fit the place of supply, A-03 CGST differs from SGST, A-04 a number used in more than one financial year (information). C-06..C-09, C-11, C-13..C-15 and C-17 are not built here (they need export, the lock, the IFF cap guard or the offline template). Some findings cannot arise from an upload because the file's row is held first (an over-long number, unequal CGST and SGST); the checks still run on them for sales documents and for a row a user accepted.
+
+## The returns API over a build (R1-M7 slice 5, `filing/api.py`)
+
+`GET /b/{b}/returns/{instance}` (`returns.prepare`: owner, admin and CA; billing and other businesses get 404, so does a GSTR-3B or PMT-06 instance, which is not built from supply lines) returns the on-screen GSTR-1 or IFF from the confirmed uploads: the instance, `draft` with a `banner` ("Draft: not filed..."), `report_only: true`, the fingerprint, line items and member count, totals (liability, Table 12, and the gap between them, which is zero when they agree), a summary per section (row count and totals), `debit_notes` (count and the "not in this return yet, needs CA check" notice), `ca_flags` (what the return rests on that a CA has not answered, including the M7 omissions), and the findings with `finding_groups` (code, level, count) so the screen can group a noisy code such as A-01 instead of listing it as errors. `GET .../sections/{section}?cursor=` lists one section's rows (`b2b, b2cl, b2cs, cdnr, cdnur, hsn_b2b, hsn_b2c`), 100 a page, each with `source_refs` (file and row). Amounts are exact decimal strings as stored; nothing is rounded. Both routes only read and the same data gives the same fingerprint. No acceptance, export or lock route exists yet (R1-M8).
+
+## Own sales invoices, PDF (R1-M6 slice 1, `imports/pdf/`)
+
+Wired into uploads in slice 2b (below). Slice 1 added the reader and its handoff. `InvoiceReader.read(pdf, limits)` returns `ReadResult(invoices, unreadable_pages)`; each
+`ExtractedInvoice` has the Excel template's fields, its lines, the pages it came from and `unclear`, the document fields
+not found or contradicting themselves. `to_table(...)` turns an extraction into a `SourceTable` with the template's
+headers, one row per line (an invoice with no readable line gets one row with its document fields only), so staging,
+hold rules and review are shared with the Excel reader.
+
+`TextLayerReader` (`pdf_text_v1`) reads the text layer with pdfminer.six (MIT, pinned). It groups characters into
+visual rows and cells, finds the line table by its headings (HSN, Taxable Value, GST %, CGST, SGST, IGST, Cess, Qty,
+Unit), and takes the document number, date, original invoice number, place of supply, GSTINs and grand total from
+printed labels. The seller's GSTIN is the one outside a Bill To / Buyer block; the buyer's is the one inside it (a
+B2C invoice has none, and that is not "unclear"). A credit or debit note is told by its title. Amounts are parsed as
+Decimal text, commas removed; dates become DD-MM-YYYY. No tax logic, no inference, no arithmetic check, and no buyer
+name, address or item description is read into a result.
+
+Several invoices in one PDF are split on the document number. A page naming a different number starts a document; a page
+with no number, no title and no date continues the one before; anything else (two numbers on one page, an unnumbered
+page that looks new) refuses the whole PDF with `ambiguous_split`. Refusals carry only a code: `not_a_pdf`,
+`encrypted`, `unreadable`, `too_many_pages`, `too_complex`, `too_slow`, `too_many_documents`, `ambiguous_split`.
+pdfminer follows no link, script or embedded file, and its debug logging, which prints raw tokens, is switched off. A
+page with no text is listed in `unreadable_pages`; the time cap is checked between pages, so the page and character
+caps are what bounds one page, with the 20 MB upload cap and the Lambda memory and timeout limits behind them (one
+huge page can still use memory and time before a cap fires). The HSN shape is refdata `hsn.pattern`, passed to the reader; the
+reader never decides a minimum length. Numeric dates are read day first (DD/MM/YYYY); one that is not a real date that way is
+blank. The seller is the GSTIN outside a Bill To / Buyer block (the letterhead's), so a stray word like "from" cannot move one.
+
+**Sandbox (S2a, `pdf/sandbox.py`, `pdf/worker.py`).** The parse never runs in the worker: pdfminer decodes a page's
+streams before any cap of ours can look, so a small PDF can expand to hundreds of MB. `read_sandboxed(pdf, limits,
+hsn_pattern, max_memory_bytes=...)` runs the reader in a child process that sets its own address-space and CPU limits,
+has an empty environment apart from the code path, writes no files, and is killed when the wall clock runs out; any
+failure comes back as a refusal code. Verified here on Linux with a synthetic bomb (a 400 KB PDF that expands to 400 MB:
+refused in about 1 s under 512 MB, read in about 4 s under 1 GB, so the limit is what stops it). Not verified: the limit
+inside a real Lambda (RLIMIT_AS counts address space, not resident memory, so the refdata value needs checking there before
+the first deploy). Packaging, measured with `scripts/build_lambda.sh app` (aarch64 Python 3.12 wheels fetched by pip, nothing
+run on arm64): the app zip is 36.1 MB zipped and 96 MB unzipped without pdfminer.six and 42.9 MB and 105 MB with it, against
+Lambda's 50 MB limit for a zip uploaded directly (Terraform's `filename`) and 250 MB unzipped. The memory value must be chosen against the
+Lambda memory of the worker that calls the sandbox (the parent holds the PDF and the child's answer while the child may use
+up to the limit), and checked on the first deployed arm64 build: address-space limits count mapped libraries, and a CI runner
+passing the bomb test does not prove it. The child is not otherwise isolated: no network block, no syscall filter, no
+process-count limit; with no credentials in its environment and no network code in pdfminer that is accepted for R1. Its
+stdout is read in full before the 8 MB check, bounded by its own memory limit. The child's answer is itself untrusted: the parent
+requires a JSON object, accepts a `refused` code only from the known set, and checks every field (a string of at most 100
+characters or null, integer pages within the page cap, at most `max_documents` invoices and a bounded number of lines,
+exactly the expected keys); anything else is `unreadable`. First-deployed-build checklist: (a) read a tiny PDF through
+`read_sandboxed` in the deployed runtime as a smoke check, because the child's empty environment drops `LD_LIBRARY_PATH`,
+which the Lambda Python runtime may need (pass it through if so; it is not a secret); (b) check the RLIMIT_AS value there;
+(c) the child has no network block. The dependency audit in CI is
+the EM's separate change; the Lambda size margin is about 7 MB zipped before an OCR layer.
+
+Not read yet: tax split over two heading rows ("CGST" over "Rate" and "Amt"), labels above their values, scans and
+photos (OCR, slice 4, packaging to be proved first). Tested only on synthetic PDFs made in `tests/fixtures/pdf.py`;
+accuracy on real invoices is not known.
+
+### Own-invoice PDFs in uploads (R1-M6 slice 2b, `readers/own_pdf.py`, `reading.read_pdf`)
+
+A PDF in the `own_invoices_pdf` section is no longer stored: the parse job reads it in the sandbox (limits from refdata
+`imports.pdf.max_pages`, `max_chars_per_page`, `max_documents`, `max_seconds`, `max_memory_mb`; the HSN shape from
+`hsn.pattern`), makes a table with the Excel template's headers plus `Unclear fields` (names of the fields not read,
+never values) and stages it with `reading.stage_tables`, the same path as a spreadsheet: the seller's GSTIN check, hold
+rules, preview, set aside, coverage months from the invoice date. The reader `own_invoices_pdf_v1` is the Excel reader's
+profile with one hold first, `pdf_unclear`: a row with any unclear field is held, with the refdata wording, and is not
+acceptable as read. A row missing a required field (document number, date, taxable value, rate) is an invalid row with
+its errors, as in the Excel. Its report type is `invoices_pdf`, so the same document in an Excel and in a PDF are two
+runs, not one that "changed". Refusals shown on the upload: `not_a_pdf`, `pdf_encrypted`, `pdf_ambiguous`,
+`pdf_too_big`, `no_text_layer` ("This looks like a scan or a photo... type the rows or upload the Excel", also for a PDF
+with one scanned page among text pages), `wrong_gstin`, `gstin_missing`, `read_failed`. The sandbox runs while the parse
+job's transaction is open, for at most `max_seconds` plus a short grace. Limit: the value fixes (enter HSN, pick state)
+are keyed to their own hold reasons, so a `pdf_unclear` row offers only "set aside" for now. Verified here on Linux,
+PostgreSQL 16, Python 3.13, synthetic PDFs only; not in a Lambda.
+
+## Excel versus PDF cross-check (R1-M6 slice 3, `crosscheck.py`)
+
+`GET /b/{b}/own-invoices/crosscheck` (owner, admin, CA; billing and strangers get 404). Read-only, computed on request, no table: nothing is stored and nothing reaches a return. It lists every difference between the Excel and the PDF-read rows of the seller's own invoices; it never says which side is right.
+
+- **Which rows.** Rows of live runs (staged or confirmed, never discarded) of report types `invoices` (Excel) and `invoices_pdf`. A row set aside is left out, as it will be from the return, so the difference it makes shows. An undecided held row (including `pdf_unclear`) makes its document `not_compared` (counted per side), never a false mismatch; an accepted or fixed held row counts, with a fixed place of supply applied. Invalid rows and rows with no document number or seller GSTIN cannot be placed on a document and are counted as `unplaced_rows`. A record several live files carry is counted once: `duplicate` and `already_imported` rows are skipped (they are the same record as a row of another file), and a later file's `changed` row replaces the older row with the same key, so a cumulative Excel (January, then January plus February) does not count January twice.
+- **Per document**, matched on seller GSTIN, document type, document number (trimmed, case-folded) and the financial year of the document date, as the confirm check does. Compared: document date, buyer GSTIN, place of supply (a name and a code of the same state agree), the sum of taxable value, IGST, CGST, SGST/UTGST and cess, the invoice total, and the number of lines. An amount that is not a number is not read as zero: its document is `not_compared`. A blank amount column is zero. `live` comes from the runs, so an Excel with a header and no rows still counts as an upload for the note. Money is exact Decimal equality; no rounding tolerance is applied (a CA question, OPEN_QUESTIONS). A different line split with the same sums is not a difference.
+- **Response.** `only_in_excel`, `only_in_pdf`, `mismatches` (per field: Excel value, PDF value; plus the row ids of both sides so the screen can colour the cells), `not_compared`, `matching`, per-side `live`, `documents`, `unplaced_rows`, and `compared` (an Excel and a PDF upload are both live). Cell values of buyer names and descriptions are not stored, so none can appear.
+- **`show_validate_note`** is the R1 rule: true only with a live Excel upload and no live PDF upload. The web thread shows the note "upload invoices and we can validate" from this flag.
+- **Too-complex PDFs.** A PDF that runs out of time or memory in the sandbox is now rejected as `pdf_too_complex` ("This PDF is too complex for us to read here. Type the rows or upload the Excel."), since it fails the same way every time; other unreadable files stay `read_failed`.
+- **Size.** It loads every live own-invoice row of the business on each request: fine for the first customers. Add a month filter or a row cap before real history builds up (owner: R1-M6 follow-up, not yet done).
+- **Not claimed.** Nothing here was run on a real invoice pair. A PDF with an unreadable required field stages invalid rows, which cannot be confirmed (R1-M7 confirm check), so it is listed as `unplaced_rows` here and the way forward is the Excel.
+
 ## Retention of uploads (R1-M3, TD-18)
 
 `retention.purge_uploads()` (the third rule of the retention Lambda, after `purge_drafts`) does two things in the

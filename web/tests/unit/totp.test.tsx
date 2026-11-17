@@ -1,5 +1,5 @@
 import { MutationCache } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../../src/App";
@@ -99,6 +99,48 @@ describe("Settings › Two-step sign-in", () => {
     await waitFor(() => expect(held()).toHaveLength(0)); // not in the mutation cache either [Staff 2, #112]
   });
 
+  it("in the local demo says the code is in the terminal, and says nothing of the kind anywhere else", async () => {
+    for (const demo of ["1", ""]) {
+      vi.stubEnv("VITE_DEMO", demo);
+      server = fakeApi();
+      server.reply(REFRESH, { status: 200, body: { access_token: "t", expires_in: 3600 } });
+      server.reply(BUSINESSES, mine());
+      server.reply(ME, me(false));
+      server.reply(SETUP, { status: 200, body: { secret: SECRET } });
+      open("/b/b-1/settings/security");
+      fireEvent.click(await screen.findByRole("button", { name: "Turn on two-step sign-in" }));
+      await screen.findByText(grouped(SECRET));
+      expect(screen.queryByText(/TWO-STEP CODE printed in the terminal/) !== null).toBe(demo === "1");
+      cleanup();
+      resetSessionForTests();
+    }
+    vi.unstubAllEnvs();
+  });
+
+  it("gives up on a turn-on that never answers, shows the plain message and lets the person try again", async () => {
+    server.reply(BUSINESSES, mine());
+    server.reply(ME, me(false));
+    const real = globalThis.fetch;
+    const answer = (url: string) => url.endsWith(SETUP);
+    globalThis.fetch = ((input: Request | string, init?: RequestInit) => {
+      const request = input instanceof Request ? input : new Request(input);
+      if (!answer(request.url)) return real(input as RequestInfo, init);
+      const signal = init?.signal ?? request.signal;
+      return new Promise((_resolve, reject) => {
+        if (signal.aborted) reject(signal.reason);
+        else signal.addEventListener("abort", () => reject(signal.reason));
+      });
+    }) as typeof fetch;
+    open("/b/b-1/settings/security");
+    const turnOn = await screen.findByRole("button", { name: "Turn on two-step sign-in" });
+    // The 20 s limit is AbortSignal.timeout(20_000): here it runs out at once.
+    vi.spyOn(AbortSignal, "timeout").mockImplementation(() => AbortSignal.abort(new DOMException("slow", "TimeoutError")));
+    fireEvent.click(turnOn);
+    expect(await screen.findByText(/We couldn't reach the server/)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Turn on two-step sign-in" })).toBeEnabled());
+    globalThis.fetch = real;
+  });
+
   it("asks before turning it off, then turns it off", async () => {
     server.reply(BUSINESSES, mine("billing"));
     server.reply(ME, me(true), me(false));
@@ -113,6 +155,17 @@ describe("Settings › Two-step sign-in", () => {
     expect(server.sent.filter((s) => s.path === TOTP).map((s) => s.method)).toEqual(["DELETE"]);
     expect(await screen.findByRole("button", { name: "Turn on two-step sign-in" })).toBeInTheDocument();
     expect(screen.queryByText(/We recommend/)).toBeNull(); // billing isn't asked to
+  });
+
+  it("reloads the status when a turn-off gets no good answer, since it may have gone through", async () => {
+    server.reply(BUSINESSES, mine("billing"));
+    server.reply(ME, me(true), me(false));
+    server.reply(TOTP, refused(503, "unavailable"));
+    open("/b/b-1/settings/security");
+    fireEvent.click(await screen.findByRole("button", { name: "Turn off two-step sign-in" }));
+    fireEvent.click(screen.getByRole("button", { name: "Yes, turn it off" }));
+    expect(await screen.findByRole("button", { name: "Turn on two-step sign-in" })).toBeInTheDocument();
+    expect(server.sent.filter((s) => s.path === ME).length).toBeGreaterThanOrEqual(2);
   });
 
   it("sends the user to sign in again, and back here, when the sign-in is too old to turn it off", async () => {

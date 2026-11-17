@@ -32,7 +32,7 @@ export function TopBar({ title, gstin }: { title?: string; gstin?: string | null
           type="button"
           variant="link"
           onClick={async () => {
-            await signOut();
+            await signOut({ rememberPage: false });
             navigate("/signin", { replace: true });
           }}
         >

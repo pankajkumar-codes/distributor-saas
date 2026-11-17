@@ -55,6 +55,9 @@ _TEMPLATES: dict[str, tuple[str, str, dict[str, str]]] = {
         f" Sign in with your password and turn it on again from your profile.\n\n{_SECURE}",
         {},
     ),
+    # Local demo only (never sent in AWS: see identity/demo_hint.py). The fake provider's two-step code is not what an
+    # authenticator app shows, so the demo prints it where the sign-up codes are printed.
+    "demo_totp_code": ("Local demo: your two-step code", "Local demo only. Your two-step code is $code.", {}),
     "invitation": (
         "$inviter_name invited you to join $business_name",
         "$inviter_name invited you to join $business_name as $role_label.\n\nAccept the invitation: $link\n\n"

@@ -1,3 +1,5 @@
+import { isDemo } from "../demo";
+
 // The platform error shape {error: {code, message, field?, fix?}} (LLD-0 §3.2), turned
 // into what a screen shows (LLD-1 §11.4).
 
@@ -7,17 +9,19 @@ export type ApiError = {
   message: string;
   field?: string;
   fix?: string;
+  unmet?: string[]; // password_weak: the ids of the password rules not met
   retryAfter?: number; // seconds, from Retry-After on a 429
   challenge?: string; // totp_not_accepted: the provider's next challenge (LLD-1 §5.4)
+  detail?: string; // which request failed and how, for the person to read out to support ("GET /api/v1/… no answer in 30 s")
 };
 
 type Body = {
-  error?: { code?: string; message?: string; field?: string; fix?: string };
+  error?: { code?: string; message?: string; field?: string; fix?: string; unmet?: string[] };
   challenge?: string;
 };
 
-export function toApiError(response: Response | undefined, body: unknown): ApiError {
-  if (!response) return { status: 0, code: "network", message: "" };
+export function toApiError(response: Response | undefined, body: unknown, detail?: string): ApiError {
+  if (!response) return { status: 0, code: "network", message: "", ...(detail ? { detail } : {}) };
   const error = (body as Body | undefined)?.error ?? {};
   const challenge = (body as Body | undefined)?.challenge;
   const retry = Number.parseInt(response.headers.get("Retry-After") ?? "", 10);
@@ -27,8 +31,10 @@ export function toApiError(response: Response | undefined, body: unknown): ApiEr
     message: error.message ?? "",
     field: error.field,
     fix: error.fix,
+    unmet: error.unmet,
     retryAfter: Number.isFinite(retry) ? retry : undefined,
     ...(challenge ? { challenge } : {}),
+    ...(detail ? { detail } : {}),
   };
 }
 
@@ -47,6 +53,10 @@ export function errorText(error: ApiError): string {
     const minutes = Math.max(1, Math.ceil((error.retryAfter ?? 60) / 60));
     return `Too many tries. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`;
   }
+  if (error.code === "session_invalid")
+    return isDemo()
+      ? "The server did not accept the address this page is open at. Open the app from the link your setup printed and try again."
+      : "Your session has ended. Sign in again.";
   if (error.status === 0) return "We couldn't reach the server. Check your connection and try again.";
   if (error.status >= 500) return "Something went wrong on our side. Nothing was lost; try again.";
   return error.fix ?? BY_CODE[error.code] ?? "That didn't work. Try again.";
@@ -54,6 +64,7 @@ export function errorText(error: ApiError): string {
 
 /** The server or the network failed, so the same request may work if tried again. */
 export function transient(error: unknown): boolean {
-  const status = (error as ApiError | undefined)?.status;
+  const { status, code } = (error as ApiError | undefined) ?? {};
+  if (code === "timeout") return false; // already waited the full limit once; the screen offers Try again
   return status === 0 || (typeof status === "number" && status >= 500);
 }

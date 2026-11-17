@@ -54,6 +54,8 @@ These sharpen the priorities above for the approved design (docs/ARCHITECTURE.md
 | Cross-tenant ID guessing (API, exports, jobs, presigned keys) | Membership check + RLS + S3 keys under the business prefix, issued only by the API | Isolation suite per route and per job type, run as `app_rw` |
 | Account enumeration via sign-up, verify or reset | Uniform reply and timing class on all three; an existing account gets an email, not an error | Byte-identical response and status on all three routes |
 | Code brute force | 5 tries, 10 minutes, per-email and per-IP limits | Sign-up and sign-in code tests |
+| Password rules, sign-up and reset | One refdata policy checked on the server in four places and aligned with the Cognito pool; a weak password is refused before any code is sent or try counted (the check is a pure function of the text, so it costs no database write); `GET /auth/password-policy` is public and cached for 60 s; the password is never logged, audited, stored in a code row or mailed | Password policy, alignment and never-logged tests |
+| Password guessing at sign-in | 10 tries per email per 15 minutes; only wrong guesses count (a right password gives its try back, D-060), the per-IP limit counts every request | Sign-in limit tests |
 | Stolen access token after sign-out | 5-minute tokens + per-request session check | Session tests |
 | CSRF on refresh | `SameSite=Strict`, path-scoped cookie, Origin check | Refresh from another origin is refused |
 | Share-link guessing or replay | 128-bit token, hashed at rest, expiry, revoke, IP throttle, uniform 404 | Share-link tests |

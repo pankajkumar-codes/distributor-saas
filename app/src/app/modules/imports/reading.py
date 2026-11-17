@@ -14,10 +14,12 @@ import logging
 import uuid
 
 from app.modules.business.interface import business_card
-from app.modules.refdata import first_valid_from, value_on
+from app.modules.refdata import first_valid_from, state_codes, value_on
 from platform_common.uow import UnitOfWork
 
 from . import staging
+from .pdf import Limits, PdfRefused, to_table
+from .pdf.sandbox import read_sandboxed
 from .models import ImportRun, StagedRowStatus
 from .parsing import FileRejected, open_zip, parse, read_table, sheet_names
 from .readers import HOLD_REASONS, Reader, readers_for
@@ -38,30 +40,66 @@ def read_upload(uow: UnitOfWork, *, upload_id: uuid.UUID, section: str, file_nam
     """Stages every file in the upload and returns its runs in file order."""
     readers = readers_for(section)
     files = _files(uow, file_name, content, readers, today)
+    tables = [table for name, data in files for table in _tables(name, data, readers)]
+    return stage_tables(uow, upload_id=upload_id, readers=readers, tables=tables, today=today)
+
+
+# What a refused PDF is called on the upload, never what the file held. A file that ran out of time or memory fails the
+# same way every time, so it says so (`pdf_too_complex`); anything else unreadable is `read_failed`.
+PDF_REJECTS = {"not_a_pdf": "not_a_pdf", "encrypted": "pdf_encrypted", "ambiguous_split": "pdf_ambiguous",
+               "too_many_pages": "pdf_too_big", "too_many_documents": "pdf_too_big", "too_slow": "pdf_too_complex",
+               "too_complex": "pdf_too_complex"}
+MB = 1024 * 1024
+
+
+def read_pdf(uow: UnitOfWork, *, upload_id: uuid.UUID, file_name: str, content: bytes, today) -> list[ImportRun]:
+    """Reads an own-invoice PDF in the sandbox and stages its invoices like a spreadsheet's rows. A PDF with a page that
+    has no text layer (a scan or a photo) is refused whole: a page with no text has no row to hold, and OCR is a later
+    slice."""
+    tx = uow.tx
+    limits = Limits(max_pages=int(value_on(tx, "imports.pdf.max_pages", today)),
+                    max_chars_per_page=int(value_on(tx, "imports.pdf.max_chars_per_page", today)),
+                    max_documents=int(value_on(tx, "imports.pdf.max_documents", today)),
+                    max_seconds=int(value_on(tx, "imports.pdf.max_seconds", today)))
+    try:
+        result = read_sandboxed(content, limits, value_on(tx, "hsn.pattern", today).pattern,
+                                max_memory_bytes=int(value_on(tx, "imports.pdf.max_memory_mb", today)) * MB)
+    except PdfRefused as refused:
+        raise Refused(PDF_REJECTS.get(refused.code, "read_failed")) from None
+    if result.unreadable_pages or not result.invoices:
+        raise Refused("no_text_layer")
+    table = to_table(result.invoices, filename=file_name, pdf=content)
+    return stage_tables(uow, upload_id=upload_id, readers=readers_for("own_invoices_pdf"), tables=[table],
+                        today=today)
+
+
+def stage_tables(uow: UnitOfWork, *, upload_id: uuid.UUID, readers: list[Reader], tables: list,
+                 today) -> list[ImportRun]:
+    """Checks each table against the section's readers and the business's own GSTIN, then stages them. Shared by
+    the files read from a spreadsheet and the table made from a PDF's extraction (R1-M6)."""
     business_id = uow.principal.business_id
     card = business_card(uow.tx, [business_id])
     own_gstin = card[0].gstin if card else None
 
     parsed = []
-    for name, data in files:
-        for table in _tables(name, data, readers):
-            matches = [r for r in readers if _sheet_ok(r, table) and r.detect(table)]
-            if not matches:
-                raise Refused("unknown_layout")
-            if len(matches) > 1:
-                raise Refused("needs_choice")  # the choose endpoint arrives with a second reader of one layout
-            reader = matches[0]
-            # Every file is checked before any is staged, so a refusal never leaves a run behind.
-            file_gstin = reader.gstin(table)
-            if not file_gstin:
-                has_rows = getattr(reader, "has_rows", None)
-                if has_rows is not None and not has_rows(table):
-                    parsed.append((table, reader))  # a header and no rows: an empty run, nothing to check
-                    continue
-                raise Refused("gstin_missing")
-            if own_gstin is None or file_gstin.strip().upper() != own_gstin:
-                raise Refused("wrong_gstin")
-            parsed.append((table, reader))
+    for table in tables:
+        matches = [r for r in readers if _sheet_ok(r, table) and r.detect(table)]
+        if not matches:
+            raise Refused("unknown_layout")
+        if len(matches) > 1:
+            raise Refused("needs_choice")  # the choose endpoint arrives with a second reader of one layout
+        reader = matches[0]
+        # Every file is checked before any is staged, so a refusal never leaves a run behind.
+        file_gstin = reader.gstin(table)
+        if not file_gstin:
+            has_rows = getattr(reader, "has_rows", None)
+            if has_rows is not None and not has_rows(table):
+                parsed.append((table, reader))  # a header and no rows: an empty run, nothing to check
+                continue
+            raise Refused("gstin_missing")
+        if own_gstin is None or file_gstin.strip().upper() != own_gstin:
+            raise Refused("wrong_gstin")
+        parsed.append((table, reader))
 
     # Parse every table first, so a sheet with no rows (a month with no cash-back) can take the months of the
     # other sheets of its file when its run is inserted: the app role cannot update a run afterwards.
@@ -81,7 +119,7 @@ def read_upload(uow: UnitOfWork, *, upload_id: uuid.UUID, section: str, file_nam
             profile=profile,
             upload_id=upload_id,
             gstin=own_gstin,
-            classify=_classifier(reader),
+            classify=_classifier(reader, _context(uow, reader, today)),
             flag_live_overlap=True,
             result=result,
             months=months or shared,
@@ -97,7 +135,9 @@ def _same_sheet(a: str | None, b: str | None) -> bool:
 
 def _sheet_ok(reader: Reader, table) -> bool:
     wanted = getattr(reader, "sheet", None)
-    return wanted is None or _same_sheet(wanted, table.sheet)
+    # `any_sheet`: the reader's sheet name picks its sheet out of a workbook with several, but a CSV or a
+    # workbook with one (renamed) sheet is still its file if the headers match.
+    return wanted is None or _same_sheet(wanted, table.sheet) or bool(getattr(reader, "any_sheet", False))
 
 
 def _tables(name: str, data: bytes, readers: list[Reader]) -> list:
@@ -139,9 +179,19 @@ def _profile(uow, reader: Reader, today):
     return dataclasses.replace(profile, verified=profile.verified and flag)
 
 
-def _classifier(reader: Reader):
+def _context(uow, reader: Reader, today) -> dict | None:
+    """What a reader that names `refdata_keys` is given to decide a hold: the state list (codes and names,
+    case-folded) and each key's value on `today`. None for a reader that needs nothing."""
+    keys = getattr(reader, "refdata_keys", None)
+    if keys is None:
+        return None
+    states = {part.casefold() for code, name in state_codes(uow.tx, today) for part in (code, " ".join(name.split()))}
+    return {"states": states, **{key: value_on(uow.tx, key, today) for key in keys}}
+
+
+def _classifier(reader: Reader, context: dict | None = None):
     def classify(parsed):
-        verdict = reader.classify(parsed)
+        verdict = reader.classify(parsed) if context is None else reader.classify(parsed, context)
         if verdict is None:
             return None
         status, reason = verdict

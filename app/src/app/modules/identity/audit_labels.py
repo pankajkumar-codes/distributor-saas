@@ -98,7 +98,7 @@ TARGETS: dict[str, tuple[str, Permission]] = {
     "product": ("/products/{id}", Permission.CATALOG_VIEW),
     "customer": ("/customers/{id}", Permission.CATALOG_VIEW),
     "product_import": ("/products/imports/{id}", Permission.CATALOG_VIEW),
-    "return_instance": ("/returns/{id}", Permission.RETURNS_PREPARE),
+    "return_instance": ("/filing/{id}", Permission.RETURNS_PREPARE),
     "member": ("/settings/team", Permission.MEMBERS_MANAGE),
     "membership": ("/settings/team", Permission.MEMBERS_MANAGE),
     "invitation": ("/settings/team", Permission.MEMBERS_MANAGE),

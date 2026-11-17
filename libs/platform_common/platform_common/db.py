@@ -10,6 +10,7 @@ from collections.abc import Iterator
 from functools import lru_cache
 
 from sqlalchemy import create_engine, event
+from sqlalchemy.engine import make_url
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -44,8 +45,17 @@ def _iam_engine() -> Engine:
 def engine() -> Engine:
     url = os.environ.get("DATABASE_URL")
     if url:
-        return create_engine(url)
+        return create_engine(url, **engine_options(url))
     return _iam_engine()
+
+
+def engine_options(url: str) -> dict:
+    """Local and test use only: DATABASE_URL is never set in AWS, where the IAM engine above is used and is left
+    as it is. A PostgreSQL server that cannot be reached fails in seconds, not after the operating system's own long
+    wait. Only PostgreSQL drivers know `connect_timeout`; the in-memory SQLite some tests use does not."""
+    if make_url(url).get_backend_name() == "postgresql":
+        return {"connect_args": {"connect_timeout": 5}}
+    return {}
 
 
 def session_factory(schema_translate_map: dict | None = None) -> sessionmaker:

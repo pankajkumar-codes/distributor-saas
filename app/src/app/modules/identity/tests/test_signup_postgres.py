@@ -13,7 +13,7 @@ from sqlalchemy import text
 
 from platform_common.authprovider import AuthRefused
 
-from .auth_env import EMAIL, auth_env, last, one, sign_up, verify
+from .auth_env import EMAIL, PASSWORD, auth_env, last, one, sign_up, verify
 from .conftest import PG_ADMIN_URL
 
 pytestmark = pytest.mark.skipif(not PG_ADMIN_URL, reason="PG_ADMIN_URL not set")
@@ -49,10 +49,37 @@ def test_sign_up_and_verify_creates_the_user_session_and_audit_row(env):
 def test_sign_up_reply_is_identical_for_a_registered_email(env):  # AC-2
     client, _, mail, _ = env
     verify(client, sign_up(client, mail).params["code"])
-    new = client.post("/api/v1/auth/signup", json={"email": "ravi@example.com"})
-    old = client.post("/api/v1/auth/signup", json={"email": EMAIL})
+    new = client.post("/api/v1/auth/signup", json={"email": "ravi@example.com", "password": PASSWORD})
+    old = client.post("/api/v1/auth/signup", json={"email": EMAIL, "password": PASSWORD})
     assert (new.status_code, new.content) == (old.status_code, old.content)
     assert (last(mail).template, last(mail).params) == ("already_registered", {})
+
+
+def test_a_retried_code_request_replaces_the_first_code_and_never_locks_the_user_out(env):
+    """The web gives up on a request after 20 s and the person presses the button again, though the first may have
+    reached the server: the second code works, the first stops working, and there is still one pending sign-up."""
+    client, _, mail, admin = env
+    first = sign_up(client, mail).params["code"]
+    second = sign_up(client, mail).params["code"]
+    assert one(admin, "select count(*) from identity.pending_signups") == 1
+    assert verify(client, first).json()["error"]["code"] == "code_not_accepted"
+    assert verify(client, second).status_code == 200
+
+
+def test_the_routes_anyone_can_call_read_the_policy_once_a_minute_not_per_request(env, monkeypatch):
+    from app.modules.identity.service import passwords
+
+    client, _, mail, _ = env
+    passwords.clear_policy_cache()
+    reads = []
+    real = passwords.read_policy
+    monkeypatch.setattr(passwords, "read_policy", lambda *a, **k: reads.append(1) or real(*a, **k))
+    for _ in range(3):  # sign-up request and verify, and a reset verify, all with a weak password
+        client.post("/api/v1/auth/signup", json={"email": EMAIL, "password": "short"})
+        client.post("/api/v1/auth/signup/verify", json={"email": EMAIL, "code": "000000", "password": "short"})
+        client.post("/api/v1/auth/reset/verify", json={"email": EMAIL, "code": "000000", "new_password": "short"})
+    assert len(reads) == 1 and mail.sent == []
+    passwords.clear_policy_cache()
 
 
 def test_weak_password_spends_no_try_and_wrong_code_does(env):  # AC-3
@@ -99,14 +126,14 @@ def test_sixth_code_request_per_email_in_an_hour_is_429(env):  # AC-1
     client, _, mail, _ = env
     for _ in range(5):
         sign_up(client, mail)
-    r = client.post("/api/v1/auth/signup", json={"email": EMAIL.upper()})
+    r = client.post("/api/v1/auth/signup", json={"email": EMAIL.upper(), "password": PASSWORD})
     assert r.status_code == 429 and int(r.headers["retry-after"]) >= 1
 
 
 @pytest.mark.parametrize("email", ["no-at-sign", "a@b", "two@@example.com", "sp ace@example.com"])
 def test_malformed_email_is_422(env, email):
     client, _, _, _ = env
-    r = client.post("/api/v1/auth/signup", json={"email": email})
+    r = client.post("/api/v1/auth/signup", json={"email": email, "password": PASSWORD})
     assert (r.status_code, r.json()["error"]["code"]) == (422, "email_invalid")
 
 
@@ -135,7 +162,7 @@ def test_the_code_lifetime_and_tries_come_from_refdata(env, monkeypatch):
     real = limits.value_on
     monkeypatch.setattr(limits, "value_on", lambda tx, key, on: rows.get(key) or real(tx, key, on))
     for email in ("new@example.com", EMAIL):  # registered or not, the reply is the same
-        r = client.post("/api/v1/auth/signup", json={"email": email})
+        r = client.post("/api/v1/auth/signup", json={"email": email, "password": PASSWORD})
         assert (r.status_code, r.json()) == (202, {"status": "code_sent", "code_ttl_minutes": 7, "code_max_tries": 3})
     with admin.connect() as c:
         code = c.execute(
@@ -145,3 +172,40 @@ def test_the_code_lifetime_and_tries_come_from_refdata(env, monkeypatch):
             )
         ).one()
     assert code.max_tries == 3 and code.ttl.total_seconds() == 7 * 60
+
+
+def test_a_weak_password_is_refused_before_any_code_is_sent_and_lists_every_unmet_rule(env):
+    client, _, mail, admin = env
+    r = client.post("/api/v1/auth/signup", json={"email": EMAIL, "password": "shortpass"})
+    assert r.status_code == 422
+    error = r.json()["error"]
+    assert (error["code"], error["field"]) == ("password_weak", "password")
+    assert error["unmet"] == ["length", "upper", "digit", "special"]
+    assert "at least 10 characters" in error["fix"] and "shortpass" not in r.text
+    assert mail.sent == []  # no code went out
+    assert one(admin, "select count(*) from identity.pending_signups") == 0
+
+
+def test_the_password_rules_come_from_refdata_through_a_public_endpoint(env):
+    client, _, _, _ = env
+    r = client.get("/api/v1/auth/password-policy")  # no sign-in
+    assert r.status_code == 200
+    body = r.json()
+    assert (body["min_length"], body["max_length"], body["specials"]) == (10, 128, "!@#$%^&*()-_=+[]{}.,?")
+    assert [x["id"] for x in body["rules"]] == ["length", "upper", "lower", "digit", "special"]
+
+
+def test_the_public_policy_answer_is_cached_and_says_so(env, monkeypatch):
+    from app.modules.identity.service import passwords
+
+    client, _, _, _ = env
+    passwords.clear_policy_cache()
+    reads = []
+    real = passwords.read_policy
+    monkeypatch.setattr(passwords, "read_policy", lambda *a, **k: reads.append(1) or real(*a, **k))
+    first = client.get("/api/v1/auth/password-policy")
+    for _ in range(5):
+        assert client.get("/api/v1/auth/password-policy").json() == first.json()
+    assert len(reads) == 1  # five more requests, no more database reads
+    assert first.headers["cache-control"] == "public, max-age=60"
+    passwords.clear_policy_cache()

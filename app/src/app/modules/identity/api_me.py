@@ -19,6 +19,7 @@ from platform_common.idempotency import run_once
 from platform_common.mailer import Mailer
 from platform_common.uow import MeUoW
 
+from . import demo_hint
 from .api_auth import clear_refresh_cookie, error_responses
 from .interface import create_business, list_my_businesses
 from .providers import auth_provider, mailer
@@ -147,9 +148,17 @@ def change_password(
 
 
 @router.post("/me/totp/setup", responses=error_responses(409))
-def totp_setup(request: Request, uow: MeUoW, idp: Annotated[AuthProvider, Depends(auth_provider)]) -> TotpSecretOut:
+def totp_setup(
+    request: Request,
+    uow: MeUoW,
+    idp: Annotated[AuthProvider, Depends(auth_provider)],
+    mail: Annotated[Mailer, Depends(mailer)],
+) -> TotpSecretOut:
     """§5.9. The SPA draws otpauth://totp/<app>:<email>?secret=…&issuer=<app>."""
-    return TotpSecretOut(secret=totp.setup(uow, _access_token(request), idp))
+    token = _access_token(request)
+    secret = totp.setup(uow, token, idp)
+    demo_hint.print_two_step_code(idp, mail, access_token=token)  # local demo only; a no-op anywhere else
+    return TotpSecretOut(secret=secret)
 
 
 @router.post("/me/totp/confirm", status_code=204, responses=error_responses(409, 422))

@@ -8,6 +8,7 @@ import { useStateCodes } from "../../api/useStateCodes";
 import { useMyBusinesses } from "../../auth/useMyBusinesses";
 import { canEditCatalog } from "../../auth/roles";
 import { Banner } from "../../kit/Banner";
+import { ErrorDetail } from "../../kit/ErrorDetail";
 import { Button } from "../../kit/Button";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
@@ -70,7 +71,7 @@ export function CustomersPage() {
   if (businesses.error) {
     return (
       <main className="page">
-        <Banner tone="error">{errorText(businesses.error)}</Banner>
+        <Banner tone="error">{errorText(businesses.error)}<ErrorDetail error={businesses.error} /></Banner>
       </main>
     );
   }
@@ -114,7 +115,7 @@ export function CustomersPage() {
 
         {list.error && (
           <Banner tone="error">
-            {errorText(list.error)}{" "}
+            {errorText(list.error)}<ErrorDetail error={list.error} />{" "}
             <Button type="button" variant="link" onClick={() => list.refetch()}>
               Try again
             </Button>

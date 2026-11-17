@@ -10,6 +10,7 @@ import { fyIst, previousFy, quarterStartIst } from "../../format/dates";
 import { checkGstin, gstinMessage } from "../../format/gstin";
 import { BusinessTypeUpcoming } from "../../kit/BusinessTypeUpcoming";
 import { Banner } from "../../kit/Banner";
+import { StepProgress } from "../../kit/StepProgress";
 import { Button } from "../../kit/Button";
 import { CheckboxGroup } from "../../kit/CheckboxGroup";
 import { Field } from "../../kit/Field";
@@ -286,9 +287,8 @@ export function BusinessPage() {
   return (
     <>
       <TopBar />
-      <main className="page">
-        <p className="step">Step {step} of 4</p>
-        <h1>{step === 3 ? "Your business and GST" : "Where you sell and how you file"}</h1>
+      <main className="page page-auth-wide">
+        <StepProgress step={step} title={step === 3 ? "Your business and GST" : "Where you sell and how you file"} />
         <form onSubmit={step === 3 ? next : submit} noValidate>
           {bannerError &&
             (bannerError.code === "idempotency_mismatch" ? (

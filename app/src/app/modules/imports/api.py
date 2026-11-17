@@ -9,7 +9,7 @@ are 404 (LLD-0). Nothing here reaches a return.
 from datetime import date, datetime
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Header, Query, Request
+from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi import status as http
 from pydantic import BaseModel, ConfigDict, Field, StrictInt
 
@@ -22,7 +22,7 @@ from platform_common.permissions import Permission, require
 from platform_common.uow import BusinessUoW, parse_id
 
 from . import jobs as import_jobs
-from . import coverage, runs, sections, uploads
+from . import confirm, coverage, crosscheck, runs, sections, template, uploads
 
 router = APIRouter(tags=["imports"])
 CREATE = [Depends(require(Permission.UPLOADS_CREATE))]
@@ -125,6 +125,43 @@ def list_uploads(uow: BusinessUoW, page: Annotated[PageParams, Depends(page_para
     found, more = uploads.list_uploads(uow, section, page.limit, page.offset, uploads.month_range(from_, to))
     ids = runs.run_ids_for(uow, [u.id for u in found])
     return UploadsOut(uploads=[_out(u, ids[u.id]) for u in found], has_more=more)
+
+
+class NoneIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    section: Section
+    month: str = Field(pattern=r"^[0-9]{4}-[0-9]{2}$")  # a calendar month of the filing period
+
+
+class NoneOut(BaseModel):
+    section: Section
+    month: str
+
+
+class NonesOut(BaseModel):
+    items: list[NoneOut]
+
+
+@router.post("/b/{business_id}/uploads/none-this-month", response_model=NoneOut, dependencies=CREATE)
+def none_this_month(body: NoneIn, uow: BusinessUoW, clock: Annotated[Clock, Depends(get_clock)]):
+    """"I have none this month": the section has no sales in that month. Insert-only; saying it twice is a no-op."""
+    first = confirm.none_this_month(uow, body.section, body.month, clock)
+    return NoneOut(section=body.section, month=first.strftime("%Y-%m"))
+
+
+@router.get("/b/{business_id}/uploads/none-this-month", response_model=NonesOut, dependencies=VIEW)
+def list_none_this_month(uow: BusinessUoW):
+    return NonesOut(items=[NoneOut(section=s, month=m.strftime("%Y-%m")) for s, m in confirm.list_none_this_month(uow)])
+
+
+@router.get("/b/{business_id}/uploads/own-invoices-template", dependencies=VIEW, response_class=Response,
+            responses={http.HTTP_200_OK: {"content": {template.CONTENT_TYPE: {}}}})
+def own_invoices_template():
+    """The Excel template for the own-invoices section: an `Invoices` sheet with the header row and a `How to
+    fill` sheet. No values. Declared before the upload id route so the name is not read as an id."""
+    return Response(template.build(), media_type=template.CONTENT_TYPE,
+                    headers={"Content-Disposition": f'attachment; filename="{template.FILE_NAME}"'})
 
 
 @router.get("/b/{business_id}/uploads/{upload_id}", response_model=UploadOut, dependencies=VIEW)
@@ -247,6 +284,81 @@ def resolve_row(row_id: str, body: ResolveIn, request: Request, uow: BusinessUoW
                     operation=decide)
 
 
+class BlockerOut(BaseModel):
+    code: str
+    label: str
+    count: int
+    rows: list[int]  # row numbers, the first 20
+    ca_items: list[str]  # CA question-sheet ids this waits on, for `treatment_unconfirmed`
+
+
+class NoteOut(BaseModel):
+    code: str
+    label: str
+
+
+class ConfirmCheckOut(BaseModel):
+    run_id: str
+    can_confirm: bool
+    included: int
+    changed: int
+    left_out: dict[str, int]  # set_aside, already_imported, duplicate, skipped_zero
+    blockers: list[BlockerOut]
+    notes: list[NoteOut]
+
+
+@router.get("/b/{business_id}/runs/{run_id}/confirm-check", response_model=ConfirmCheckOut, dependencies=VIEW)
+def confirm_check(run_id: str, uow: BusinessUoW, clock: Annotated[Clock, Depends(get_clock)]):
+    """What stops this staged run being confirmed, with counts and row numbers (never cell values). Read-only."""
+    out = confirm.check(uow, parse_id(run_id), clock.today())
+    return ConfirmCheckOut(
+        run_id=str(out.run_id), can_confirm=out.can_confirm, included=out.included, changed=out.changed,
+        left_out=out.left_out, blockers=[BlockerOut(**b.__dict__ | {"rows": list(b.rows), "ca_items": list(b.ca_items)}) for b in out.blockers],
+        notes=[NoteOut(code=n.code, label=n.label) for n in out.notes])
+
+
+class ChangedChoice(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    row_id: str
+    choice: Literal["accept", "skip"]
+
+
+class ConfirmIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    changed: list[ChangedChoice] = Field(default_factory=list, max_length=50_000)
+
+
+class ConfirmedOut(BaseModel):
+    run_id: str
+    documents: int
+    lines: int
+    accepted_changes: int
+    skipped_changes: int
+
+
+@router.post("/b/{business_id}/runs/{run_id}/confirm", response_model=ConfirmedOut, dependencies=CREATE)
+def confirm_run(run_id: str, body: ConfirmIn, request: Request, uow: BusinessUoW,
+                clock: Annotated[Clock, Depends(get_clock)],
+                idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None):
+    """Write the run's included rows as documents, assign each new one to its return, and close the preview.
+    Refused (409 `confirm_blocked`) while `confirm-check` lists anything; every row that changed since an earlier
+    file needs `accept` or `skip` (422 `changes_undecided`). All or nothing."""
+    rid = parse_id(run_id)
+
+    def go():
+        choices = {parse_id(c.row_id): c.choice for c in body.changed}
+        out = confirm.confirm(uow, rid, choices, clock)
+        return ConfirmedOut(run_id=str(out.run_id), documents=out.documents, lines=out.lines,
+                            accepted_changes=out.accepted_changes, skipped_changes=out.skipped_changes
+                            ).model_dump(mode="json")
+
+    return run_once(uow.tx, uow.principal.business_id, idempotency_key, method=request.method,
+                    route=request.scope["route"].path, payload={"run": run_id, **body.model_dump(mode="json")},
+                    operation=go)
+
+
 @router.post("/b/{business_id}/runs/{run_id}/discard", response_model=RunOut, dependencies=CREATE)
 def discard_run(run_id: str, uow: BusinessUoW):
     """Set a staged preview aside. The same file can be uploaded again."""
@@ -304,3 +416,68 @@ def marketplace_coverage(uow: BusinessUoW, from_: Annotated[date | None, Query(a
     return CoverageOut(months=[
         MonthCoverageOut(month=m.month, marketplaces=[PlatformMonthOut(**vars(p)) for p in m.marketplaces])
         for m in coverage.coverage(uow, from_, to)])
+
+
+class DocRefOut(BaseModel):
+    seller_gstin: str
+    doc_type: str
+    doc_number: str
+
+
+class DifferenceOut(BaseModel):
+    field: Literal["doc_date", "buyer_gstin", "place_of_supply", "invoice_total", "taxable_value", "igst", "cgst",
+                   "sgst", "cess", "lines"]
+    excel: str
+    pdf: str
+
+
+class MismatchOut(BaseModel):
+    document: DocRefOut
+    differences: list[DifferenceOut]
+    excel_row_ids: list[str]  # so the screen can colour the cells of both sides
+    pdf_row_ids: list[str]
+
+
+class NotComparedOut(BaseModel):
+    document: DocRefOut
+    excel_held_rows: int
+    pdf_held_rows: int
+
+
+class CrossCheckSideOut(BaseModel):
+    live: bool
+    documents: int
+    unplaced_rows: int
+
+
+class CrossCheckOut(BaseModel):
+    show_validate_note: bool
+    compared: bool
+    excel: CrossCheckSideOut
+    pdf: CrossCheckSideOut
+    matching: int
+    only_in_excel: list[DocRefOut]
+    only_in_pdf: list[DocRefOut]
+    mismatches: list[MismatchOut]
+    not_compared: list[NotComparedOut]
+
+
+def _ref_out(d: crosscheck.DocRef) -> DocRefOut:
+    return DocRefOut(seller_gstin=d.seller_gstin, doc_type=d.doc_type, doc_number=d.doc_number)
+
+
+@router.get("/b/{business_id}/own-invoices/crosscheck", response_model=CrossCheckOut, dependencies=VIEW)
+def own_invoices_crosscheck(uow: BusinessUoW, clock: Annotated[Clock, Depends(get_clock)]):
+    """Every difference between the Excel and the invoice PDFs of the seller's own invoices, per document.
+    Read-only; never says which side is right. `show_validate_note` is true only with a live Excel and no live PDF."""
+    out = crosscheck.check(uow, clock.today())
+    side = lambda s: CrossCheckSideOut(live=s.live, documents=s.documents, unplaced_rows=s.unplaced_rows)  # noqa: E731
+    return CrossCheckOut(
+        show_validate_note=out.show_validate_note, compared=out.compared, excel=side(out.excel), pdf=side(out.pdf),
+        matching=out.matching, only_in_excel=[_ref_out(d) for d in out.only_in_excel],
+        only_in_pdf=[_ref_out(d) for d in out.only_in_pdf],
+        mismatches=[MismatchOut(document=_ref_out(m.doc), differences=[DifferenceOut(**d.__dict__) for d in m.differences],
+                                excel_row_ids=[str(i) for i in m.excel_rows], pdf_row_ids=[str(i) for i in m.pdf_rows])
+                    for m in out.mismatches],
+        not_compared=[NotComparedOut(document=_ref_out(n.doc), excel_held_rows=n.excel_held, pdf_held_rows=n.pdf_held)
+                      for n in out.not_compared])
