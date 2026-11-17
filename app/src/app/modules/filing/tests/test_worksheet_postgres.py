@@ -16,6 +16,8 @@ from sqlalchemy.exc import DBAPIError
 
 from app.modules.filing import api_worksheet, entitlement, worksheet
 from app.modules.filing.checks import Finding
+from platform_common import jobs, render
+from platform_common.queue import FakeQueue, set_queue
 from platform_common.storage import LocalObjectStore, get_store, key_for, set_store
 
 from .conftest import PG_ADMIN_URL, as_user, ctx, new_business, scalar, seed_member, user_id
@@ -55,7 +57,11 @@ def ws(pg, monkeypatch, tmp_path):
     from platform_common.clock import IST, FrozenClock, get_clock
 
     app_api.app.dependency_overrides[get_clock] = lambda: FrozenClock(datetime(2026, 11, 15, 12, 0, tzinfo=IST))
+    jobs_q, render_q = FakeQueue(), FakeQueue()
+    set_queue(jobs_q)
+    render.set_render_queue(render_q)
     set_store(LocalObjectStore(tmp_path))
+    pg.jobs_q, pg.render_q = jobs_q, render_q
     stage = Stage()
     for mod in (worksheet, api_worksheet):
         monkeypatch.setattr(mod, "build_return", stage.build, raising=False)
@@ -70,6 +76,8 @@ def ws(pg, monkeypatch, tmp_path):
     finally:
         entitlement.set_check(None)
         set_store(None)
+        set_queue(None)
+        render.set_render_queue(None)
 
 
 def url(b, inst, tail=""):
@@ -414,3 +422,84 @@ def test_drill_down_is_tenant_role_and_plan_scoped(ws):
     assert pg.client.get(rows_url(b, g1, figure="3_1_a"), headers=as_user("alice")).status_code == 404
     entitlement.set_check(lambda tx, business: False)
     assert pg.client.get(rows_url(b, g3, figure="3_1_a"), headers=as_user("alice")).status_code == 409
+
+
+# -- PDF (W5b) ----------------------------------------------------------------------------------------------------------
+
+
+def start_pdf(pg, b, inst, sub="alice"):
+    return pg.client.post(url(b, inst, "/pdf"), headers=as_user(sub))
+
+
+def pdf_status(pg, b, inst, job, sub="alice"):
+    return pg.client.get(url(b, inst, f"/pdf/{job}"), headers=as_user(sub))
+
+
+def test_the_pdf_is_queued_rendered_from_the_screen_figures_and_linked(ws):
+    pg, b, g3, g1, stage = ws
+    assert start_pdf(pg, b, g3).status_code == 409  # nothing built yet
+    build(pg, b, g3)
+    put(pg, b, g3, {"t4a.other.cgst": "100"})
+    r = start_pdf(pg, b, g3)
+    assert r.status_code == 202, r.text
+    job = r.json()["job_id"]
+    assert start_pdf(pg, b, g3).json()["job_id"] == job  # the same state joins the same job
+    assert pdf_status(pg, b, g3, job).json()["status"] == "queued"
+    assert pg.jobs_q.drain(jobs.handle_message) == [jobs.DONE]
+    assert pg.render_q.sent == [{"key": f"render-input/b/{b}/{job}/input.json"}]
+    doc = json.loads(get_store().get_bytes(b, f"render-input/b/{b}/{job}/input.json"))
+    assert doc["template"] == "gstr3b-worksheet" and doc["label"] == "Worksheet, not a filing" and doc["banner"] is None
+    screen = get(pg, b, g3).json()
+    rows = {r["label"]: r["cells"] for s in doc["sections"] for r in s["rows"]}
+    assert rows["(a) Outward Taxable supplies (other than zero rated, nil rated and exempted)"] == [
+        screen["outward"]["taxable"][h] for h in ("taxable_value", "igst", "cgst", "sgst", "cess")
+    ]
+    assert rows["(5) All other ITC"] == ["", "100.00", "100.00", ""]
+    assert rows["(C) Net ITC Available (A)-(B)"] == [screen["net_itc"][h] for h in ("igst", "cgst", "sgst", "cess")]
+    blob = json.dumps(doc).lower()
+    assert "payable" not in blob and "ready to file" not in blob and "offset and payment are done on the gst portal" in blob
+    assert pdf_status(pg, b, g3, job).json()["status"] == "rendering"
+    get_store().put(b, f"documents/b/{b}/{job}/document.pdf", b"%PDF-", "application/pdf")
+    done = pdf_status(pg, b, g3, job).json()
+    assert done["status"] == "ready" and done["url"].startswith("/api/v1/dev/objects")
+
+
+def test_a_pdf_job_for_an_old_state_fails_and_a_new_request_gets_a_new_job(ws):
+    pg, b, g3, g1, stage = ws
+    build(pg, b, g3)
+    job = start_pdf(pg, b, g3).json()["job_id"]
+    put(pg, b, g3, {"t4a.other.igst": "5"})  # saved after the job was queued
+    assert pg.jobs_q.drain(jobs.handle_message) == [jobs.FAILED]
+    assert pg.render_q.sent == []
+    assert pdf_status(pg, b, g3, job).json() == {"status": "failed", "url": None, "error_code": "changed"}
+    again = start_pdf(pg, b, g3).json()["job_id"]
+    assert again != job  # a different state, so a different job
+    assert pg.jobs_q.drain(jobs.handle_message) == [jobs.DONE]
+
+
+def test_a_failed_pdf_job_does_not_lock_the_user_out(ws):
+    pg, b, g3, g1, stage = ws
+    build(pg, b, g3)
+    first = start_pdf(pg, b, g3).json()["job_id"]
+    entitlement.set_check(lambda tx, business: False)  # the plan closes before the job runs
+    assert pg.jobs_q.drain(jobs.handle_message) == [jobs.FAILED]
+    entitlement.set_check(None)
+    second = start_pdf(pg, b, g3).json()["job_id"]
+    assert second != first
+    assert pg.jobs_q.drain(jobs.handle_message) == [jobs.DONE]
+
+
+def test_the_pdf_routes_are_tenant_role_and_plan_scoped(ws):
+    pg, b, g3, g1, stage = ws
+    build(pg, b, g3)
+    job = start_pdf(pg, b, g3).json()["job_id"]
+    new_business(pg, "bob")
+    seed_member(pg, b, "bill", "billing")
+    for sub in ("bob", "bill"):
+        assert start_pdf(pg, b, g3, sub).status_code == 404
+        assert pdf_status(pg, b, g3, job, sub).status_code == 404
+    assert start_pdf(pg, b, g1).status_code == 404
+    assert pdf_status(pg, b, g3, uuid.uuid4()).status_code == 404
+    assert pdf_status(pg, b, g3, "nope").status_code == 404
+    entitlement.set_check(lambda tx, business: False)
+    assert start_pdf(pg, b, g3).status_code == 409

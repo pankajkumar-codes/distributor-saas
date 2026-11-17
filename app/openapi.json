@@ -5800,6 +5800,60 @@
         "title": "PasswordSetOut",
         "type": "object"
       },
+      "PdfRef": {
+        "properties": {
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "title": "PdfRef",
+        "type": "object"
+      },
+      "PdfStatusOut": {
+        "properties": {
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "rendering",
+              "ready",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "PdfStatusOut",
+        "type": "object"
+      },
       "Person": {
         "properties": {
           "name": {
@@ -13692,6 +13746,118 @@
           }
         },
         "summary": "Worksheet Excel",
+        "tags": [
+          "filing"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/returns/{instance_id}/worksheet/pdf": {
+      "post": {
+        "description": "Queues the worksheet PDF for the latest build and current entries. 409 when nothing is built or the plan says no; asking\nagain for the same state joins the same job.",
+        "operationId": "start_pdf_api_v1_b__business_id__returns__instance_id__worksheet_pdf_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "instance_id",
+            "required": true,
+            "schema": {
+              "title": "Instance Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PdfRef"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Pdf",
+        "tags": [
+          "filing"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/returns/{instance_id}/worksheet/pdf/{job_id}": {
+      "get": {
+        "operationId": "pdf_status_api_v1_b__business_id__returns__instance_id__worksheet_pdf__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "instance_id",
+            "required": true,
+            "schema": {
+              "title": "Instance Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PdfStatusOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Pdf Status",
         "tags": [
           "filing"
         ]

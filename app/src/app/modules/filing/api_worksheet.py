@@ -11,6 +11,7 @@ import uuid
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query
+from fastapi import status as http
 from pydantic import BaseModel
 
 from app.modules.business.interface import gstin_state
@@ -19,9 +20,9 @@ from platform_common.clock import Clock, get_clock
 from platform_common.errors import Conflict, Deny, Invalid
 from platform_common.permissions import Permission, require
 from platform_common.storage import get_store, key_for
-from platform_common.uow import BusinessUoW
+from platform_common.uow import BusinessUoW, parse_id
 
-from . import entitlement, periods, worksheet
+from . import entitlement, periods, worksheet, worksheet_pdf
 from .build import build_return
 from .gstr1 import Amounts
 from .gstr3b import FLAG_TEXT, drill, excel
@@ -275,3 +276,30 @@ def _drill_row(r: drill.DrillRow) -> DrillRowOut:
         pos_state_code=r.pos_state_code, rate=str(r.rate), taxable_value=str(a.taxable_value), igst=str(a.igst),
         cgst=str(a.cgst), sgst=str(a.sgst), cess=str(a.cess), source_refs=list(r.source_refs),
     )  # fmt: skip
+
+
+# -- PDF (W5b) ------------------------------------------------------------------------------------------------------------
+
+
+class PdfRef(BaseModel):
+    job_id: str
+
+
+class PdfStatusOut(BaseModel):
+    status: Literal["queued", "rendering", "ready", "failed"]
+    url: str | None = None  # a link that works for 60 seconds, when ready
+    error_code: str | None = None
+
+
+@router.post("/returns/{instance_id}/worksheet/pdf", dependencies=PREPARE, status_code=http.HTTP_202_ACCEPTED)
+def start_pdf(instance_id: str, uow: BusinessUoW) -> PdfRef:
+    """Queues the worksheet PDF for the latest build and current entries. 409 when nothing is built or the plan says no; asking
+    again for the same state joins the same job."""
+    inst = _instance_or_404(uow, instance_id)
+    return PdfRef(job_id=str(worksheet_pdf.start(uow, inst)))
+
+
+@router.get("/returns/{instance_id}/worksheet/pdf/{job_id}", dependencies=PREPARE)
+def pdf_status(instance_id: str, job_id: str, uow: BusinessUoW) -> PdfStatusOut:
+    inst = _instance_or_404(uow, instance_id)
+    return PdfStatusOut(**worksheet_pdf.status(uow, inst.id, parse_id(job_id)))

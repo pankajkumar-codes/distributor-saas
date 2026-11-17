@@ -1246,6 +1246,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/returns/{instance_id}/worksheet/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Pdf
+         * @description Queues the worksheet PDF for the latest build and current entries. 409 when nothing is built or the plan says no; asking
+         *     again for the same state joins the same job.
+         */
+        post: operations["start_pdf_api_v1_b__business_id__returns__instance_id__worksheet_pdf_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/returns/{instance_id}/worksheet/pdf/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Pdf Status */
+        get: operations["pdf_status_api_v1_b__business_id__returns__instance_id__worksheet_pdf__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/returns/{instance_id}/worksheet/rows": {
         parameters: {
             query?: never;
@@ -3920,6 +3958,23 @@ export interface components {
              * @constant
              */
             status: "password_set";
+        };
+        /** PdfRef */
+        PdfRef: {
+            /** Job Id */
+            job_id: string;
+        };
+        /** PdfStatusOut */
+        PdfStatusOut: {
+            /** Error Code */
+            error_code?: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "rendering" | "ready" | "failed";
+            /** Url */
+            url?: string | null;
         };
         /** Person */
         Person: {
@@ -7664,6 +7719,71 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ExcelOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_pdf_api_v1_b__business_id__returns__instance_id__worksheet_pdf_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instance_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PdfRef"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pdf_status_api_v1_b__business_id__returns__instance_id__worksheet_pdf__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instance_id: string;
+                job_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PdfStatusOut"];
                 };
             };
             /** @description Validation Error */
