@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { useState, type FormEvent } from "react";
+import { useState, useSyncExternalStore, type FormEvent } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { api, call } from "../../api/client";
@@ -7,7 +7,7 @@ import type { components } from "../../api/schema";
 import { errorText, type ApiError } from "../../api/errors";
 import { safeNext } from "../../auth/AuthProvider";
 import { landingPath } from "../../auth/landing";
-import { startSession } from "../../auth/session";
+import { onSignOutNotice, signOutNotice, startSession } from "../../auth/session";
 import { AuthPage } from "../../kit/AuthPage";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
@@ -26,6 +26,7 @@ export function SigninPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const passwordReset = Boolean((useLocation().state as { passwordReset?: unknown } | null)?.passwordReset);
+  const notice = useSyncExternalStore(onSignOutNotice, signOutNotice);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [challenge, setChallenge] = useState<string | null>(null);
@@ -80,6 +81,13 @@ export function SigninPage() {
     <AuthPage>
       <h1>Sign in</h1>
       <form onSubmit={submit} noValidate className="card stack">
+        {notice === "not_ended" && (
+          <Banner>
+            We could not end your session on our server. If this computer is shared, close the browser. We will try once more in the background.
+          </Banner>
+        )}
+        {notice === "still_not_ended" && <Banner>We still could not end your session on our server. If this computer is shared, close the browser.</Banner>}
+        {notice === "ended_later" && <Banner>Your session on our server has now ended.</Banner>}
         {passwordReset && !error && <Banner>Your password is changed, and you're signed out everywhere. Sign in with the new password.</Banner>}
         {expired && <Banner tone="error">That took too long. Sign in again.</Banner>}
         {error && !error.field && <Banner tone="error">{errorText(error)}</Banner>}
