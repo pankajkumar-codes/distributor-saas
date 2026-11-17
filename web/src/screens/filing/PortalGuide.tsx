@@ -1,3 +1,5 @@
+import { Banner } from "../../kit/Banner";
+
 /**
  * How to put the GSTR-1 file on the GST portal (R1-M10). The steps follow GSTN's own "FAQs and User Manual: Returns
  * Offline Tool" (sections 9 and F, no version or date printed on the document). Nobody here has opened the live portal
@@ -7,7 +9,13 @@
 type Step = { text: string; check?: string };
 
 export const GUIDE_STEPS = (periodLabel: string): Step[] => [
-  { text: "Download the file above and keep it somewhere you can find it. Each file must be under 5 MB. If we made more than one part, upload each part in turn." },
+  {
+    text: "Download the file above and keep it somewhere you can find it. If we made more than one part, upload each part in turn.",
+  },
+  {
+    text: "The portal does not take a file of 5 MB or more. We check the size when we make the file and make more parts if needed.",
+    check: "The 5 MB comes from the manual. Our own limit for it is provisional and not yet confirmed on the portal.",
+  },
   { text: "Open gst.gov.in and sign in with your own GST login. We never ask for it." },
   { text: "Go to Services, then Returns, then Returns Dashboard." },
   {
@@ -35,7 +43,7 @@ export const GUIDE_STEPS = (periodLabel: string): Step[] => [
   { text: "Come back to this page and mark the return as filed." },
 ];
 
-export function PortalGuide({ periodLabel }: { periodLabel: string }) {
+export function PortalGuide({ periodLabel, readyToUpload }: { periodLabel: string; readyToUpload: boolean }) {
   const steps = GUIDE_STEPS(periodLabel);
   return (
     <section className="stack" aria-labelledby="portal-guide">
@@ -43,6 +51,9 @@ export function PortalGuide({ periodLabel }: { periodLabel: string }) {
       <p className="hint">
         These steps follow the GST Network's own guide for its offline tool. We have not checked them against the live portal yet, so a button may be named a little differently. Steps marked "Not checked" are the ones to look at twice.
       </p>
+      {!readyToUpload && (
+        <Banner tone="error">This file has not been through the GST portal yet, so the portal may refuse it. Check what the portal says before you rely on it.</Banner>
+      )}
       <ol>
         {steps.map((s) => (
           <li key={s.text}>

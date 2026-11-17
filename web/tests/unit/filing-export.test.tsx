@@ -100,7 +100,7 @@ describe("Making the file", () => {
     expect(await screen.findByText("Making your file…")).toBeInTheDocument();
     const link = await screen.findByRole("link", { name: "Download the file" }, { timeout: 5000 });
     expect(link).toHaveAttribute("href", "https://files.example/part1");
-    expect(screen.getByText(/This file has not been through the GST portal yet/)).toBeInTheDocument();
+    expect(screen.getAllByText(/This file has not been through the GST portal yet/)).toHaveLength(2); // the file note and the line above the steps
     expect(screen.getByText(/CDNR/)).toBeInTheDocument();
     expect(screen.getByText(/Table 13 \(documents issued\)/)).toBeInTheDocument();
     expect(screen.queryByText(/ready to upload/i)).toBeNull();
@@ -120,7 +120,19 @@ describe("Making the file", () => {
     expect(guide.getAllByText("Not checked").length).toBeGreaterThanOrEqual(3);
     expect(guide.getByText(/Prepare offline/)).toBeInTheDocument();
     expect(guide.getByText(/Uploading the file does not file the return/)).toBeInTheDocument();
+    expect(guide.getByText(/may refuse it/)).toBeInTheDocument();
+    expect(guide.getByText(/does not take a file of 5 MB or more/)).toBeInTheDocument();
     expect(guide.getByText(/the financial year and the period "October 2026"/)).toBeInTheDocument();
+  });
+
+  it("does not warn above the portal steps when the server says the file has been through the portal", async () => {
+    server.reply(DETAIL, detail({ export: ready, findings: [], finding_groups: [] }));
+    server.reply(`${DETAIL}/exports`, { status: 202, body: { job_id: "job-1" } });
+    server.reply(`${DETAIL}/exports/job-1`, fileOut({ portal_tested: true, ready_to_upload: true }));
+    open();
+    fireEvent.click(await screen.findByRole("button", { name: "Make my GSTR-1 file" }));
+    const guide = within(await screen.findByRole("region", { name: "Put it on the GST portal" }));
+    expect(guide.queryByText(/may refuse it/)).toBeNull();
   });
 
   it("says a file has been checked only when the server says so", async () => {
