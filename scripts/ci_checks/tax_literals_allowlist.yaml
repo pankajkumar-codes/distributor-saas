@@ -222,6 +222,15 @@
 - path: app/src/app/modules/filing/api.py
   value: "12"
   reason: "the longest page marker (a row offset as digits) a section request may carry; a request-size limit, not a tax value"
+- path: app/src/app/modules/imports/bundle.py
+  value: "16"
+  reason: "bit shift that takes a zip entry's unix file mode out of its attributes (to refuse a symlink); not a tax number"
+- path: app/src/app/modules/imports/bundle.py
+  value: "4096"
+  reason: "bytes of a file looked at for a NUL byte to tell binary from text; input hygiene, not a tax rule"
+- path: app/src/app/modules/imports/bundle.py
+  value: "4"
+  reason: "entries (folders included) allowed per file a bundle may hold, to bound the zip's directory; an input limit, not a tax rule"
 - path: app/src/app/modules/filing/api.py
   value: "500"
   reason: "longest note kept with an accepted warning; an input size cap, not a tax rule"
