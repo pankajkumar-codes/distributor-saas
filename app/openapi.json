@@ -1,7 +1,7 @@
 {
   "components": {
     "schemas": {
-      "AcceptIn": {
+      "AcceptFindingIn": {
         "properties": {
           "check_code": {
             "pattern": "^[A-Z]-[0-9]{2}$",
@@ -31,7 +31,39 @@
           "check_code",
           "note"
         ],
-        "title": "AcceptIn",
+        "title": "AcceptFindingIn",
+        "type": "object"
+      },
+      "AcceptFindingOut": {
+        "properties": {
+          "accepted": {
+            "title": "Accepted",
+            "type": "integer"
+          },
+          "check_code": {
+            "title": "Check Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "check_code",
+          "accepted"
+        ],
+        "title": "AcceptFindingOut",
+        "type": "object"
+      },
+      "AcceptOut": {
+        "properties": {
+          "business_id": {
+            "format": "uuid",
+            "title": "Business Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "business_id"
+        ],
+        "title": "AcceptOut",
         "type": "object"
       },
       "AccessTokenOut": {
@@ -318,7 +350,7 @@
         "type": "object"
       },
       "AuditExportIn": {
-        "description": "The screen's filters; the period follows the list's rules (both ends included,\n`to` defaults to today, at most MAX_RANGE_DAYS).",
+        "description": "The screen's filters; the period follows the list's rules (both ends included,\n`to` defaults to today, 1 to AUDIT_MAX_DAYS days, none in the future).",
         "properties": {
           "actor": {
             "anyOf": [
@@ -7442,24 +7474,6 @@
         "title": "ReasonIn",
         "type": "object"
       },
-      "app__modules__filing__api__AcceptOut": {
-        "properties": {
-          "accepted": {
-            "title": "Accepted",
-            "type": "integer"
-          },
-          "check_code": {
-            "title": "Check Code",
-            "type": "string"
-          }
-        },
-        "required": [
-          "check_code",
-          "accepted"
-        ],
-        "title": "AcceptOut",
-        "type": "object"
-      },
       "app__modules__filing__api__SectionOut": {
         "properties": {
           "name": {
@@ -7489,20 +7503,6 @@
           "totals"
         ],
         "title": "SectionOut",
-        "type": "object"
-      },
-      "app__modules__identity__api_team__AcceptOut": {
-        "properties": {
-          "business_id": {
-            "format": "uuid",
-            "title": "Business Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "business_id"
-        ],
-        "title": "AcceptOut",
         "type": "object"
       },
       "app__modules__identity__api_team__ReasonIn": {
@@ -11793,7 +11793,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AcceptIn"
+                "$ref": "#/components/schemas/AcceptFindingIn"
               }
             }
           },
@@ -11804,7 +11804,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__modules__filing__api__AcceptOut"
+                  "$ref": "#/components/schemas/AcceptFindingOut"
                 }
               }
             },
@@ -13378,7 +13378,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__modules__identity__api_team__AcceptOut"
+                  "$ref": "#/components/schemas/AcceptOut"
                 }
               }
             },

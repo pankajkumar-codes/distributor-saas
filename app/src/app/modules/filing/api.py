@@ -172,7 +172,7 @@ class ExportGateOut(BaseModel):
     to_accept: int  # warnings still waiting for an acceptance
 
 
-class AcceptIn(BaseModel):
+class AcceptFindingIn(BaseModel):
     check_code: str = Field(pattern=r"^[A-Z]-[0-9]{2}$")
     subject_fp: str | None = Field(
         default=None, pattern=r"^[0-9a-f]{64}$"
@@ -180,7 +180,7 @@ class AcceptIn(BaseModel):
     note: str = Field(min_length=1, max_length=500)  # why it is accepted: kept with who and when
 
 
-class AcceptOut(BaseModel):
+class AcceptFindingOut(BaseModel):
     check_code: str
     accepted: int  # newly recorded; saying it again records nothing
 
@@ -400,13 +400,13 @@ def get_return(instance_id: str, uow: BusinessUoW) -> ReturnDetailOut:
 
 
 @router.post("/returns/{instance_id}/check-acceptances", dependencies=PREPARE)
-def accept_finding(instance_id: str, body: AcceptIn, uow: BusinessUoW) -> AcceptOut:
+def accept_finding(instance_id: str, body: AcceptFindingIn, uow: BusinessUoW) -> AcceptFindingOut:
     inst = _instance_or_404(uow, instance_id)
     if inst.status != "open":
         raise Conflict("return_not_open", "This return is not open, so nothing can be accepted on it.")
     findings = run_checks(uow.tx, build_return(uow.tx, inst))
     n = acceptance.accept(uow, inst, findings, body.check_code, body.subject_fp, body.note)
-    return AcceptOut(check_code=body.check_code, accepted=n)
+    return AcceptFindingOut(check_code=body.check_code, accepted=n)
 
 
 @router.get("/returns/{instance_id}/sections/{section}", dependencies=PREPARE)

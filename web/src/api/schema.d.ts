@@ -1688,14 +1688,29 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** AcceptIn */
-        AcceptIn: {
+        /** AcceptFindingIn */
+        AcceptFindingIn: {
             /** Check Code */
             check_code: string;
             /** Note */
             note: string;
             /** Subject Fp */
             subject_fp?: string | null;
+        };
+        /** AcceptFindingOut */
+        AcceptFindingOut: {
+            /** Accepted */
+            accepted: number;
+            /** Check Code */
+            check_code: string;
+        };
+        /** AcceptOut */
+        AcceptOut: {
+            /**
+             * Business Id
+             * Format: uuid
+             */
+            business_id: string;
         };
         /** AccessTokenOut */
         AccessTokenOut: {
@@ -1770,7 +1785,7 @@ export interface components {
         /**
          * AuditExportIn
          * @description The screen's filters; the period follows the list's rules (both ends included,
-         *     `to` defaults to today, at most MAX_RANGE_DAYS).
+         *     `to` defaults to today, 1 to AUDIT_MAX_DAYS days, none in the future).
          */
         AuditExportIn: {
             /** Actor */
@@ -4114,13 +4129,6 @@ export interface components {
             /** Reason */
             reason?: string | null;
         };
-        /** AcceptOut */
-        app__modules__filing__api__AcceptOut: {
-            /** Accepted */
-            accepted: number;
-            /** Check Code */
-            check_code: string;
-        };
         /** SectionOut */
         app__modules__filing__api__SectionOut: {
             /**
@@ -4131,14 +4139,6 @@ export interface components {
             /** Rows Count */
             rows_count: number;
             totals: components["schemas"]["Heads"];
-        };
-        /** AcceptOut */
-        app__modules__identity__api_team__AcceptOut: {
-            /**
-             * Business Id
-             * Format: uuid
-             */
-            business_id: string;
         };
         /** ReasonIn */
         app__modules__identity__api_team__ReasonIn: {
@@ -6531,7 +6531,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["AcceptIn"];
+                "application/json": components["schemas"]["AcceptFindingIn"];
             };
         };
         responses: {
@@ -6541,7 +6541,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["app__modules__filing__api__AcceptOut"];
+                    "application/json": components["schemas"]["AcceptFindingOut"];
                 };
             };
             /** @description Validation Error */
@@ -7459,7 +7459,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["app__modules__identity__api_team__AcceptOut"];
+                    "application/json": components["schemas"]["AcceptOut"];
                 };
             };
             /** @description Validation Error */
