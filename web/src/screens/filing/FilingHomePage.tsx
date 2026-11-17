@@ -2,6 +2,7 @@ import { Link, useParams } from "react-router-dom";
 
 import { errorText } from "../../api/errors";
 import { formatDate, previousFy } from "../../format/dates";
+import { canPrepareReturns } from "../../auth/roles";
 import { useMyBusinesses } from "../../auth/useMyBusinesses";
 import { Banner } from "../../kit/Banner";
 import { NotFound } from "../../kit/NotFound";
@@ -122,7 +123,14 @@ export function FilingHomePage() {
                           {formatDate(r.period_start)} to {formatDate(r.period_end)}
                         </div>
                       </td>
-                      <td>{FORMS[r.form]}</td>
+                      <td>
+                        {FORMS[r.form]}
+                        {r.form === "GSTR1" && canPrepareReturns(business.role) && (
+                          <div>
+                            <Link to={`/b/${businessId}/filing/${r.instance_id}`}>Review the draft</Link>
+                          </div>
+                        )}
+                      </td>
                       <td>
                         <DueDate row={r} />
                       </td>
