@@ -16,6 +16,7 @@ from sqlalchemy.exc import DBAPIError
 
 from app.modules.filing import api_worksheet, entitlement, worksheet
 from app.modules.filing.checks import Finding
+from platform_common.storage import LocalObjectStore, get_store, key_for, set_store
 
 from .conftest import PG_ADMIN_URL, as_user, ctx, new_business, scalar, seed_member, user_id
 from .test_gstr1_sections import CN, INV, KA, SOAP, TEA, WB, A, I3, line
@@ -49,11 +50,12 @@ class Stage:
 
 
 @pytest.fixture()
-def ws(pg, monkeypatch):
+def ws(pg, monkeypatch, tmp_path):
     from app import api as app_api
     from platform_common.clock import IST, FrozenClock, get_clock
 
     app_api.app.dependency_overrides[get_clock] = lambda: FrozenClock(datetime(2026, 11, 15, 12, 0, tzinfo=IST))
+    set_store(LocalObjectStore(tmp_path))
     stage = Stage()
     for mod in (worksheet, api_worksheet):
         monkeypatch.setattr(mod, "build_return", stage.build, raising=False)
@@ -67,6 +69,7 @@ def ws(pg, monkeypatch):
         yield pg, b, g3, g1, stage
     finally:
         entitlement.set_check(None)
+        set_store(None)
 
 
 def url(b, inst, tail=""):
@@ -291,3 +294,70 @@ def test_another_tenant_sees_no_rows_through_the_database(ws):
                 ),
                 {"b": b, "i": g3, "f": "a" * 64},
             )
+
+
+def read_book(pg, b, version=1, seq=0):
+    from io import BytesIO
+
+    from openpyxl import load_workbook
+
+    vid = scalar(pg.owner, "select id from filing.worksheet_versions where version = :v", v=version)
+    data = get_store().get_bytes(b, key_for(b, "exports", vid, f"v{version}-e{seq}.xlsx"))
+    return load_workbook(BytesIO(data))
+
+
+def test_the_excel_file_equals_the_screen_to_the_paisa_and_holds_no_formula(ws):
+    pg, b, g3, g1, stage = ws
+    assert pg.client.get(url(b, g3, "/excel"), headers=as_user("alice")).status_code == 409  # nothing built
+    build(pg, b, g3)
+    put(pg, b, g3, {"t4a.other.cgst": "100", "t4b.rev_other.igst": "1,250.5"})
+    r = pg.client.get(url(b, g3, "/excel"), headers=as_user("alice"))
+    assert r.status_code == 200, r.text
+    j = r.json()
+    assert j["version"] == 1 and j["entries_seq"] == 1 and j["out_of_date"] is False and j["name"].endswith(".xlsx")
+    assert j["url"].startswith("/api/v1/dev/objects")
+    wb = read_book(pg, b, seq=1)
+    ws1 = wb["GSTR-3B"]
+    cells = [c for row in ws1.iter_rows() for c in row if c.value is not None]
+    assert all(c.data_type != "f" for c in cells)
+    screen = get(pg, b, g3).json()
+    nums = [Decimal(str(c.value)) for c in cells if isinstance(c.value, (int, float))]
+    for v in (*screen["outward"]["taxable"].values(), *screen["entries"].values(), *screen["net_itc"].values()):
+        assert Decimal(v) in nums
+    assert ws1["A1"].value == "Worksheet, not a filing"
+    text_blob = " ".join(str(c.value) for c in cells).lower()
+    assert "payable" not in text_blob and "ready to file" not in text_blob
+    assert "offset and payment are done on the gst portal." in text_blob
+    assert {r[1].value for r in wb["Sources"].iter_rows(min_row=3)} >= {"INV-1", "CN-1"}
+
+
+def test_a_document_number_that_looks_like_a_formula_stays_text(ws):
+    pg, b, g3, g1, stage = ws
+    stage.lines = [line("=HYPERLINK(1)", 5, INV, "B2CS", WB, SOAP, "1", "100.00", cgst="9.00", sgst="9.00", value="118.00")]
+    build(pg, b, g3)
+    pg.client.get(url(b, g3, "/excel"), headers=as_user("alice"))
+    sources = read_book(pg, b)["Sources"]
+    cell = next(c for row in sources.iter_rows() for c in row if c.value == "=HYPERLINK(1)")
+    assert cell.data_type == "s"
+
+
+def test_the_excel_says_when_it_is_out_of_date_and_is_closed_when_the_plan_says_no(ws):
+    pg, b, g3, g1, stage = ws
+    build(pg, b, g3)
+    stage.fp = "b" * 64
+    j = pg.client.get(url(b, g3, "/excel"), headers=as_user("alice")).json()
+    assert j["out_of_date"] is True
+    first = read_book(pg, b)["GSTR-3B"]
+    assert any(str(c.value).startswith("Out of date") for row in first.iter_rows() for c in row)
+    entitlement.set_check(lambda tx, business: False)
+    assert pg.client.get(url(b, g3, "/excel"), headers=as_user("alice")).status_code == 409
+
+
+def test_the_excel_route_is_tenant_and_role_scoped(ws):
+    pg, b, g3, g1, stage = ws
+    build(pg, b, g3)
+    new_business(pg, "bob")
+    seed_member(pg, b, "bill", "billing")
+    assert pg.client.get(url(b, g3, "/excel"), headers=as_user("bob")).status_code == 404
+    assert pg.client.get(url(b, g3, "/excel"), headers=as_user("bill")).status_code == 404
+    assert pg.client.get(url(b, g1, "/excel"), headers=as_user("alice")).status_code == 404

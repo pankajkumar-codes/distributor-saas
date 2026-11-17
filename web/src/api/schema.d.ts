@@ -1225,6 +1225,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/returns/{instance_id}/worksheet/excel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Worksheet Excel
+         * @description The worksheet as it is now (latest build and typed entries) as an Excel file, stored with the exports and given as a
+         *     60-second link. 409 when the plan does not allow it or nothing has been built.
+         */
+        get: operations["worksheet_excel_api_v1_b__business_id__returns__instance_id__worksheet_excel_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/rows/{row_id}/resolve": {
         parameters: {
             query?: never;
@@ -3019,6 +3040,19 @@ export interface components {
             transporter?: string | null;
             /** Vehicle No */
             vehicle_no?: string | null;
+        };
+        /** ExcelOut */
+        ExcelOut: {
+            /** Entries Seq */
+            entries_seq: number | null;
+            /** Name */
+            name: string;
+            /** Out Of Date */
+            out_of_date: boolean;
+            /** Url */
+            url: string;
+            /** Version */
+            version: number;
         };
         /** ExportFileOut */
         ExportFileOut: {
@@ -7536,6 +7570,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EntriesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    worksheet_excel_api_v1_b__business_id__returns__instance_id__worksheet_excel_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instance_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExcelOut"];
                 };
             };
             /** @description Validation Error */
