@@ -32,6 +32,7 @@ from .readers import SECTIONS, readers_for
 PDF_MAGIC = b"%PDF-"
 OLE_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"  # an old .xls (or .doc): not read here
 ZIP_MAGICS = (b"PK\x03\x04", b"PK\x05\x06")
+ENTRY_FACTOR = 4  # entries (folders included) allowed per file the bundle may hold
 JUNK_NAMES = {".ds_store", "thumbs.db", "desktop.ini"}
 
 # What a person reads for each outcome. The code is stable; the words are product copy.
@@ -123,7 +124,10 @@ def _open(content: bytes, limits: Limits, depth: int, files: list[BundleFile], s
         archive = zipfile.ZipFile(io.BytesIO(content))
     except zipfile.BadZipFile as exc:
         raise BundleRefused("not_a_zip") from exc
-    for info in archive.infolist():
+    infos = archive.infolist()
+    if len(infos) > limits.max_files * ENTRY_FACTOR:  # folders are free in `max_files`; the directory itself is bounded
+        raise BundleRefused("too_many_files")
+    for info in infos:
         if info.is_dir():
             continue
         if info.flag_bits & 0x1:
@@ -161,12 +165,21 @@ def _base_name(raw: str) -> str:
     control character is refused; the folders a person zipped are fine and are dropped."""
     path = raw.replace("\\", "/")
     parts = path.split("/")
-    if path.startswith("/") or (len(path) > 1 and path[1] == ":") or ".." in parts or not path.isprintable():
+    if path.startswith("/") or (len(path) > 1 and path[1] == ":") or ".." in parts or any(map(_unsafe_char, path)):
         raise BundleRefused("unsafe_name")
     base = parts[-1].strip()
     if not base:
         raise BundleRefused("unsafe_name")
     return base
+
+
+BIDI_CONTROLS = frozenset("\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069")  # can make a name read backwards
+
+
+def _unsafe_char(c: str) -> bool:
+    """A control character or a bidi override. Other characters pass: a non-breaking space or a zero-width mark is what
+    Windows and Excel exports really produce, and refusing the whole zip for one would be wrong."""
+    return unicodedata.category(c) == "Cc" or c in BIDI_CONTROLS
 
 
 def _inflate(archive: zipfile.ZipFile, info: zipfile.ZipInfo, cap: int) -> bytes:
@@ -180,7 +193,8 @@ def _inflate(archive: zipfile.ZipFile, info: zipfile.ZipInfo, cap: int) -> bytes
     except (zipfile.BadZipFile, zlib.error, EOFError, NotImplementedError, RuntimeError) as exc:
         raise BundleRefused("damaged") from exc
     if len(data) > cap:
-        # An entry that declared a size within the cap and inflated past it lied about its size: a bomb.
+        # Past the cap or the remaining total: too big. (An entry that lies about its size normally ends as `damaged`:
+        # `zipfile` stops at the declared size and fails its CRC.)
         raise BundleRefused("too_big")
     return data
 

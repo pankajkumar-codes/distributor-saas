@@ -197,6 +197,20 @@ def test_a_name_that_climbs_out_or_starts_at_a_root_is_refused(name):
     assert refused(zip_of([(name, b"x")])).code == "unsafe_name"
 
 
+def test_a_name_with_a_non_breaking_space_or_zero_width_mark_is_fine_a_bidi_override_is_not():
+    ok = open_bundle(zip_of([("report\u00a0July\u200b.csv", amazon.b2c_good())]), LIMITS)
+    assert [f.name for f in ok] == ["report\u00a0July\u200b.csv"]
+    assert refused(zip_of([("invoice\u202egnp.csv", b"x")])).code == "unsafe_name"
+    assert refused(zip_of([("a\u2066b.csv", b"x")])).code == "unsafe_name"
+    assert refused(zip_of([("a\x85b.csv", b"x")])).code == "unsafe_name"  # a C1 control character
+
+
+def test_folder_entries_cannot_bloat_the_directory_past_a_bound():
+    entries = [(f"d{i}/", b"") for i in range(41)] + [("a.csv", b"1")]
+    assert refused(zip_of(entries), Limits(10, 10**6, 10**6, 1)).code == "too_many_files"  # 42 entries > 10 * 4
+    assert open_bundle(zip_of(entries[:30] + entries[-1:]), Limits(10, 10**6, 10**6, 1))[0].name == "a.csv"
+
+
 def test_a_link_in_the_zip_is_refused():
     assert refused(zip_of([("a.csv", b"x"), ("b.csv", b"a.csv")], symlink=("b.csv",))).code == "symlink"
 

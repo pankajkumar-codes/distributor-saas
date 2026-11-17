@@ -228,3 +228,6 @@
 - path: app/src/app/modules/imports/bundle.py
   value: "4096"
   reason: "bytes of a file looked at for a NUL byte to tell binary from text; input hygiene, not a tax rule"
+- path: app/src/app/modules/imports/bundle.py
+  value: "4"
+  reason: "entries (folders included) allowed per file a bundle may hold, to bound the zip's directory; an input limit, not a tax rule"
