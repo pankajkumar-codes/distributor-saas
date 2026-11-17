@@ -1070,3 +1070,43 @@
   source_title: "R1-M7: the seller's own invoices are mapped as typed (decision 2); tax arithmetic and rates are never decided here"
   last_checked: 2026-11-14
   status: provisional
+
+- key: imports.bundle.max_files
+  value: "100"
+  type: integer
+  kind: product
+  valid_from: 2026-11-17
+  source_url: team/engineering/bundle-upload-plan.md
+  source_title: "Bundle plan, decision 4: the most files in one bundle zip, nested zips included (a month of reports from three marketplaces plus invoices)"
+  last_checked: 2026-11-17
+  status: provisional
+
+- key: imports.bundle.max_total_bytes
+  value: "104857600"
+  type: integer
+  kind: product
+  valid_from: 2026-11-17
+  source_url: team/engineering/bundle-upload-plan.md
+  source_title: "Bundle plan, decision 4: the most bytes a bundle may expand to, all levels together (100 MB)"
+  last_checked: 2026-11-17
+  status: provisional
+
+- key: imports.bundle.max_file_bytes
+  value: "20971520"
+  type: integer
+  kind: product
+  valid_from: 2026-11-17
+  source_url: team/engineering/bundle-upload-plan.md
+  source_title: "Bundle plan, decision 4: the most bytes in one file of a bundle (20 MB, as for a single upload); a bigger file is listed as too large and not read"
+  last_checked: 2026-11-17
+  status: provisional
+
+- key: imports.bundle.max_depth
+  value: "1"
+  type: integer
+  kind: product
+  valid_from: 2026-11-17
+  source_url: team/engineering/bundle-upload-plan.md
+  source_title: "Bundle plan, decision 3: how many zips may sit inside the bundle zip (1: one level is opened, a zip inside that is refused)"
+  last_checked: 2026-11-17
+  status: provisional
