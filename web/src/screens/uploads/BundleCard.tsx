@@ -1,10 +1,10 @@
-import { useId, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useReducer, useRef, useState, type FormEvent } from "react";
 
 import { errorText, type ApiError } from "../../api/errors";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { ErrorDetail } from "../../kit/ErrorDetail";
-import { sendBundle, useBundle, useChooseFile, useStageBundle, type Bundle, type BundleFile } from "./useBundle";
+import { GIVE_UP_MS, pollingGaveUp, sendBundle, shownName, useBundle, useChooseFile, useStageBundle, type Bundle, type BundleFile } from "./useBundle";
 
 type Props = { businessId: string; bundleId: string | null; onBundle: (id: string | null) => void };
 
@@ -149,10 +149,21 @@ function BundleView({
   const stage = useStageBundle(businessId, bundle.id);
   const [moved, setMoved] = useState<{ n: number; message: string }>();
 
+  const [, redraw] = useReducer((n: number) => n + 1, 0);
+  const stopped = pollingGaveUp(bundle, staging);
+  const watching = !stopped && (bundle.status === "pending" || bundle.status === "received" || bundle.status === "staging" || (staging && bundle.status === "classified"));
+  // Polling stops at the limit without anything changing on the screen, so draw once more when it is reached.
+  useEffect(() => {
+    if (!watching) return;
+    const left = Date.parse(bundle.created_at) + GIVE_UP_MS - Date.now();
+    const t = setTimeout(redraw, Math.max(0, left) + 50);
+    return () => clearTimeout(t);
+  }, [watching, bundle.created_at]);
+
   if (bundle.status === "pending" || bundle.status === "received") {
     return (
       <p aria-busy="true" role="status">
-        Sorting your files. You can leave this page; it keeps going.
+        {stopped ? "This is taking longer than usual. It is still going on our side. Reload this page in a few minutes to check." : "Sorting your files. You can leave this page; it keeps going."}
       </p>
     );
   }
@@ -174,7 +185,7 @@ function BundleView({
     return (
       <>
         <p role="status">
-          Sent for reading: {readable.length} {readable.length === 1 ? "file" : "files"} from {bundle.file_name}. Each result shows in its own card below.
+          Sent for reading: {readable.length} {readable.length === 1 ? "file" : "files"} from {shownName(bundle.file_name)}. Each result shows in its own card below.
         </p>
         <FileList bundle={bundle} locked choose={undefined} />
         <Button type="button" onClick={onAgain}>
@@ -187,7 +198,7 @@ function BundleView({
   return (
     <>
       <p>
-        <strong>{bundle.file_name}</strong> · {sizeWords(bundle.size_bytes)}. Check the list, then ask us to read the files.
+        <strong>{shownName(bundle.file_name)}</strong> · {sizeWords(bundle.size_bytes)}. Check the list, then ask us to read the files.
       </p>
       <FileList
         bundle={bundle}
@@ -206,6 +217,11 @@ function BundleView({
           {errorText(stage.error)}
           <ErrorDetail error={stage.error} />
         </Banner>
+      )}
+      {working && stopped && (
+        <p role="status" className="hint">
+          This is taking longer than usual. It is still going on our side. Reload this page in a few minutes to check.
+        </p>
       )}
       {readable.length === 0 && <p className="hint">None of these files can be read. Move one to a report, or send another zip.</p>}
       <Button
@@ -250,14 +266,14 @@ function FileList({
         {bundle.files.map((f) => (
           <tr key={f.n}>
             <td data-label="File">
-              {f.file_name}
+              {shownName(f.file_name)}
               <br />
               <span className="hint">{sizeWords(f.size_bytes)}</span>
             </td>
             <td data-label="What it is">
               {choose && !locked && f.state !== "not_selected" ? (
                 <select
-                  aria-label={`What ${f.file_name} is`}
+                  aria-label={`What ${shownName(f.file_name)} is`}
                   value={f.state === "dropped" ? "" : (f.section ?? "")}
                   onChange={(e) => choose(f.n, (e.target.value || null) as BundleFile["section"])}
                 >
