@@ -76,8 +76,9 @@ def read_policy(today: date, request_id: str) -> Policy:
 
 
 def cached_policy(today: date, request_id: str) -> Policy:
-    """`read_policy` for the public GET, kept for POLICY_CACHE_SECONDS per process so an unauthenticated caller
-    cannot turn it into a database read per request. A change in refdata shows within that time."""
+    """`read_policy` for the routes anyone can call (the public GET, sign-up request and verify, reset verify), kept for
+    POLICY_CACHE_SECONDS per process so an unauthenticated caller cannot turn them into a database read per request.
+    A change in refdata shows within that time. Change password (signed in) reads it fresh."""
     global _cached
     now = time.monotonic_ns()
     if _cached is not None and _cached[1] == today and now - _cached[0] < POLICY_CACHE_SECONDS * 1_000_000_000:

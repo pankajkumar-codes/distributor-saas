@@ -23,7 +23,7 @@ from platform_common.uow import Principal, unit_of_work
 
 from .. import codes
 from . import limits
-from .passwords import check_password, read_policy
+from .passwords import cached_policy, check_password
 from .signup import HOUR, CodeNotAccepted, CodeTerms, normalise
 
 log = logging.getLogger(__name__)
@@ -72,7 +72,7 @@ def verify_reset(
 ) -> None:
     """§5.8. Raises Invalid("password_weak"), RateLimited or CodeNotAccepted."""
     email = normalise(email)
-    check_password(new_password, read_policy(today, request_id), field="new_password")  # before the code: no try spent
+    check_password(new_password, cached_policy(today, request_id), field="new_password")  # before the code: no try spent
     per_ip = limits.read(("auth.code_checks_per_ip_per_hour",), today, request_id)["auth.code_checks_per_ip_per_hour"]
     rate.hit(rate.bucket("code_check:ip", ip), per_ip, HOUR)
     digest = codes.code_hmac("reset", email, code)
