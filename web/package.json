@@ -45,6 +45,6 @@
   },
   "overrides": {
     "playwright-core": "1.63.0",
-    "minimatch": "$minimatch"
+    "minimatch": "11.0.1"
   }
 }
