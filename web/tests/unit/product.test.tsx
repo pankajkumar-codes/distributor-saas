@@ -127,7 +127,7 @@ describe("editing a product", () => {
     server.reply(ONE, { status: 200, body: detail() });
     open("/b/b-1/products/p-1");
     await screen.findByRole("heading", { name: "Neem soap" });
-    server.reply(ONE, { status: 200, body: detail({ name: "Neem bath soap", version: 4 }) });
+    server.reply(`PATCH ${ONE}`, { status: 200, body: detail({ name: "Neem bath soap", version: 4 }) });
     type("Name", "Neem bath soap");
     type("HSN (optional)", " ");
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
@@ -142,11 +142,11 @@ describe("editing a product", () => {
     open("/b/b-1/products/p-1");
     await screen.findByRole("heading", { name: "Neem soap" });
     server.reply(
-      ONE,
+      `PATCH ${ONE}`,
       { status: 409, body: { error: { code: "stale_record", message: "Someone changed this product since you opened it" } } },
-      { status: 200, body: detail({ sale_rate: "50.00", version: 4 }) },
       { status: 200, body: detail({ sale_rate: "48.00", version: 5 }) },
     );
+    server.reply(`GET ${ONE}`, { status: 200, body: detail({ sale_rate: "50.00", version: 4 }) });
     type("Sale rate per unit, excluding GST (₹)", "48.00");
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     expect(await screen.findByText(/Someone changed this product since you opened it/)).toBeInTheDocument();
@@ -164,11 +164,11 @@ describe("editing a product", () => {
     open("/b/b-1/products/p-1");
     await screen.findByRole("heading", { name: "Neem soap" });
     server.reply(
-      ONE,
+      `PATCH ${ONE}`,
       { status: 409, body: { error: { code: "stale_record", message: "Someone changed this product since you opened it" } } },
-      { status: 200, body: detail({ sale_rate: "50.00", version: 4 }) },
       { status: 200, body: detail({ name: "Neem bath soap", sale_rate: "50.00", version: 5 }) },
     );
+    server.reply(`GET ${ONE}`, { status: 200, body: detail({ sale_rate: "50.00", version: 4 }) });
     type("Name", "Neem bath soap");
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     expect(await screen.findByText("Someone else changed this.")).toBeInTheDocument();
@@ -194,7 +194,8 @@ describe("editing a product", () => {
   });
 
   it("offers Delete only for a product never used, and asks first", async () => {
-    server.reply(ONE, { status: 200, body: detail() }, { status: 204 });
+    server.reply(`GET ${ONE}`, { status: 200, body: detail() });
+    server.reply(`DELETE ${ONE}`, { status: 204 });
     server.reply(LIST, { status: 200, body: { items: [], has_more: false } });
     open("/b/b-1/products/p-1");
     await screen.findByRole("heading", { name: "Neem soap" });
