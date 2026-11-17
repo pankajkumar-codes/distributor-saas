@@ -189,7 +189,9 @@ export function HomePage() {
           </ul>
         </nav>
         <nav className="card" aria-labelledby="settings">
-          <h2 id="settings">Settings</h2>
+          <h2 id="settings">
+            <Link to={`/b/${businessId}/settings`}>Settings</Link>
+          </h2>
           <ul className="list">
             <li>
               <Link to={`/b/${businessId}/settings/company`}>Business details</Link>
