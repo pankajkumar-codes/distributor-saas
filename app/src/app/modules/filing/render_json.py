@@ -17,6 +17,7 @@ What is NOT verified against the portal, and what the test upload (T1 to T4) is 
 - A monthly return only: `filing_typ` is "M" and a quarterly or IFF file raises `NotRenderable` in the model.
 """
 
+import json
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
@@ -196,6 +197,4 @@ def dumps(value) -> str:
 
 
 def _string(s: str) -> str:
-    import json
-
     return json.dumps(s, ensure_ascii=True)

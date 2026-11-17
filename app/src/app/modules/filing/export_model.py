@@ -131,7 +131,9 @@ def _items(rows) -> tuple[Item, ...]:
 
 
 def _invoices(rows) -> tuple[Invoice, ...]:
-    """Rows are one per invoice and rate; an invoice is its number and date, ordered by date then number."""
+    """Rows are one per invoice and rate; an invoice is its number and date, ordered by date then number. Two different
+    documents with one number cannot be merged here by accident: check C-04 blocks the export while a number is used by
+    more than one document in a financial year."""
     by: dict[tuple, list] = {}
     for r in rows:
         by.setdefault((r.invoice_date, r.invoice_number), []).append(r)
