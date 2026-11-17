@@ -11,6 +11,17 @@
   status: provisional
   note: "Help row 3 says approximately 19,000 line items per upload; the stricter 10,000 split (team/gst/gstr1-examples.md Part D) is used until the GST expert confirms (team/gst/gstr1-offline-template.md)."
 
+- key: gstr1.portal_file.max_bytes
+  value: "5242880"
+  type: integer
+  kind: tax
+  valid_from: 2017-07-01
+  source_url: https://tutorial.gst.gov.in/offlineutilities/returns/gst_offline_tool.zip
+  source_title: "GSTR-1 offline tool user manual: a JSON file to upload to the portal is limited to 5 MB (as read by the GST researcher, team/research/gstr1-offline-json-structure.md section 4)"
+  last_checked: 2026-11-17
+  status: provisional
+  note: "Used with gstr1.offline_tool.max_lines to split an export into several files. A part over this size fails the export with a plain message rather than being cut."
+
 # B2CL threshold (LLD-4 §3.3, tax-computation §7). Copied from the GST expert's
 # team/gst/refdata-lld4.md v1.0 §1; the first row's valid_to is the first day it no
 # longer covers (2024-08-01), as the loader reads it.

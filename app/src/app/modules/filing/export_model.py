@@ -10,9 +10,10 @@ Only a monthly GSTR-1 is rendered. A quarterly GSTR-1 and an IFF need a file typ
 (research: `gstr1-offline-json-structure.md` §5.8), so they raise `NotRenderable` with a plain reason.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
+from typing import NamedTuple
 
 from app.modules.business.interface import gstin_state
 from platform_common.money import PAISE
@@ -189,4 +190,79 @@ def _hsn(rows) -> tuple[HsnLine, ...]:
     return tuple(
         HsnLine(r.hsn, r.uqc, r.quantity.quantize(PAISE, rounding=ROUND_HALF_UP), r.rate, r.amounts)
         for r in sorted(rows, key=lambda r: (r.hsn, r.uqc, r.rate))
+    )
+
+
+def rows_in(model: ExportModel) -> int:
+    """Data rows in the file, as the portal counts them (one per rate of a document, and one per summary row)."""
+    return (
+        sum(len(i.items) for p in model.b2b for i in p.invoices)
+        + sum(len(i.items) for g in model.b2cl for i in g.invoices)
+        + len(model.b2cs)
+        + sum(len(n.items) for p in model.cdnr for n in p.notes)
+        + sum(len(n.items) for n in model.cdnur)
+        + len(model.hsn_b2b)
+        + len(model.hsn_b2c)
+    )
+
+
+class _Doc(NamedTuple):  # one document on its way into a file
+    table: str
+    key: object  # the recipient or place it is grouped under
+    doc: object
+    rows: int
+
+
+def split(model: ExportModel, max_rows: int) -> list[ExportModel]:
+    """The model as one or more files of at most `max_rows` rows, cut only between documents. B2CS and HSN rows are
+    summaries of the whole return, so they appear once, in the last file (a file of their own if they do not fit with it)."""
+    if max_rows < 1:
+        raise ValueError("a file holds at least one row")
+    if rows_in(model) <= max_rows:
+        return [model]
+    docs: list[_Doc] = []
+    for p in model.b2b:
+        docs += [_Doc("b2b", p, i, len(i.items)) for i in p.invoices]
+    for g in model.b2cl:
+        docs += [_Doc("b2cl", g, i, len(i.items)) for i in g.invoices]
+    for p in model.cdnr:
+        docs += [_Doc("cdnr", p, n, len(n.items)) for n in p.notes]
+    docs += [_Doc("cdnur", None, n, len(n.items)) for n in model.cdnur]
+    groups: list[list[_Doc]] = [[]]
+    used = 0
+    for d in docs:
+        if used and used + d.rows > max_rows:
+            groups.append([])
+            used = 0
+        groups[-1].append(d)
+        used += d.rows
+    summary = len(model.b2cs) + len(model.hsn_b2b) + len(model.hsn_b2c)
+    if summary > max_rows:
+        raise NotRenderable("The summary tables are longer than one file can hold, so no file can be made.")
+    parts = [_part(model, g) for g in groups]
+    if used + summary <= max_rows and groups[-1]:
+        last = parts[-1]
+        parts[-1] = replace(last, b2cs=model.b2cs, hsn_b2b=model.hsn_b2b, hsn_b2c=model.hsn_b2c)
+    elif summary:
+        parts.append(replace(_part(model, []), b2cs=model.b2cs, hsn_b2b=model.hsn_b2b, hsn_b2c=model.hsn_b2c))
+    return parts
+
+
+def _part(model: ExportModel, group) -> ExportModel:
+    """A file holding just these documents, regrouped under their recipient or place (the same order as the whole)."""
+
+    def under(table: str, make):
+        keys: dict = {}
+        for d in group:
+            if d.table == table:
+                keys.setdefault(id(d.key), (d.key, []))[1].append(d.doc)
+        return tuple(make(key, docs) for key, docs in keys.values())
+
+    return ExportModel(
+        gstin=model.gstin,
+        period=model.period,
+        b2b=under("b2b", lambda p, d: Party(p.gstin, invoices=tuple(d))),
+        b2cl=under("b2cl", lambda g, d: PlaceGroup(g.pos, tuple(d))),
+        cdnr=under("cdnr", lambda p, d: Party(p.gstin, notes=tuple(d))),
+        cdnur=tuple(d.doc for d in group if d.table == "cdnur"),
     )

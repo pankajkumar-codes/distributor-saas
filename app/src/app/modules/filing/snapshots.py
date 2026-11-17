@@ -92,6 +92,16 @@ def _totals(build: ReturnBuild) -> dict:
             "documents": len(build.members)}  # fmt: skip
 
 
+def lock_instance(tx: Session, instance_id: uuid.UUID) -> None:
+    """Serialise writers of this instance's snapshots until the transaction ends. A writer that builds the return takes
+    this first, then builds, so the snapshot it writes is of the state it holds the lock over (the same lock is taken
+    again, harmlessly, by `write_snapshot`)."""
+    tx.execute(
+        text("select pg_advisory_xact_lock(hashtextextended('filing.snapshot:' || cast(:i as text), 0))"),
+        {"i": instance_id},
+    )
+
+
 def write_snapshot(
     uow: BusinessUoW,
     instance: ReturnInstance,
@@ -116,10 +126,7 @@ def write_snapshot(
         raise ValueError("the build is of another return")
     tx = uow.tx
     business = uow.principal.business_id
-    tx.execute(
-        text("select pg_advisory_xact_lock(hashtextextended('filing.snapshot:' || cast(:i as text), 0))"),
-        {"i": instance.id},
-    )
+    lock_instance(tx, instance.id)
     sid = snapshot_id or uuid7()
     existing = tx.execute(
         text("select id, instance_id, version, purpose, fingerprint from filing.return_snapshots where id = :s"),
@@ -198,4 +205,5 @@ def read_members(tx: Session, snapshot_id: uuid.UUID) -> set[tuple[str, uuid.UUI
     }
 
 
-__all__ = ["BUILDER_VERSION", "Snapshot", "latest", "read_members", "read_rows", "rows_of", "write_snapshot"]
+__all__ = ["BUILDER_VERSION", "Snapshot", "latest", "lock_instance", "read_members", "read_rows", "rows_of",
+           "write_snapshot"]  # fmt: skip
