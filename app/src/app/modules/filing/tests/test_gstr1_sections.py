@@ -323,3 +323,12 @@ def test_sums_are_exact_decimals_never_rounded():
 def test_an_iff_takes_no_hsn_lines():  # an IFF has no Table 12 (IFFQ FAQ 10)
     with pytest.raises(BadSupplyLine, match="hsn_lines"):
         build_sections([Q1], kind="IFF", hsn_lines=[Q1])
+
+
+def test_every_pending_item_has_plain_words_for_an_owner_and_no_team_references():
+    from app.modules.filing.gstr1 import PENDING_PLAIN
+
+    assert set(PENDING_PLAIN) == {*PENDING, QUARTER_PENDING}
+    assert len({code for code, _ in PENDING_PLAIN.values()}) == len(PENDING_PLAIN)
+    for _, text in PENDING_PLAIN.values():
+        assert not any(t in text for t in ("gstr1-examples", "LLD", "QA ", "CA-2", "CA-3", "template", "[CA]", "R1b"))

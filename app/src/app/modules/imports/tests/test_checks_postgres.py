@@ -42,7 +42,7 @@ def codes(fs):
 def test_a_clean_invoice_has_only_the_standing_unconfirmed_values_finding(shop):  # noqa: F811
     fs = findings(shop, [line("INV-1")])
     assert codes(fs) == ["C-16"] and fs[0].level == "warn" and fs[0].needs_ca_check
-    assert "invoice.number.max_length" in fs[0].message
+    assert "the rules for invoice numbers" in fs[0].message and "invoice.number" not in fs[0].message
 
 
 def test_a_tax_that_is_not_taxable_times_rate_is_shown_with_the_difference_never_blocked(shop):  # noqa: F811
