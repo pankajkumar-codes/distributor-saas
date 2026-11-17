@@ -222,3 +222,6 @@
 - path: app/src/app/modules/filing/api.py
   value: "12"
   reason: "the longest page marker (a row offset as digits) a section request may carry; a request-size limit, not a tax value"
+- path: app/src/app/modules/filing/api.py
+  value: "500"
+  reason: "longest note kept with an accepted warning; an input size cap, not a tax rule"
