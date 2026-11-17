@@ -4,10 +4,13 @@ import { errorText } from "../../api/errors";
 import { canUpload, canViewUploads } from "../../auth/roles";
 import { useMyBusinesses } from "../../auth/useMyBusinesses";
 import { Banner } from "../../kit/Banner";
+import { Button } from "../../kit/Button";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
-import { SECTIONS } from "./sections";
+import { sectionsFor } from "./sections";
+import { OwnInvoicesCard } from "./OwnInvoicesCard";
 import { UploadCard } from "./UploadCard";
+import { useChannels } from "./useChannels";
 
 /**
  * Upload your reports (R1-M3, BRD GF-13). Every section is optional. Uploads belong to the
@@ -19,6 +22,7 @@ export function UploadsPage() {
   const [params, setParams] = useSearchParams();
   const businesses = useMyBusinesses();
   const business = businesses.data?.find((b) => b.business_id === businessId);
+  const channels = useChannels(businessId, Boolean(business && canViewUploads(business.role)));
 
   if (businesses.isPending) {
     return (
@@ -45,6 +49,8 @@ export function UploadsPage() {
       return out;
     });
 
+  const shown = channels.data ? sectionsFor(channels.data) : [];
+
   return (
     <>
       <TopBar title={business.display_name} gstin={business.gstin} />
@@ -54,7 +60,24 @@ export function UploadsPage() {
         </p>
         <h1>Upload your reports</h1>
         <p className="hint">Every section is optional. Add what you have; you can come back and add more.</p>
-        {SECTIONS.map((s) => (
+        {channels.isPending && <p aria-busy="true">Loading…</p>}
+        {channels.error && (
+          <Banner tone="error">
+            We couldn't load where you sell. {errorText(channels.error)}{" "}
+            <Button type="button" variant="link" onClick={() => channels.refetch()}>
+              Try again
+            </Button>
+          </Banner>
+        )}
+        {channels.data && shown.length === 0 && (
+          <Banner>
+            You haven't said where you sell yet. <Link to={`/b/${businessId}/settings/company`}>Choose it in Business details</Link>, then come back to add your files.
+          </Banner>
+        )}
+        {shown.map((s) =>
+          s.id === "own_invoices_excel" ? (
+            <OwnInvoicesCard key={s.id} businessId={businessId} label={s.label} hint={s.hint} canUpload={canUpload(business.role)} />
+          ) : (
           <UploadCard
             key={s.id}
             businessId={businessId}
@@ -65,7 +88,8 @@ export function UploadsPage() {
             uploadId={params.get(s.id)}
             onUpload={(id) => follow(s.id, id)}
           />
-        ))}
+          ),
+        )}
       </main>
     </>
   );

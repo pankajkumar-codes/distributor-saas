@@ -13,9 +13,13 @@ from platform_common import jobs
 from platform_common.errors import AppError, Deny
 from platform_common.permissions import Permission, has_permission
 
-from . import uploads
+from platform_common.clock import get_clock
+
+from . import bundles, uploads
 
 PARSE = "imports.parse"
+CLASSIFY_BUNDLE = "imports.bundle_classify"
+STAGE_BUNDLE = "imports.bundle_stage"
 
 
 def _upload_id(ctx: jobs.JobContext) -> uuid.UUID:
@@ -60,3 +64,43 @@ def _settle(ctx: jobs.JobContext, upload_id: uuid.UUID, reason: str) -> None:
             uploads.reject(ctx.uow, upload_id, reason)
     except (AppError, Deny):
         pass
+
+
+def _bundle_job(ctx: jobs.JobContext, work, wait_for: str) -> dict:
+    """Run one bundle step as the user who asked for it, after re-checking their role, like the parse job. A bundle we
+    cannot use is settled as rejected here, so the screen sees one status; an unexpected fault is retried and, on the
+    last attempt, settled the same way."""
+    bundle_id = _upload_id(ctx)
+    p = ctx.uow.principal
+    today = get_clock().today()
+
+    def settle(reason: str) -> dict:
+        try:
+            if bundles.get(ctx.uow, bundle_id).status == wait_for:
+                bundles._reject(ctx.uow, bundle_id, reason)
+        except (AppError, Deny):
+            pass
+        return {"bundle_id": str(bundle_id), "status": "rejected", "error": reason}
+
+    if not has_permission(member_role(ctx.uow.tx, p.business_id, p.user_id), Permission.UPLOADS_CREATE):
+        return settle("not_allowed")
+    try:
+        with ctx.uow.tx.begin_nested():
+            done = work(ctx.uow, bundle_id, today)
+    except (AppError, Deny):
+        return settle("read_failed")
+    except Exception:
+        if ctx.attempt >= jobs.MAX_ATTEMPTS:
+            return settle("read_failed")
+        raise  # rolled back, retried
+    return {"bundle_id": str(bundle_id), "status": done.status}
+
+
+@jobs.handler(CLASSIFY_BUNDLE)
+def classify_bundle(ctx: jobs.JobContext) -> dict:
+    return _bundle_job(ctx, bundles.process, "received")
+
+
+@jobs.handler(STAGE_BUNDLE)
+def stage_bundle(ctx: jobs.JobContext) -> dict:
+    return _bundle_job(ctx, bundles.stage, "staging")

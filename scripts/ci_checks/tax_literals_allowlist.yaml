@@ -237,3 +237,9 @@
 - path: app/src/app/modules/filing/lock.py
   value: "32"
   reason: "width of the ARN column (varchar(32)); input hygiene, no cited ARN format exists"
+- path: app/src/app/modules/imports/bundles.py
+  value: "1024"
+  reason: "bytes in a kilobyte, to show a size limit in megabytes in a message; not a tax number"
+- path: app/src/app/modules/imports/bundles.py
+  value: "10"
+  reason: "the longest file extension kept when a long file name is shortened to fit its column; not a tax number"

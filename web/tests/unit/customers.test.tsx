@@ -52,6 +52,12 @@ const queries = () =>
   server.sent.filter((s) => s.path === LIST).map((s) => Object.fromEntries(new URL(s.url).searchParams));
 
 describe("the customers list", () => {
+  it("has a Home link back to the business's filing home", async () => {
+    server.reply(LIST, page([]));
+    open();
+    expect(await screen.findByRole("link", { name: "Home" })).toHaveAttribute("href", "/b/b-1/home");
+  });
+
   it("shows each customer's GSTIN, billing state and credit days as the server sends them, with its warnings", async () => {
     server.reply(
       LIST,

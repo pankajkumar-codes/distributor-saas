@@ -1359,6 +1359,103 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/upload-bundles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Bundle
+         * @description A bundle and a presigned POST for exactly its key, type and declared size.
+         */
+        post: operations["start_bundle_api_v1_b__business_id__upload_bundles_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/upload-bundles/{bundle_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Bundle */
+        get: operations["get_bundle_api_v1_b__business_id__upload_bundles__bundle_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/upload-bundles/{bundle_id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete Bundle
+         * @description The zip finished uploading: check it is there, then queue the sorting. Calling it again returns the same job.
+         */
+        post: operations["complete_bundle_api_v1_b__business_id__upload_bundles__bundle_id__complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/upload-bundles/{bundle_id}/files/{n}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Choose Bundle File
+         * @description Move a file to another section, or drop it. Nothing is edited: each choice is a new record.
+         */
+        patch: operations["choose_bundle_file_api_v1_b__business_id__upload_bundles__bundle_id__files__n__patch"];
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/upload-bundles/{bundle_id}/stage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stage Bundle
+         * @description Turn each file that is going to be read into an ordinary upload. Asking again returns the same job.
+         */
+        post: operations["stage_bundle_api_v1_b__business_id__upload_bundles__bundle_id__stage_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/upload-sections": {
         parameters: {
             query?: never;
@@ -2100,6 +2197,79 @@ export interface components {
             label: string;
             /** Rows */
             rows: number[];
+        };
+        /** BundleChoiceIn */
+        BundleChoiceIn: {
+            /** Section */
+            section: ("amazon" | "flipkart" | "meesho" | "own_invoices_excel" | "own_invoices_pdf") | null;
+        };
+        /** BundleFileOut */
+        BundleFileOut: {
+            /** File Name */
+            file_name: string;
+            /** Found Section */
+            found_section: ("amazon" | "flipkart" | "meesho" | "own_invoices_excel" | "own_invoices_pdf") | null;
+            /** Moved */
+            moved: boolean;
+            /** N */
+            n: number;
+            /** Note */
+            note: string | null;
+            /** Reason */
+            reason: string | null;
+            /** Reason Code */
+            reason_code: string | null;
+            /** Section */
+            section: ("amazon" | "flipkart" | "meesho" | "own_invoices_excel" | "own_invoices_pdf") | null;
+            /** Size Bytes */
+            size_bytes: number;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "used" | "not_used" | "not_selected" | "dropped";
+            /** Upload Id */
+            upload_id: string | null;
+        };
+        /** BundleOut */
+        BundleOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** File Name */
+            file_name: string;
+            /** Files */
+            files: components["schemas"]["BundleFileOut"][];
+            /** Id */
+            id: string;
+            /** Reject Message */
+            reject_message: string | null;
+            /** Reject Reason */
+            reject_reason: string | null;
+            /** Selectable Sections */
+            selectable_sections: ("amazon" | "flipkart" | "meesho" | "own_invoices_excel" | "own_invoices_pdf")[];
+            /** Size Bytes */
+            size_bytes: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "received" | "classified" | "staging" | "staged" | "rejected" | "expired";
+        };
+        /** BundleStartIn */
+        BundleStartIn: {
+            /** File Name */
+            file_name: string;
+            /** Size Bytes */
+            size_bytes: number;
+        };
+        /** BundleStartOut */
+        BundleStartOut: {
+            /** Bundle Id */
+            bundle_id: string;
+            upload: components["schemas"]["PresignedPostOut"];
         };
         /** CDNRPage */
         CDNRPage: {
@@ -7410,6 +7580,176 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UnitOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_bundle_api_v1_b__business_id__upload_bundles_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BundleStartIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BundleStartOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_bundle_api_v1_b__business_id__upload_bundles__bundle_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bundle_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BundleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    complete_bundle_api_v1_b__business_id__upload_bundles__bundle_id__complete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bundle_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobRef"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    choose_bundle_file_api_v1_b__business_id__upload_bundles__bundle_id__files__n__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bundle_id: string;
+                n: number;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BundleChoiceIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BundleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stage_bundle_api_v1_b__business_id__upload_bundles__bundle_id__stage_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bundle_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobRef"];
                 };
             };
             /** @description Validation Error */
