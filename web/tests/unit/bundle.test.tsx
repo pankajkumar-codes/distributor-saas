@@ -108,7 +108,7 @@ describe("a zip of reports", () => {
 
   it("removes text-direction controls from the names it shows", async () => {
     open("owner", "/b/b-1/uploads?bundle=bd-1");
-    server.reply(`GET ${ONE}`, bundle("classified", [file(1, "inv\u202Egpj.exe.csv")], { file_name: "re\u202Eports.zip" }));
+    server.reply(`GET ${ONE}`, bundle("classified", [file(1, "inv\u202Egpj.exe\u061C.csv")], { file_name: "re\u202Eports.zip" }));
     const z = await card();
     expect(await z.findByText("invgpj.exe.csv")).toBeInTheDocument();
     expect(z.getByText("reports.zip")).toBeInTheDocument();
@@ -119,6 +119,16 @@ describe("a zip of reports", () => {
     open("owner", "/b/b-1/uploads?bundle=bd-1");
     server.reply(`GET ${ONE}`, bundle("received", [], { created_at: new Date(Date.now() - 20 * 60 * 1000).toISOString() }));
     const z = await card();
+    expect(await z.findByText(/taking longer than usual/)).toBeInTheDocument();
+    expect(z.queryByText(/Sorting your files/)).not.toBeInTheDocument();
+  });
+
+  it("changes the line by itself when the limit is reached while the person stays on the page", async () => {
+    open("owner", "/b/b-1/uploads?bundle=bd-1");
+    // 700 ms short of the 15-minute limit: the page must redraw on its own, with no new reply from the server.
+    server.reply(`GET ${ONE}`, bundle("received", [], { created_at: new Date(Date.now() - (15 * 60 * 1000 - 700)).toISOString() }));
+    const z = await card();
+    expect(await z.findByText(/Sorting your files/)).toBeInTheDocument();
     expect(await z.findByText(/taking longer than usual/)).toBeInTheDocument();
     expect(z.queryByText(/Sorting your files/)).not.toBeInTheDocument();
   });

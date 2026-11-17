@@ -1,10 +1,10 @@
-import { useId, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useReducer, useRef, useState, type FormEvent } from "react";
 
 import { errorText, type ApiError } from "../../api/errors";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { ErrorDetail } from "../../kit/ErrorDetail";
-import { pollingGaveUp, sendBundle, shownName, useBundle, useChooseFile, useStageBundle, type Bundle, type BundleFile } from "./useBundle";
+import { GIVE_UP_MS, pollingGaveUp, sendBundle, shownName, useBundle, useChooseFile, useStageBundle, type Bundle, type BundleFile } from "./useBundle";
 
 type Props = { businessId: string; bundleId: string | null; onBundle: (id: string | null) => void };
 
@@ -149,7 +149,16 @@ function BundleView({
   const stage = useStageBundle(businessId, bundle.id);
   const [moved, setMoved] = useState<{ n: number; message: string }>();
 
+  const [, redraw] = useReducer((n: number) => n + 1, 0);
   const stopped = pollingGaveUp(bundle, staging);
+  const watching = !stopped && (bundle.status === "pending" || bundle.status === "received" || bundle.status === "staging" || (staging && bundle.status === "classified"));
+  // Polling stops at the limit without anything changing on the screen, so draw once more when it is reached.
+  useEffect(() => {
+    if (!watching) return;
+    const left = Date.parse(bundle.created_at) + GIVE_UP_MS - Date.now();
+    const t = setTimeout(redraw, Math.max(0, left) + 50);
+    return () => clearTimeout(t);
+  }, [watching, bundle.created_at]);
 
   if (bundle.status === "pending" || bundle.status === "received") {
     return (

@@ -14,7 +14,7 @@ type Section = components["schemas"]["BundleChoiceIn"]["section"];
 const bundleKey = (businessId: string, bundleId: string | null) => ["b", businessId, "bundle", bundleId];
 // The server is still working on the zip in these states; the user waits.
 const BUSY = new Set<Bundle["status"]>(["pending", "received", "staging"]);
-const GIVE_UP_MS = 15 * 60 * 1000;
+export const GIVE_UP_MS = 15 * 60 * 1000;
 
 /** True when a bundle is still being worked on but the page has stopped looking (it is older than 15 minutes). */
 export function pollingGaveUp(b: Pick<Bundle, "status" | "created_at">, staging: boolean): boolean {
@@ -24,7 +24,7 @@ export function pollingGaveUp(b: Pick<Bundle, "status" | "created_at">, staging:
 
 /** A file name for the screen: the invisible text-direction controls that can make a name read as another name are removed. */
 export function shownName(name: string): string {
-  return name.replace(/[\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, "");
+  return name.replace(/[\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, "");
 }
 
 /**
