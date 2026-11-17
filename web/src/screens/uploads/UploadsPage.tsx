@@ -8,6 +8,7 @@ import { Button } from "../../kit/Button";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
 import { sectionsFor } from "./sections";
+import { BundleCard } from "./BundleCard";
 import { OwnInvoicesCard } from "./OwnInvoicesCard";
 import { UploadCard } from "./UploadCard";
 import { useChannels } from "./useChannels";
@@ -74,6 +75,7 @@ export function UploadsPage() {
             You haven't said where you sell yet. <Link to={`/b/${businessId}/settings/company`}>Choose it in Business details</Link>, then come back to add your files.
           </Banner>
         )}
+        {shown.length > 0 && canUpload(business.role) && <BundleCard businessId={businessId} bundleId={params.get("bundle")} onBundle={(id) => follow("bundle", id)} />}
         {shown.map((s) =>
           s.id === "own_invoices_excel" ? (
             <OwnInvoicesCard key={s.id} businessId={businessId} label={s.label} hint={s.hint} canUpload={canUpload(business.role)} />
