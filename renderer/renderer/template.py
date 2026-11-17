@@ -113,6 +113,10 @@ def _line(ln: dict, with_tax: bool) -> str:
 
 def render_html(doc: dict) -> str:
     """The whole page for one render input. Raises ValueError on a malformed input."""
+    if isinstance(doc, dict) and doc.get("template") == "gstr3b-worksheet":
+        from .worksheet_template import render_html as render_worksheet  # imports this module's helpers
+
+        return render_worksheet(doc)
     if _obj(doc) is None or doc.get("v") != 1 or doc.get("template") != "invoice-draft":
         raise ValueError("not an invoice-draft render input v1")
     totals = _obj(doc.get("totals"))
