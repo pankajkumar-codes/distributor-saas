@@ -66,6 +66,17 @@ class FakeAuthProvider:
     def user(self, email: str) -> _User | None:
         return self._users.get(email.strip().lower())
 
+    def demo_two_step(self, *, access_token: str | None = None, email: str | None = None) -> tuple[str, str] | None:
+        """(email, code) the local demo prints for a person who has started two-step sign-in, found by access token
+        or by email. None when there is no secret yet."""
+        try:
+            u = self._by_sub(self._sub_of(access_token)) if access_token else self.user(email or "")
+        except Exception:  # a bad token is the caller's problem, not the demo's
+            return None
+        if u is None or u.totp_secret is None:
+            return None
+        return u.email, self.totp_code(u.totp_secret)
+
     # -- AuthProvider ---------------------------------------------------------
     def create_user(self, email: str, password: str) -> str:
         email = email.strip().lower()
