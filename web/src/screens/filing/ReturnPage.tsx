@@ -275,7 +275,7 @@ export function ReturnPage() {
                 </>
               )}
             </section>
-            {d.export && d.instance.status !== "filed_locked" && <ExportPanel businessId={businessId} instanceId={instanceId} gate={d.export} fingerprint={d.fingerprint} />}
+            {d.export && d.instance.status !== "filed_locked" && <ExportPanel businessId={businessId} instanceId={instanceId} gate={d.export} fingerprint={d.fingerprint} periodLabel={d.instance.period_label} />}
             <FiledPanel businessId={businessId} instance={d.instance} role={business.role} />
             <section aria-labelledby="sections">
               <h2 id="sections">What is in the return</h2>
