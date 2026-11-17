@@ -82,11 +82,13 @@ so you create a business through the sign-up page.
 1. Install **Docker Desktop**, and in Settings > Resources > WSL integration turn on your Ubuntu distro. Install Ubuntu from
    the Microsoft Store if you do not have it, then in PowerShell run `wsl --shutdown` and reopen Ubuntu so the setting takes effect.
    A `docker-desktop` entry in `wsl --status` or `wsl -l -v` is Docker's own and cannot be used for these steps: you need Ubuntu.
-2. In Ubuntu, check `docker ps` works: it must print a table. If it says "permission denied ... docker.sock", turn the WSL
-   integration on as in step 1; if it still fails, run `sudo usermod -aG docker $USER`, then close and reopen Ubuntu. The project needs **Python 3.12**. Ubuntu's own Python may be newer (3.14 at the
-   time of writing) and is too new, so install 3.12 from the deadsnakes archive:
-   `sudo add-apt-repository ppa:deadsnakes/ppa && sudo apt update && sudo apt install python3.12 python3.12-venv`.
-   The web app needs **Node.js 22 or newer** (`node -v`).
+2. In Ubuntu, check three things (they are all part of step 2, so the later step numbers stay the same):
+   - **Docker:** `docker ps` must print a table. If it says "permission denied ... docker.sock", turn the WSL integration
+     on as in step 1; if it still fails, run `sudo usermod -aG docker $USER`, then close and reopen Ubuntu.
+   - **Python 3.12:** the project needs it. Ubuntu's own Python may be newer (3.14 at the time of writing) and is too new,
+     so install 3.12 from the deadsnakes archive:
+     `sudo add-apt-repository ppa:deadsnakes/ppa && sudo apt update && sudo apt install python3.12 python3.12-venv`.
+   - **Node.js 22 or newer** for the web app (`node -v`).
 3. Get the code **inside the Linux home folder** (`cd ~`, not under `/mnt/c`, which is slow). The repository is private, so
    sign in with GitHub's own tool: install `gh` (`sudo apt install gh`), run `gh auth login`, follow its browser steps, then
    `gh repo clone pankajkumar-codes/distributor-saas && cd distributor-saas`. Never paste a password or token into a chat or a file.
