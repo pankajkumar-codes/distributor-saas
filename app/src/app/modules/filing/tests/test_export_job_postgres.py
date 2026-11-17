@@ -313,6 +313,20 @@ def test_a_job_of_another_return_or_kind_is_not_found_here(ex):
     assert status(pg, b, inst, uuid.uuid4()).status_code == 404
 
 
+def test_a_job_result_naming_a_snapshot_that_is_not_this_returns_is_not_served(ex):
+    pg, b, inst, stage, queue, _ = ex
+    job = start(pg, b, inst).json()["job_id"]
+    run(queue)
+    assert status(pg, b, inst, job).json()["status"] == "ready"
+    with pg.owner.begin() as c:
+        c.execute(
+            text("update platform.jobs set result = jsonb_set(result, '{snapshot_id}', to_jsonb(cast(:s as text)))"
+                 " where id = :j"),
+            {"s": str(uuid.uuid4()), "j": job},
+        )  # fmt: skip
+    assert status(pg, b, inst, job).status_code == 404
+
+
 def test_a_member_who_loses_the_role_before_the_job_runs_is_refused_by_the_job(ex):
     pg, b, inst, stage, queue, store = ex
     seed_member(pg, b, "cathy", "ca")

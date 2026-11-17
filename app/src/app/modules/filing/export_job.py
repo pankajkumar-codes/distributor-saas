@@ -214,6 +214,12 @@ def status(uow: UnitOfWork, instance_id: uuid.UUID, job_id: uuid.UUID) -> dict:
     if not entitlement.allowed(uow.tx, business):
         raise Conflict("download_not_available", "Downloading the file is not available for your plan yet.")
     sid = uuid.UUID((job.result or {})["snapshot_id"])
+    mine = uow.tx.execute(
+        text("select 1 from filing.return_snapshots where id = :s and instance_id = :i and business_id = :b"),
+        {"s": sid, "i": instance_id, "b": business},
+    ).first()
+    if mine is None:  # a job result that names another return's snapshot is never served here
+        raise Deny("not_found")
     inst = periods.get_instance(uow.tx, instance_id)
     return files_of(uow, inst, sid, (job.result or {}).get("version"))
 

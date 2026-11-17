@@ -166,6 +166,25 @@ describe("Marking filed", () => {
     expect(sentTo(`${DETAIL}/filed`)[1].body).toEqual({ filed_on: "2026-11-10", arn: "A1", accept_changed: { reason: "Filed INV-2 by hand" } });
   });
 
+  it("keeps asking for the reason after a later try is refused for another cause", async () => {
+    server.reply(DETAIL, detail({ export: ready }));
+    server.reply(`${DETAIL}/filed`,
+      { status: 409, body: { error: { code: "changed_since_export", message: "x" } } },
+      { status: 422, body: { error: { code: "arn_invalid", message: "x", field: "arn" } } });
+    server.reply(`${DETAIL}/changes`, { status: 200, body: { reference: { purpose: "export", version: 1 }, same: false, difference: { added: [{ section: "b2b", number: "INV-2" }], removed: [], changed: [], summaries: [] } } });
+    open();
+    await screen.findByText(/Draft: not filed/);
+    fireEvent.change(form().date, { target: { value: "2026-11-10" } });
+    fireEvent.change(form().arn, { target: { value: "A1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Mark as filed and lock" }));
+    const why = await screen.findByLabelText("Why is what you filed different?");
+    fireEvent.change(why, { target: { value: "Filed INV-2 by hand" } });
+    fireEvent.click(screen.getByRole("button", { name: "Lock with this reason" }));
+    await waitFor(() => expect(sentTo(`${DETAIL}/filed`)).toHaveLength(2));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Lock with this reason" })).not.toBeDisabled());
+    expect(screen.getByLabelText("Why is what you filed different?")).toHaveValue("Filed INV-2 by hand");
+  });
+
   it("shows a refused date or ARN under its field", async () => {
     server.reply(DETAIL, detail({ export: ready }));
     server.reply(`${DETAIL}/filed`, { status: 422, body: { error: { code: "filed_on_before_period", message: "x", field: "filed_on" } } });
