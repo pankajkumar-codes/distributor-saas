@@ -104,7 +104,7 @@ export function ExportPanel({ businessId, instanceId, gate, fingerprint, periodL
       {status.isError && <Banner tone="error">We couldn't check on your file. {errorText(status.error)}</Banner>}
       {s?.status === "failed" && <Banner tone="error">{FAILED[s.error_code ?? ""] ?? "We couldn't make the file. Try again, or contact support."}</Banner>}
       {s?.status === "ready" && <FileResult file={s} title={`Your file (version ${s.version})`} />}
-      {s?.status === "ready" && <PortalGuide periodLabel={periodLabel} />}
+      {s?.status === "ready" && <PortalGuide periodLabel={periodLabel} readyToUpload={s.ready_to_upload} />}
     </section>
   );
 }
