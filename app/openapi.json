@@ -540,6 +540,24 @@
         "title": "BlockerOut",
         "type": "object"
       },
+      "CaFlagOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "text"
+        ],
+        "title": "CaFlagOut",
+        "type": "object"
+      },
       "CashBuyerIn": {
         "additionalProperties": false,
         "properties": {
@@ -1461,6 +1479,31 @@
         "title": "CustomerPatch",
         "type": "object"
       },
+      "DebitNotesOut": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "notice": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notice"
+          }
+        },
+        "required": [
+          "count",
+          "notice"
+        ],
+        "title": "DebitNotesOut",
+        "type": "object"
+      },
       "DifferenceOut": {
         "properties": {
           "excel": {
@@ -2218,6 +2261,85 @@
         "title": "FilingProfileOut",
         "type": "object"
       },
+      "FindingGroupOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "level": {
+            "enum": [
+              "block",
+              "warn",
+              "info"
+            ],
+            "title": "Level",
+            "type": "string"
+          },
+          "needs_ca_check": {
+            "title": "Needs Ca Check",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "code",
+          "level",
+          "count",
+          "needs_ca_check"
+        ],
+        "title": "FindingGroupOut",
+        "type": "object"
+      },
+      "FindingOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "level": {
+            "enum": [
+              "block",
+              "warn",
+              "info"
+            ],
+            "title": "Level",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "needs_ca_check": {
+            "title": "Needs Ca Check",
+            "type": "boolean"
+          },
+          "source_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Refs",
+            "type": "array"
+          },
+          "subject_fp": {
+            "title": "Subject Fp",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "level",
+          "message",
+          "source_refs",
+          "subject_fp",
+          "needs_ca_check"
+        ],
+        "title": "FindingOut",
+        "type": "object"
+      },
       "FrequencyIn": {
         "additionalProperties": false,
         "properties": {
@@ -2460,6 +2582,39 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "Heads": {
+        "properties": {
+          "cess": {
+            "title": "Cess",
+            "type": "string"
+          },
+          "cgst": {
+            "title": "Cgst",
+            "type": "string"
+          },
+          "igst": {
+            "title": "Igst",
+            "type": "string"
+          },
+          "sgst": {
+            "title": "Sgst",
+            "type": "string"
+          },
+          "taxable_value": {
+            "title": "Taxable Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "taxable_value",
+          "igst",
+          "cgst",
+          "sgst",
+          "cess"
+        ],
+        "title": "Heads",
         "type": "object"
       },
       "HomeOut": {
@@ -5056,6 +5211,96 @@
         "title": "ResolveIn",
         "type": "object"
       },
+      "ReturnDetailOut": {
+        "properties": {
+          "banner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Banner"
+          },
+          "ca_flags": {
+            "items": {
+              "$ref": "#/components/schemas/CaFlagOut"
+            },
+            "title": "Ca Flags",
+            "type": "array"
+          },
+          "debit_notes": {
+            "$ref": "#/components/schemas/DebitNotesOut"
+          },
+          "draft": {
+            "title": "Draft",
+            "type": "boolean"
+          },
+          "finding_groups": {
+            "items": {
+              "$ref": "#/components/schemas/FindingGroupOut"
+            },
+            "title": "Finding Groups",
+            "type": "array"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/FindingOut"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "instance": {
+            "$ref": "#/components/schemas/ReturnOut"
+          },
+          "line_items": {
+            "title": "Line Items",
+            "type": "integer"
+          },
+          "members_count": {
+            "title": "Members Count",
+            "type": "integer"
+          },
+          "report_only": {
+            "const": true,
+            "default": true,
+            "title": "Report Only",
+            "type": "boolean"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/app__modules__filing__api__SectionOut"
+            },
+            "title": "Sections",
+            "type": "array"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/TotalsOut"
+          }
+        },
+        "required": [
+          "instance",
+          "draft",
+          "banner",
+          "fingerprint",
+          "line_items",
+          "members_count",
+          "totals",
+          "sections",
+          "debit_notes",
+          "ca_flags",
+          "findings",
+          "finding_groups"
+        ],
+        "title": "ReturnDetailOut",
+        "type": "object"
+      },
       "ReturnOut": {
         "properties": {
           "due_date": {
@@ -5495,21 +5740,13 @@
         "title": "RunOut",
         "type": "object"
       },
-      "SectionOut": {
+      "SectionRowsOut": {
         "properties": {
-          "enabled": {
-            "title": "Enabled",
+          "has_more": {
+            "title": "Has More",
             "type": "boolean"
           },
-          "held_rows": {
-            "title": "Held Rows",
-            "type": "integer"
-          },
-          "needs_ca_check": {
-            "title": "Needs Ca Check",
-            "type": "boolean"
-          },
-          "requirement_note": {
+          "next_cursor": {
             "anyOf": [
               {
                 "type": "string"
@@ -5518,54 +5755,53 @@
                 "type": "null"
               }
             ],
-            "title": "Requirement Note"
+            "title": "Next Cursor"
+          },
+          "rows": {
+            "items": {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            "title": "Rows",
+            "type": "array"
           },
           "section": {
-            "enum": [
-              "amazon",
-              "flipkart",
-              "meesho",
-              "own_invoices_excel",
-              "own_invoices_pdf"
-            ],
             "title": "Section",
             "type": "string"
-          },
-          "status": {
-            "enum": [
-              "not uploaded",
-              "processing",
-              "ready",
-              "rows held"
-            ],
-            "title": "Status",
-            "type": "string"
-          },
-          "uploads": {
-            "items": {
-              "$ref": "#/components/schemas/app__modules__imports__api__UploadOut"
-            },
-            "title": "Uploads",
-            "type": "array"
           }
         },
         "required": [
           "section",
-          "enabled",
-          "status",
-          "uploads",
-          "held_rows",
-          "needs_ca_check",
-          "requirement_note"
+          "rows",
+          "has_more",
+          "next_cursor"
         ],
-        "title": "SectionOut",
+        "title": "SectionRowsOut",
         "type": "object"
       },
       "SectionsOut": {
         "properties": {
           "sections": {
             "items": {
-              "$ref": "#/components/schemas/SectionOut"
+              "$ref": "#/components/schemas/app__modules__imports__api__SectionOut"
             },
             "title": "Sections",
             "type": "array"
@@ -5928,6 +6164,26 @@
           "role"
         ],
         "title": "TenantOut",
+        "type": "object"
+      },
+      "TotalsOut": {
+        "properties": {
+          "gap": {
+            "$ref": "#/components/schemas/Heads"
+          },
+          "liability": {
+            "$ref": "#/components/schemas/Heads"
+          },
+          "table_12": {
+            "$ref": "#/components/schemas/Heads"
+          }
+        },
+        "required": [
+          "liability",
+          "table_12",
+          "gap"
+        ],
+        "title": "TotalsOut",
         "type": "object"
       },
       "TotpBody": {
@@ -6378,6 +6634,37 @@
         "title": "ReasonIn",
         "type": "object"
       },
+      "app__modules__filing__api__SectionOut": {
+        "properties": {
+          "name": {
+            "enum": [
+              "b2b",
+              "b2cl",
+              "b2cs",
+              "cdnr",
+              "cdnur",
+              "hsn_b2b",
+              "hsn_b2c"
+            ],
+            "title": "Name",
+            "type": "string"
+          },
+          "rows_count": {
+            "title": "Rows Count",
+            "type": "integer"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/Heads"
+          }
+        },
+        "required": [
+          "name",
+          "rows_count",
+          "totals"
+        ],
+        "title": "SectionOut",
+        "type": "object"
+      },
       "app__modules__identity__api_team__ReasonIn": {
         "properties": {
           "reason": {
@@ -6409,6 +6696,72 @@
           }
         },
         "title": "ConfirmIn",
+        "type": "object"
+      },
+      "app__modules__imports__api__SectionOut": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "held_rows": {
+            "title": "Held Rows",
+            "type": "integer"
+          },
+          "needs_ca_check": {
+            "title": "Needs Ca Check",
+            "type": "boolean"
+          },
+          "requirement_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requirement Note"
+          },
+          "section": {
+            "enum": [
+              "amazon",
+              "flipkart",
+              "meesho",
+              "own_invoices_excel",
+              "own_invoices_pdf"
+            ],
+            "title": "Section",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "not uploaded",
+              "processing",
+              "ready",
+              "rows held"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "uploads": {
+            "items": {
+              "$ref": "#/components/schemas/app__modules__imports__api__UploadOut"
+            },
+            "title": "Uploads",
+            "type": "array"
+          }
+        },
+        "required": [
+          "section",
+          "enabled",
+          "status",
+          "uploads",
+          "held_rows",
+          "needs_ca_check",
+          "requirement_note"
+        ],
+        "title": "SectionOut",
         "type": "object"
       },
       "app__modules__imports__api__UploadOut": {
@@ -10517,6 +10870,134 @@
           }
         },
         "summary": "List Returns",
+        "tags": [
+          "filing"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/returns/{instance_id}": {
+      "get": {
+        "operationId": "get_return_api_v1_b__business_id__returns__instance_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "instance_id",
+            "required": true,
+            "schema": {
+              "title": "Instance Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReturnDetailOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Return",
+        "tags": [
+          "filing"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/returns/{instance_id}/sections/{section}": {
+      "get": {
+        "operationId": "get_section_api_v1_b__business_id__returns__instance_id__sections__section__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "instance_id",
+            "required": true,
+            "schema": {
+              "title": "Instance Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "section",
+            "required": true,
+            "schema": {
+              "title": "Section",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 12,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SectionRowsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Section",
         "tags": [
           "filing"
         ]

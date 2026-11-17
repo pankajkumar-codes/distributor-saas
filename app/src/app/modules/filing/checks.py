@@ -98,17 +98,13 @@ def c05_place_of_supply(tx: Session, b: ReturnBuild) -> list[Finding]:
 
 
 def c10_hsn_digits(tx: Session, b: ReturnBuild) -> list[Finding]:
-    out, digits, band = [], {}, False
-    for ln in b.lines:
-        d = (ln.doc_date.year, ln.doc_date.month)
-        if d not in digits:
-            digits[d] = hsn_min_digits(tx, ln.doc_date)
-            band = band or hsn_band_missing(tx, ln.doc_date) is not None
-        if (ln.hsn or "").strip() and len(ln.hsn) < digits[d]:
-            out += _per_line("C-10", "block", [ln],
-                             lambda ln: f"{_unit(ln)} ({ln.source_ref}): the HSN has fewer than {digits[d]} digits.",
-                             ca=band)
-    return out
+    months = {(ln.doc_date.year, ln.doc_date.month): ln.doc_date for ln in b.lines}
+    digits = {m: hsn_min_digits(tx, d) for m, d in months.items()}
+    band = any(hsn_band_missing(tx, d) is not None for d in months.values())  # one answer for the whole build
+    short = [ln for ln in b.lines if (ln.hsn or "").strip() and len(ln.hsn) < digits[(ln.doc_date.year, ln.doc_date.month)]]
+    return _per_line("C-10", "block", short,
+                     lambda ln: f"{_unit(ln)} ({ln.source_ref}): the HSN has fewer than "
+                                f"{digits[(ln.doc_date.year, ln.doc_date.month)]} digits.", ca=band)
 
 
 def c12_negative_b2cs(tx: Session, b: ReturnBuild) -> list[Finding]:

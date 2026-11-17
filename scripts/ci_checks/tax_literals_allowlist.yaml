@@ -219,3 +219,6 @@
 - path: app/src/app/modules/filing/checks.py
   value: "100"
   reason: "converts a percentage rate to a fraction when comparing taxable value x rate with the tax columns (arithmetic, not a rate or threshold)"
+- path: app/src/app/modules/filing/api.py
+  value: "12"
+  reason: "the longest page marker (a row offset as digits) a section request may carry; a request-size limit, not a tax value"
