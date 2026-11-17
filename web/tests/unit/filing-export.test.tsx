@@ -106,6 +106,23 @@ describe("Making the file", () => {
     expect(screen.queryByText(/ready to upload/i)).toBeNull();
   });
 
+  it("shows the portal steps only once there is a file, and marks the steps nobody has looked at on the live portal", async () => {
+    server.reply(DETAIL, detail({ export: ready, findings: [], finding_groups: [] }));
+    server.reply(`${DETAIL}/exports`, { status: 202, body: { job_id: "job-1" } });
+    server.reply(`${DETAIL}/exports/job-1`, fileOut());
+    open();
+    expect(await screen.findByRole("button", { name: "Make my GSTR-1 file" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Put it on the GST portal" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Make my GSTR-1 file" }));
+    const guide = within(await screen.findByRole("region", { name: "Put it on the GST portal" }));
+    expect(guide.getAllByRole("listitem").length).toBeGreaterThanOrEqual(10);
+    expect(guide.getByText(/We have not checked them against the live portal yet/)).toBeInTheDocument();
+    expect(guide.getAllByText("Not checked").length).toBeGreaterThanOrEqual(3);
+    expect(guide.getByText(/Prepare offline/)).toBeInTheDocument();
+    expect(guide.getByText(/Uploading the file does not file the return/)).toBeInTheDocument();
+    expect(guide.getByText(/the financial year and the period "October 2026"/)).toBeInTheDocument();
+  });
+
   it("says a file has been checked only when the server says so", async () => {
     server.reply(DETAIL, detail({ export: ready, findings: [], finding_groups: [] }));
     server.reply(`${DETAIL}/exports`, { status: 202, body: { job_id: "job-1" } });

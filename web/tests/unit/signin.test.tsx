@@ -234,7 +234,7 @@ describe("after a sign-out the server did not confirm", () => {
     server.reply("/api/v1/auth/signout", { status: 503 }, { status: 204 });
     fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
     expect(await screen.findByText(/We could not end your session on our server\. If this computer is shared, close the browser/)).toBeInTheDocument();
-    expect(await screen.findByText("Your session on our server has now ended.", {}, { timeout: 8000 })).toBeInTheDocument();
+    expect(await screen.findByText("We have now cleared your sign-in on this computer.", {}, { timeout: 8000 })).toBeInTheDocument();
     expect(screen.queryByText(/We could not end your session/)).toBeNull();
     expect(server.sent.filter((s) => s.path === "/api/v1/auth/signout")).toHaveLength(2);
   }, 15000);

@@ -5,6 +5,7 @@ import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { useExportStatus, useStartExport, type ExportStatus } from "./export";
 import { PlanNotice } from "./PlanNotice";
+import { PortalGuide } from "./PortalGuide";
 import type { ReturnDetail } from "./returns";
 
 /** What a person reads for each reason the file could not be made (the job's code). */
@@ -59,7 +60,7 @@ export function FileResult({ file, title }: { file: ExportStatus; title: string 
  * pressed the file is made in the background and this panel asks until it is done. Nothing here says "ready to upload"
  * unless the server says the file is.
  */
-export function ExportPanel({ businessId, instanceId, gate, fingerprint }: { businessId: string; instanceId: string; gate: ReturnDetail["export"]; fingerprint: string }) {
+export function ExportPanel({ businessId, instanceId, gate, fingerprint, periodLabel }: { businessId: string; instanceId: string; gate: ReturnDetail["export"]; fingerprint: string; periodLabel: string }) {
   const [jobId, setJobId] = useState<string | null>(null);
   const start = useStartExport(businessId, instanceId);
   const status = useExportStatus(businessId, instanceId, jobId);
@@ -103,6 +104,7 @@ export function ExportPanel({ businessId, instanceId, gate, fingerprint }: { bus
       {status.isError && <Banner tone="error">We couldn't check on your file. {errorText(status.error)}</Banner>}
       {s?.status === "failed" && <Banner tone="error">{FAILED[s.error_code ?? ""] ?? "We couldn't make the file. Try again, or contact support."}</Banner>}
       {s?.status === "ready" && <FileResult file={s} title={`Your file (version ${s.version})`} />}
+      {s?.status === "ready" && <PortalGuide periodLabel={periodLabel} />}
     </section>
   );
 }
