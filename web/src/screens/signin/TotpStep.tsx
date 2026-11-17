@@ -6,6 +6,7 @@ import { errorText, type ApiError } from "../../api/errors";
 import { AuthPage } from "../../kit/AuthPage";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
+import { DemoTwoStepNote } from "../../kit/DemoNote";
 import { OtpInput } from "../../kit/OtpInput";
 import type { SignedIn } from "./SigninPage";
 
@@ -47,6 +48,7 @@ export function TotpStep({ email, challenge, onChallenge, onDone, onExpired }: P
       <h1>Two-step sign-in</h1>
       <form onSubmit={submit} noValidate className="card stack">
         {error && error.code !== "totp_not_accepted" && <Banner tone="error">{errorText(error)}</Banner>}
+        <DemoTwoStepNote />
         <p>Enter the 6-digit code from your authenticator app.</p>
         <OtpInput value={code} onChange={setCode} error={codeError} errorId="totp-error" />
         {codeError && (
