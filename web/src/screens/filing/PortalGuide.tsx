@@ -13,7 +13,7 @@ export const GUIDE_STEPS = (periodLabel: string): Step[] => [
     text: "Download the file above and keep it somewhere you can find it. If we made more than one part, upload each part in turn.",
   },
   {
-    text: "The portal does not take a file of 5 MB or more. We check the size when we make the file and make more parts if needed.",
+    text: "The portal does not take a file of 5 MB or more. If ours would be that large, we stop and tell you instead of making it.",
     check: "The 5 MB comes from the manual. Our own limit for it is provisional and not yet confirmed on the portal.",
   },
   { text: "Open gst.gov.in and sign in with your own GST login. We never ask for it." },
