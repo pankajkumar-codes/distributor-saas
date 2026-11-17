@@ -169,3 +169,10 @@ def save_entries(uow: BusinessUoW, inst: ReturnInstance, raw: dict, based_on: in
     return Entry(seq, entry)
 
 
+
+
+def is_out_of_date(tx: Session, inst: ReturnInstance, latest: Version | None) -> bool:
+    g1 = gstr1_of(tx, inst)
+    if g1 is None or latest is None:
+        return False
+    return latest.fingerprint != build_return(tx, g1).fingerprint
