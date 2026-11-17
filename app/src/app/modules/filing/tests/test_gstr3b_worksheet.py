@@ -96,3 +96,32 @@ def test_wording_never_says_filed():
     texts = [WORKSHEET_LABEL, OFFSET_NOTE, *FLAG_TEXT.values()]
     for t in texts:
         assert "filed" not in t.lower() and "ready to file" not in t.lower()
+
+
+def test_drill_rows_sum_to_the_figures_with_credit_notes_negative():
+    from app.modules.filing.gstr1 import Amounts
+    from app.modules.filing.gstr3b.drill import rows_behind
+
+    out = build_outward([SECTIONS], WB)
+    rows = rows_behind([SECTIONS], WB, "3_1_a")
+    total = Amounts()
+    for r in rows:
+        total += r.amounts
+    assert total == out.taxable
+    assert {r.kind for r in rows} == {"invoice", "credit_note", "b2cs_group"}
+    assert all(r.amounts.taxable_value < 0 for r in rows if r.kind == "credit_note")
+    for state in (GJ, KA):
+        rows = rows_behind([SECTIONS], WB, "3_2", state)
+        want = next(r for r in out.inter_state if r.pos_state_code == state)
+        assert sum((r.amounts.taxable_value for r in rows), D("0")) == want.unregistered_taxable
+        assert sum((r.amounts.igst for r in rows), D("0")) == want.unregistered_igst
+    assert rows_behind([SECTIONS], WB, "3_2", WB) == []  # the supplier's own state is not in 3.2
+
+
+def test_drill_refuses_an_unknown_figure():
+    import pytest
+
+    from app.modules.filing.gstr3b.drill import rows_behind
+
+    with pytest.raises(ValueError):
+        rows_behind([SECTIONS], WB, "4_a")
