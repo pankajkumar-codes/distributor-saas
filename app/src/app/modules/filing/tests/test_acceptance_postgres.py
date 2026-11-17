@@ -74,9 +74,8 @@ def test_a_stale_subject_a_missing_code_and_bad_input_are_refused(ret):
     assert scalar(pg.owner, "select count(*) from filing.check_acceptances") == 0
 
 
-def test_an_information_finding_is_not_acceptable(ret):
+def test_an_unknown_code_is_a_conflict(ret):
     pg, b, inst = ret
-    # no information finding exists on an empty build; the pure gate covers it. Here: an unknown code is a conflict.
     assert accept(pg, b, inst, {"check_code": "A-04", "note": "x"}).status_code == 409
 
 
@@ -104,3 +103,37 @@ def test_acceptances_cannot_be_changed_or_deleted(ret):
         with pytest.raises(DBAPIError), pg.owner.connect() as c:
             c.execute(text(sql))
     assert uuid.UUID(str(scalar(pg.owner, "select business_id from filing.check_acceptances"))) == b
+
+
+def test_a_missing_note_cannot_be_stored_even_past_the_api(ret):
+    pg, b, inst = ret
+    for note in ("null", "'  '"):
+        with pytest.raises(DBAPIError), pg.owner.connect() as c:
+            c.execute(
+                text(
+                    "insert into filing.check_acceptances (id, business_id, instance_id, check_code, subject_fp, note)"
+                    f" values (:e, :b, :i, 'C-16', repeat('a', 64), {note})"
+                ),
+                {"e": uuid.uuid4(), "b": b, "i": inst},
+            )
+
+
+def test_a_support_user_under_a_grant_is_refused_cleanly(ret):
+    pg, b, inst = ret
+    from .test_returns_api_postgres import scalar_user
+
+    with pg.owner.connect() as c:
+        uid = c.execute(text("select identity.dev_ensure_user('sam-support')")).scalar()
+        c.execute(
+            text("update identity.users set is_support = true, totp_enabled_at = now() where id = :u"), {"u": uid}
+        )
+        c.execute(
+            text(
+                "insert into identity.support_grants (id, business_id, granted_by, starts_at, expires_at)"
+                " values (:g, :b, :u, now() - interval '1 hour', now() + interval '23 hours')"
+            ),
+            {"g": uuid.uuid4(), "b": b, "u": scalar_user(pg)},
+        )
+    r = accept(pg, b, inst, {"check_code": "C-16", "note": "support"}, "sam-support")
+    assert r.status_code in (403, 404, 409), r.text
+    assert scalar(pg.owner, "select count(*) from filing.check_acceptances") == 0

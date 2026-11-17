@@ -50,3 +50,20 @@ def test_debit_notes_refuse_export_with_no_accept_path():
 def test_a_locked_return_and_a_gap_each_refuse():
     assert codes(export_gate(inst("filed_locked"), build(), [], set())) == ["not_open"]
     assert codes(export_gate(inst(), build(gap=Decimal("0.01")), [], set())) == ["reconciliation"]
+
+
+def test_an_acceptance_no_longer_counts_when_the_line_behind_it_changed():
+    from dataclasses import replace
+
+    from app.modules.filing.checks import a3_cgst_sgst_differ
+
+    from .test_checks_pure import build as lines_build
+    from .test_checks_pure import ln
+    from decimal import Decimal
+
+    old = ln(1, cgst=Decimal("1"))
+    shown = a3_cgst_sgst_differ(None, lines_build(old))
+    accepted = {(x.code, x.subject_fp) for x in shown}
+    assert export_gate(inst(), build(), shown, accepted).ready
+    superseded = a3_cgst_sgst_differ(None, lines_build(replace(old, sgst=Decimal("5"))))
+    assert export_gate(inst(), build(), superseded, accepted).to_accept == 1

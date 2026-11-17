@@ -19,7 +19,7 @@ create table filing.check_acceptances (
     instance_id uuid not null,
     check_code text not null check (check_code ~ '^[A-Z]-[0-9]{2}$'),
     subject_fp char(64) not null check (subject_fp ~ '^[0-9a-f]{64}$'),
-    note text check (note is null or length(note) <= 500),
+    note text not null check (length(btrim(note)) > 0 and length(note) <= 500),
     accepted_by uuid not null,
     accepted_at timestamptz not null default now(),
     foreign key (instance_id, business_id) references filing.return_instances (id, business_id),

@@ -46,11 +46,18 @@ def _fp(code: str, *parts: str) -> str:
     return hashlib.sha256("|".join((code, *parts)).encode()).hexdigest()
 
 
+def _line_fp(code: str, ln: SupplyLine) -> str:
+    """What an acceptance is tied to: the document and every figure and code on the line, so a corrected line under the
+    same file name and row is a different subject and needs a new acceptance (Lead review of #163)."""
+    return _fp(
+        code, ln.source_ref, str(ln.source_id), ln.doc_number, str(ln.doc_date), ln.doc_kind, ln.supply_class,
+        ln.pos_state_code, ln.gstin, ln.counterparty_gstin or "", str(ln.rate), ln.hsn or "", ln.uqc or "",
+        str(ln.quantity), str(ln.taxable_value), str(ln.igst), str(ln.cgst), str(ln.sgst), str(ln.cess),
+    )  # fmt: skip
+
+
 def _per_line(code, level, lines, message, *, ca=False) -> list[Finding]:
-    return [
-        Finding(code, level, message(ln), (ln.source_ref,), _fp(code, ln.source_ref, str(ln.source_id)), ca)
-        for ln in lines
-    ]
+    return [Finding(code, level, message(ln), (ln.source_ref,), _line_fp(code, ln), ca) for ln in lines]
 
 
 def _unit(ln: SupplyLine) -> str:

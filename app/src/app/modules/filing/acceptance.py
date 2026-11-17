@@ -38,8 +38,10 @@ def accept(
         mine = [f for f in mine if f.subject_fp == subject_fp]
     if not mine:
         raise Conflict("finding_not_current", "That item has changed. Reload the return and look at it again.")
-    if any(f.level != ACCEPTABLE for f in mine):
+    if any(f.level == "block" for f in mine):
         raise Invalid("cannot_accept", "This can't be accepted. It has to be fixed.", field="check_code")
+    if any(f.level != ACCEPTABLE for f in mine):
+        raise Invalid("cannot_accept", "This does not need accepting.", field="check_code")
     note = note.strip()
     if not note:
         raise Invalid("note_required", "Say why you are accepting this.", field="note")
