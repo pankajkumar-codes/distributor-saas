@@ -361,3 +361,56 @@ def test_the_excel_route_is_tenant_and_role_scoped(ws):
     assert pg.client.get(url(b, g3, "/excel"), headers=as_user("bob")).status_code == 404
     assert pg.client.get(url(b, g3, "/excel"), headers=as_user("bill")).status_code == 404
     assert pg.client.get(url(b, g1, "/excel"), headers=as_user("alice")).status_code == 404
+
+
+def rows_url(b, inst, **q):
+    from urllib.parse import urlencode
+
+    return url(b, inst, "/rows") + "?" + urlencode(q)
+
+
+def test_drill_down_rows_sum_to_the_built_figures(ws):
+    pg, b, g3, g1, stage = ws
+    built = build(pg, b, g3).json()
+    r = pg.client.get(rows_url(b, g3, figure="3_1_a"), headers=as_user("alice"))
+    assert r.status_code == 200, r.text
+    j = r.json()
+    assert j["total"] == built["taxable"] and j["out_of_date"] is False and j["next_cursor"] is None
+    assert [(x["section"], x["kind"], x["doc_number"]) for x in j["rows"]][-1] == ("cdnr", "credit_note", "CN-1")
+    assert next(x for x in j["rows"] if x["kind"] == "credit_note")["taxable_value"] == "-100.00"
+    s = pg.client.get(rows_url(b, g3, figure="3_2", state="29"), headers=as_user("alice")).json()
+    assert s["total"]["taxable_value"] == built["inter_state"][0]["unregistered_taxable"]
+    assert s["total"]["igst"] == built["inter_state"][0]["unregistered_igst"]
+
+
+def test_drill_down_says_out_of_date_and_refuses_bad_asks(ws):
+    pg, b, g3, g1, stage = ws
+    build(pg, b, g3)
+    stage.fp = "b" * 64
+    assert pg.client.get(rows_url(b, g3, figure="3_1_a"), headers=as_user("alice")).json()["out_of_date"] is True
+    for q in ({"figure": "3_2"}, {"figure": "3_1_a", "state": "29"}, {"figure": "9"}, {"figure": "3_2", "state": "x"},
+              {"figure": "3_1_a", "cursor": "-1"}, {"figure": "3_1_a", "cursor": "z"}):  # fmt: skip
+        assert pg.client.get(rows_url(b, g3, **q), headers=as_user("alice")).status_code == 422, q
+
+
+def test_drill_down_pages(ws, monkeypatch):
+    from app.modules.filing import api_worksheet
+
+    pg, b, g3, g1, stage = ws
+    monkeypatch.setattr(api_worksheet, "PAGE", 2)
+    first = pg.client.get(rows_url(b, g3, figure="3_1_a"), headers=as_user("alice")).json()
+    assert len(first["rows"]) == 2 and first["next_cursor"] == "2"
+    second = pg.client.get(rows_url(b, g3, figure="3_1_a", cursor="2"), headers=as_user("alice")).json()
+    assert len(second["rows"]) == 1 and second["next_cursor"] is None
+    assert first["total"] == second["total"]
+
+
+def test_drill_down_is_tenant_role_and_plan_scoped(ws):
+    pg, b, g3, g1, stage = ws
+    new_business(pg, "bob")
+    seed_member(pg, b, "bill", "billing")
+    for sub in ("bob", "bill"):
+        assert pg.client.get(rows_url(b, g3, figure="3_1_a"), headers=as_user(sub)).status_code == 404
+    assert pg.client.get(rows_url(b, g1, figure="3_1_a"), headers=as_user("alice")).status_code == 404
+    entitlement.set_check(lambda tx, business: False)
+    assert pg.client.get(rows_url(b, g3, figure="3_1_a"), headers=as_user("alice")).status_code == 409

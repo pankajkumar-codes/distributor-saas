@@ -1246,6 +1246,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/returns/{instance_id}/worksheet/rows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Worksheet Rows
+         * @description The GSTR-1 rows behind Table 3.1(a), or behind one place of supply of Table 3.2 (`state` is then required): the same
+         *     rows `build` adds up, credit notes negative, so they sum to the figure. Same plan hook as the rest of the worksheet.
+         */
+        get: operations["worksheet_rows_api_v1_b__business_id__returns__instance_id__worksheet_rows_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/rows/{row_id}/resolve": {
         parameters: {
             query?: never;
@@ -2985,6 +3006,47 @@ export interface components {
             items: components["schemas"]["DraftOut"][];
             /** Next Cursor */
             next_cursor: string | null;
+        };
+        /** DrillOut */
+        DrillOut: {
+            /** Figure */
+            figure: string;
+            /** Next Cursor */
+            next_cursor: string | null;
+            /** Out Of Date */
+            out_of_date: boolean;
+            /** Rows */
+            rows: components["schemas"]["DrillRowOut"][];
+            /** State */
+            state: string | null;
+            total: components["schemas"]["AmountsOut"];
+        };
+        /** DrillRowOut */
+        DrillRowOut: {
+            /** Cess */
+            cess: string;
+            /** Cgst */
+            cgst: string;
+            /** Doc Date */
+            doc_date: string | null;
+            /** Doc Number */
+            doc_number: string | null;
+            /** Igst */
+            igst: string;
+            /** Kind */
+            kind: string;
+            /** Pos State Code */
+            pos_state_code: string;
+            /** Rate */
+            rate: string;
+            /** Section */
+            section: string;
+            /** Sgst */
+            sgst: string;
+            /** Source Refs */
+            source_refs: string[];
+            /** Taxable Value */
+            taxable_value: string;
         };
         /** EmailBody */
         EmailBody: {
@@ -7602,6 +7664,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ExcelOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    worksheet_rows_api_v1_b__business_id__returns__instance_id__worksheet_rows_get: {
+        parameters: {
+            query: {
+                figure: "3_1_a" | "3_2";
+                state?: string | null;
+                cursor?: string | null;
+            };
+            header?: never;
+            path: {
+                instance_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DrillOut"];
                 };
             };
             /** @description Validation Error */
