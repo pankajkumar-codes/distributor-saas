@@ -172,7 +172,7 @@ def test_a_three_place_amount_in_a_model_stops_the_render():
 def test_rows_of_one_invoice_that_disagree_stop_the_export_and_are_never_picked_between():
     base = line("INV-9", 5, INV, "B2B", WB, SOAP, "1", "100.00", cgst="9.00", sgst="9.00", value="118.00", buyer=A)
     other = replace(base, doc_value=D("999.00"), rate=D("5"), hsn="0902", uqc="KGS")
-    with pytest.raises((em.NotRenderable, ValueError)):
+    with pytest.raises(em.NotRenderable):
         render([base, other])
 
 
