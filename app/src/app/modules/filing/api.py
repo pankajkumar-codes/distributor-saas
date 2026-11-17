@@ -19,6 +19,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Annotated, Literal
 
+from sqlalchemy import text
 from fastapi import APIRouter, Depends, Query
 from fastapi import status as http
 from pydantic import BaseModel, ConfigDict, Field
@@ -60,6 +61,22 @@ class ReturnOut(BaseModel):
     due_date_confirmed: bool  # false until the refdata row is expert- or CA-confirmed
     due_date_source_url: str | None  # the refdata source citation
     status: Literal["open", "filed_locked", "unlocked", "skipped"]
+    filed_on: date | None = None  # when the user filed it on the portal, once it is locked
+    arn: str | None = None  # the acknowledgement number they gave
+
+
+def _filed_on_arn(tx, inst) -> dict:
+    """The date and ARN of a locked return's `filed` event (the latest, after a relock); empty otherwise."""
+    if inst.status != "filed_locked":
+        return {}
+    r = tx.execute(
+        text(
+            "select filed_on, arn from filing.instance_events where instance_id = :i and kind = 'filed'"
+            " order by at desc, id desc limit 1"
+        ),
+        {"i": inst.id},
+    ).first()
+    return {} if r is None else {"filed_on": r.filed_on, "arn": r.arn}
 
 
 class ReturnsOut(BaseModel):
@@ -98,7 +115,7 @@ def list_returns(uow: BusinessUoW, clock: Today, fy: Annotated[str | None, Query
                 instance_id=str(inst.id), form=inst.form, period=periods.period_key(inst),
                 period_label=periods.period_label(inst), period_start=inst.period_start,
                 period_end=inst.period_end, due_date=due.date, due_date_confirmed=due.confirmed,
-                due_date_source_url=due.source_url, status=inst.status,
+                due_date_source_url=due.source_url, status=inst.status, **_filed_on_arn(uow.tx, inst),
             ))  # fmt: skip
     return ReturnsOut(fy=fy, gstin=gstin, filing_frequency=None if current is None else current.frequency, returns=out)
 
@@ -404,6 +421,7 @@ def get_return(instance_id: str, uow: BusinessUoW) -> ReturnDetailOut:
             instance_id=str(inst.id), form=inst.form, period=periods.period_key(inst),
             period_label=periods.period_label(inst), period_start=inst.period_start, period_end=inst.period_end,
             due_date=due.date, due_date_confirmed=due.confirmed, due_date_source_url=due.source_url, status=inst.status,
+            **_filed_on_arn(uow.tx, inst),
         ),
         draft=b.draft, banner=BANNER if b.draft else None, fingerprint=b.fingerprint, line_items=b.line_items,
         members_count=len(b.members),

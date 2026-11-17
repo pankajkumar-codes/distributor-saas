@@ -19,3 +19,7 @@ export const canViewUploads = (role: string) => UPLOAD_VIEWERS.has(role);
 
 const RETURN_PREPARERS = new Set(["owner", "admin", "ca"]); // returns.prepare; billing gets a 404
 export const canPrepareReturns = (role: string) => RETURN_PREPARERS.has(role);
+
+const RETURN_LOCKERS = new Set(["owner", "admin", "ca"]); // returns.lock: mark filed
+export const canLockReturns = (role: string) => RETURN_LOCKERS.has(role);
+export const canUnlockReturns = (role: string) => role === "owner"; // returns.unlock

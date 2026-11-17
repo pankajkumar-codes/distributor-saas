@@ -6690,6 +6690,17 @@
       },
       "ReturnOut": {
         "properties": {
+          "arn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Arn"
+          },
           "due_date": {
             "anyOf": [
               {
@@ -6716,6 +6727,18 @@
               }
             ],
             "title": "Due Date Source Url"
+          },
+          "filed_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filed On"
           },
           "form": {
             "enum": [

@@ -45,6 +45,24 @@ const BY_CODE: Record<string, string> = {
   signin_not_accepted: "The email or password is wrong.",
   signin_expired: "That took too long. Sign in again.",
   totp_not_accepted: "That code didn't work. Enter the current code from your authenticator app.",
+  // Preparing and filing a GST return (R1-M8)
+  not_ready: "This return is not ready yet. Look at the items above and try again.",
+  download_not_available: "Downloading the file is not available on your plan yet.",
+  nothing_to_file: "There is nothing in this return to put in a file.",
+  not_renderable: "We can't make a file for this kind of return yet.",
+  file_too_large: "The file came out too large for the portal. Contact support.",
+  changed_during_export: "The return changed while the file was being made. Check it and try again.",
+  not_allowed: "Your role can't do this.",
+  cannot_accept: "This can't be accepted. It has to be fixed.",
+  period_not_open: "This return is already marked filed.",
+  changed_since_export: "This return has changed since the file you took.",
+  arn_invalid: "Enter the ARN the portal gave you.",
+  filed_on_future: "The filing date can't be in the future.",
+  filed_on_before_period: "The filing date can't be before the period ends.",
+  reason_required: "Write a reason.",
+  not_locked: "This return is not marked filed.",
+  quarter_locked: "Unlock the quarterly GSTR-1 first.",
+  no_file: "No file was kept for this return.",
 };
 
 /** The sentence a screen shows for an error, inline under `field` when there is one. */
