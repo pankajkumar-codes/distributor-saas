@@ -1817,24 +1817,6 @@
         "title": "ChecklistItem",
         "type": "object"
       },
-      "CodeCheckOut": {
-        "properties": {
-          "available": {
-            "title": "Available",
-            "type": "boolean"
-          },
-          "code": {
-            "title": "Code",
-            "type": "string"
-          }
-        },
-        "required": [
-          "code",
-          "available"
-        ],
-        "title": "CodeCheckOut",
-        "type": "object"
-      },
       "CodeSent": {
         "properties": {
           "code_max_tries": {
@@ -2169,25 +2151,37 @@
         "title": "Confirmation",
         "type": "object"
       },
-      "ConfirmedListOut": {
+      "ConfirmedOut": {
         "properties": {
-          "has_more": {
-            "title": "Has More",
-            "type": "boolean"
+          "accepted_changes": {
+            "title": "Accepted Changes",
+            "type": "integer"
           },
-          "invoices": {
-            "items": {
-              "$ref": "#/components/schemas/app__modules__imports__api_purchases__ConfirmedOut"
-            },
-            "title": "Invoices",
-            "type": "array"
+          "documents": {
+            "title": "Documents",
+            "type": "integer"
+          },
+          "lines": {
+            "title": "Lines",
+            "type": "integer"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "skipped_changes": {
+            "title": "Skipped Changes",
+            "type": "integer"
           }
         },
         "required": [
-          "invoices",
-          "has_more"
+          "run_id",
+          "documents",
+          "lines",
+          "accepted_changes",
+          "skipped_changes"
         ],
-        "title": "ConfirmedListOut",
+        "title": "ConfirmedOut",
         "type": "object"
       },
       "CoverageOut": {
@@ -2836,7 +2830,7 @@
           "lines": {
             "default": [],
             "items": {
-              "$ref": "#/components/schemas/app__modules__sales__api__LineIn"
+              "$ref": "#/components/schemas/LineIn"
             },
             "maxItems": 200,
             "title": "Lines",
@@ -2885,42 +2879,51 @@
         "title": "DraftIn",
         "type": "object"
       },
-      "DraftLineOut": {
+      "DraftOut": {
         "properties": {
-          "cess": {
+          "bill_to": {
             "anyOf": [
               {
-                "type": "string"
+                "additionalProperties": true,
+                "type": "object"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Cess"
+            "title": "Bill To"
           },
-          "cgst": {
+          "cash_buyer": {
             "anyOf": [
               {
-                "type": "string"
+                "additionalProperties": true,
+                "type": "object"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Cgst"
+            "title": "Cash Buyer"
           },
-          "gst_rate": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Gst Rate"
+          "charges": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Charges",
+            "type": "array"
           },
-          "hsn": {
+          "computation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ComputationOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computed_at": {
             "anyOf": [
               {
                 "type": "string"
@@ -2929,72 +2932,71 @@
                 "type": "null"
               }
             ],
-            "title": "Hsn"
+            "title": "Computed At"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "customer_collects": {
+            "title": "Customer Collects",
+            "type": "boolean"
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Customer Id"
+          },
+          "doc_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doc Date"
+          },
+          "eway": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eway"
           },
           "id": {
             "title": "Id",
             "type": "string"
           },
-          "igst": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Igst"
+          "invoice_discount": {
+            "title": "Invoice Discount",
+            "type": "string"
           },
-          "line_no": {
-            "title": "Line No",
-            "type": "integer"
+          "kind": {
+            "title": "Kind",
+            "type": "string"
           },
-          "page": {
-            "title": "Page",
-            "type": "integer"
-          },
-          "quantity": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Quantity"
-          },
-          "sgst": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sgst"
-          },
-          "taxable_value": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Taxable Value"
-          },
-          "unclear": {
+          "lines": {
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/LineOut"
             },
-            "title": "Unclear",
+            "title": "Lines",
             "type": "array"
           },
-          "unit": {
+          "pos_override": {
             "anyOf": [
               {
                 "type": "string"
@@ -3003,25 +3005,90 @@
                 "type": "null"
               }
             ],
-            "title": "Unit"
+            "title": "Pos Override"
+          },
+          "pos_override_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pos Override Reason"
+          },
+          "ready": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ready"
+          },
+          "ship_to": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ship To"
+          },
+          "ship_to_third_party": {
+            "title": "Ship To Third Party",
+            "type": "boolean"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
           "id",
-          "line_no",
-          "page",
-          "hsn",
-          "quantity",
-          "unit",
-          "taxable_value",
-          "gst_rate",
-          "igst",
-          "cgst",
-          "sgst",
-          "cess",
-          "unclear"
+          "kind",
+          "version",
+          "customer_id",
+          "cash_buyer",
+          "bill_to",
+          "ship_to",
+          "doc_date",
+          "invoice_discount",
+          "charges",
+          "eway",
+          "customer_collects",
+          "ship_to_third_party",
+          "pos_override",
+          "pos_override_reason",
+          "lines",
+          "total",
+          "ready",
+          "computed_at",
+          "created_at",
+          "updated_at"
         ],
-        "title": "DraftLineOut",
+        "title": "DraftOut",
         "type": "object"
       },
       "DraftPageOut": {
@@ -3032,7 +3099,7 @@
           },
           "items": {
             "items": {
-              "$ref": "#/components/schemas/app__modules__sales__api__DraftOut"
+              "$ref": "#/components/schemas/DraftOut"
             },
             "title": "Items",
             "type": "array"
@@ -3055,27 +3122,6 @@
           "next_cursor"
         ],
         "title": "DraftPageOut",
-        "type": "object"
-      },
-      "DraftsOut": {
-        "properties": {
-          "drafts": {
-            "items": {
-              "$ref": "#/components/schemas/app__modules__imports__api_purchases__DraftOut"
-            },
-            "title": "Drafts",
-            "type": "array"
-          },
-          "has_more": {
-            "title": "Has More",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "drafts",
-          "has_more"
-        ],
-        "title": "DraftsOut",
         "type": "object"
       },
       "DrillOut": {
@@ -3606,116 +3652,6 @@
         "title": "ExportStatusOut",
         "type": "object"
       },
-      "FileOut": {
-        "properties": {
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "file_name": {
-            "title": "File Name",
-            "type": "string"
-          },
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "kind": {
-            "enum": [
-              "pdf",
-              "image"
-            ],
-            "title": "Kind",
-            "type": "string"
-          },
-          "reject_message": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Reject Message"
-          },
-          "reject_reason": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Reject Reason"
-          },
-          "size_bytes": {
-            "title": "Size Bytes",
-            "type": "integer"
-          },
-          "status": {
-            "enum": [
-              "pending",
-              "received",
-              "read",
-              "rejected"
-            ],
-            "title": "Status",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "file_name",
-          "size_bytes",
-          "kind",
-          "status",
-          "reject_reason",
-          "reject_message",
-          "created_at"
-        ],
-        "title": "FileOut",
-        "type": "object"
-      },
-      "FileStartIn": {
-        "additionalProperties": false,
-        "properties": {
-          "file_name": {
-            "maxLength": 255,
-            "title": "File Name",
-            "type": "string"
-          },
-          "size_bytes": {
-            "title": "Size Bytes",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "file_name",
-          "size_bytes"
-        ],
-        "title": "FileStartIn",
-        "type": "object"
-      },
-      "FileStartOut": {
-        "properties": {
-          "file_id": {
-            "title": "File Id",
-            "type": "string"
-          },
-          "upload": {
-            "$ref": "#/components/schemas/PresignedPostOut"
-          }
-        },
-        "required": [
-          "file_id",
-          "upload"
-        ],
-        "title": "FileStartOut",
-        "type": "object"
-      },
       "FiledIn": {
         "additionalProperties": false,
         "properties": {
@@ -3784,27 +3720,6 @@
           "has_file"
         ],
         "title": "FiledOut",
-        "type": "object"
-      },
-      "FilesOut": {
-        "properties": {
-          "files": {
-            "items": {
-              "$ref": "#/components/schemas/FileOut"
-            },
-            "title": "Files",
-            "type": "array"
-          },
-          "has_more": {
-            "title": "Has More",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "files",
-          "has_more"
-        ],
-        "title": "FilesOut",
         "type": "object"
       },
       "FilingProfileOut": {
@@ -5042,6 +4957,65 @@
         "title": "JobsOut",
         "type": "object"
       },
+      "LineIn": {
+        "additionalProperties": false,
+        "properties": {
+          "discount_kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "amount",
+                  "percent"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discount Kind"
+          },
+          "discount_value": {
+            "anyOf": [
+              {
+                "maxLength": 24,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discount Value"
+          },
+          "product_id": {
+            "title": "Product Id",
+            "type": "string"
+          },
+          "quantity": {
+            "maxLength": 24,
+            "title": "Quantity",
+            "type": "string"
+          },
+          "unit_price": {
+            "anyOf": [
+              {
+                "maxLength": 24,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit Price"
+          }
+        },
+        "required": [
+          "product_id",
+          "quantity"
+        ],
+        "title": "LineIn",
+        "type": "object"
+      },
       "LineOut": {
         "properties": {
           "discount_kind": {
@@ -5756,68 +5730,6 @@
           "einvoice_history"
         ],
         "title": "NewBusinessProfile",
-        "type": "object"
-      },
-      "NewItemIn": {
-        "additionalProperties": false,
-        "description": "A product to create from a line. The name and HSN are the line's own; the rate is the business's to confirm.",
-        "properties": {
-          "code": {
-            "maxLength": 40,
-            "title": "Code",
-            "type": "string"
-          },
-          "gst_rate": {
-            "anyOf": [
-              {
-                "maxLength": 24,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Gst Rate"
-          },
-          "has_cess": {
-            "default": false,
-            "title": "Has Cess",
-            "type": "boolean"
-          },
-          "rate_valid_from": {
-            "anyOf": [
-              {
-                "format": "date",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Rate Valid From"
-          },
-          "tax_category": {
-            "enum": [
-              "taxable",
-              "exempt",
-              "nil_rated",
-              "non_gst"
-            ],
-            "title": "Tax Category",
-            "type": "string"
-          },
-          "uqc": {
-            "maxLength": 8,
-            "title": "Uqc",
-            "type": "string"
-          }
-        },
-        "required": [
-          "code",
-          "uqc",
-          "tax_category"
-        ],
-        "title": "NewItemIn",
         "type": "object"
       },
       "NoneIn": {
@@ -6998,6 +6910,842 @@
         "title": "ProgressOut",
         "type": "object"
       },
+      "PurchaseCodeCheckOut": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "available"
+        ],
+        "title": "PurchaseCodeCheckOut",
+        "type": "object"
+      },
+      "PurchaseConfirmIn": {
+        "additionalProperties": false,
+        "properties": {
+          "doc_date": {
+            "format": "date",
+            "title": "Doc Date",
+            "type": "string"
+          },
+          "doc_number": {
+            "maxLength": 40,
+            "title": "Doc Number",
+            "type": "string"
+          },
+          "invoice_total": {
+            "anyOf": [
+              {
+                "maxLength": 24,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invoice Total"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/PurchaseLineIn"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "supplier_gstin": {
+            "maxLength": 40,
+            "title": "Supplier Gstin",
+            "type": "string"
+          },
+          "supplier_name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supplier Name"
+          }
+        },
+        "required": [
+          "supplier_gstin",
+          "doc_number",
+          "doc_date",
+          "lines"
+        ],
+        "title": "PurchaseConfirmIn",
+        "type": "object"
+      },
+      "PurchaseConfirmedListOut": {
+        "properties": {
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "invoices": {
+            "items": {
+              "$ref": "#/components/schemas/PurchaseConfirmedOut"
+            },
+            "title": "Invoices",
+            "type": "array"
+          }
+        },
+        "required": [
+          "invoices",
+          "has_more"
+        ],
+        "title": "PurchaseConfirmedListOut",
+        "type": "object"
+      },
+      "PurchaseConfirmedOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "doc_date": {
+            "format": "date",
+            "title": "Doc Date",
+            "type": "string"
+          },
+          "doc_number": {
+            "title": "Doc Number",
+            "type": "string"
+          },
+          "draft_id": {
+            "title": "Draft Id",
+            "type": "string"
+          },
+          "invoice_total": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invoice Total"
+          },
+          "line_count": {
+            "title": "Line Count",
+            "type": "integer"
+          },
+          "received": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PurchaseReceivedOut"
+            },
+            "title": "Received",
+            "type": "array"
+          },
+          "review_id": {
+            "title": "Review Id",
+            "type": "string"
+          },
+          "supplier_gstin": {
+            "title": "Supplier Gstin",
+            "type": "string"
+          },
+          "supplier_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supplier Name"
+          }
+        },
+        "required": [
+          "review_id",
+          "draft_id",
+          "supplier_gstin",
+          "supplier_name",
+          "doc_number",
+          "doc_date",
+          "invoice_total",
+          "line_count",
+          "created_at"
+        ],
+        "title": "PurchaseConfirmedOut",
+        "type": "object"
+      },
+      "PurchaseDraftLineOut": {
+        "properties": {
+          "cess": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cess"
+          },
+          "cgst": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cgst"
+          },
+          "gst_rate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gst Rate"
+          },
+          "hsn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hsn"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "igst": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Igst"
+          },
+          "line_no": {
+            "title": "Line No",
+            "type": "integer"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quantity"
+          },
+          "sgst": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sgst"
+          },
+          "taxable_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taxable Value"
+          },
+          "unclear": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unclear",
+            "type": "array"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          }
+        },
+        "required": [
+          "id",
+          "line_no",
+          "page",
+          "hsn",
+          "quantity",
+          "unit",
+          "taxable_value",
+          "gst_rate",
+          "igst",
+          "cgst",
+          "sgst",
+          "cess",
+          "unclear"
+        ],
+        "title": "PurchaseDraftLineOut",
+        "type": "object"
+      },
+      "PurchaseDraftOut": {
+        "properties": {
+          "decision": {
+            "anyOf": [
+              {
+                "enum": [
+                  "confirmed",
+                  "discarded"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision"
+          },
+          "doc_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doc Date"
+          },
+          "doc_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doc Number"
+          },
+          "doc_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doc Type"
+          },
+          "file_id": {
+            "title": "File Id",
+            "type": "string"
+          },
+          "file_name": {
+            "title": "File Name",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "invoice_total": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invoice Total"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/PurchaseDraftLineOut"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "ordinal": {
+            "title": "Ordinal",
+            "type": "integer"
+          },
+          "pages": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Pages",
+            "type": "array"
+          },
+          "reader": {
+            "title": "Reader",
+            "type": "string"
+          },
+          "supplier_gstin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supplier Gstin"
+          },
+          "unclear": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unclear",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "file_id",
+          "file_name",
+          "ordinal",
+          "reader",
+          "pages",
+          "doc_type",
+          "supplier_gstin",
+          "doc_number",
+          "doc_date",
+          "invoice_total",
+          "unclear",
+          "lines",
+          "decision"
+        ],
+        "title": "PurchaseDraftOut",
+        "type": "object"
+      },
+      "PurchaseDraftsOut": {
+        "properties": {
+          "drafts": {
+            "items": {
+              "$ref": "#/components/schemas/PurchaseDraftOut"
+            },
+            "title": "Drafts",
+            "type": "array"
+          },
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "drafts",
+          "has_more"
+        ],
+        "title": "PurchaseDraftsOut",
+        "type": "object"
+      },
+      "PurchaseFileOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "file_name": {
+            "title": "File Name",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "pdf",
+              "image"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "reject_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reject Message"
+          },
+          "reject_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reject Reason"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "received",
+              "read",
+              "rejected"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "file_name",
+          "size_bytes",
+          "kind",
+          "status",
+          "reject_reason",
+          "reject_message",
+          "created_at"
+        ],
+        "title": "PurchaseFileOut",
+        "type": "object"
+      },
+      "PurchaseFileStartIn": {
+        "additionalProperties": false,
+        "properties": {
+          "file_name": {
+            "maxLength": 255,
+            "title": "File Name",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "file_name",
+          "size_bytes"
+        ],
+        "title": "PurchaseFileStartIn",
+        "type": "object"
+      },
+      "PurchaseFileStartOut": {
+        "properties": {
+          "file_id": {
+            "title": "File Id",
+            "type": "string"
+          },
+          "upload": {
+            "$ref": "#/components/schemas/PurchasePresignedPostOut"
+          }
+        },
+        "required": [
+          "file_id",
+          "upload"
+        ],
+        "title": "PurchaseFileStartOut",
+        "type": "object"
+      },
+      "PurchaseFilesOut": {
+        "properties": {
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/PurchaseFileOut"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "files",
+          "has_more"
+        ],
+        "title": "PurchaseFilesOut",
+        "type": "object"
+      },
+      "PurchaseJobRef": {
+        "properties": {
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "title": "PurchaseJobRef",
+        "type": "object"
+      },
+      "PurchaseLineIn": {
+        "additionalProperties": false,
+        "properties": {
+          "cess": {
+            "default": "0",
+            "maxLength": 24,
+            "title": "Cess",
+            "type": "string"
+          },
+          "cgst": {
+            "default": "0",
+            "maxLength": 24,
+            "title": "Cgst",
+            "type": "string"
+          },
+          "draft_line_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Draft Line Id"
+          },
+          "gst_rate": {
+            "maxLength": 24,
+            "title": "Gst Rate",
+            "type": "string"
+          },
+          "hsn": {
+            "maxLength": 8,
+            "title": "Hsn",
+            "type": "string"
+          },
+          "igst": {
+            "default": "0",
+            "maxLength": 24,
+            "title": "Igst",
+            "type": "string"
+          },
+          "new_item": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PurchaseNewItemIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "product_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Id"
+          },
+          "product_name": {
+            "maxLength": 120,
+            "title": "Product Name",
+            "type": "string"
+          },
+          "quantity": {
+            "maxLength": 24,
+            "title": "Quantity",
+            "type": "string"
+          },
+          "sgst": {
+            "default": "0",
+            "maxLength": 24,
+            "title": "Sgst",
+            "type": "string"
+          },
+          "taxable_value": {
+            "maxLength": 24,
+            "title": "Taxable Value",
+            "type": "string"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          }
+        },
+        "required": [
+          "product_name",
+          "hsn",
+          "quantity",
+          "taxable_value",
+          "gst_rate"
+        ],
+        "title": "PurchaseLineIn",
+        "type": "object"
+      },
+      "PurchaseNewItemIn": {
+        "additionalProperties": false,
+        "description": "A product to create from a line. The name and HSN are the line's own; the rate is the business's to confirm.",
+        "properties": {
+          "code": {
+            "maxLength": 40,
+            "title": "Code",
+            "type": "string"
+          },
+          "gst_rate": {
+            "anyOf": [
+              {
+                "maxLength": 24,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gst Rate"
+          },
+          "has_cess": {
+            "default": false,
+            "title": "Has Cess",
+            "type": "boolean"
+          },
+          "rate_valid_from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate Valid From"
+          },
+          "tax_category": {
+            "enum": [
+              "taxable",
+              "exempt",
+              "nil_rated",
+              "non_gst"
+            ],
+            "title": "Tax Category",
+            "type": "string"
+          },
+          "uqc": {
+            "maxLength": 8,
+            "title": "Uqc",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "uqc",
+          "tax_category"
+        ],
+        "title": "PurchaseNewItemIn",
+        "type": "object"
+      },
+      "PurchasePresignedPostOut": {
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "fields": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Fields",
+            "type": "object"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "fields",
+          "expires_at"
+        ],
+        "title": "PurchasePresignedPostOut",
+        "type": "object"
+      },
+      "PurchaseReceivedOut": {
+        "properties": {
+          "created_product": {
+            "title": "Created Product",
+            "type": "boolean"
+          },
+          "line_no": {
+            "title": "Line No",
+            "type": "integer"
+          },
+          "price_needed": {
+            "title": "Price Needed",
+            "type": "boolean"
+          },
+          "product_id": {
+            "title": "Product Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "line_no",
+          "product_id",
+          "created_product",
+          "price_needed"
+        ],
+        "title": "PurchaseReceivedOut",
+        "type": "object"
+      },
       "RateIn": {
         "additionalProperties": false,
         "properties": {
@@ -7150,34 +7898,6 @@
           "message"
         ],
         "title": "ReasonOut",
-        "type": "object"
-      },
-      "ReceivedOut": {
-        "properties": {
-          "created_product": {
-            "title": "Created Product",
-            "type": "boolean"
-          },
-          "line_no": {
-            "title": "Line No",
-            "type": "integer"
-          },
-          "price_needed": {
-            "title": "Price Needed",
-            "type": "boolean"
-          },
-          "product_id": {
-            "title": "Product Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "line_no",
-          "product_id",
-          "created_product",
-          "price_needed"
-        ],
-        "title": "ReceivedOut",
         "type": "object"
       },
       "RecoveryBody": {
@@ -9164,39 +9884,6 @@
         "title": "ConfirmIn",
         "type": "object"
       },
-      "app__modules__imports__api__ConfirmedOut": {
-        "properties": {
-          "accepted_changes": {
-            "title": "Accepted Changes",
-            "type": "integer"
-          },
-          "documents": {
-            "title": "Documents",
-            "type": "integer"
-          },
-          "lines": {
-            "title": "Lines",
-            "type": "integer"
-          },
-          "run_id": {
-            "title": "Run Id",
-            "type": "string"
-          },
-          "skipped_changes": {
-            "title": "Skipped Changes",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "run_id",
-          "documents",
-          "lines",
-          "accepted_changes",
-          "skipped_changes"
-        ],
-        "title": "ConfirmedOut",
-        "type": "object"
-      },
       "app__modules__imports__api__DifferenceOut": {
         "properties": {
           "excel": {
@@ -9400,653 +10087,6 @@
           "raw_available"
         ],
         "title": "UploadOut",
-        "type": "object"
-      },
-      "app__modules__imports__api_purchases__ConfirmIn": {
-        "additionalProperties": false,
-        "properties": {
-          "doc_date": {
-            "format": "date",
-            "title": "Doc Date",
-            "type": "string"
-          },
-          "doc_number": {
-            "maxLength": 40,
-            "title": "Doc Number",
-            "type": "string"
-          },
-          "invoice_total": {
-            "anyOf": [
-              {
-                "maxLength": 24,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Invoice Total"
-          },
-          "lines": {
-            "items": {
-              "$ref": "#/components/schemas/app__modules__imports__api_purchases__LineIn"
-            },
-            "title": "Lines",
-            "type": "array"
-          },
-          "supplier_gstin": {
-            "maxLength": 40,
-            "title": "Supplier Gstin",
-            "type": "string"
-          },
-          "supplier_name": {
-            "anyOf": [
-              {
-                "maxLength": 120,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Supplier Name"
-          }
-        },
-        "required": [
-          "supplier_gstin",
-          "doc_number",
-          "doc_date",
-          "lines"
-        ],
-        "title": "ConfirmIn",
-        "type": "object"
-      },
-      "app__modules__imports__api_purchases__ConfirmedOut": {
-        "properties": {
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "doc_date": {
-            "format": "date",
-            "title": "Doc Date",
-            "type": "string"
-          },
-          "doc_number": {
-            "title": "Doc Number",
-            "type": "string"
-          },
-          "draft_id": {
-            "title": "Draft Id",
-            "type": "string"
-          },
-          "invoice_total": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Invoice Total"
-          },
-          "line_count": {
-            "title": "Line Count",
-            "type": "integer"
-          },
-          "received": {
-            "default": [],
-            "items": {
-              "$ref": "#/components/schemas/ReceivedOut"
-            },
-            "title": "Received",
-            "type": "array"
-          },
-          "review_id": {
-            "title": "Review Id",
-            "type": "string"
-          },
-          "supplier_gstin": {
-            "title": "Supplier Gstin",
-            "type": "string"
-          },
-          "supplier_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Supplier Name"
-          }
-        },
-        "required": [
-          "review_id",
-          "draft_id",
-          "supplier_gstin",
-          "supplier_name",
-          "doc_number",
-          "doc_date",
-          "invoice_total",
-          "line_count",
-          "created_at"
-        ],
-        "title": "ConfirmedOut",
-        "type": "object"
-      },
-      "app__modules__imports__api_purchases__DraftOut": {
-        "properties": {
-          "decision": {
-            "anyOf": [
-              {
-                "enum": [
-                  "confirmed",
-                  "discarded"
-                ],
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Decision"
-          },
-          "doc_date": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Doc Date"
-          },
-          "doc_number": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Doc Number"
-          },
-          "doc_type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Doc Type"
-          },
-          "file_id": {
-            "title": "File Id",
-            "type": "string"
-          },
-          "file_name": {
-            "title": "File Name",
-            "type": "string"
-          },
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "invoice_total": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Invoice Total"
-          },
-          "lines": {
-            "items": {
-              "$ref": "#/components/schemas/DraftLineOut"
-            },
-            "title": "Lines",
-            "type": "array"
-          },
-          "ordinal": {
-            "title": "Ordinal",
-            "type": "integer"
-          },
-          "pages": {
-            "items": {
-              "type": "integer"
-            },
-            "title": "Pages",
-            "type": "array"
-          },
-          "reader": {
-            "title": "Reader",
-            "type": "string"
-          },
-          "supplier_gstin": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Supplier Gstin"
-          },
-          "unclear": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Unclear",
-            "type": "array"
-          }
-        },
-        "required": [
-          "id",
-          "file_id",
-          "file_name",
-          "ordinal",
-          "reader",
-          "pages",
-          "doc_type",
-          "supplier_gstin",
-          "doc_number",
-          "doc_date",
-          "invoice_total",
-          "unclear",
-          "lines",
-          "decision"
-        ],
-        "title": "DraftOut",
-        "type": "object"
-      },
-      "app__modules__imports__api_purchases__LineIn": {
-        "additionalProperties": false,
-        "properties": {
-          "cess": {
-            "default": "0",
-            "maxLength": 24,
-            "title": "Cess",
-            "type": "string"
-          },
-          "cgst": {
-            "default": "0",
-            "maxLength": 24,
-            "title": "Cgst",
-            "type": "string"
-          },
-          "draft_line_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Draft Line Id"
-          },
-          "gst_rate": {
-            "maxLength": 24,
-            "title": "Gst Rate",
-            "type": "string"
-          },
-          "hsn": {
-            "maxLength": 8,
-            "title": "Hsn",
-            "type": "string"
-          },
-          "igst": {
-            "default": "0",
-            "maxLength": 24,
-            "title": "Igst",
-            "type": "string"
-          },
-          "new_item": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/NewItemIn"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "product_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Product Id"
-          },
-          "product_name": {
-            "maxLength": 120,
-            "title": "Product Name",
-            "type": "string"
-          },
-          "quantity": {
-            "maxLength": 24,
-            "title": "Quantity",
-            "type": "string"
-          },
-          "sgst": {
-            "default": "0",
-            "maxLength": 24,
-            "title": "Sgst",
-            "type": "string"
-          },
-          "taxable_value": {
-            "maxLength": 24,
-            "title": "Taxable Value",
-            "type": "string"
-          },
-          "unit": {
-            "anyOf": [
-              {
-                "maxLength": 40,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Unit"
-          }
-        },
-        "required": [
-          "product_name",
-          "hsn",
-          "quantity",
-          "taxable_value",
-          "gst_rate"
-        ],
-        "title": "LineIn",
-        "type": "object"
-      },
-      "app__modules__sales__api__DraftOut": {
-        "properties": {
-          "bill_to": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Bill To"
-          },
-          "cash_buyer": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cash Buyer"
-          },
-          "charges": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "title": "Charges",
-            "type": "array"
-          },
-          "computation": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ComputationOut"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "computed_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Computed At"
-          },
-          "created_at": {
-            "title": "Created At",
-            "type": "string"
-          },
-          "customer_collects": {
-            "title": "Customer Collects",
-            "type": "boolean"
-          },
-          "customer_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Customer Id"
-          },
-          "doc_date": {
-            "anyOf": [
-              {
-                "format": "date",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Doc Date"
-          },
-          "eway": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Eway"
-          },
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "invoice_discount": {
-            "title": "Invoice Discount",
-            "type": "string"
-          },
-          "kind": {
-            "title": "Kind",
-            "type": "string"
-          },
-          "lines": {
-            "items": {
-              "$ref": "#/components/schemas/LineOut"
-            },
-            "title": "Lines",
-            "type": "array"
-          },
-          "pos_override": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pos Override"
-          },
-          "pos_override_reason": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pos Override Reason"
-          },
-          "ready": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Ready"
-          },
-          "ship_to": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Ship To"
-          },
-          "ship_to_third_party": {
-            "title": "Ship To Third Party",
-            "type": "boolean"
-          },
-          "total": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Total"
-          },
-          "updated_at": {
-            "title": "Updated At",
-            "type": "string"
-          },
-          "version": {
-            "title": "Version",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "id",
-          "kind",
-          "version",
-          "customer_id",
-          "cash_buyer",
-          "bill_to",
-          "ship_to",
-          "doc_date",
-          "invoice_discount",
-          "charges",
-          "eway",
-          "customer_collects",
-          "ship_to_third_party",
-          "pos_override",
-          "pos_override_reason",
-          "lines",
-          "total",
-          "ready",
-          "computed_at",
-          "created_at",
-          "updated_at"
-        ],
-        "title": "DraftOut",
-        "type": "object"
-      },
-      "app__modules__sales__api__LineIn": {
-        "additionalProperties": false,
-        "properties": {
-          "discount_kind": {
-            "anyOf": [
-              {
-                "enum": [
-                  "amount",
-                  "percent"
-                ],
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Discount Kind"
-          },
-          "discount_value": {
-            "anyOf": [
-              {
-                "maxLength": 24,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Discount Value"
-          },
-          "product_id": {
-            "title": "Product Id",
-            "type": "string"
-          },
-          "quantity": {
-            "maxLength": 24,
-            "title": "Quantity",
-            "type": "string"
-          },
-          "unit_price": {
-            "anyOf": [
-              {
-                "maxLength": 24,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Unit Price"
-          }
-        },
-        "required": [
-          "product_id",
-          "quantity"
-        ],
-        "title": "LineIn",
         "type": "object"
       }
     }
@@ -11522,7 +11562,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__modules__sales__api__DraftOut"
+                  "$ref": "#/components/schemas/DraftOut"
                 }
               }
             },
@@ -11631,7 +11671,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__modules__sales__api__DraftOut"
+                  "$ref": "#/components/schemas/DraftOut"
                 }
               }
             },
@@ -11706,7 +11746,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__modules__sales__api__DraftOut"
+                  "$ref": "#/components/schemas/DraftOut"
                 }
               }
             },
@@ -14222,7 +14262,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CodeCheckOut"
+                  "$ref": "#/components/schemas/PurchaseCodeCheckOut"
                 }
               }
             },
@@ -14314,7 +14354,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DraftsOut"
+                  "$ref": "#/components/schemas/PurchaseDraftsOut"
                 }
               }
             },
@@ -14365,7 +14405,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__modules__imports__api_purchases__DraftOut"
+                  "$ref": "#/components/schemas/PurchaseDraftOut"
                 }
               }
             },
@@ -14416,7 +14456,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/app__modules__imports__api_purchases__ConfirmIn"
+                "$ref": "#/components/schemas/PurchaseConfirmIn"
               }
             }
           },
@@ -14427,7 +14467,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__modules__imports__api_purchases__ConfirmedOut"
+                  "$ref": "#/components/schemas/PurchaseConfirmedOut"
                 }
               }
             },
@@ -14478,7 +14518,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__modules__imports__api_purchases__DraftOut"
+                  "$ref": "#/components/schemas/PurchaseDraftOut"
                 }
               }
             },
@@ -14544,7 +14584,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FilesOut"
+                  "$ref": "#/components/schemas/PurchaseFilesOut"
                 }
               }
             },
@@ -14600,7 +14640,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FileStartIn"
+                "$ref": "#/components/schemas/PurchaseFileStartIn"
               }
             }
           },
@@ -14611,7 +14651,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FileStartOut"
+                  "$ref": "#/components/schemas/PurchaseFileStartOut"
                 }
               }
             },
@@ -14662,7 +14702,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FileOut"
+                  "$ref": "#/components/schemas/PurchaseFileOut"
                 }
               }
             },
@@ -14714,7 +14754,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/JobRef"
+                  "$ref": "#/components/schemas/PurchaseJobRef"
                 }
               }
             },
@@ -14780,7 +14820,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ConfirmedListOut"
+                  "$ref": "#/components/schemas/PurchaseConfirmedListOut"
                 }
               }
             },
@@ -16036,7 +16076,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__modules__imports__api__ConfirmedOut"
+                  "$ref": "#/components/schemas/ConfirmedOut"
                 }
               }
             },

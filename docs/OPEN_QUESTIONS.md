@@ -273,7 +273,7 @@ Every row in `refdata/` is `provisional`. Before go-live:
 - **Duplicate rule for supplier invoice numbers.** The same supplier GSTIN, financial year and number (case and spaces folded) cannot be confirmed twice. Whether a supplier's number can legitimately repeat inside a financial year is a CA question (with CA-5).
 - **Product names.** The reader returns no item description, so names are typed on the review. Reading the description column is a later reader change.
 - **Files expire, records do not.** The raw purchase file follows the `uploads` area's expiry; once purged, a confirmed purchase still shows its values and the draft it came from, but not the paper. Whether purchase papers must be kept longer is a CA and retention question.
-- **Web review screen not built in this slice.** The routes and OpenAPI types are in; the screen follows mock v13 and is the next slice.
+- **Web screens (R2-M2).** `/b/:id/purchases` (upload, business-type prompt, what waits) and `/b/:id/purchases/:draftId` (review) are built behind the invoicing flag, from the routes' own shape, not checked against mock v13 pixel by pixel. The new-item form has no cess switch yet (a new item is created with no cess), and the existing-product list shows the first 100 active products only.
 ## R2-M1 (business type)
 
 - **Business type before R2 invoicing: decided.** Optional at sign-up, required before invoicing (CEO, 2026-11-18, D-080); the server check is `require_business_type`. Still open: what the web shows a business that hits `business_type_required` (a link to Business setup is the plan; screens come with R2-M2 and later).

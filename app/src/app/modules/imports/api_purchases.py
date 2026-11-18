@@ -33,29 +33,29 @@ VIEW = [Depends(require(Permission.UPLOADS_VIEW))]
 Amount = Annotated[str, Field(max_length=24)]  # a decimal string, parsed and checked by purchases.to_decimal
 
 
-class FileStartIn(BaseModel):
+class PurchaseFileStartIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     file_name: Annotated[str, Field(max_length=purchases.MAX_FILE_NAME)]
     size_bytes: StrictInt
 
 
-class PresignedPostOut(BaseModel):
+class PurchasePresignedPostOut(BaseModel):
     url: str
     fields: dict[str, str]
     expires_at: datetime
 
 
-class FileStartOut(BaseModel):
+class PurchaseFileStartOut(BaseModel):
     file_id: str
-    upload: PresignedPostOut
+    upload: PurchasePresignedPostOut
 
 
-class JobRef(BaseModel):
+class PurchaseJobRef(BaseModel):
     job_id: str
 
 
-class FileOut(BaseModel):
+class PurchaseFileOut(BaseModel):
     id: str
     file_name: str
     size_bytes: int
@@ -66,19 +66,19 @@ class FileOut(BaseModel):
     created_at: datetime
 
 
-class FilesOut(BaseModel):
-    files: list[FileOut]
+class PurchaseFilesOut(BaseModel):
+    files: list[PurchaseFileOut]
     has_more: bool
 
 
-def _file_out(f: purchases.PurchaseFile) -> FileOut:
-    return FileOut(id=str(f.id), file_name=f.file_name, size_bytes=f.size_bytes, kind=f.kind, status=f.status,
+def _file_out(f: purchases.PurchaseFile) -> PurchaseFileOut:
+    return PurchaseFileOut(id=str(f.id), file_name=f.file_name, size_bytes=f.size_bytes, kind=f.kind, status=f.status,
                    reject_reason=f.reject_reason, reject_message=f.reject_message, created_at=f.created_at)
 
 
-@router.post("/b/{business_id}/purchase-files", status_code=http.HTTP_201_CREATED, response_model=FileStartOut,
+@router.post("/b/{business_id}/purchase-files", status_code=http.HTTP_201_CREATED, response_model=PurchaseFileStartOut,
              dependencies=CREATE)
-def start_file(body: FileStartIn, request: Request, uow: BusinessUoW, clock: Annotated[Clock, Depends(get_clock)],
+def start_file(body: PurchaseFileStartIn, request: Request, uow: BusinessUoW, clock: Annotated[Clock, Depends(get_clock)],
                idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None):
     """A purchase file and a presigned POST for exactly its key, type and declared size."""
     purchases.require_business_type(uow)
@@ -94,31 +94,31 @@ def start_file(body: FileStartIn, request: Request, uow: BusinessUoW, clock: Ann
         raise Conflict("upload_already_started", "This upload has already moved on. Start a new one")
     post = storage.get_store().presign_post(uow.principal.business_id, f.s3_key, max_bytes=f.size_bytes,
                                            content_type=purchases.content_type_for(f.file_name))
-    return FileStartOut(file_id=str(f.id), upload=PresignedPostOut(url=post.url, fields=post.fields,
+    return PurchaseFileStartOut(file_id=str(f.id), upload=PurchasePresignedPostOut(url=post.url, fields=post.fields,
                                                                   expires_at=post.expires_at))
 
 
 @router.post("/b/{business_id}/purchase-files/{file_id}/complete", status_code=http.HTTP_202_ACCEPTED,
-             response_model=JobRef, dependencies=CREATE)
+             response_model=PurchaseJobRef, dependencies=CREATE)
 def complete_file(file_id: str, uow: BusinessUoW, clock: Annotated[Clock, Depends(get_clock)]):
     """The upload finished: check it is there, then queue the read. Calling it again returns the same job."""
     purchases.require_business_type(uow)
     f = purchases.received(uow, parse_id(file_id), clock.today())
-    return JobRef(job_id=str(jobs.create(uow, import_jobs.PURCHASE_PARSE, natural_key=str(f.id))))
+    return PurchaseJobRef(job_id=str(jobs.create(uow, import_jobs.PURCHASE_PARSE, natural_key=str(f.id))))
 
 
-@router.get("/b/{business_id}/purchase-files", response_model=FilesOut, dependencies=VIEW)
+@router.get("/b/{business_id}/purchase-files", response_model=PurchaseFilesOut, dependencies=VIEW)
 def list_files(uow: BusinessUoW, page: Annotated[PageParams, Depends(page_params)]):
     found, more = purchases.list_files(uow, page.limit, page.offset)
-    return FilesOut(files=[_file_out(f) for f in found], has_more=more)
+    return PurchaseFilesOut(files=[_file_out(f) for f in found], has_more=more)
 
 
-@router.get("/b/{business_id}/purchase-files/{file_id}", response_model=FileOut, dependencies=VIEW)
+@router.get("/b/{business_id}/purchase-files/{file_id}", response_model=PurchaseFileOut, dependencies=VIEW)
 def get_file(file_id: str, uow: BusinessUoW):
     return _file_out(purchases.get_file(uow, parse_id(file_id)))
 
 
-class DraftLineOut(BaseModel):
+class PurchaseDraftLineOut(BaseModel):
     id: str
     line_no: int
     page: int
@@ -134,7 +134,7 @@ class DraftLineOut(BaseModel):
     unclear: list[str]  # field names only, so the screen marks what to check
 
 
-class DraftOut(BaseModel):
+class PurchaseDraftOut(BaseModel):
     id: str
     file_id: str
     file_name: str
@@ -147,37 +147,37 @@ class DraftOut(BaseModel):
     doc_date: str | None  # as read, DD-MM-YYYY
     invoice_total: str | None
     unclear: list[str]
-    lines: list[DraftLineOut]
+    lines: list[PurchaseDraftLineOut]
     decision: Literal["confirmed", "discarded"] | None
 
 
-class DraftsOut(BaseModel):
-    drafts: list[DraftOut]
+class PurchaseDraftsOut(BaseModel):
+    drafts: list[PurchaseDraftOut]
     has_more: bool
 
 
-def _draft_out(d: purchases.Draft) -> DraftOut:
-    return DraftOut(
+def _draft_out(d: purchases.Draft) -> PurchaseDraftOut:
+    return PurchaseDraftOut(
         id=str(d.id), file_id=str(d.file_id), file_name=d.file_name, ordinal=d.ordinal, reader=d.reader_id,
         pages=d.pages, doc_type=d.doc_type, supplier_gstin=d.supplier_gstin, doc_number=d.doc_number,
         doc_date=d.doc_date, invoice_total=d.invoice_total, unclear=d.unclear, decision=d.decision,
-        lines=[DraftLineOut(**{**ln.__dict__, "id": str(ln.id)}) for ln in d.lines])
+        lines=[PurchaseDraftLineOut(**{**ln.__dict__, "id": str(ln.id)}) for ln in d.lines])
 
 
-@router.get("/b/{business_id}/purchase-drafts", response_model=DraftsOut, dependencies=VIEW)
+@router.get("/b/{business_id}/purchase-drafts", response_model=PurchaseDraftsOut, dependencies=VIEW)
 def list_drafts(uow: BusinessUoW, page: Annotated[PageParams, Depends(page_params)], file_id: str | None = None,
                 open_only: bool = False):
     found, more = purchases.list_drafts(uow, file_id=None if file_id is None else parse_id(file_id),
                                         open_only=open_only, limit=page.limit, offset=page.offset)
-    return DraftsOut(drafts=[_draft_out(d) for d in found], has_more=more)
+    return PurchaseDraftsOut(drafts=[_draft_out(d) for d in found], has_more=more)
 
 
-@router.get("/b/{business_id}/purchase-drafts/{draft_id}", response_model=DraftOut, dependencies=VIEW)
+@router.get("/b/{business_id}/purchase-drafts/{draft_id}", response_model=PurchaseDraftOut, dependencies=VIEW)
 def get_draft(draft_id: str, uow: BusinessUoW):
     return _draft_out(purchases.get_draft(uow, parse_id(draft_id)))
 
 
-class NewItemIn(BaseModel):
+class PurchaseNewItemIn(BaseModel):
     """A product to create from a line. The name and HSN are the line's own; the rate is the business's to confirm."""
 
     model_config = ConfigDict(extra="forbid")
@@ -190,12 +190,12 @@ class NewItemIn(BaseModel):
     has_cess: bool = False
 
 
-class LineIn(BaseModel):
+class PurchaseLineIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     draft_line_id: str | None = None  # the read line this one came from; null for a line typed in
     product_id: str | None = None  # an existing catalog product, or `new_item`: exactly one of the two
-    new_item: NewItemIn | None = None
+    new_item: PurchaseNewItemIn | None = None
     product_name: Annotated[str, Field(max_length=120)]
     hsn: Annotated[str, Field(max_length=8)]
     quantity: Amount
@@ -208,7 +208,7 @@ class LineIn(BaseModel):
     cess: Amount = "0"
 
 
-class ConfirmIn(BaseModel):
+class PurchaseConfirmIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     supplier_gstin: Annotated[str, Field(max_length=40)]
@@ -216,17 +216,17 @@ class ConfirmIn(BaseModel):
     doc_number: Annotated[str, Field(max_length=40)]
     doc_date: date
     invoice_total: Amount | None = None
-    lines: list[LineIn]
+    lines: list[PurchaseLineIn]
 
 
-class ReceivedOut(BaseModel):
+class PurchaseReceivedOut(BaseModel):
     line_no: int
     product_id: str
     created_product: bool
     price_needed: bool  # the selling price per 1 qty is still to be set (R2-M3)
 
 
-class ConfirmedOut(BaseModel):
+class PurchaseConfirmedOut(BaseModel):
     review_id: str
     draft_id: str
     supplier_gstin: str
@@ -236,26 +236,26 @@ class ConfirmedOut(BaseModel):
     invoice_total: str | None
     line_count: int
     created_at: datetime
-    received: list[ReceivedOut] = []
+    received: list[PurchaseReceivedOut] = []
 
 
-class ConfirmedListOut(BaseModel):
-    invoices: list[ConfirmedOut]
+class PurchaseConfirmedListOut(BaseModel):
+    invoices: list[PurchaseConfirmedOut]
     has_more: bool
 
 
-def _confirmed_out(c: purchases.Confirmed) -> ConfirmedOut:
-    return ConfirmedOut(review_id=str(c.review_id), draft_id=str(c.draft_id), supplier_gstin=c.supplier_gstin,
+def _confirmed_out(c: purchases.Confirmed) -> PurchaseConfirmedOut:
+    return PurchaseConfirmedOut(review_id=str(c.review_id), draft_id=str(c.draft_id), supplier_gstin=c.supplier_gstin,
                         supplier_name=c.supplier_name, doc_number=c.doc_number, doc_date=c.doc_date,
                         invoice_total=None if c.invoice_total is None else str(c.invoice_total), line_count=c.line_count,
                         created_at=c.created_at,
-                        received=[ReceivedOut(line_no=n, product_id=str(p), created_product=cp, price_needed=pn)
+                        received=[PurchaseReceivedOut(line_no=n, product_id=str(p), created_product=cp, price_needed=pn)
                                   for n, p, cp, pn in c.received])
 
 
 @router.post("/b/{business_id}/purchase-drafts/{draft_id}/confirm", status_code=http.HTTP_201_CREATED,
-             response_model=ConfirmedOut, dependencies=CREATE)
-def confirm_draft(draft_id: str, body: ConfirmIn, uow: BusinessUoW, clock: Annotated[Clock, Depends(get_clock)]):
+             response_model=PurchaseConfirmedOut, dependencies=CREATE)
+def confirm_draft(draft_id: str, body: PurchaseConfirmIn, uow: BusinessUoW, clock: Annotated[Clock, Depends(get_clock)]):
     """The business confirms the invoice with the values it checked on the review screen. Once; a second call is a
     conflict, not a second invoice."""
     purchases.require_business_type(uow)
@@ -275,24 +275,24 @@ def confirm_draft(draft_id: str, body: ConfirmIn, uow: BusinessUoW, clock: Annot
     return _confirmed_out(done)
 
 
-@router.post("/b/{business_id}/purchase-drafts/{draft_id}/discard", response_model=DraftOut, dependencies=CREATE)
+@router.post("/b/{business_id}/purchase-drafts/{draft_id}/discard", response_model=PurchaseDraftOut, dependencies=CREATE)
 def discard_draft(draft_id: str, uow: BusinessUoW):
     purchases.require_business_type(uow)
     return _draft_out(purchases.discard(uow, parse_id(draft_id)))
 
 
-@router.get("/b/{business_id}/purchase-invoices", response_model=ConfirmedListOut, dependencies=VIEW)
+@router.get("/b/{business_id}/purchase-invoices", response_model=PurchaseConfirmedListOut, dependencies=VIEW)
 def list_purchase_invoices(uow: BusinessUoW, page: Annotated[PageParams, Depends(page_params)]):
     found, more = purchases.list_confirmed(uow, page.limit, page.offset)
-    return ConfirmedListOut(invoices=[_confirmed_out(c) for c in found], has_more=more)
+    return PurchaseConfirmedListOut(invoices=[_confirmed_out(c) for c in found], has_more=more)
 
 
-class CodeCheckOut(BaseModel):
+class PurchaseCodeCheckOut(BaseModel):
     code: str
     available: bool
 
 
-@router.get("/b/{business_id}/purchase-code-check", response_model=CodeCheckOut, dependencies=VIEW)
+@router.get("/b/{business_id}/purchase-code-check", response_model=PurchaseCodeCheckOut, dependencies=VIEW)
 def check_item_code(code: Annotated[str, Query(max_length=40)], uow: BusinessUoW):
     """For the review screen: is this product code free? The confirm still refuses a taken code."""
-    return CodeCheckOut(code=code.strip(), available=not code_in_use(uow.tx, code))
+    return PurchaseCodeCheckOut(code=code.strip(), available=not code_in_use(uow.tx, code))
