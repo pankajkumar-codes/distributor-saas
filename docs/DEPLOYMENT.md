@@ -83,7 +83,7 @@ a month at Lambda list prices (not verified against an AWS bill).
   increase is requested in Service Quotas and costs nothing. Staging leaves the caps off.
 - The deploy setup below.
 - A domain, two ACM certificates (one in us-east-1 for CloudFront's web names, one in
-  ap-south-1 for the API's `api.<domain>`, D-095), and SES production access for that
+  ap-south-1 for the API's `api.<domain>`, D-096), and SES production access for that
   domain (tech plan §0, §4.5). Both names must be on the same registrable domain: the
   refresh cookie is SameSite=Strict. After the apply, point `api.<domain>` at the
   `api_regional_domain_name` output. Nothing enforces the sibling name: if `api_domain` is

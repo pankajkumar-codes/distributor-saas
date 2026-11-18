@@ -40,7 +40,7 @@ schemas. The shared code is `libs/platform_common`. It provides:
 
 The web app is a React + TypeScript single-page app on S3 + CloudFront, and calls the
 API on a sibling name (`api.<domain>`, a regional API Gateway endpoint in Mumbai, not behind
-CloudFront; D-095, amending D-023).
+CloudFront; D-096, amending D-023).
 
 ## Data and tenancy
 
