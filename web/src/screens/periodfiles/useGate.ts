@@ -38,3 +38,13 @@ export function useOpenFile(businessId: string, kind: GateKind, start: string) {
     onError: () => queryClient.invalidateQueries({ queryKey: gateKey(businessId, kind, start) }),
   });
 }
+
+/** POST …/uploads/none-this-month: the business says a marketplace had no sales in a month. The gate is asked again. */
+export function useNoSales(businessId: string, kind: GateKind, start: string) {
+  const queryClient = useQueryClient();
+  return useMutation<unknown, ApiError, { platform: "amazon" | "flipkart" | "meesho"; month: string }>({
+    mutationFn: ({ platform, month }) =>
+      call(() => api.POST("/api/v1/b/{business_id}/uploads/none-this-month", { params: { path: { business_id: businessId } }, body: { section: platform, month } })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: gateKey(businessId, kind, start) }),
+  });
+}

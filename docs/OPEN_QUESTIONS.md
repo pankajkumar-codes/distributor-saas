@@ -366,3 +366,5 @@ These need Pankaj or his CA and do not stop building. Each must be done before p
 
 ## Decision handling
 For each answer, update `docs/DECISIONS.md` with the decision, rationale, trade-offs, and approval status. Do not silently turn assumptions into requirements.
+- **Turning live finalize on (CA, then CEO or Pankaj) (R3-M5, D-091):** a second refdata switch `sales.finalize.live` ships `"false"`; turn it on, after `sales.finalize.enabled`, only once the CA confirms the numbering scope (CA-1). Credit-note finalize is still not built (needs the credit-note treatment, CA).
+- **R3 remaining (open, no owner decision needed to build):** the period-files page (web/src/screens/periodfiles/FilePeriodPage.tsx) still says locking and marking filed from that page is "Upcoming"; the backend mark-filed, lock and unlock exist (R1-M8) and are used from each return screen, so wiring that page is a web-only follow-up. Live finalize (D-091) stays off; credit-note finalize is not built.

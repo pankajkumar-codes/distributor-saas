@@ -195,6 +195,11 @@ export function HomePage() {
                 <Link to={`/b/${businessId}/filing`}>Your GST filing and deadlines</Link>
               </li>
             )}
+            {FEATURES.invoicing && canPrepareReturns(business.role) && (
+              <li>
+                <Link to={`/b/${businessId}/file-period`}>File from your own invoices</Link>
+              </li>
+            )}
             {canViewUploads(business.role) && (
               <li>
                 <Link to={`/b/${businessId}/uploads`}>Upload your reports</Link>
