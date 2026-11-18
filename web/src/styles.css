@@ -181,3 +181,12 @@ input:-webkit-autofill, input:-webkit-autofill:focus {
 .field .tag { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; background: var(--sunk); color: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 2px 7px; margin-left: 6px; }
 .field select:disabled { cursor: not-allowed; }
 .tablewrap { overflow-x: auto; }
+
+/* Uploads (mock v13): marketplace cards side by side, own invoices full width */
+.uploads-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: 0 14px; align-items: start; }
+.uploads-grid > .span-all { grid-column: 1 / -1; }
+/* Numbered portal steps (mock v13 .step with .dot) */
+ol.steps { list-style: none; margin: 0 0 12px; padding: 0; counter-reset: s; }
+ol.steps > li { counter-increment: s; position: relative; padding: 12px 0 12px 44px; border-bottom: 1px solid var(--line); }
+ol.steps > li:last-child { border-bottom: 0; }
+ol.steps > li::before { content: counter(s); position: absolute; left: 0; top: 10px; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 700; background: var(--gst-soft); color: var(--gst); }

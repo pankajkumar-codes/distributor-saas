@@ -76,9 +76,12 @@ export function UploadsPage() {
           </Banner>
         )}
         {shown.length > 0 && canUpload(business.role) && <BundleCard businessId={businessId} bundleId={params.get("bundle")} onBundle={(id) => follow("bundle", id)} />}
+        <div className="uploads-grid">
         {shown.map((s) =>
           s.id === "own_invoices_excel" ? (
-            <OwnInvoicesCard key={s.id} businessId={businessId} label={s.label} hint={s.hint} canUpload={canUpload(business.role)} />
+            <div key={s.id} className="span-all">
+              <OwnInvoicesCard businessId={businessId} label={s.label} hint={s.hint} canUpload={canUpload(business.role)} />
+            </div>
           ) : (
           <UploadCard
             key={s.id}
@@ -92,6 +95,7 @@ export function UploadsPage() {
           />
           ),
         )}
+        </div>
       </main>
     </>
   );
