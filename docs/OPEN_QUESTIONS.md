@@ -100,7 +100,7 @@ POST /b already reads `identity.max_owned_businesses` (5, provisional; **Pankaj 
   - **Support staff.** They have no business, so their page is a new route, `/account/security`, not in LLD-1 §11.2. A support user without TOTP gets 404 from `/support/grants`; `/support` then checks `GET /me` and sends them to turn it on (L2-5) instead of showing not found.
   - **Support's removal screen.** `/support/totp-recovery` takes the account email, mails the code, then takes the code the person reads out (LLD-2 §6.3). Its words are the same whether or not the account exists, as the server's reply is. LLD-2 §6.3 puts it under `is_support` plus TOTP, not under a business grant, and it's built that way.
   - **Sign-in.** The sign-in code step shows the PO's "Lost your phone? Contact support." (RM2-29). There is no support contact address to link yet; **PO** to supply one.
-  - **The authenticator label** is the provisional `APP_NAME = "Business Hub"` (`web/src/brand.ts`) until the product name is decided (CEO and Pankaj). Accounts already enrolled keep the old label in their app.
+  - **The authenticator label** is `APP_NAME = "Kartaa"` (`web/src/brand.ts`), the product name decided by the CEO on 2026-11-18. Accounts enrolled before that keep the old label "Business Hub" in their app.
   - **Designer** to confirm the wording and the QR layout.
 - **Support users and memberships (AC2-14, done in S2-b).** Triggers refuse an active membership for a support user and refuse making a member into support, so a support user always reaches a business through a grant (TOTP required, read-only, every view audited), never as a member. Existing data: none in any environment yet.
 

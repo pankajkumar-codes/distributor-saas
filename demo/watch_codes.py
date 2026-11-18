@@ -13,7 +13,7 @@ from pathlib import Path
 path = Path(sys.argv[1] if len(sys.argv) > 1 else "build/mail/outbox.jsonl")
 hide = os.environ.get("HIDE_EMAIL", "")
 pos = path.stat().st_size if path.exists() else 0  # only mail that arrives from now on
-print("Watching for sign-up, password-reset and two-step codes. They will appear here.", flush=True)
+print("Watching for sign-up, password-reset and two-step codes and team invitation links. They will appear here.", flush=True)
 while True:
     if path.exists() and path.stat().st_size > pos:
         with path.open("rb") as f:
@@ -28,7 +28,14 @@ while True:
                 continue
             if m.get("to") == hide:
                 continue
-            code = m.get("params", {}).get("code")
+            params = m.get("params", {})
+            if m["template"] == "invitation" and params.get("link"):
+                # The demo has no real email, so the accept link is printed here (never on the Team page).
+                print(f"\n  INVITATION for {m['to']} ({params.get('inviter_name', '')} invites them to {params.get('business_name', '')} "
+                      f"as {params.get('role_label', '')}).\n  Open this link in a browser where you are signed out, "
+                      f"or signed in as {m['to']}:\n\n      {params['link']}\n", flush=True)
+                continue
+            code = params.get("code")
             what = {"signup_code": "SIGN-UP CODE", "reset_code": "PASSWORD RESET CODE", "demo_totp_code": "TWO-STEP CODE"}.get(m["template"], m["template"])
             print(f"\n  {what} for {m['to']}:  {code}\n" if code else f"\n  Email '{m['template']}' to {m['to']}\n", flush=True)
     time.sleep(0.5)
