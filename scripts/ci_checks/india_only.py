@@ -18,7 +18,13 @@ from pathlib import Path, PurePosixPath
 ROOT = Path(__file__).resolve().parents[2]
 ROOTS = ("infra", ".github", "scripts", "app/src", "libs", "web/src", "web/nginx", "demo", "docker-compose", "Dockerfile")
 SKIP_PARTS = ("tests/ci_fixtures", "tests/tools")  # the planted files and this check's own tests
-SKIP_FILES = {"scripts/ci_checks/india_only.py"}
+SKIP_FILES = {
+    "scripts/ci_checks/india_only.py",
+    # These tests name foreign regions and geography-prefixed model ids on purpose, to prove they are refused.
+    "libs/platform_common/tests/test_regions.py",
+    "libs/platform_common/tests/test_aws_client_config.py",
+    "app/src/app/modules/imports/tests/test_pdf_bedrock_reader.py",
+}
 TEXT_SUFFIXES = {".tf", ".py", ".yaml", ".yml", ".sh", ".json", ".ts", ".tsx", ".toml", ".conf", ".md", ".sql", ".hcl"}
 IN_INDIA = {"ap-south-1", "ap-south-2"}
 
