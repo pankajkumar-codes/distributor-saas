@@ -290,7 +290,7 @@ def _insert(
         # R2-M4: the sale takes stock out, once per invoice line, in this same transaction. It
         # never refuses for lack of stock (the balance may go to or below zero).
         record_sale_out(uow, product_id=p.product_id, quantity=ln.quantity, document_id=document_id,
-                        document_line_id=line_id, sold_on=doc_date)
+                        document_line_id=line_id, sold_on=doc_date, practice=practice)
         for t in ln.taxes:
             tx.execute(
                 text(

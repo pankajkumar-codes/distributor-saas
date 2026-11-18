@@ -5402,6 +5402,10 @@
             "title": "Id",
             "type": "string"
           },
+          "is_practice": {
+            "title": "Is Practice",
+            "type": "boolean"
+          },
           "kind": {
             "enum": [
               "purchase_in",
@@ -5517,6 +5521,7 @@
           "source_id",
           "source_line_id",
           "unit_cost",
+          "is_practice",
           "reverses_id",
           "reversed_by_id",
           "reason",
@@ -13178,6 +13183,22 @@
             "schema": {
               "title": "Business Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "practice",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Practice"
             }
           },
           {

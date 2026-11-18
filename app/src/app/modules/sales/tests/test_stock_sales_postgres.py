@@ -230,3 +230,27 @@ def test_replacing_a_draft_keeps_working_with_stock_in_play(shop):
     r = put(pg, biz, d, {"customer_id": d["customer_id"], "lines": [{"product_id": p, "quantity": "5"}]})
     assert r.status_code == 200, r.text
     assert ("no_stock", 1) in codes(r.json())
+
+
+def test_a_practice_invoice_takes_stock_out_tagged_as_practice_and_its_reversal_keeps_the_tag(shop):
+    pg, biz, _ = shop
+    switch(pg, True)
+    p = product(pg, biz)
+    stock_in(pg, biz, p, "10")
+    doc = fin(pg, biz, draft(pg, biz, p, quantity="2")).json()
+    assert doc["is_practice"] is True
+    with pg.owner.connect() as c:
+        tags = c.execute(text("select kind, is_practice from catalog.stock_movements order by created_at, id")).all()
+    assert [tuple(t) for t in tags] == [("adjustment", False), ("sale_out", True)]
+    sale_out = scalar(pg.owner, "select id from catalog.stock_movements where kind = 'sale_out'")
+    r = pg.client.post(f"/api/v1/b/{biz}/stock-movements/{sale_out}/reversals", json={"reason": "Test sale"},
+                       headers={**as_user("alice"), "Idempotency-Key": uuid.uuid4().hex})
+    assert r.status_code == 201 and r.json()["is_practice"] is True
+    path = f"/api/v1/b/{biz}/products/{p}/stock-movements"
+    everything = pg.client.get(path, headers=as_user("alice")).json()["items"]
+    only_practice = pg.client.get(path, params={"practice": "true"}, headers=as_user("alice")).json()["items"]
+    not_practice = pg.client.get(path, params={"practice": "false"}, headers=as_user("alice")).json()["items"]
+    assert [m["kind"] for m in everything] == ["reversal", "sale_out", "adjustment"]
+    assert [m["kind"] for m in only_practice] == ["reversal", "sale_out"]
+    assert [m["kind"] for m in not_practice] == ["adjustment"]
+

@@ -287,7 +287,7 @@ Every row in `refdata/` is `provisional`. Before go-live:
 
 ## R2-M4 (sales from the catalog, with stock)
 
-- **Do practice invoices take stock out?** Practice-mode documents (the only kind until the CA confirms the numbering scope) write `sale_out` movements like any other, because the business really sold the goods. If a practice document is only a trial, stock would be wrong after a test. Needs the EM or Pankaj before M5 turns finalize on.
+- **Practice invoices and stock: decided.** They take stock out like any other (CEO, 2026-11-18) and their movements are tagged `is_practice`, so a trial can be filtered or reversed (D-082). Still open: whether a business needs a one-step "undo all practice sales" action; today each is reversed by hand.
 - **Returns and cancellations.** Nothing cancels or credits an invoice yet (no credit notes). A stock reversal puts the goods back in the ledger and leaves the invoice as it was; a credit note flow with its own stock rule is not built.
 - **Services and non-stock items.** Every catalog product is treated as stock-tracked, so a service line shows "no stock". A "does not hold stock" flag on a product is not built; it would also need a rule on what finalize does for it.
 - **Stock check at finalize time.** `no_stock` and `low_stock` are computed from the ledger when the draft is saved or previewed and again at finalize; two invoices drafted before either is finalized can together sell more than is held. That is allowed by design (never block) and the balance simply goes negative.
