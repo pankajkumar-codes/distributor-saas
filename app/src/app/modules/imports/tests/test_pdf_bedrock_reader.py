@@ -84,6 +84,26 @@ def test_a_malformed_or_oversized_reply_is_refused(reply):
     assert e.value.code == "pdf_paid_reader_failed"
 
 
+@pytest.mark.parametrize("bad", [[], {}, ["Invoice"], {"a": 1}, 5, None])
+def test_a_doc_type_that_is_not_text_is_blank_not_a_crash(bad):
+    reply = json.loads(json.dumps(GOOD))
+    reply["invoices"][0]["doc_type"] = bad
+    (inv,) = reader(Fake(json.dumps(reply))).read(PDF, LIMITS).invoices
+    assert inv.doc_type is None and "doc_type" in inv.unclear
+
+
+def test_an_unexpected_fault_while_checking_the_reply_is_the_plain_refusal(monkeypatch):
+    from app.modules.imports.pdf import bedrock_reader
+
+    def boom(*a, **k):
+        raise TypeError("19AAAAA0000A1Z5")
+
+    monkeypatch.setattr(bedrock_reader, "_validate", boom)
+    with pytest.raises(PdfRefused) as e:
+        reader(Fake(json.dumps(GOOD))).read(PDF, LIMITS)
+    assert str(e.value) == "pdf_paid_reader_failed" and e.value.__cause__ is None
+
+
 def test_a_client_error_is_a_plain_refusal_with_no_cause_and_no_value_logged(caplog):
     caplog.set_level(logging.DEBUG)
     with pytest.raises(PdfRefused) as e:

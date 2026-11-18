@@ -15,7 +15,7 @@ from typing import Any
 
 from .interface import ExtractedInvoice, ExtractedLine, Limits, PdfRefused, ReadResult
 
-_MAX_BYTES = 4_500_000  # the Converse document limit is about 4.5 MB; refuse before sending
+_MAX_BYTES = 4_500_000  # UNVERIFIED: believed to be the Converse limit for one document (about 4.5 MB); check the docs before wiring
 _MAX_LINES_PER_INVOICE = 500
 _AMOUNT = re.compile(r"^[0-9]{1,15}(\.[0-9]{1,4})?$")
 _DATE = re.compile(r"^[0-9]{2}-[0-9]{2}-[0-9]{4}$")
@@ -70,9 +70,11 @@ class BedrockReader:
                 inferenceConfig={"maxTokens": 8000, "temperature": 0},
             )
             payload = json.loads(reply["output"]["message"]["content"][0]["text"])
+            return _validate(payload, limits)
+        except PdfRefused:
+            raise
         except Exception:  # noqa: BLE001 - nothing from the call or the reply may reach a log or a reject reason
             raise PdfRefused("pdf_paid_reader_failed") from None
-        return _validate(payload, limits)
 
 
 def _scalar(value: Any, pattern: re.Pattern) -> str | None:
@@ -97,7 +99,7 @@ def _invoice(item: Any, limits: Limits) -> ExtractedInvoice:
         raise PdfRefused("pdf_paid_reader_failed")
     pages = tuple(sorted({_page(p, limits) for p in item["pages"]}))
     values = {name: _scalar(item.get(name), pat) for name, pat in _DOC_FIELDS.items()}
-    doc_type = item["doc_type"] if item.get("doc_type") in _DOC_TYPES else None
+    doc_type = item["doc_type"] if isinstance(item.get("doc_type"), str) and item["doc_type"] in _DOC_TYPES else None
     unclear = {name for name, v in values.items() if v is None and name != "original_number"}
     if doc_type is None:
         unclear.add("doc_type")
