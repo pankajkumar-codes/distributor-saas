@@ -105,10 +105,25 @@ describe("a new product", () => {
     type("Rate applies from", "2026-03-01");
     await screen.findByRole("option", { name: "40%" });
     expect(screen.getByLabelText("GST rate")).toHaveValue("");
-    server.reply(LIST, { status: 422, body: { error: { code: "invalid", message: "Choose a rate", field: "rate.rate" } } });
+    // Nothing is chosen any more: the form says so in plain words and sends nothing.
     fireEvent.click(screen.getByRole("button", { name: "Add product" }));
-    await screen.findByText("Choose a rate");
-    expect(sent(LIST, "POST")[0].body).toMatchObject({ rate: { rate: "", valid_from: "2026-03-01" } });
+    expect(await screen.findByText("Choose a GST rate.")).toBeInTheDocument();
+    expect(sent(LIST, "POST")).toHaveLength(0);
+    type("GST rate", "5");
+    expect(screen.queryByText("Choose a GST rate.")).toBeNull();
+  });
+
+  it("never shows the server's pattern text under the GST rate", async () => {
+    open("/b/b-1/products/new");
+    await screen.findByRole("option", { name: "Numbers (NOS)" });
+    server.reply(RATES, { status: 200, body: { on: todayIst(), rates: ["5", "18"] } });
+    fireEvent.click(screen.getByRole("radio", { name: "Taxable" }));
+    await screen.findByRole("option", { name: "18%" });
+    type("GST rate", "18");
+    server.reply(LIST, { status: 422, body: { error: { code: "invalid", message: "String should match pattern '^\\s*[0-9]+$'", field: "rate.rate" } } });
+    fireEvent.click(screen.getByRole("button", { name: "Add product" }));
+    expect(await screen.findByText("Choose a GST rate.")).toBeInTheDocument();
+    expect(screen.queryByText(/should match pattern/)).toBeNull();
   });
 
   it("sends no rate for an exempt product, and shows the server's words under the field it names", async () => {

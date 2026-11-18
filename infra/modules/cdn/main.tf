@@ -105,23 +105,16 @@ resource "aws_s3_bucket_policy" "web" {
   depends_on = [aws_s3_bucket_public_access_block.web]
 }
 
-# Single-page app routes (/b/..., /settings) get index.html. A distribution-wide error
-# page would also turn the API's JSON 404s into HTML, so this runs on the web behaviour
-# only.
+# Which file a path gets (viewer_request.js, tested by routing.test.mjs): "/" is the landing page for a
+# visitor and the app's index.html for someone signed in (the app's `kartaa_in` hint cookie); /styles.css and
+# /fonts/* are the landing page's files under _landing/; /signin, /signup and the app's other routes get
+# index.html. It runs on the web behaviour only: a distribution-wide error page would also turn the API's
+# JSON 404s into HTML. It runs before the cache lookup, so the two pages have separate cache entries.
 resource "aws_cloudfront_function" "spa" {
   name    = "${var.name}-spa"
   runtime = "cloudfront-js-2.0"
   publish = true
-  code    = <<-JS
-    function handler(event) {
-      var request = event.request;
-      var last = request.uri.split('/').pop();
-      if (last.indexOf('.') === -1) {
-        request.uri = '/index.html';
-      }
-      return request;
-    }
-  JS
+  code    = file("${path.module}/viewer_request.js")
 }
 
 locals {
