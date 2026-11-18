@@ -50,7 +50,7 @@ When it is ready you will see a green box that prints the exact address:
 ```
 
 Open that address in your browser. Leave the PowerShell window open: **sign-up and password-reset codes
-appear in it** (the demo prints them instead of emailing them). Press Ctrl+C to stop watching for codes;
+appear in it** (the demo prints them instead of emailing them). **Team invitations are printed there too**: the demo sends no real email, so when you invite someone on the Team page the terminal shows `INVITATION for <email>` and the accept link. Open that link in a browser where you are signed out, sign in (or create an account) with the invited email, and press **Accept the invitation**. A person with no account creates it first, then opens the link again. The link is shown nowhere else: never on the Team page, never in the API log. Press Ctrl+C to stop watching for codes;
 the demo keeps running. `.\demo.ps1 codes` watches again.
 
 Stop it, and throw away everything it held, with `.\demo.ps1 stop`. **Every start begins empty**: the demo's
@@ -120,6 +120,11 @@ so you create a business through the sign-up page.
   reports are rejected as "We can't read this file's columns" until R1-M4. Everything the demo says about
   the file (its layout is unchecked) is true.
 - Sign-in uses a stand-in for Cognito (accounts kept in a file in the demo's storage when run with Docker, in memory otherwise). Email is replaced by the codes in your terminal.
+- **Team invitations** (Settings, Your team): no email is sent in the demo. After you press Send invitation, the
+  terminal that shows the sign-up codes (`./demo.sh codes`) prints `INVITATION for <email>` and the accept link
+  (the same text the real email carries: "<inviter> invited you to join <business> as <role>", then "Accept the
+  invitation: <link>"). Use a second browser or a private window. The link works once, for 7 days, only for the
+  invited email, and is not shown on the Team page or in the API log.
 - **Two-step sign-in** (Settings, Two-step sign-in): an authenticator app on your phone cannot give the right code
   here, because the stand-in has its own code. When you press Turn on, and each time you sign in with it on, the
   demo prints `TWO-STEP CODE for <email>: 123456` in the same terminal as the sign-up codes (`./demo.sh codes`
