@@ -38,8 +38,9 @@ schemas. The shared code is `libs/platform_common`. It provides:
 - `uuid7`, and `Clock` for IST business dates;
 - audit, outbox and jobs, idempotency, rate counters and log redaction.
 
-The web app is a React + TypeScript single-page app on S3 + CloudFront, on the same
-origin as `/api/*` (D-023).
+The web app is a React + TypeScript single-page app on S3 + CloudFront, and calls the
+API on a sibling name (`api.<domain>`, a regional API Gateway endpoint in Mumbai, not behind
+CloudFront; D-095, amending D-023).
 
 ## Data and tenancy
 

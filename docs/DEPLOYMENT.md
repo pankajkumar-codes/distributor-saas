@@ -82,8 +82,11 @@ a month at Lambda list prices (not verified against an AWS bill).
   keeps 100 of the account quota unreserved, so the apply fails on a smaller quota. The
   increase is requested in Service Quotas and costs nothing. Staging leaves the caps off.
 - The deploy setup below.
-- A domain, its ACM certificate in us-east-1 (CloudFront), and SES production access for
-  that domain (tech plan §0, §4.5).
+- A domain, two ACM certificates (one in us-east-1 for CloudFront's web names, one in
+  ap-south-1 for the API's `api.<domain>`, D-095), and SES production access for that
+  domain (tech plan §0, §4.5). Both names must be on the same registrable domain: the
+  refresh cookie is SameSite=Strict. After the apply, point `api.<domain>` at the
+  `api_regional_domain_name` output.
 
 ## How a staging deploy runs (`.github/workflows/deploy-staging.yml`)
 Started by hand from `main` only. Two jobs, both in the `staging` environment, so each
@@ -121,8 +124,8 @@ Terraform is installed from HashiCorp and checked against its published SHA-256
 3. GitHub, Settings > Environments: create `staging` with **required reviewers** (you,
    or whoever you name) and **deployment branches limited to `main`**.
 4. GitHub, Settings > Secrets and variables > Actions > Variables: set
-   `AWS_DEPLOY_ROLE_ARN`, `TF_STATE_BUCKET`, `STAGING_WEB_ORIGINS` and
-   `BUDGET_ALERT_EMAILS`.
+   `AWS_DEPLOY_ROLE_ARN`, `TF_STATE_BUCKET`, `STAGING_WEB_ORIGINS`,
+   `STAGING_API_DOMAIN`, `STAGING_API_CERT_ARN` and `BUDGET_ALERT_EMAILS`.
 5. Confirm each budget and alarm email subscription that AWS sends.
 
 ## Go-live checklist
