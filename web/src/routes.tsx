@@ -14,6 +14,7 @@ import { PurchasesPage } from "./screens/purchases/PurchasesPage";
 import { ReviewPage } from "./screens/purchases/ReviewPage";
 import { PeriodFilesPage } from "./screens/periodfiles/PeriodFilesPage";
 import { UploadsPage } from "./screens/uploads/UploadsPage";
+import { CrosscheckPage } from "./screens/uploads/CrosscheckPage";
 import { HomePage } from "./screens/home/HomePage";
 import { BusinessPage } from "./screens/onboarding/BusinessPage";
 import { CustomerPage } from "./screens/customers/CustomerPage";
@@ -27,12 +28,10 @@ import { ImportPage } from "./screens/products/ImportPage";
 import { ProductPage } from "./screens/products/ProductPage";
 import { ProductsPage } from "./screens/products/ProductsPage";
 import { ResetPage } from "./screens/reset/ResetPage";
-import { SettingsPage } from "./screens/settings/SettingsPage";
+import { SettingsPage, ToBusinessSetup } from "./screens/settings/SettingsPage";
 import { AuditPage } from "./screens/settings/AuditPage";
 import { SecurityPage } from "./screens/settings/SecurityPage";
-import { CompanyPage } from "./screens/settings/CompanyPage";
 import { MarketplacesPage } from "./screens/settings/MarketplacesPage";
-import { FilingPage } from "./screens/settings/FilingPage";
 import { SupportPage } from "./screens/settings/SupportPage";
 import { SigninPage } from "./screens/signin/SigninPage";
 import { SupportBusinessesPage } from "./screens/support/SupportBusinessesPage";
@@ -53,6 +52,7 @@ export const routes: RouteObject[] = [
   { path: "/b/:businessId/filing/:instanceId/worksheet", element: <PageTitle title="GSTR-3B worksheet"><RequireAuth><WorksheetPage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/filing/:instanceId", element: <PageTitle title="Your return"><RequireAuth><ReturnPage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/filing/:instanceId/portal-guide-3b", element: <PageTitle title="Enter GSTR-3B on the GST portal"><RequireAuth><Portal3bGuidePage /></RequireAuth></PageTitle> },
+  { path: "/b/:businessId/uploads/crosscheck", element: <PageTitle title="Cross-check"><RequireAuth><CrosscheckPage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/uploads", element: <PageTitle title="Upload your reports"><RequireAuth><UploadsPage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/customers", element: <PageTitle title="Customers"><RequireAuth><CustomersPage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/customers/new", element: <PageTitle title="New customer"><RequireAuth><CustomerPage /></RequireAuth></PageTitle> },
@@ -75,9 +75,9 @@ export const routes: RouteObject[] = [
       ]
     : []),
   { path: "/b/:businessId/settings", element: <PageTitle title="Business setup"><RequireAuth><SettingsPage /></RequireAuth></PageTitle> },
-  { path: "/b/:businessId/settings/company", element: <PageTitle title="Business details"><RequireAuth><CompanyPage /></RequireAuth></PageTitle> },
+  { path: "/b/:businessId/settings/company", element: <RequireAuth><ToBusinessSetup /></RequireAuth> },
   { path: "/b/:businessId/onboarding/marketplaces", element: <PageTitle title="Marketplaces you sell on"><RequireAuth><MarketplacesPage /></RequireAuth></PageTitle> },
-  { path: "/b/:businessId/settings/filing", element: <PageTitle title="Filing frequency"><RequireAuth><FilingPage /></RequireAuth></PageTitle> },
+  { path: "/b/:businessId/settings/filing", element: <RequireAuth><ToBusinessSetup /></RequireAuth> },
   { path: "/b/:businessId/settings/support", element: <PageTitle title="Support access"><RequireAuth><SupportPage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/settings/audit", element: <PageTitle title="Audit log"><RequireAuth><AuditPage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/settings/security", element: <PageTitle title="Two-step sign-in"><RequireAuth><SecurityPage /></RequireAuth></PageTitle> },

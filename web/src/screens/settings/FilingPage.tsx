@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState, type FormEvent } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 
 import { api, call } from "../../api/client";
 import { errorText, type ApiError } from "../../api/errors";
@@ -11,7 +11,7 @@ import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { NotFound } from "../../kit/NotFound";
 import { RadioGroup } from "../../kit/RadioGroup";
-import { TopBar } from "../../kit/TopBar";
+import { SetupFrame, SetupTitle } from "./SetupFrame";
 import { warningText } from "../onboarding/warnings";
 
 type Profile = components["schemas"]["FilingProfileOut"];
@@ -29,7 +29,7 @@ const EDITORS = new Set(["owner", "admin"]);
  * now. Whether a start date is allowed, and what rule 61A says about it, the server decides
  * and explains.
  */
-export function FilingPage() {
+export function FilingPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { businessId = "" } = useParams();
   const businesses = useMyBusinesses();
   const business = businesses.data?.find((b) => b.business_id === businessId);
@@ -70,16 +70,16 @@ export function FilingPage() {
 
   if (businesses.isPending) {
     return (
-      <main className="page" aria-busy="true">
+      <SetupFrame embedded={embedded} busy>
         <p>Loading…</p>
-      </main>
+      </SetupFrame>
     );
   }
   if (businesses.error) {
     return (
-      <main className="page">
+      <SetupFrame embedded={embedded}>
         <Banner tone="error">{errorText(businesses.error)}</Banner>
-      </main>
+      </SetupFrame>
     );
   }
   if (!business || profile.error?.status === 404) return <NotFound />;
@@ -97,13 +97,8 @@ export function FilingPage() {
   };
 
   return (
-    <>
-      <TopBar title={business.display_name} gstin={business.gstin} />
-      <main className="page">
-        <p className="step">
-          <Link to={`/b/${businessId}/home`}>Home</Link>
-        </p>
-        <h1>Filing frequency</h1>
+    <SetupFrame embedded={embedded} business={business}>
+        <SetupTitle embedded={embedded} businessId={businessId} title="Filing frequency" />
         {profile.error && (
           <Banner tone="error">
             {errorText(profile.error)}{" "}
@@ -218,7 +213,6 @@ export function FilingPage() {
             )}
           </>
         )}
-      </main>
-    </>
+    </SetupFrame>
   );
 }

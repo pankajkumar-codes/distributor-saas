@@ -37,12 +37,12 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   await expect(setup.getByText("3 of 6 done")).toBeVisible();
   await expect(setup.getByText("Upcoming").first()).toBeVisible();
   // Filing home (R1-M2): the server's deadlines, none confirmed yet, so each row says to check the portal.
-  await page.getByRole("link", { name: "Your GST filing and deadlines" }).click();
+  await page.getByRole("link", { name: "Open Filing home" }).click();
   await expect(page.getByRole("heading", { name: "Your GST filing" })).toBeVisible();
   await expect(page.getByRole("table").getByText("GSTR-1").first()).toBeVisible();
   await expect(page.getByText("Check on the GST portal").first()).toBeVisible();
   await noSeriousAxeFindings(page);
-  await page.getByRole("link", { name: "Home" }).first().click();
+  await page.getByRole("link", { name: "Home", exact: true }).first().click();
   await expect(page.getByRole("region", { name: "Set up your business" })).toBeVisible();
 
   // The customer step opens the (still empty) customers list; add one, find it, go back Home.
@@ -130,8 +130,8 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
 
   // Settings from Home: change the trade name, then see the frequency chosen at sign-up.
   await page.goto(homeUrl);
-  const settings = page.getByRole("navigation", { name: "Settings" });
-  await settings.getByRole("link", { name: "Business details" }).click();
+  const settings = page.getByRole("navigation", { name: "Business setup" });
+  await settings.getByRole("link", { name: "Open Business setup" }).click();
   await expect(page.getByLabel("Legal name")).toHaveValue("E2E Traders Private Limited");
   // Last year's band, given at sign-up, is shown here and stays editable.
   await expect(
@@ -143,7 +143,8 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   await noSeriousAxeFindings(page);
   const overflow5 = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow5).toBeLessThanOrEqual(0);
-  await page.getByRole("link", { name: "Filing frequency" }).click();
+  // Business setup is one page: the filing frequency is on it already.
+  await expect(page.getByRole("heading", { level: 2, name: "Filing frequency" })).toBeVisible();
   await expect(page.getByText(/^Every quarter \(QRMP\), from \d{2}-[A-Z][a-z]{2}-\d{4}\.$/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Save frequency" })).toBeVisible();
   await noSeriousAxeFindings(page);

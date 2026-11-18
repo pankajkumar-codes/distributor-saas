@@ -65,10 +65,60 @@ describe("Home", () => {
     expect(within(setup).getByRole("link", { name: "Marketplaces you sell on" })).toHaveAttribute("href", "/b/b-1/onboarding/marketplaces");
     expect(within(setup).getAllByText("Upcoming")).toHaveLength(1); // the team screen
     expect(within(setup).getAllByRole("link")).toHaveLength(3); // no dead links
-    const settings = screen.getByRole("navigation", { name: "Settings" });
-    expect(within(settings).getByRole("link", { name: "Business details" })).toHaveAttribute("href", "/b/b-1/settings/company");
-    expect(within(settings).getByRole("link", { name: "Filing frequency" })).toHaveAttribute("href", "/b/b-1/settings/filing");
+    const settings = screen.getByRole("navigation", { name: "Business setup" });
+    expect(within(settings).getByRole("link", { name: "Open Business setup" })).toHaveAttribute("href", "/b/b-1/settings");
     expect(within(settings).getByRole("link", { name: "Support access" })).toHaveAttribute("href", "/b/b-1/settings/support");
+  });
+
+  it("shows the GST filing card from the server's periods: confirmed dates only, otherwise points to Filing home", async () => {
+    const r = (form: string, over: Record<string, unknown>) => ({
+      instance_id: `${form}-1`, form, period: "2026-10", period_label: "October 2026", period_start: "2026-10-01", period_end: "2026-10-31",
+      due_date: "2026-11-11", due_date_confirmed: false, due_date_source_url: null, status: "open", ...over,
+    });
+    server.reply(HOME, home());
+    server.reply("/api/v1/b/b-1/returns", {
+      status: 200,
+      body: { fy: "2026-27", filing_frequency: "monthly", returns: [r("GSTR1", { status: "filed_locked", period_label: "September 2026" }), r("GSTR1", {}), r("GSTR3B", { due_date_confirmed: true })] },
+    });
+    open();
+    const card = await screen.findByRole("navigation", { name: "GST filing" });
+    expect(await within(card).findByText("Monthly")).toBeInTheDocument();
+    expect(within(card).getByText("GSTR-1 · October 2026")).toBeInTheDocument(); // the filed September row is skipped
+    expect(within(card).getByText("Due date: check Filing home")).toBeInTheDocument(); // unconfirmed: no date shown
+    expect(within(card).getByText("Due 11-Nov-2026")).toBeInTheDocument();
+    expect(within(card).getByRole("link", { name: "Open Filing home" })).toHaveAttribute("href", "/b/b-1/filing");
+  });
+
+  it("doesn't ask for the periods when the role can't prepare returns (it would be refused)", async () => {
+    server = fakeApi(); // a fresh one, so the queued owner answer from beforeEach isn't used
+    server.reply(REFRESH, { status: 200, body: { access_token: "t", expires_in: 3600 } });
+    server.reply(ME, { status: 200, body: { businesses: [{ business_id: "b-1", display_name: "Vashi Essentials", gstin: null, role: "billing" }] } });
+    server.reply(HOME, home());
+    open();
+    const card = await screen.findByRole("navigation", { name: "GST filing" });
+    expect(within(card).getByRole("link", { name: "Open Filing home" })).toBeInTheDocument();
+    expect(server.paths()).not.toContain("/api/v1/b/b-1/returns");
+  });
+
+  it("still shows the GST filing card with its button when the periods can't be loaded", async () => {
+    server.reply(HOME, home());
+    server.reply("/api/v1/b/b-1/returns", { status: 500, body: { detail: "x" } });
+    open();
+    const card = await screen.findByRole("navigation", { name: "GST filing" });
+    expect(within(card).getByRole("link", { name: "Open Filing home" })).toBeInTheDocument();
+    expect(within(card).queryByText(/GSTR-/)).toBeNull();
+  });
+
+  it("shows the top bar with the business tile and a Main nav that marks the current page", async () => {
+    server.reply(HOME, home());
+    open();
+    await screen.findByRole("heading", { level: 1, name: /, Asha$/ });
+    const nav = screen.getByRole("navigation", { name: "Main" });
+    expect(within(nav).getByRole("link", { name: "Dashboard" })).toHaveAttribute("aria-current", "page");
+    expect(within(nav).getByRole("link", { name: "Filing home" })).toHaveAttribute("href", "/b/b-1/filing");
+    expect(within(nav).getByRole("link", { name: "Uploads" })).toHaveAttribute("href", "/b/b-1/uploads");
+    expect(within(nav).getByRole("link", { name: "Business setup" })).toHaveAttribute("href", "/b/b-1/settings");
+    expect(screen.getByText("VE")).toBeInTheDocument(); // brand tile initials, hidden from the accessibility tree
   });
 
   it("hides the checklist once every step is done, and leaves out keys it doesn't know", async () => {
@@ -138,11 +188,9 @@ describe("helpers", () => {
     expect(formatDate("soon")).toBe("soon");
   });
 
-  it("greets by the hour in India", () => {
+  it("welcomes by name, or plainly when there is no name", () => {
     expect(greeting(null)).toBe("Welcome");
-    expect(greeting("Asha", new Date(Date.UTC(2026, 9, 27, 2)))).toBe("Good morning, Asha"); // 07:30 IST
-    expect(greeting("Asha", new Date(Date.UTC(2026, 9, 27, 7)))).toBe("Good afternoon, Asha"); // 12:30 IST
-    expect(greeting("Asha", new Date(Date.UTC(2026, 9, 27, 13)))).toBe("Good evening, Asha"); // 18:30 IST
+    expect(greeting("Asha")).toBe("Welcome, Asha");
   });
 });
 

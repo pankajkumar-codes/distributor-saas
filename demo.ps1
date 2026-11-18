@@ -6,12 +6,15 @@
   .\demo.ps1            start the demo (about 5 minutes the first time) and show sign-up codes here
   .\demo.ps1 stop       stop it and forget everything it held
   .\demo.ps1 codes      show the sign-up codes again (Ctrl+C leaves the demo running)
+  .\demo.ps1 check      quick health check: is each piece up, and does the page answer
+  .\demo.ps1 logs       save what every piece printed into demo-logs.txt (send that file if something fails)
   .\demo.ps1 status     list what the demo server made of your uploaded files
   .\demo.ps1 upload amazon demo\samples\demo-orders-good.csv    upload a file without the browser
   .\demo.ps1 tool <args>   other helper commands (see docs\LOCAL_DEMO.md)
 
   If Windows says scripts are disabled, start it like this instead:
       powershell -ExecutionPolicy Bypass -File .\demo.ps1
+  Run .\demo.ps1 again after every git pull: it rebuilds from the files you have and starts clean.
   Made-up data only. Nothing here touches AWS or real tax data. See docs\LOCAL_DEMO.md.
 #>
 param(
@@ -94,6 +97,26 @@ switch ($Command.ToLower()) {
     }
     "stop" { Test-Docker; Dc down -v --remove-orphans; Say "The demo is stopped and its data is gone." Green }
     "codes" { Test-Docker; Dc logs -f --no-log-prefix --tail 0 codes }
+    "check" {
+        Test-Docker
+        Dc ps
+        for ($i = 0; $i -lt 3; $i++) {
+            try {
+                $sw = [Diagnostics.Stopwatch]::StartNew()
+                $r = Invoke-WebRequest -UseBasicParsing -Uri "$Url/api/v1/health" -TimeoutSec 5
+                Say ("page and API through it: HTTP {0} in {1} ms" -f $r.StatusCode, $sw.ElapsedMilliseconds) Green
+            } catch { Say "page did not answer within 5 s" Red }
+        }
+        docker stats --no-stream --format "{{.Name}}: cpu {{.CPUPerc}}, memory {{.MemUsage}}" (Dc ps -q)
+        # The same question from inside the web container, which skips Docker's port forwarding.
+        Dc exec -T web wget -q -T 5 -O /dev/null http://127.0.0.1:5173/api/v1/health
+        if ($LASTEXITCODE -eq 0) { Say "inside the web container, page and API through it: OK" Green } else { Say "inside the web container: no answer within 5 s" Red }
+    }
+    "logs" {
+        Test-Docker
+        & { Get-Date -Format u; "folder: $PSScriptRoot"; ""; Dc ps -a; ""; Dc logs --no-color --timestamps } *> demo-logs.txt
+        Say "Saved demo-logs.txt (made-up data only). Send that file, plus a screenshot of the browser error." Green
+    }
     "status" { Test-Docker; Dc run --rm tool status }
     "upload" { Test-Docker; $inside = $Rest | ForEach-Object { $_ -replace '\\', '/' }; Dc run --rm tool upload @inside }
     "tool" { Test-Docker; $inside = $Rest | ForEach-Object { $_ -replace '\\', '/' }; Dc run --rm tool @inside }
