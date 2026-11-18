@@ -235,7 +235,7 @@ its data in memory, not on any disk, so it never waits for the disk.)
    4. `docker compose -p gstdemo logs --since 5m web api`, and a screenshot of the browser's Network tab (F12) showing
       the failed request's status (failed, blocked, cancelled or pending).
    If (1) answers and (2) or (3) hang, Docker's port forwarding between your computer and the container is the problem, not
-   the demo; `./demo.sh check` runs (1) for you. If (1) hangs, the API itself is frozen (it runs some database calls on its event loop, so one stuck database call stops every request, even `/health`); `docker compose -p gstdemo restart api` frees it, but the demo forgets every account, the ready-made one too; run `./demo.sh` again to get it back. Also send `./demo.sh check` (it lists CPU and memory per piece).
+   the demo; `./demo.sh check` runs (1) for you. If (1) hangs, the API itself is frozen (it runs some database calls on its event loop, so one stuck database call stops every request, even `/health`); `docker compose -p gstdemo restart api` frees it, and accounts and signed-in browsers are kept (never restart only the database: it lives in memory and would lose its data). Also send `./demo.sh check` (it lists CPU and memory per piece).
 5. More detail from the API: `UVICORN_LOG_LEVEL=debug ./demo.sh` (the database already logs any statement slower than
    half a second, and lock waits).
 
