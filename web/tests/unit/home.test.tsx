@@ -53,7 +53,7 @@ function open(path = "/b/b-1/home") {
 }
 
 describe("Home", () => {
-  it("greets by name and lists the setup steps, with Coming soon for screens not built yet", async () => {
+  it("greets by name and lists the setup steps, with Upcoming for screens not built yet", async () => {
     server.reply(HOME, home());
     open();
     expect(await screen.findByRole("heading", { level: 1, name: /, Asha$/ })).toBeInTheDocument();
@@ -63,7 +63,7 @@ describe("Home", () => {
     expect(within(setup).getByRole("link", { name: "Add your first product" })).toHaveAttribute("href", "/b/b-1/products");
     expect(within(setup).getByRole("link", { name: "Add your first customer" })).toHaveAttribute("href", "/b/b-1/customers");
     expect(within(setup).getByRole("link", { name: "Marketplaces you sell on" })).toHaveAttribute("href", "/b/b-1/onboarding/marketplaces");
-    expect(within(setup).getAllByText("Coming soon")).toHaveLength(1); // the team screen
+    expect(within(setup).getAllByText("Upcoming")).toHaveLength(1); // the team screen
     expect(within(setup).getAllByRole("link")).toHaveLength(3); // no dead links
     const settings = screen.getByRole("navigation", { name: "Settings" });
     expect(within(settings).getByRole("link", { name: "Business details" })).toHaveAttribute("href", "/b/b-1/settings/company");

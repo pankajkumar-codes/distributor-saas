@@ -156,7 +156,7 @@ export function HomePage() {
                     <span aria-hidden="true">{item.done ? "✓" : "○"}</span>{" "}
                     {item.done || !to ? <span>{ITEMS[item.key]}</span> : <Link to={to}>{ITEMS[item.key]}</Link>}
                     <span className="visually-hidden">{item.done ? " (done)" : " (not done)"}</span>
-                    {!item.done && !to && <span className="tag"> Coming soon</span>}
+                    {!item.done && !to && <span className="tag"> Upcoming</span>}
                   </li>
                 );
               })}
