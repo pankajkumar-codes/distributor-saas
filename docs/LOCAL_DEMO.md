@@ -54,7 +54,9 @@ appear in it** (the demo prints them instead of emailing them). Press Ctrl+C to 
 the demo keeps running. `.\demo.ps1 codes` watches again.
 
 Stop it, and throw away everything it held, with `.\demo.ps1 stop`. **Every start begins empty**: the demo's
-sign-in lives in memory, so anything you did is forgotten when it stops. That is expected.
+sign-in accounts live in a file inside the demo's own storage, which `stop` removes, so anything you did is forgotten
+when it stops. That is expected. Restarting only the API (`docker compose -p gstdemo restart api`) keeps accounts and
+signed-in browsers.
 
 ### Mac and Linux
 
@@ -117,7 +119,7 @@ so you create a business through the sign-up page.
   stand-in readers for one **invented** layout, "demo orders", for files named `demo-*.csv`. Real marketplace
   reports are rejected as "We can't read this file's columns" until R1-M4. Everything the demo says about
   the file (its layout is unchecked) is true.
-- Sign-in uses an in-memory stand-in for Cognito. Email is replaced by the codes in your terminal.
+- Sign-in uses a stand-in for Cognito (accounts kept in a file in the demo's storage when run with Docker, in memory otherwise). Email is replaced by the codes in your terminal.
 - **Two-step sign-in** (Settings, Two-step sign-in): an authenticator app on your phone cannot give the right code
   here, because the stand-in has its own code. When you press Turn on, and each time you sign in with it on, the
   demo prints `TWO-STEP CODE for <email>: 123456` in the same terminal as the sign-up codes (`./demo.sh codes`
@@ -190,19 +192,58 @@ Work down this list.
    no email: the 6-digit code appears in the terminal window where you started the demo (`./demo.sh codes`
    shows it again), and the sign-up screens in the demo say so. If the request itself keeps failing, run
    `docker compose -f docker-compose.demo.yml logs api` and send the last 30 lines.
-9. **Still stuck?** Save the logs and send them with a screenshot of the PowerShell window:
+9. **Sign-in or the page says "The server is taking too long to answer".** The browser gave up waiting after 20 seconds. The
+   server is running but one request is slow; it is not "unreachable". Run `./demo.sh check` (or `.\demo.ps1 check`): every
+   line should say `HTTP 200` in well under a second. If it does, press **Try again**. If it does not, or it keeps
+   happening, go to "If something fails, send this" below. Known causes: a slow Docker disk (the project folder on the
+   Windows disk, `/mnt/c`, with WSL), and a database connection that went dead while the computer slept (guarded against in the code from this change on:
+   the API now notices a dead database connection within seconds; start the demo again after pulling).
+10. **Where to look.** The page is `http://localhost:5173`. The API has no address of its own on your computer: it runs
+    inside Docker and is reached through the page, so `http://127.0.0.1:8000` will never open and that is correct. To test
+    the API, use `http://localhost:5173/api/v1/health` (it should print `{"status":"ok"}`).
+11. **After every `git pull`, run `./demo.sh` (or `.\demo.ps1`) again.** It rebuilds from the files you now have and starts
+    clean (it stops and forgets the old one first). Opening the page without doing this shows the old version.
 
-```powershell
-docker compose -f docker-compose.demo.yml logs --no-color > demo-logs.txt
+### WSL (Windows): keep the project inside Ubuntu
+
+Docker Desktop with WSL is slow when the project folder is on the Windows disk (`/mnt/c/...`): every build copies the folder
+across, and a start can take many minutes. Keep it in the Ubuntu home folder instead:
+
+```bash
+cd ~
+git clone https://github.com/pankajkumar-codes/distributor-saas.git   # or: cp -r /mnt/c/Users/<you>/distributor-saas ~/distributor-saas
+cd ~/distributor-saas
+./demo.sh stop        # only if an older demo is still running from the old folder
+./demo.sh
 ```
 
-The logs contain only made-up data and the sign-up codes shown on screen.
+From then on work only in `~/distributor-saas`. (The Windows folder keeps working, just slower. The demo's database keeps
+its data in memory, not on any disk, so it never waits for the disk.)
+
+### If something fails, send this
+
+1. In the project folder run `./demo.sh logs` (PowerShell: `.\demo.ps1 logs`). It writes **`demo-logs.txt`** holding the
+   container list and the logs of every piece (web, API, database, migrations, codes) with times. Made-up data only.
+2. Send that file and a screenshot of the browser error, with the time it happened. Also run `./demo.sh check` and paste
+   its output.
+3. Live view while you reproduce it: `docker compose -p gstdemo logs -f api web db` (Ctrl+C to stop watching).
+   `docker compose -p gstdemo ps` lists the pieces. The project name is `gstdemo`.
+4. **At the moment it fails** (page says "We couldn't reach the server"), run these four, in this order, and send the results:
+   1. inside the web container: `docker compose -p gstdemo exec web wget -q -T 5 -O - http://127.0.0.1:5173/api/v1/health`
+   2. from WSL or Mac/Linux: `curl -m 10 -i http://127.0.0.1:5173/api/v1/health`
+   3. from Windows PowerShell: `curl.exe -m 10 -i http://127.0.0.1:5173/api/v1/health`
+   4. `docker compose -p gstdemo logs --since 5m web api`, and a screenshot of the browser's Network tab (F12) showing
+      the failed request's status (failed, blocked, cancelled or pending).
+   If (1) answers and (2) or (3) hang, Docker's port forwarding between your computer and the container is the problem, not
+   the demo; `./demo.sh check` runs (1) for you. If (1) hangs, the API itself is frozen (it runs some database calls on its event loop, so one stuck database call stops every request, even `/health`); `docker compose -p gstdemo restart api` frees it, and accounts and signed-in browsers are kept (never restart only the database: it lives in memory and would lose its data). Also send `./demo.sh check` (it lists CPU and memory per piece).
+5. More detail from the API: `UVICORN_LOG_LEVEL=debug ./demo.sh` (the database already logs any statement slower than
+   half a second, and lock waits).
 
 ## 6. How it is built (for the team)
 
 `docker-compose.demo.yml` starts PostgreSQL 16, applies every migration (`migrator.local`, the same code CI
 uses), starts the API with `PLATFORM_ENV=local` (jobs run inline, files go to a local folder, mail goes to a file)
-and `DEMO_READERS=1`, serves the built web app with `vite preview` (which passes `/api` to the API), and runs
+and `DEMO_READERS=1`, serves the built web app with nginx (`demo/nginx.conf`: it passes `/api` to the API, opening a fresh connection for every request and giving up after 3 s to connect, so no stuck connection can wedge the page), and runs
 `demo/watch_codes.py` to print codes. `demo/seed.py` signs the demo user up through the API's own sign-up path
 and creates the made-up business. Sample files are built by `demo/make_samples.py`; a test keeps the committed
 files equal to the generator's output and checks each file does what section 4 says.

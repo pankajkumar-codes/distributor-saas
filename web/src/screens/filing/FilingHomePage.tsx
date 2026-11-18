@@ -84,7 +84,7 @@ export function FilingHomePage() {
   return (
     <>
       <TopBar title={business.display_name} gstin={business.gstin} />
-      <main className="page">
+      <main className="page page-wide">
         <p className="step">
           <Link to={`/b/${businessId}/home`}>Home</Link>
         </p>

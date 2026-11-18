@@ -50,7 +50,7 @@ export function SettingsPage() {
   }
   if (businesses.error) {
     return (
-      <main className="page">
+      <main className="page page-wide">
         <Banner tone="error">{errorText(businesses.error)}</Banner>
       </main>
     );
@@ -64,7 +64,7 @@ export function SettingsPage() {
   return (
     <>
       <TopBar title={business.display_name} gstin={business.gstin} />
-      <main className="page">
+      <main className="page page-wide">
         <p className="step">
           <Link to={`/b/${businessId}/home`}>Home</Link>
         </p>

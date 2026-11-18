@@ -48,7 +48,7 @@ describe("a list page whose request gets no answer", () => {
     const calls = hang(api);
     window.history.replaceState(null, "", route);
     render(<App />);
-    expect(await screen.findByText(/We couldn't reach the server/)).toBeInTheDocument();
+    expect(await screen.findByText(/The server is taking too long to answer/)).toBeInTheDocument();
     expect(screen.queryByText("Loading…")).not.toBeInTheDocument();
     expect(screen.getByText(`Details: GET ${api}: no answer in time.`)).toBeInTheDocument(); // which request, for support
     expect(calls()).toBe(1);
