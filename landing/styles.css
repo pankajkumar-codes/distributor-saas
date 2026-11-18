@@ -145,3 +145,9 @@ footer .legal a { display: inline; }
   footer { padding-inline: 16px; }
   footer .in2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } footer .in2 > div:first-child { grid-column: 1 / -1; }
 }
+
+/* Classes instead of style="..." attributes: the production page is sent with a Content-Security-Policy
+   (default-src 'self'), which blocks inline style attributes. */
+.sprite { position: absolute; }
+.lead-gap { margin-top: 16px; }
+.foot-note { margin-top: 10px; max-width: 26em; }
