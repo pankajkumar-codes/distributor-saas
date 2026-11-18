@@ -26,7 +26,7 @@ from datetime import timedelta
 from .queue import Queue
 from .storage import get_store, key_for
 
-TEMPLATES = frozenset({"invoice-draft", "gstr3b-worksheet"})
+TEMPLATES = frozenset({"invoice-draft", "invoice-document", "gstr3b-worksheet"})
 INPUT_VERSION = 1
 INPUT_NAME = "input.json"
 DOCUMENT_NAME = "document.pdf"

@@ -83,6 +83,7 @@ class Movement:
     source_id: uuid.UUID | None
     source_line_id: uuid.UUID | None
     unit_cost: Decimal | None
+    is_practice: bool
     reverses_id: uuid.UUID | None
     reversed_by_id: uuid.UUID | None
     reason: str | None
@@ -143,7 +144,7 @@ def _check_date(on: date, today: date, field: str) -> None:
 
 _MOVEMENT = (
     "select m.id, m.product_id, m.kind, m.quantity, m.occurred_on, m.source_type, m.source_id, m.source_line_id,"
-    " m.unit_cost, m.reverses_id, r.id as reversed_by_id, m.reason, m.created_at, m.created_by"
+    " m.unit_cost, m.is_practice, m.reverses_id, r.id as reversed_by_id, m.reason, m.created_at, m.created_by"
     " from catalog.stock_movements m"
     " left join catalog.stock_movements r on r.reverses_id = m.id and r.business_id = m.business_id"
 )
@@ -202,12 +203,15 @@ def stock_page(uow: UnitOfWork, *, q: str | None, status: str, only: str | None,
     return [StockRow(*r) for r in rows[:limit]], len(rows) > limit
 
 
-def movements(uow: UnitOfWork, product_id: uuid.UUID, *, limit: int, offset: int) -> tuple[list[Movement], bool]:
+def movements(uow: UnitOfWork, product_id: uuid.UUID, *, limit: int, offset: int,
+              practice: bool | None = None) -> tuple[list[Movement], bool]:
     products._get(uow, product_id)  # 404 for an unknown, deleted or another business's product
     rows = uow.tx.execute(
         text(f"{_MOVEMENT} where m.product_id = :p and m.business_id = :b"
-             " order by m.created_at desc, m.id desc limit :limit offset :offset"),
-        {"p": product_id, "b": uow.principal.business_id, "limit": limit + 1, "offset": offset},
+             + ("" if practice is None else " and m.is_practice = :practice")
+             + " order by m.created_at desc, m.id desc limit :limit offset :offset"),
+        {"p": product_id, "b": uow.principal.business_id, "limit": limit + 1, "offset": offset,
+         **({} if practice is None else {"practice": practice})},
     ).all()
     return [_movement(r) for r in rows[:limit]], len(rows) > limit
 
@@ -216,19 +220,20 @@ def movements(uow: UnitOfWork, product_id: uuid.UUID, *, limit: int, offset: int
 
 _INSERT = text(
     "insert into catalog.stock_movements (id, business_id, product_id, kind, quantity, occurred_on, source_type,"
-    " source_id, source_line_id, unit_cost, reverses_id, reason, created_by)"
-    " values (:id, :b, :p, :kind, :qty, :on, :stype, :sid, :slid, :cost, :rev, :reason, :me)"
+    " source_id, source_line_id, unit_cost, reverses_id, reason, is_practice, created_by)"
+    " values (:id, :b, :p, :kind, :qty, :on, :stype, :sid, :slid, :cost, :rev, :reason, :practice, :me)"
 )
 
 
 def _post(uow: UnitOfWork, product_id: uuid.UUID, kind: str, quantity: Decimal, on: date, *, source_type=None,
-          source_id=None, source_line_id=None, unit_cost=None, reverses_id=None, reason=None) -> uuid.UUID:
+          source_id=None, source_line_id=None, unit_cost=None, reverses_id=None, reason=None,
+          practice: bool = False) -> uuid.UUID:
     movement_id = uuid7()
     uow.tx.execute(
         _INSERT,
         {"id": movement_id, "b": uow.principal.business_id, "p": product_id, "kind": kind, "qty": quantity, "on": on,
          "stype": source_type, "sid": source_id, "slid": source_line_id, "cost": unit_cost, "rev": reverses_id,
-         "reason": reason, "me": uow.principal.user_id},
+         "reason": reason, "practice": practice, "me": uow.principal.user_id},
     )
     return movement_id
 
@@ -335,7 +340,7 @@ def reverse(uow: UnitOfWork, movement_id: uuid.UUID, reason, *, today: date) -> 
     A movement is reversed once, and a reversal itself is not reversed (post the movement again)."""
     why = _reason(reason)
     row = uow.tx.execute(
-        text("select id, product_id, kind, quantity from catalog.stock_movements"
+        text("select id, product_id, kind, quantity, is_practice from catalog.stock_movements"
              " where id = :m and business_id = :b"),
         {"m": movement_id, "b": uow.principal.business_id},
     ).one_or_none()
@@ -353,7 +358,8 @@ def reverse(uow: UnitOfWork, movement_id: uuid.UUID, reason, *, today: date) -> 
     p = products._get(uow, row.product_id)
     try:
         with uow.tx.begin_nested():
-            new_id = _post(uow, row.product_id, "reversal", -row.quantity, today, reverses_id=movement_id, reason=why)
+            new_id = _post(uow, row.product_id, "reversal", -row.quantity, today, reverses_id=movement_id, reason=why,
+                            practice=row.is_practice)  # a reversal keeps its original's practice tag
     except IntegrityError as exc:
         if "stock_movements_reverses_uq" not in str(exc.orig):
             raise
@@ -361,3 +367,25 @@ def reverse(uow: UnitOfWork, movement_id: uuid.UUID, reason, *, today: date) -> 
     audit.record(uow, "stock.reversed", "product", row.product_id, reason=why,
                  data={"code": p.code, "quantity": f"{-row.quantity:f}"})
     return new_id
+
+
+def record_sale_out(uow: UnitOfWork, *, product_id: uuid.UUID, quantity: Decimal, document_id: uuid.UUID,
+                    document_line_id: uuid.UUID, sold_on: date, practice: bool = False) -> uuid.UUID:
+    """A finalized invoice line takes stock out: one negative movement, once per
+    (document_id, document_line_id), in the caller's unit of work so it commits or rolls back
+    with the invoice. It NEVER refuses for lack of stock: the balance may go to or below zero
+    (Pankaj's R2 rule), and the screens show "no stock". Called only by sales' finalize.
+    A retry returns the movement already written. `practice` is true for a practice-numbered
+    invoice: it takes stock out like any other (CEO decision) and is tagged so it can be
+    filtered or reversed later.
+    """
+    qty = parse_quantity(quantity)
+    row = uow.tx.execute(
+        text("select id from catalog.stock_movements where business_id = :b and kind = 'sale_out'"
+             " and source_type = 'sales_invoice' and source_id = :s and source_line_id = :l"),
+        {"b": uow.principal.business_id, "s": document_id, "l": document_line_id},
+    ).one_or_none()
+    if row is not None:
+        return row.id
+    return _post(uow, product_id, "sale_out", -qty, sold_on, source_type="sales_invoice", source_id=document_id,
+                 source_line_id=document_line_id, practice=practice)

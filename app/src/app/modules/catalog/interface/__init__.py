@@ -21,6 +21,7 @@ from ..inventory import (
     NewCatalogItem,
     ReceivedLine,
     receive_confirmed_purchase_line,
+    record_sale_out,
 )
 from ..rates import RateRow, rate_on
 
@@ -34,6 +35,7 @@ __all__ = [
     "NewCatalogItem",
     "ReceivedLine",
     "receive_confirmed_purchase_line",
+    "record_sale_out",
     "CustomerSnapshot",
     "ProductForLine",
     "SetupCounts",
@@ -61,6 +63,8 @@ class ProductForLine:
     rate_valid_from: date | None
     rate_confirmed: bool
     rate_changed_within_warning_window: bool
+    price_needed: bool = False  # R2-M3: the selling price per 1 qty was never set
+    on_hand: Decimal = Decimal()  # R2-M3: stock on hand now; a sale is never blocked by it
 
 
 @dataclass(frozen=True)
@@ -102,7 +106,7 @@ def products_for_lines(tx: Session, product_ids: list[uuid.UUID], on: date) -> d
     days = int(value_on(tx, "catalog.rate_change_warning_days", on))
     products = tx.execute(
         text(
-            "select id, code, name, hsn, uqc, sale_rate, tax_category, has_cess, status from catalog.products"
+            "select id, code, name, hsn, uqc, sale_rate, tax_category, has_cess, status, price_needed from catalog.products"
             f" where id in :ids and {_MINE} and status <> 'deleted'"
         ).bindparams(bindparam("ids", expanding=True)),
         {"ids": ids},
@@ -121,6 +125,14 @@ def products_for_lines(tx: Session, product_ids: list[uuid.UUID], on: date) -> d
         {"ids": list(rows)},
     ):
         rows[product_id].append(RateRow(*rate))
+    held = dict(
+        tx.execute(
+            text("select product_id, coalesce(sum(quantity), 0) from catalog.stock_movements"
+                 f" where product_id in :ids and {_MINE} group by product_id").bindparams(
+                bindparam("ids", expanding=True)),
+            {"ids": list(rows)},
+        ).all()
+    )
     out = {}
     for p in products:
         found = rate_on(rows[p.id], on, days) if p.tax_category == "taxable" else None
@@ -131,6 +143,8 @@ def products_for_lines(tx: Session, product_ids: list[uuid.UUID], on: date) -> d
             found.row.valid_from if found else None,
             found.row.confirmed if found else False,
             found.changed_within_warning_window if found else False,
+            p.price_needed,
+            held.get(p.id, Decimal()),
         )
     return out
 

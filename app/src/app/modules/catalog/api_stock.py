@@ -56,6 +56,7 @@ class MovementOut(BaseModel):
     source_id: str | None
     source_line_id: str | None
     unit_cost: str | None
+    is_practice: bool  # a sale_out from a practice-numbered invoice
     reverses_id: str | None
     reversed_by_id: str | None
     reason: str | None
@@ -96,7 +97,7 @@ def _movement(m: inventory.Movement) -> dict:
 
     return {"id": str(m.id), "product_id": str(m.product_id), "kind": m.kind, "quantity": _qty(m.quantity),
             "occurred_on": m.occurred_on, "source_type": m.source_type, "source_id": s(m.source_id),
-            "source_line_id": s(m.source_line_id), "unit_cost": None if m.unit_cost is None else f"{m.unit_cost:.2f}",
+            "source_line_id": s(m.source_line_id), "unit_cost": None if m.unit_cost is None else f"{m.unit_cost:.2f}", "is_practice": m.is_practice,
             "reverses_id": s(m.reverses_id), "reversed_by_id": s(m.reversed_by_id), "reason": m.reason,
             "created_at": m.created_at.isoformat(), "created_by": str(m.created_by)}
 
@@ -121,9 +122,11 @@ def list_stock(
 
 @router.get("/b/{business_id}/products/{product_id}/stock-movements", response_model=MovementPageOut,
             dependencies=VIEW)
-def list_movements(product_id: str, uow: BusinessUoW, page: Annotated[PageParams, Depends(page_params)]):
+def list_movements(product_id: str, uow: BusinessUoW, page: Annotated[PageParams, Depends(page_params)],
+                   practice: bool | None = None):
     require_business_type(uow.tx)
-    rows, more = inventory.movements(uow, parse_id(product_id), limit=page.limit, offset=page.offset)
+    rows, more = inventory.movements(uow, parse_id(product_id), limit=page.limit, offset=page.offset,
+                                     practice=practice)
     return {"items": [_movement(m) for m in rows], "has_more": more}
 
 
