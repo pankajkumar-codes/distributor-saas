@@ -194,10 +194,7 @@ export function HomePage() {
           </h2>
           <ul className="list">
             <li>
-              <Link to={`/b/${businessId}/settings/company`}>Business details</Link>
-            </li>
-            <li>
-              <Link to={`/b/${businessId}/settings/filing`}>Filing frequency</Link>
+              <Link to={`/b/${businessId}/settings`}>Business details, where you sell and filing frequency</Link>
             </li>
             {SUPPORT_VIEWERS.has(business.role) && (
               <li>
