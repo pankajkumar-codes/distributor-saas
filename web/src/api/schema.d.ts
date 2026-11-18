@@ -1021,6 +1021,173 @@ export interface paths {
         patch: operations["patch_profile_api_v1_b__business_id__profile_patch"];
         trace?: never;
     };
+    "/api/v1/b/{business_id}/purchase-code-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check Item Code
+         * @description For the review screen: is this product code free? The confirm still refuses a taken code.
+         */
+        get: operations["check_item_code_api_v1_b__business_id__purchase_code_check_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/purchase-drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Drafts */
+        get: operations["list_drafts_api_v1_b__business_id__purchase_drafts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/purchase-drafts/{draft_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Draft */
+        get: operations["get_draft_api_v1_b__business_id__purchase_drafts__draft_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/purchase-drafts/{draft_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Draft
+         * @description The business confirms the invoice with the values it checked on the review screen. Once; a second call is a
+         *     conflict, not a second invoice. With an Idempotency-Key, a retry of the same request returns the first answer.
+         */
+        post: operations["confirm_draft_api_v1_b__business_id__purchase_drafts__draft_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/purchase-drafts/{draft_id}/discard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Discard Draft */
+        post: operations["discard_draft_api_v1_b__business_id__purchase_drafts__draft_id__discard_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/purchase-files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Files */
+        get: operations["list_files_api_v1_b__business_id__purchase_files_get"];
+        put?: never;
+        /**
+         * Start File
+         * @description A purchase file and a presigned POST for exactly its key, type and declared size.
+         */
+        post: operations["start_file_api_v1_b__business_id__purchase_files_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/purchase-files/{file_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get File */
+        get: operations["get_file_api_v1_b__business_id__purchase_files__file_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/purchase-files/{file_id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete File
+         * @description The upload finished: check it is there, then queue the read. Calling it again returns the same job.
+         */
+        post: operations["complete_file_api_v1_b__business_id__purchase_files__file_id__complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/purchase-invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Purchase Invoices */
+        get: operations["list_purchase_invoices_api_v1_b__business_id__purchase_invoices_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/returns": {
         parameters: {
             query?: never;
@@ -4344,6 +4511,294 @@ export interface components {
             /** Out Of */
             out_of: number | null;
         };
+        /** PurchaseCodeCheckOut */
+        PurchaseCodeCheckOut: {
+            /** Available */
+            available: boolean;
+            /** Code */
+            code: string;
+        };
+        /** PurchaseConfirmIn */
+        PurchaseConfirmIn: {
+            /**
+             * Doc Date
+             * Format: date
+             */
+            doc_date: string;
+            /** Doc Number */
+            doc_number: string;
+            /** Invoice Total */
+            invoice_total?: string | null;
+            /** Lines */
+            lines: components["schemas"]["PurchaseLineIn"][];
+            /** Supplier Gstin */
+            supplier_gstin: string;
+            /** Supplier Name */
+            supplier_name?: string | null;
+        };
+        /** PurchaseConfirmedListOut */
+        PurchaseConfirmedListOut: {
+            /** Has More */
+            has_more: boolean;
+            /** Invoices */
+            invoices: components["schemas"]["PurchaseConfirmedOut"][];
+        };
+        /** PurchaseConfirmedOut */
+        PurchaseConfirmedOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Doc Date
+             * Format: date
+             */
+            doc_date: string;
+            /** Doc Number */
+            doc_number: string;
+            /** Draft Id */
+            draft_id: string;
+            /** Invoice Total */
+            invoice_total: string | null;
+            /** Line Count */
+            line_count: number;
+            /**
+             * Received
+             * @default []
+             */
+            received: components["schemas"]["PurchaseReceivedOut"][];
+            /** Review Id */
+            review_id: string;
+            /** Supplier Gstin */
+            supplier_gstin: string;
+            /** Supplier Name */
+            supplier_name: string | null;
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: components["schemas"]["PurchaseWarningOut"][];
+        };
+        /** PurchaseDraftLineOut */
+        PurchaseDraftLineOut: {
+            /** Cess */
+            cess: string | null;
+            /** Cgst */
+            cgst: string | null;
+            /** Gst Rate */
+            gst_rate: string | null;
+            /** Hsn */
+            hsn: string | null;
+            /** Id */
+            id: string;
+            /** Igst */
+            igst: string | null;
+            /** Line No */
+            line_no: number;
+            /** Page */
+            page: number;
+            /** Quantity */
+            quantity: string | null;
+            /** Sgst */
+            sgst: string | null;
+            /** Taxable Value */
+            taxable_value: string | null;
+            /** Unclear */
+            unclear: string[];
+            /** Unit */
+            unit: string | null;
+        };
+        /** PurchaseDraftOut */
+        PurchaseDraftOut: {
+            /** Decision */
+            decision: ("confirmed" | "discarded") | null;
+            /** Doc Date */
+            doc_date: string | null;
+            /** Doc Number */
+            doc_number: string | null;
+            /** Doc Type */
+            doc_type: string | null;
+            /** File Id */
+            file_id: string;
+            /** File Name */
+            file_name: string;
+            /** Id */
+            id: string;
+            /** Invoice Total */
+            invoice_total: string | null;
+            /** Lines */
+            lines: components["schemas"]["PurchaseDraftLineOut"][];
+            /** Ordinal */
+            ordinal: number;
+            /** Pages */
+            pages: number[];
+            /** Reader */
+            reader: string;
+            /** Supplier Gstin */
+            supplier_gstin: string | null;
+            /** Unclear */
+            unclear: string[];
+        };
+        /** PurchaseDraftsOut */
+        PurchaseDraftsOut: {
+            /** Drafts */
+            drafts: components["schemas"]["PurchaseDraftOut"][];
+            /** Has More */
+            has_more: boolean;
+        };
+        /** PurchaseFileOut */
+        PurchaseFileOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** File Name */
+            file_name: string;
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "pdf" | "image";
+            /** Reject Message */
+            reject_message: string | null;
+            /** Reject Reason */
+            reject_reason: string | null;
+            /** Size Bytes */
+            size_bytes: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "received" | "read" | "rejected";
+        };
+        /** PurchaseFileStartIn */
+        PurchaseFileStartIn: {
+            /** File Name */
+            file_name: string;
+            /** Size Bytes */
+            size_bytes: number;
+        };
+        /** PurchaseFileStartOut */
+        PurchaseFileStartOut: {
+            /** File Id */
+            file_id: string;
+            upload: components["schemas"]["PurchasePresignedPostOut"];
+        };
+        /** PurchaseFilesOut */
+        PurchaseFilesOut: {
+            /** Files */
+            files: components["schemas"]["PurchaseFileOut"][];
+            /** Has More */
+            has_more: boolean;
+        };
+        /** PurchaseJobRef */
+        PurchaseJobRef: {
+            /** Job Id */
+            job_id: string;
+        };
+        /** PurchaseLineIn */
+        PurchaseLineIn: {
+            /**
+             * Cess
+             * @default 0
+             */
+            cess: string;
+            /**
+             * Cgst
+             * @default 0
+             */
+            cgst: string;
+            /** Draft Line Id */
+            draft_line_id?: string | null;
+            /** Gst Rate */
+            gst_rate: string;
+            /** Hsn */
+            hsn: string;
+            /**
+             * Igst
+             * @default 0
+             */
+            igst: string;
+            new_item?: components["schemas"]["PurchaseNewItemIn"] | null;
+            /** Product Id */
+            product_id?: string | null;
+            /** Product Name */
+            product_name: string;
+            /** Quantity */
+            quantity: string;
+            /**
+             * Sgst
+             * @default 0
+             */
+            sgst: string;
+            /** Taxable Value */
+            taxable_value: string;
+            /** Unit */
+            unit?: string | null;
+        };
+        /**
+         * PurchaseNewItemIn
+         * @description A product to create from a line. The name and HSN are the line's own; the rate is the business's to confirm.
+         */
+        PurchaseNewItemIn: {
+            /** Code */
+            code: string;
+            /** Gst Rate */
+            gst_rate?: string | null;
+            /**
+             * Has Cess
+             * @default false
+             */
+            has_cess: boolean;
+            /** Rate Valid From */
+            rate_valid_from?: string | null;
+            /**
+             * Tax Category
+             * @enum {string}
+             */
+            tax_category: "taxable" | "exempt" | "nil_rated" | "non_gst";
+            /** Uqc */
+            uqc: string;
+        };
+        /** PurchasePresignedPostOut */
+        PurchasePresignedPostOut: {
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Fields */
+            fields: {
+                [key: string]: string;
+            };
+            /** Url */
+            url: string;
+        };
+        /** PurchaseReceivedOut */
+        PurchaseReceivedOut: {
+            /** Created Product */
+            created_product: boolean;
+            /** Line No */
+            line_no: number;
+            /** Price Needed */
+            price_needed: boolean;
+            /** Product Id */
+            product_id: string;
+        };
+        /** PurchaseWarningOut */
+        PurchaseWarningOut: {
+            /**
+             * Code
+             * @enum {string}
+             */
+            code: "tax_differs_from_rate" | "unit_differs_from_product";
+            /** Line No */
+            line_no: number;
+        };
         /** RateIn */
         RateIn: {
             /** Rate */
@@ -7491,6 +7946,348 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_item_code_api_v1_b__business_id__purchase_code_check_get: {
+        parameters: {
+            query: {
+                code: string;
+            };
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseCodeCheckOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_drafts_api_v1_b__business_id__purchase_drafts_get: {
+        parameters: {
+            query?: {
+                file_id?: string | null;
+                open_only?: boolean;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseDraftsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_draft_api_v1_b__business_id__purchase_drafts__draft_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseDraftOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_draft_api_v1_b__business_id__purchase_drafts__draft_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                draft_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PurchaseConfirmIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseConfirmedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    discard_draft_api_v1_b__business_id__purchase_drafts__draft_id__discard_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                draft_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseDraftOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_files_api_v1_b__business_id__purchase_files_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseFilesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_file_api_v1_b__business_id__purchase_files_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PurchaseFileStartIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseFileStartOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_file_api_v1_b__business_id__purchase_files__file_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                file_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseFileOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    complete_file_api_v1_b__business_id__purchase_files__file_id__complete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                file_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseJobRef"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_purchase_invoices_api_v1_b__business_id__purchase_invoices_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseConfirmedListOut"];
+                };
             };
             /** @description Validation Error */
             422: {
