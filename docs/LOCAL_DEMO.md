@@ -162,6 +162,25 @@ browser), `.\demo.ps1 tool status`. On Mac and Linux use `./demo.sh` in place of
 
 The helper commands read the sample files from inside the demo image, so `upload` and `tool` work only for files in the repo's `demo\samples` folder. A file of your own, kept anywhere else, is not found until it is in that folder and the image is rebuilt.
 
+## 4b. Test guide: support access (giving it, and opening a business as support)
+
+Support is a separate kind of account. Nothing in the app can make one: the account's flag is set once in the demo's
+database, as shown in step 2. Everything below is made-up demo data.
+
+| # | Do this | You should see |
+| --- | --- | --- |
+| 1 | Signed in as the demo user (owner of Demo Traders), open **Settings**, then **Support access**. Click **Give support read-only access**. | A message "Support can view your business until ... This is in your audit log." with a link **See it in the audit log**, and a card "Support can view your business". |
+| 2 | Make a support account. Sign out, sign up as yourself with a different email (code from `./demo.sh codes`), then in a terminal run: `docker compose -f docker-compose.demo.yml exec db psql -U postgres saas -c "update identity.users set is_support = true where email = 'YOUR-EMAIL';"` | `UPDATE 1`. |
+| 3 | Sign out and sign in again with that account. | You land on **Turn on two-step sign-in first** (support accounts need it). |
+| 4 | Click **Turn on two-step sign-in**, press Turn on, and type the `TWO-STEP CODE` the demo prints (`./demo.sh codes` shows it again). | Two-step sign-in is on. |
+| 5 | Open `/support` (or sign out and sign in again, typing a new two-step code). | **Businesses you can view**, listing Demo Traders with "access ends ...". |
+| 6 | Click **Demo Traders**. | Its Home. The page is read-only: anything that changes data is refused. |
+| 7 | Sign out, sign in as the demo user again, open **Settings, Audit log** (or use **See it in the audit log** on the Support access page). | Entries "Gave support access" and "Support viewed the business" (one for each page support opened). |
+| 8 | On the Support access page click **End access now**. Reload `/support` as the support account. | Demo Traders is gone from the list, and "Ended support access" is in the audit log. |
+
+Limits: there is no support console beyond this list and the read-only view, and no tool yet to make a support
+account in production (the same database change is made by whoever holds the database owner login).
+
 ## 5. If it does not open
 
 Work down this list.

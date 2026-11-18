@@ -53,7 +53,8 @@ def my_support_grants(uow: MeUoW):
     rows = uow.tx.execute(
         text("select grant_id, business_id, business_name, expires_at from identity.auth_support_grants()")
     ).all()
-    return SupportGrants(grants=[SupportGrant(**r._mapping) for r in rows])
+    # A grant made before the name was kept on it has none: say so plainly rather than fail the list.
+    return SupportGrants(grants=[SupportGrant(**{**r._mapping, "business_name": r.business_name or "A business"}) for r in rows])
 
 
 class RecoveryBody(BaseModel):
