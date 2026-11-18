@@ -233,7 +233,7 @@ describe("sign-up", () => {
     const button = screen.getByRole("button", { name: "Email me a code" });
     fireEvent.click(button);
     expect(button).toBeDisabled();
-    expect(await screen.findByText("We couldn't reach the server. Check your connection and try again.")).toBeInTheDocument();
+    expect(await screen.findByText("The server is taking too long to answer. Try again in a moment.")).toBeInTheDocument();
     expect(button).toBeEnabled();
   });
 
@@ -264,7 +264,7 @@ describe("sign-up", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
     render(<App />);
-    expect(await screen.findByText("We couldn't reach the server. Check your connection and try again.")).toBeInTheDocument();
+    expect(await screen.findByText("The server is taking too long to answer. Try again in a moment.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Try again" })).toBeEnabled();
     await new Promise((r) => setTimeout(r, 150)); // no automatic second attempt with the same cookie
     expect(fetchMock).toHaveBeenCalledTimes(1);

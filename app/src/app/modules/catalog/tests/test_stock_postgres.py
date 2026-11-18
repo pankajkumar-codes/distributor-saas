@@ -214,7 +214,11 @@ def test_a_movement_can_be_neither_updated_nor_deleted_by_anyone(shop):
     pg, biz = shop
     p = make_product(pg, biz)
     receive(pg, biz, line(uuid.UUID(p["id"])))
-    for sql in ("update catalog.stock_movements set quantity = 99", "delete from catalog.stock_movements"):
+    for sql in (
+        "update catalog.stock_movements set quantity = 99",
+        "delete from catalog.stock_movements",
+        "truncate catalog.stock_movements",
+    ):
         with pytest.raises(DBAPIError):  # the database owner is stopped by the trigger
             with pg.owner.begin() as c:
                 c.execute(text(sql))

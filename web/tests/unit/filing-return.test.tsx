@@ -138,7 +138,7 @@ describe("A return (read-only)", () => {
       window.history.replaceState(null, "", "/b/b-1/filing");
       const view = render(<App />);
       await screen.findByText("October 2026");
-      expect(screen.queryByRole("link", { name: "Review the draft" }) !== null).toBe(linked);
+      expect(screen.queryAllByRole("link", { name: "Review the draft" }).length > 0).toBe(linked); // the fixture answers both years with one row
       view.unmount();
     }
   });

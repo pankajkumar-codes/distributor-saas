@@ -77,6 +77,28 @@ describe("the audit log", () => {
     expect(sent.has("actor")).toBe(false);
   });
 
+  it("opens already narrowed to a kind from the link, and ignores a kind it doesn't know", async () => {
+    server.reply(LOG, page([row()]), page([row()]));
+    server.reply(ME, me("owner"));
+    server.reply(MEMBERS, members);
+    window.history.replaceState(null, "", `/b/${B}/settings/audit?kind=support`);
+    render(<App />);
+    await screen.findByRole("table");
+    expect(screen.getByLabelText("Kind")).toHaveValue("support");
+    expect(new URL(gets(LOG)[0].url).searchParams.get("kind")).toBe("support");
+  });
+
+  it("ignores a kind in the link that isn't one of its kinds", async () => {
+    server.reply(LOG, page([row()]));
+    server.reply(ME, me("owner"));
+    server.reply(MEMBERS, members);
+    window.history.replaceState(null, "", `/b/${B}/settings/audit?kind=nonsense`);
+    render(<App />);
+    await screen.findByRole("table");
+    expect(screen.getByLabelText("Kind")).toHaveValue("");
+    expect(new URL(gets(LOG)[0].url).searchParams.has("kind")).toBe(false);
+  });
+
   it("keeps the dates to the last 31 days' rules: none in the future, the server's refusal shown", async () => {
     server.reply(LOG, page([row()]), {
       status: 422,

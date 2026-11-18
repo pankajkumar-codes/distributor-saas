@@ -117,7 +117,7 @@ test("a code request that gets no answer shows an error and the button works aga
   const button = page.getByRole("button", { name: "Email me a code" });
   await button.click();
   await expect(button).toBeDisabled();
-  await expect(page.getByText("We couldn't reach the server. Check your connection and try again.")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("The server is taking too long to answer. Try again in a moment.")).toBeVisible({ timeout: 30_000 });
   await expect(button).toBeEnabled();
 
   hang = false;

@@ -2,17 +2,19 @@
 
 Each part is computed on its own and is null until its slice fills it (filing S7, hub
 S4, insights S6), so the reply never changes shape. The setup checklist's items follow
-M3's order; first_product and first_customer stay not done until catalog's
-setup_counts exists (LLD-3).
+M3's order; first_product and first_customer are done once the business has an active
+product or customer (catalog's setup_counts, tenant-scoped by the unit of work).
 """
 
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from app.modules.business import interface as business
+from app.modules.catalog import interface as catalog
 from app.modules.identity import interface as identity
+from platform_common.clock import Clock, get_clock
 from platform_common.uow import BusinessUoW
 
 router = APIRouter(tags=["home"])
@@ -51,15 +53,16 @@ class HomeOut(BaseModel):
 
 
 @router.get("/b/{business_id}/home")
-def home(uow: BusinessUoW) -> HomeOut:
+def home(uow: BusinessUoW, clock: Annotated[Clock, Depends(get_clock)]) -> HomeOut:
     uow.become_read_only()
     setup = business.setup_state(uow.tx)
+    counts = catalog.setup_counts(uow.tx, clock.today())
     done = {
         "business_profile": setup.profile_complete,
         "filing_frequency": setup.frequency_set,
         "marketplaces": setup.marketplaces_answered,
-        "first_product": False,
-        "first_customer": False,
+        "first_product": counts.active_products > 0,
+        "first_customer": counts.active_customers > 0,
         "invite_ca_or_teammate": identity.team_started(uow.tx),
     }
     base = f"/b/{uow.principal.business_id}"

@@ -1,8 +1,9 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../../src/App";
 import { resetSessionForTests } from "../../src/auth/session";
+import { statusChip } from "../../src/screens/uploads/sections";
 import { fakeApi } from "./fakeApi";
 
 const REFRESH = "/api/v1/auth/refresh";
@@ -72,7 +73,7 @@ describe("upload page", () => {
   it("sends the person to Business details when nothing is chosen yet", async () => {
     open("owner", "/b/b-1/uploads", { amazon: false, flipkart: false, meesho: false, own_invoices: false, answered: false });
     expect(await screen.findByText(/You haven't said where you sell yet/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Choose it in Business details" })).toHaveAttribute("href", "/b/b-1/settings/company");
+    expect(screen.getByRole("link", { name: "Choose it in Business details" })).toHaveAttribute("href", "/b/b-1/settings");
     expect(screen.queryAllByRole("region")).toHaveLength(0);
   });
 
@@ -220,4 +221,54 @@ describe("upload page", () => {
     expect(screen.queryByRole("heading", { name: "Upload your reports" })).toBeNull();
     expect(sent(BASE, "GET")).toHaveLength(0);
   });
+});
+
+describe("upload card status chip", () => {
+  const base = { id: "u-1", section: "amazon", file_name: "a.csv", size_bytes: 1, reject_reason: null, reject_message: null, run_id: null, raw_available: true, created_at: "2026-11-02T10:00:00Z" };
+  const chipOf = (status: string) => statusChip({ ...base, status } as never);
+
+  it("maps each server status to its own chip", () => {
+    expect(chipOf("pending")).toEqual({ label: "Waiting", tone: "chip-info" });
+    expect(chipOf("received")).toEqual({ label: "Reading", tone: "chip-info" });
+    expect(chipOf("parsing")).toEqual({ label: "Reading", tone: "chip-info" });
+    expect(chipOf("parsed")).toEqual({ label: "Read", tone: "chip-ok" });
+    expect(chipOf("stored")).toEqual({ label: "Saved", tone: "chip-info" });
+    expect(chipOf("rejected")).toEqual({ label: "Not read", tone: "chip-bad" });
+    expect(chipOf("expired")).toEqual({ label: "Expired", tone: "chip-warn" });
+  });
+
+  it("says nothing uploaded only once the list has loaded empty", async () => {
+    open();
+    const amazon = await card("Amazon");
+    expect(await within(amazon).findByText("Nothing uploaded yet")).toBeInTheDocument();
+  });
+
+  it("shows the latest upload's state, not the empty claim, when there are uploads", async () => {
+    resetSessionForTests();
+    server = fakeApi();
+    server.reply(REFRESH, { status: 200, body: { access_token: "t", expires_in: 3600 } });
+    server.reply(ME, me("owner"));
+    server.reply(CHANNELS, channels());
+    server.reply(BASE, ...Array.from({ length: 8 }, () => ({ status: 200, body: { uploads: [upload("parsed")] } })));
+    window.history.replaceState(null, "", "/b/b-1/uploads");
+    render(<App />);
+    const amazon = await card("Amazon");
+    expect(await within(amazon).findByText("Read")).toBeInTheDocument();
+    expect(within(amazon).queryByText("Nothing uploaded yet")).toBeNull();
+  });
+
+  it("makes no empty claim while the list is loading or after it failed", async () => {
+    resetSessionForTests();
+    server = fakeApi();
+    server.reply(REFRESH, { status: 200, body: { access_token: "t", expires_in: 3600 } });
+    server.reply(ME, me("owner"));
+    server.reply(CHANNELS, channels());
+    server.reply(BASE, ...Array.from({ length: 8 }, () => ({ status: 500, body: { error: { code: "internal", message: "" } } })));
+    window.history.replaceState(null, "", "/b/b-1/uploads");
+    render(<App />);
+    const amazon = await card("Amazon");
+    expect(within(amazon).queryByText("Nothing uploaded yet")).toBeNull(); // loading
+    expect(await within(amazon).findByText("We couldn't load this", {}, { timeout: 8000 })).toBeInTheDocument(); // failed
+    expect(within(amazon).queryByText("Nothing uploaded yet")).toBeNull();
+  }, 12000);
 });

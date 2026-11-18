@@ -77,6 +77,8 @@ const BY_CODE: Record<string, string> = {
   no_file: "No file was kept for this return.",
 };
 
+export const SLOW_SERVER = "The server is taking too long to answer. Try again in a moment.";
+
 /** The sentence a screen shows for an error, inline under `field` when there is one. */
 export function errorText(error: ApiError): string {
   if (error.status === 429) {
@@ -87,6 +89,8 @@ export function errorText(error: ApiError): string {
     return isDemo()
       ? "The server did not accept the address this page is open at. Open the app from the link your setup printed and try again."
       : "Your session has ended. Sign in again.";
+  // The browser cannot tell a slow server from an unreachable one, but it does know it gave up waiting: say that.
+  if (error.code === "timeout") return SLOW_SERVER;
   if (error.status === 0) return "We couldn't reach the server. Check your connection and try again.";
   if (error.status >= 500) return "Something went wrong on our side. Nothing was lost; try again.";
   return error.fix ?? BY_CODE[error.code] ?? "That didn't work. Try again.";

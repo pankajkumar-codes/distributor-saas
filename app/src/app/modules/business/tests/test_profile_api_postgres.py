@@ -523,7 +523,7 @@ def test_home_checklist_follows_setup(biz):
     add_member(pg, bid, "carol", "ca")
     done = {i["key"]: i["done"] for i in checklist()["items"]}
     assert done == {"business_profile": True, "filing_frequency": True, "marketplaces": True,
-                    "first_product": False, "first_customer": False, "invite_ca_or_teammate": True}
+                    "first_product": False, "first_customer": False, "invite_ca_or_teammate": True}  # no catalog rows here
 
 
 def test_home_counts_a_pending_invite(biz):
@@ -605,3 +605,40 @@ def test_state_codes_are_exactly_the_loaded_rows(biz):
     before_gst = pg.client.get("/api/v1/refdata/state-codes?on=2017-06-30", headers=as_user("alice")).json()
     assert before_gst == {"on": "2017-06-30", "states": []}
     assert pg.client.get("/api/v1/refdata/state-codes").status_code == 401
+
+
+# --- Support's list of businesses (R1 retest bug 3) ---------------------------------------
+
+
+def test_support_list_names_a_business_made_through_the_route(biz):
+    """A business made with POST /b has no name on identity.businesses, so the list used to
+    answer 500 once any grant existed. The grant keeps the name the owner saw."""
+    pg, bid = biz
+    assert scalar(pg.owner, "select name from identity.businesses where id = :b", b=bid) is None
+    with pg.owner.begin() as c:
+        sid = c.execute(text("select identity.dev_ensure_user('staff')")).scalar()
+        c.execute(text("update identity.users set is_support = true, totp_enabled_at = now() where id = :u"), {"u": sid})
+    # No grant yet: an empty list, not an error.
+    assert pg.client.get("/api/v1/support/grants", headers=as_user("staff")).json() == {"grants": []}
+    r = pg.client.post(url(bid, "/support-grants"), headers={**as_user("alice"), "Idempotency-Key": uuid.uuid4().hex}, json={})
+    assert r.status_code == 201, r.text
+    listed = pg.client.get("/api/v1/support/grants", headers=as_user("staff"))
+    assert listed.status_code == 200, listed.text
+    [g] = listed.json()["grants"]
+    assert g["business_id"] == bid
+    shown = scalar(pg.owner, "select coalesce(trade_name, legal_name) from business.profiles where business_id = :b", b=bid)
+    assert g["business_name"] == shown  # the owner's display name, not a blank or a failure
+
+
+def test_support_list_copes_with_a_grant_that_has_no_name(biz):
+    pg, bid = biz
+    with pg.owner.begin() as c:
+        sid = c.execute(text("select identity.dev_ensure_user('staff')")).scalar()
+        c.execute(text("update identity.users set is_support = true, totp_enabled_at = now() where id = :u"), {"u": sid})
+    r = pg.client.post(url(bid, "/support-grants"), headers={**as_user("alice"), "Idempotency-Key": uuid.uuid4().hex}, json={})
+    assert r.status_code == 201, r.text
+    with pg.owner.begin() as c:  # a grant made before the name was kept on it
+        c.execute(text("update identity.support_grants set business_name = null where business_id = :b"), {"b": bid})
+    listed = pg.client.get("/api/v1/support/grants", headers=as_user("staff"))
+    assert listed.status_code == 200, listed.text
+    assert [g["business_name"] for g in listed.json()["grants"]] == ["A business"]

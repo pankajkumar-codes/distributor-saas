@@ -24,14 +24,16 @@ refused and the view stays recorded even if the read fails.
 """
 
 import logging
+import sys
 import uuid
 from collections.abc import AsyncIterator, Callable, Iterator
-from contextlib import contextmanager
+from contextlib import asynccontextmanager, contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, replace
 from typing import Annotated
 
 from fastapi import Depends, Request
+from starlette.concurrency import run_in_threadpool
 from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -158,6 +160,30 @@ class UnitOfWork:
 
 
 @contextmanager
+def _transaction(principal: Principal, read_only: bool) -> Iterator[UnitOfWork]:
+    """The transaction itself: opens, sets `app.*`, commits at exit or rolls back on error. It does not touch
+    the nesting flag or run after_commit callbacks; unit_of_work and the async dependencies do those."""
+    with _session_factory()() as tx:
+        with tx.begin():
+            if read_only:
+                # Must come before any other statement in the transaction.
+                tx.execute(text("set transaction read only"))
+                tx.execute(text("set local role app_ro"))
+            uow = UnitOfWork(tx, principal, read_only)
+            _set_context(tx, principal)
+            yield uow
+
+
+def _run_after_commit(uow: UnitOfWork, request_id_: str) -> None:
+    for fn in uow._after_commit:
+        try:
+            fn()
+        except Exception:
+            # The commit stands; work that must happen goes through the outbox (§3.7).
+            log.exception("after_commit callback failed", extra={"request_id": request_id_})
+
+
+@contextmanager
 def unit_of_work(principal: Principal, *, read_only: bool = False) -> Iterator[UnitOfWork]:
     """One transaction with `app.*` set from `principal`. Commits at exit, rolls back on error.
 
@@ -168,23 +194,40 @@ def unit_of_work(principal: Principal, *, read_only: bool = False) -> Iterator[U
         raise RuntimeError("unit_of_work is already open; pass uow.tx down instead")
     _open.set(True)
     try:
-        with _session_factory()() as tx:
-            with tx.begin():
-                if read_only:
-                    # Must come before any other statement in the transaction.
-                    tx.execute(text("set transaction read only"))
-                    tx.execute(text("set local role app_ro"))
-                uow = UnitOfWork(tx, principal, read_only)
-                _set_context(tx, principal)
-                yield uow
+        with _transaction(principal, read_only) as uow:
+            yield uow
     finally:
         _open.set(False)
-    for fn in uow._after_commit:
+    _run_after_commit(uow, principal.request_id)
+
+
+@asynccontextmanager
+async def _async_unit_of_work(principal: Principal, *, read_only: bool = False) -> AsyncIterator[UnitOfWork]:
+    """The same unit of work for the async dependencies, with every database step (connect, the statements
+    that set the context, commit or rollback, the after_commit callbacks) run in the threadpool, so a database
+    that is slow or stuck holds one worker thread, not the event loop. Before this, one stuck statement
+    stopped every request, health checks included.
+
+    The nesting flag is set here, in the request's own context, which is the one the endpoint's context
+    copy inherits (see the note above the dependencies); worker threads never set it.
+    """
+    if _open.get():
+        raise RuntimeError("unit_of_work is already open; pass uow.tx down instead")
+    _open.set(True)
+    try:
+        cm = _transaction(principal, read_only)
+        uow = await run_in_threadpool(cm.__enter__)
         try:
-            fn()
-        except Exception:
-            # The commit stands; work that must happen goes through the outbox (§3.7).
-            log.exception("after_commit callback failed", extra={"request_id": principal.request_id})
+            yield uow
+        except BaseException:
+            # Roll back off the loop as well. A transaction's __exit__ does not swallow the error: re-raised here.
+            await run_in_threadpool(cm.__exit__, *sys.exc_info())
+            raise
+        else:
+            await run_in_threadpool(cm.__exit__, None, None, None)
+    finally:
+        _open.set(False)
+    await run_in_threadpool(_run_after_commit, uow, principal.request_id)
 
 
 def parse_id(raw: str) -> uuid.UUID:
@@ -232,8 +275,24 @@ def _record_support_view(uow: UnitOfWork, request: Request) -> None:
 # endpoint each in its own threadpool call with a copy of the request's context, so a
 # nested-call flag set in a sync dependency is invisible to the endpoint. An async
 # dependency runs in the request's own context, which the endpoint's copy inherits, so
-# `unit_of_work` raises when a route tries to open a second one. Their few statements
-# block the event loop briefly; a Lambda serves one request at a time.
+# `unit_of_work` raises when a route tries to open a second one. Their database work
+# runs in the threadpool (`_async_unit_of_work`), never on the event loop: only the flag
+# is set on the loop.
+
+
+def _bind_resolved(uow: UnitOfWork, caller: Caller, business_id: uuid.UUID | None) -> Principal:
+    principal = _resolve(uow, caller, business_id)
+    uow._bind(principal)
+    return principal
+
+
+def _read_only_step(uow: UnitOfWork, caller: Caller, business_id: uuid.UUID, first: Principal) -> None:
+    uow.tx.execute(text("set transaction read only"))
+    again = _resolve(uow, caller, business_id)
+    if again.support_grant_id != first.support_grant_id:
+        raise Deny("support_no_grant")  # revoked, expired or replaced since step 1
+    uow._bind(again)
+    uow.become_read_only()
 
 
 async def business_uow(business_id: str, request: Request) -> AsyncIterator[UnitOfWork]:
@@ -241,37 +300,31 @@ async def business_uow(business_id: str, request: Request) -> AsyncIterator[Unit
     bid = parse_id(business_id)
     caller = current_caller(request)
     rid = request_id(request)
-    with unit_of_work(Principal(user_sub=caller.user_sub, request_id=rid)) as uow:
-        principal = _resolve(uow, caller, bid)
-        uow._bind(principal)
+    async with _async_unit_of_work(Principal(user_sub=caller.user_sub, request_id=rid)) as uow:
+        principal = await run_in_threadpool(_bind_resolved, uow, caller, bid)
         if principal.support_grant_id is None:
             yield uow
             return
-        _record_support_view(uow, request)
+        await run_in_threadpool(_record_support_view, uow, request)
     # Step 2. Read only from here on: Postgres refuses any write, definer functions
     # included, and the mode can't be turned back. The resolver still runs as app_rw
     # (identity.auth_resolve is app_rw only) and skips its session touch when read only.
-    with unit_of_work(Principal(user_sub=caller.user_sub, request_id=rid)) as uow:
-        uow.tx.execute(text("set transaction read only"))
-        again = _resolve(uow, caller, bid)
-        if again.support_grant_id != principal.support_grant_id:
-            raise Deny("support_no_grant")  # revoked, expired or replaced since step 1
-        uow._bind(again)
-        uow.become_read_only()
+    async with _async_unit_of_work(Principal(user_sub=caller.user_sub, request_id=rid)) as uow:
+        await run_in_threadpool(_read_only_step, uow, caller, bid, principal)
         yield uow
 
 
 async def me_uow(request: Request) -> AsyncIterator[UnitOfWork]:
     """FastAPI dependency for `/api/v1/me/...`: the signed-in user, no business."""
     caller = current_caller(request)
-    with unit_of_work(Principal(user_sub=caller.user_sub, request_id=request_id(request))) as uow:
-        uow._bind(_resolve(uow, caller, None))
+    async with _async_unit_of_work(Principal(user_sub=caller.user_sub, request_id=request_id(request))) as uow:
+        await run_in_threadpool(_bind_resolved, uow, caller, None)
         yield uow
 
 
 async def public_uow(request: Request) -> AsyncIterator[UnitOfWork]:
     """FastAPI dependency for auth and share-link routes: no user, no business."""
-    with unit_of_work(Principal(user_sub=None, request_id=request_id(request))) as uow:
+    async with _async_unit_of_work(Principal(user_sub=None, request_id=request_id(request))) as uow:
         yield uow
 
 
