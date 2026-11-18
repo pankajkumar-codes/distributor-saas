@@ -1,6 +1,7 @@
 """The OCR reader on synthetic scans: a page of a made-up invoice is drawn to pixels and wrapped in a PDF that has
 no text layer. Skipped where pdftoppm or tesseract is not installed (CI installs them)."""
 
+import os
 import re
 import shutil
 import subprocess
@@ -12,11 +13,13 @@ import pytest
 
 from app.modules.imports.pdf import Limits, PdfRefused, TextLayerReader
 from app.modules.imports.pdf import ocr_reader
+from app.modules.imports.pdf.extract import assemble, read_page
 from app.modules.imports.pdf.ocr_reader import OcrReader, OcrUnavailable, _rows
 
 from .fixtures.pdf import BUYER, SELLER, one_invoice
 
-pytestmark = pytest.mark.skipif(not (shutil.which("pdftoppm") and shutil.which("tesseract")),
+# Skipped on a machine without the two programs, but never in CI: there a missing program fails the tests.
+pytestmark = pytest.mark.skipif(not (shutil.which("pdftoppm") and shutil.which("tesseract")) and not os.environ.get("CI"),
                                 reason="pdftoppm and tesseract are not installed")
 HSN = re.compile("^[0-9]{4,8}$")
 LIMITS = Limits(max_pages=5, max_chars_per_page=5000, max_documents=10, max_seconds=60)
@@ -145,3 +148,28 @@ def test_the_programs_get_no_environment_from_this_process(monkeypatch):
     ocr(data)
     assert seen["env"] and all("AWS_SECRET_ACCESS_KEY" not in e and set(e) <= {"PATH", "OMP_THREAD_LIMIT", "LC_ALL"}
                                for e in seen["env"])
+
+
+def test_a_dropped_value_word_ends_up_blank_and_named_unclear_in_the_invoice():
+    """From Tesseract's words to the invoice: a low-confidence taxable value is dropped, so it is blank and unclear."""
+    head = "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n"
+
+    def word(x, y, text, conf=95, w=60):
+        return f"5\t1\t1\t1\t1\t1\t{x}\t{y}\t{w}\t20\t{conf}\t{text}"
+
+    def page(taxable_conf):
+        return head + "\n".join([
+            word(100, 100, "TAX", w=40), word(150, 100, "INVOICE", w=80),
+            word(100, 140, "Invoice", w=80), word(190, 140, "No:", w=40), word(240, 140, "INV-9", w=60),
+            word(100, 300, "HSN/SAC", w=90), word(400, 300, "Taxable", w=80), word(490, 300, "Value", w=60),
+            word(100, 340, "6109", w=60), word(400, 340, "200.00", taxable_conf, w=80),
+        ])
+
+    def invoice(tsv):
+        rows = _rows(tsv.encode(), 100)
+        return assemble([read_page(1, rows, HSN)], 10)[0]
+
+    sure = invoice(page(95))
+    assert sure.lines[0].taxable_value == "200.00" and "taxable_value" not in sure.lines[0].unclear
+    unsure = invoice(page(20))
+    assert unsure.lines[0].taxable_value is None and "taxable_value" in unsure.lines[0].unclear

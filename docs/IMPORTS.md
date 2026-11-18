@@ -450,6 +450,8 @@ PostgreSQL 16, Python 3.13, synthetic PDFs only; not in a Lambda.
 
 - **Not selected anywhere.** Nothing in `reading.read_pdf` or the worker uses it. In R1 a scan is held as `pdf_unclear` and the seller is asked for the Excel or a text PDF (CEO, 2026-11-18): Tesseract and poppler do not fit the Lambda package (about 7 MB of margin) and a container Lambda was not approved. It runs locally and in CI only.
 - **Dependencies.** The programs `tesseract-ocr` (Apache-2.0) and `poppler-utils` (GPL-2, run as a separate program, not linked) are installed on the CI `app` job for the tests; no new Python package. Tests skip where they are absent.
+- **Before any deployment.** poppler parses untrusted PDFs, so the rasterising must run inside a sandbox like the text reader's (D-055) and the container must be proved first. The Tesseract version is not pinned: CI installs the distribution's current package (5.5.0 on the run checked) and a developer machine may have another (5.3.4 here); both passed the tests.
+- **Where the tests run.** The OCR tests need `pdftoppm` and `tesseract`. They run in the CI `app` job (which installs both, prints their versions and fails the tests if either is missing) and on a developer machine that has them; on any other machine they are skipped.
 - **Not claimed.** Tried only on synthetic pages drawn from our own fixture generator at 200 dpi. Nothing was run on a real scan, a phone photo, a skewed or low-resolution page, or a language other than English; accuracy on those is unknown. The confidence floors (60, 30) are first guesses, not tuned.
 
 ## Retention of uploads (R1-M3, TD-18)
