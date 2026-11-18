@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../../src/App";
@@ -178,5 +178,58 @@ describe("the form's body", () => {
     const f = formOf(draft({ pos_override: "27", pos_override_reason: "Delivered in Pune" }) as never, { "p-1": "Gel" });
     expect(f).toMatchObject({ buyer: "customer", customer_name: "Sharma Traders", pos_override: "27", pos_reason: "Delivered in Pune" });
     expect(f.lines[0]).toMatchObject({ key: "l-1", name: "Gel", quantity: "10", unit_price: "100.00" });
+  });
+
+  describe("business type", () => {
+    const PROFILE = "/api/v1/b/b-1/profile";
+    const profile = (business_type: string | null) => ({ status: 200, body: { version: 5, business_type } });
+    const refused = { status: 409, body: { error: { code: "business_type_required", message: "Choose Distributor or Retail in Business setup first" } } };
+
+    it("asks for the business type before the form when it is missing, and saves it through the profile call", async () => {
+      server.reply(PROFILE, profile(null));
+      server.reply(`PATCH ${PROFILE}`, { status: 200, body: { profile: { version: 6, business_type: "retail" }, warnings: [] } });
+      open("/b/b-1/invoices/new");
+      expect(await screen.findByRole("heading", { name: "Choose your business type to start invoicing" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Save business type" })).toBeDisabled();
+      fireEvent.change(screen.getByLabelText("Business type"), { target: { value: "retail" } });
+      fireEvent.click(screen.getByRole("button", { name: "Save business type" }));
+      await waitFor(() => expect(screen.queryByRole("heading", { name: "Choose your business type to start invoicing" })).toBeNull());
+      const [patch] = sent(PROFILE, "PATCH");
+      expect(patch.headers.get("If-Match")).toBe("5");
+      expect(patch.body).toEqual({ business_type: "retail" });
+    });
+
+    it("keeps the form when a save is refused, asks inline, then saves the draft as typed", async () => {
+      server.reply(PROFILE, profile(null));
+      server.reply(`PATCH ${PROFILE}`, { status: 200, body: { profile: { version: 6, business_type: "distributor" }, warnings: [] } });
+      server.reply(DRAFTS, refused, { status: 201, body: draft() });
+      open("/b/b-1/invoices/new");
+      fireEvent.change(await screen.findByLabelText("Invoice date"), { target: { value: "2026-11-09" } });
+      fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+      fireEvent.change(await screen.findByLabelText("Business type"), { target: { value: "distributor" } });
+      expect(screen.getByLabelText("Invoice date")).toHaveValue("2026-11-09"); // nothing typed is lost
+      fireEvent.click(screen.getByRole("button", { name: "Save and save my draft" }));
+      expect(await screen.findByRole("heading", { name: "Draft invoice" })).toBeInTheDocument();
+      expect(sent(DRAFTS, "POST")).toHaveLength(2);
+    });
+
+    it("tells billing, who cannot change the profile, who can", async () => {
+      server = fakeApi(); // a fresh one: the owner reply queued in beforeEach would be read first
+      server.reply(REFRESH, { status: 200, body: { access_token: "t", expires_in: 3600 } });
+      server.reply(ME, mine("billing"));
+      server.reply(STATES, states);
+      server.reply(DRAFTS, refused);
+      open("/b/b-1/invoices/new");
+      fireEvent.click(await screen.findByRole("button", { name: "Save draft" }));
+      expect(await screen.findByText(/Ask the owner or an admin to choose Distributor or Retail/)).toBeInTheDocument();
+      expect(sent(PROFILE, "GET")).toHaveLength(0);
+    });
+  });
+
+  it("shows Finalize and why every invoice is a practice one, before anything is saved", async () => {
+    open("/b/b-1/invoices/new");
+    expect(await screen.findByText(/Practice mode\./)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Finalize invoice" })).toBeDisabled();
+    expect(screen.getByText(/Finalize gives the invoice its number and locks it/)).toBeInTheDocument();
   });
 });
