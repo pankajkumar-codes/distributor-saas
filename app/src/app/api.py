@@ -77,7 +77,7 @@ runtime.configure()  # the jobs queue and object store for this environment
 
 
 @app.get(f"{API_PREFIX}/health")
-def health():
+async def health():  # async: answered on the event loop, so it never waits for a busy or stuck worker thread
     return {"status": "ok"}
 
 
