@@ -275,6 +275,21 @@ describe("editing a product", () => {
     expect(sent(ONE, "DELETE")[0].headers.get("If-Match")).toBe("3");
   });
 
+  it("explains Archive and Delete separately, and Keep it cancels either question", async () => {
+    server.reply(ONE, { status: 200, body: detail() });
+    open("/b/b-1/products/p-1");
+    await screen.findByRole("heading", { name: "Neem soap" });
+    expect(screen.getByText(/Invoices already made keep it/)).toBeInTheDocument();
+    expect(screen.getByText(/never been on an invoice/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("button", { name: "Keep it" }));
+    expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Archive" }));
+    fireEvent.click(screen.getByRole("button", { name: "Keep it active" }));
+    expect(screen.getByRole("button", { name: "Archive" })).toBeInTheDocument();
+    expect(sent(ONE, "DELETE")).toHaveLength(0);
+  });
+
   it("only archives a product that is on invoices", async () => {
     server.reply(ONE, { status: 200, body: detail({ in_use: true }) });
     server.reply(`${ONE}/archive`, { status: 200, body: detail({ in_use: true, status: "archived", version: 4 }) });
@@ -282,6 +297,8 @@ describe("editing a product", () => {
     await screen.findByRole("heading", { name: "Neem soap" });
     expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Archive" }));
+    expect(sent(`${ONE}/archive`, "POST")).toHaveLength(0); // asks first
+    fireEvent.click(screen.getByRole("button", { name: "Yes, archive" }));
     expect(await screen.findByText(/This product is archived/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Unarchive" })).toBeInTheDocument();
   });

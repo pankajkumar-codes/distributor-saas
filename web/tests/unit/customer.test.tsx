@@ -182,6 +182,19 @@ describe("editing a customer", () => {
     expect(screen.getByRole("button", { name: "Save changes" })).toBeInTheDocument();
   }, 12000);
 
+  it("shows the server's words when it refuses the delete", async () => {
+    server.reply(
+      ONE,
+      { status: 200, body: detail() },
+      { status: 409, body: { error: { code: "customer_in_use", message: "This customer is on an invoice, so it can't be deleted. Archive it instead." } } },
+    );
+    open("/b/b-1/customers/c-1");
+    await screen.findByRole("heading", { name: "Sharma Traders" });
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("button", { name: "Yes, delete" }));
+    expect(await screen.findByText(/can't be deleted. Archive it instead/)).toBeInTheDocument();
+  });
+
   it("doesn't offer Delete for a customer on invoices", async () => {
     server.reply(ONE, { status: 200, body: detail({ in_use: true }) });
     open("/b/b-1/customers/c-1");
