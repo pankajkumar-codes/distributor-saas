@@ -21,5 +21,8 @@ const RETURN_PREPARERS = new Set(["owner", "admin", "ca"]); // returns.prepare; 
 export const canPrepareReturns = (role: string) => RETURN_PREPARERS.has(role);
 
 const RETURN_LOCKERS = new Set(["owner", "admin", "ca"]); // returns.lock: mark filed
+// returns.view: the same roles, plus a support session reading a business that granted access.
+export const canViewReturns = (role: string) => canPrepareReturns(role) || role === "support";
+
 export const canLockReturns = (role: string) => RETURN_LOCKERS.has(role);
 export const canUnlockReturns = (role: string) => role === "owner"; // returns.unlock

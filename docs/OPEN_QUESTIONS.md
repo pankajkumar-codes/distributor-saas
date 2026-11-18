@@ -343,6 +343,18 @@ Every row in `refdata/` is `provisional`. Before go-live:
 - **Combining.** The gate decides when the file may be made. How platform rows and our own invoices are merged into one GSTR-1 stays with the return build (R3-M3, Staff 2 (4)); nothing here merges data.
 - **Platform files the readers do not cover** (a platform not among the three) cannot be asked for; the gate says nothing about them.
 
+## R4-M1 and R4-M3 team members by invitation (2026-11-18)
+- **The server side already existed.** Invitations (hashed single-use tokens, expiry, accept by email, member list, role change, deactivate, audit) were built under LLD-2 and are tested; this slice adds the route-permission test and the token-never-logged test. See `docs/INVITATIONS.md`. The web screens for them are the next step (web thread).
+- **Invite links stay mail-only (CEO, 2026-11-18).** No copy-link option.
+- **`GET /b/{id}/returns` now needs `returns.view` (CEO, 2026-11-18)** (owner, admin, CA, like the other returns routes); billing no longer reads the list, and the web hides the filing page and home link for billing. The route-permission test allowlist no longer has it.
+- **Other no-permission reads.** `home`, `profile`, `filing-profile` and `channels` are readable by every active member by design; each is still refused to a non-member.
+
+### R4 end-of-release batch for Pankaj (2026-11-18)
+Three things only Pankaj can settle; none stops the build.
+1. **Invite emails need SES, which is real-AWS gated.** Invite links are mailed (CEO: no copy-link). Locally and in tests the mail is recorded, not sent. Production sending needs SES production access, a verified sending domain and the product name/support contact (all release blockers already listed below). Until then a team member cannot actually receive an invite. Recommendation: do this with the go-live prep, not before.
+2. **Token lifetime and limits.** A link lasts 7 days (`INVITE_EXPIRY_DAYS`), is single use, and a resend kills the old link; 20 invite mails per business per day. Both are product values, not tax rules. Recommendation: keep 7 days and 20 a day for launch; change only if real owners ask.
+3. **Role change rules as built.** Owner or admin changes a member's role between owner, admin and billing; only an owner may touch an owner; the last owner cannot be demoted; a CA's role changes only through a new invite (Product Owner rule RM-4.2); deactivate and reactivate need a reason; a deactivated person rejoins by reactivation or by accepting a new invite, which restores them with the invited role. Question: is it right that an admin may promote someone to admin? Recommendation: yes, keep.
+
 ## One active session per user (2026-11-19)
 
 - Confirmation window: the "Yes" must come within 10 minutes of the sign-in (`auth.session_confirm_minutes`, provisional). Owner may want it shorter or longer.

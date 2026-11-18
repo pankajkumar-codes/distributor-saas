@@ -46,6 +46,7 @@ class Permission(str, enum.Enum):
     DOCUMENTS_MARK_PAID = "documents.mark_paid"
     UPLOADS_CREATE = "uploads.create"
     UPLOADS_VIEW = "uploads.view"
+    RETURNS_VIEW = "returns.view"
     RETURNS_PREPARE = "returns.prepare"
     RETURNS_LOCK = "returns.lock"
     RETURNS_UNLOCK = "returns.unlock"
@@ -90,12 +91,16 @@ def has_permission(role: Role | str | None, permission: Permission) -> bool:
     return role in PERMISSION_ROLES[permission]
 
 
-def require(permission: Permission) -> Callable[[UnitOfWork], None]:
+def require(permission: Permission, *, support_may_read: bool = False) -> Callable[[UnitOfWork], None]:
     """FastAPI dependency: refuse the request unless the caller's role has `permission`.
 
     A support user under a grant may only read, so anything but a `.view` permission is
-    `support_no_grant`. The function carries `.permission` so the route-coverage check
-    (LLD-0 §7) can find each route's permission.
+    `support_no_grant`. A support principal has no membership, so no role. A route that
+    support may read under a grant (the returns list) says so with `support_may_read=True`,
+    and then a `.view` permission passes for it.
+
+    The function carries `.permission` so the route-coverage check (LLD-0 §7) can find each
+    route's permission.
     """
     permission = Permission(permission)
 
@@ -103,6 +108,8 @@ def require(permission: Permission) -> Callable[[UnitOfWork], None]:
         principal = uow.principal
         if principal.support_grant_id is not None and not permission.value.endswith(".view"):
             raise Deny("support_no_grant")
+        if principal.support_grant_id is not None and support_may_read:
+            return
         if not has_permission(principal.role, permission):
             raise Deny("role_denied")
 

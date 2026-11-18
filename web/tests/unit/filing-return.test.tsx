@@ -126,7 +126,7 @@ describe("A return (read-only)", () => {
     expect(await screen.findByText("We couldn't find that page")).toBeInTheDocument();
   });
 
-  it("links to the return from the filing home for an owner and not for billing", async () => {
+  it("links to the return from the filing home for an owner, and billing cannot see the filing page", async () => {
     const row = { instance_id: INST, form: "GSTR1", period: "2026-10", period_label: "October 2026", period_start: "2026-10-01", period_end: "2026-10-31", due_date: null, due_date_confirmed: false, due_date_source_url: null, status: "open" };
     const list = { status: 200, body: { fy: "2026-27", filing_frequency: "monthly", returns: [row] } };
     for (const [role, linked] of [["owner", true], ["billing", false]] as const) {
@@ -137,8 +137,13 @@ describe("A return (read-only)", () => {
       server.reply(BIZ, list, list);
       window.history.replaceState(null, "", "/b/b-1/filing");
       const view = render(<App />);
-      await screen.findByText("October 2026");
-      expect(screen.queryAllByRole("link", { name: "Review the draft" }).length > 0).toBe(linked); // the fixture answers both years with one row
+      if (linked) {
+        await screen.findByText("October 2026");
+        expect(screen.queryAllByRole("link", { name: "Review the draft" }).length).toBeGreaterThan(0); // the fixture answers both years with one row
+      } else {
+        await screen.findByText(/couldn't find that page/); // returns.view: billing is turned away, and nothing was fetched
+        expect(server.sent.some((s) => s.path.endsWith("/returns"))).toBe(false);
+      }
       view.unmount();
     }
   });

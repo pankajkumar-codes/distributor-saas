@@ -31,6 +31,49 @@ function open(path: string) {
   render(<App />);
 }
 
+describe("support staff reading filing (returns.view)", () => {
+  const RETURNS = "/api/v1/b/b-1/returns";
+  const list = {
+    status: 200,
+    body: {
+      fy: "2026-27",
+      filing_frequency: "monthly",
+      returns: [
+        { instance_id: "i-1", form: "GSTR1", period: "2026-10", period_label: "October 2026", period_start: "2026-10-01", period_end: "2026-10-31", due_date: null, due_date_confirmed: false, due_date_source_url: null, status: "open" },
+      ],
+    },
+  };
+  const signedInAsSupport = () => {
+    server.reply(ME, support);
+    server.reply(GRANTS, { status: 200, body: { grants: [grant] } });
+  };
+
+  it("opens Filing home and shows the list, as the server allows it", async () => {
+    signedInAsSupport();
+    server.reply(RETURNS, list, list);
+    open("/b/b-1/filing");
+    expect(await screen.findByRole("table")).toBeInTheDocument();
+    expect(screen.getByText("October 2026")).toBeInTheDocument();
+  });
+
+  it("shows the GST filing card on Home and asks for the periods", async () => {
+    signedInAsSupport();
+    server.reply(HOME, home);
+    server.reply(RETURNS, list);
+    open("/b/b-1/home");
+    const card = await screen.findByRole("navigation", { name: "GST filing" });
+    expect(within(card).getByRole("link", { name: "Open Filing home" })).toBeInTheDocument();
+    expect(await within(card).findByText(/GSTR-1/)).toBeInTheDocument();
+  });
+
+  it("keeps billing turned away from Filing home, without asking for the list", async () => {
+    server.reply(ME, { status: 200, body: { businesses: [{ business_id: "b-1", display_name: "Vashi Essentials", gstin: null, role: "billing" }] } });
+    open("/b/b-1/filing");
+    expect(await screen.findByText("We couldn't find that page")).toBeInTheDocument();
+    expect(server.paths()).not.toContain(RETURNS);
+  });
+});
+
 describe("support staff", () => {
   it("lists the businesses they may open, with when access ends", async () => {
     server.reply(GRANTS, { status: 200, body: { grants: [grant] } });
