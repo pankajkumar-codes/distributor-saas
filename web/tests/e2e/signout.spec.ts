@@ -72,7 +72,8 @@ test("Sign out ends the session: protected pages go to sign-in, and a reload sta
   await expect(b.getByText(/You are still signed in on the other browser/)).toBeVisible();
   await ask();
   await b.getByRole("button", { name: /^Yes/ }).click();
-  await expect(b.getByRole("heading", { name: "Your business and GST" })).toBeVisible();
+  await expect(b).toHaveURL(/\/b\/[0-9a-f-]{36}\/home$/); // the account has its business by now: it lands on Home
+  await expect(b.getByRole("button", { name: "Sign out" })).toBeVisible();
   await other.close();
 });
 
