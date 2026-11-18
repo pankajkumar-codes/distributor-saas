@@ -319,3 +319,78 @@ def test_a_line_names_an_existing_product_or_a_new_one_never_both_or_neither(sho
     unknown = post(pg, url, confirm_body(d, lines=[{**line(), "new_item": None, "product_id": str(uuid.uuid4())}]))
     assert unknown.status_code == 404
     assert scalar(pg.owner, "select count(*) from catalog.stock_movements") == 0
+
+
+# ---- Staff review of M2 (r2-review-1): B1, B2, S1, S2, S3 ----
+
+def test_an_amount_with_look_alike_digits_is_refused_not_a_server_error(shop):  # noqa: F811
+    pg, biz, _ = shop
+    _, (d,) = read(shop, "bill.pdf", invoice())
+    url = f"/api/v1/b/{biz}/purchase-drafts/{d['id']}/confirm"
+    for bad in ("²", "٣", "1.²", "１２", "1e3", "-1", " ", "1.2.3"):
+        r = post(pg, url, confirm_body(d, lines=[line(d["lines"][0]["id"], quantity=bad)]))
+        assert (r.status_code, r.json()["error"]["code"]) == (422, "amount_invalid"), bad
+    assert scalar(pg.owner, "select count(*) from imports.purchase_reviews") == 0
+
+
+def test_two_files_of_one_invoice_confirmed_together_are_a_conflict_not_a_server_error(shop, monkeypatch):  # noqa: F811
+    from app.modules.imports import purchases
+
+    pg, biz, _ = shop
+    _, (d1,) = read(shop, "a.pdf", invoice())
+    _, (d2,) = read(shop, "b.pdf", invoice(lines=TWO_LINES[:1]))  # the same supplier invoice number, another file
+    assert post(pg, f"/api/v1/b/{biz}/purchase-drafts/{d1['id']}/confirm", confirm_body(d1)).status_code == 201
+    # the race: the other request's check saw nothing, so only the unique index stops the second insert
+    monkeypatch.setattr(purchases, "_already_confirmed", lambda *a, **k: False)
+    body = confirm_body(d2, lines=[line(d2["lines"][0]["id"], "NEW-1")])
+    r = post(pg, f"/api/v1/b/{biz}/purchase-drafts/{d2['id']}/confirm", body)
+    assert (r.status_code, r.json()["error"]["code"]) == (409, "purchase_already_confirmed")
+    assert scalar(pg.owner, "select count(*) from imports.purchase_reviews where decision = 'confirmed'") == 1
+    assert scalar(pg.owner, "select count(*) from catalog.stock_movements") == 2
+
+
+def test_a_retried_confirm_with_the_same_key_returns_the_first_answer(shop):  # noqa: F811
+    pg, biz, _ = shop
+    _, (d,) = read(shop, "bill.pdf", invoice())
+    url = f"/api/v1/b/{biz}/purchase-drafts/{d['id']}"
+    first = post(pg, url + "/confirm", confirm_body(d), key="k-confirm-1")
+    again = post(pg, url + "/confirm", confirm_body(d), key="k-confirm-1")
+    assert first.status_code == again.status_code == 201
+    assert again.json() == first.json() and len(again.json()["received"]) == 2
+    other = post(pg, url + "/confirm", confirm_body(d, doc_number="X"), key="k-confirm-1")
+    assert other.json()["error"]["code"] == "idempotency_mismatch"
+    assert scalar(pg.owner, "select count(*) from catalog.stock_movements") == 2
+    # discard replays the same way
+    _, (d2,) = read(shop, "other.pdf", invoice("SUP-9"))
+    u2 = f"/api/v1/b/{biz}/purchase-drafts/{d2['id']}/discard"
+    a, b = post(pg, u2, key="k-discard-1"), post(pg, u2, key="k-discard-1")
+    assert a.status_code == b.status_code == 200 and a.json() == b.json()
+
+
+def test_a_rate_over_100_is_refused_and_a_tax_mismatch_is_a_warning_only(shop):  # noqa: F811
+    pg, biz, _ = shop
+    _, (d,) = read(shop, "bill.pdf", invoice())
+    url = f"/api/v1/b/{biz}/purchase-drafts/{d['id']}/confirm"
+    r = post(pg, url, confirm_body(d, lines=[line(d["lines"][0]["id"], gst_rate="100.01")]))
+    assert (r.status_code, r.json()["error"]["code"]) == (422, "gst_rate_invalid")
+    wrong = [line(d["lines"][0]["id"], cgst="10.00", sgst="10.00"),  # 200 x 18% is 36, not 20
+             line(d["lines"][1]["id"], "TEE-2", hsn="6110", quantity="1", taxable_value="100.00", cgst="9.00", sgst="9.01")]
+    ok = post(pg, url, confirm_body(d, lines=wrong))
+    assert ok.status_code == 201
+    assert ok.json()["warnings"] == [{"line_no": 1, "code": "tax_differs_from_rate"}]  # a paisa apart is not a warning
+    # what was typed is stored as typed, never recomputed
+    assert scalar(pg.owner, "select cgst from imports.purchase_review_lines where line_no = 1") == 10
+
+
+def test_a_unit_that_differs_from_the_existing_products_is_a_warning(shop):  # noqa: F811
+    pg, biz, _ = shop
+    _, (d,) = read(shop, "bill.pdf", invoice())
+    base = f"/api/v1/b/{biz}"
+    first = post(pg, f"{base}/purchase-drafts/{d['id']}/confirm", confirm_body(d))
+    pid = first.json()["received"][0]["product_id"]
+    for n, (unit, expect) in enumerate((("PCS", []), ("pcs", []), ("BOX", [{"line_no": 1, "code": "unit_differs_from_product"}]))):
+        _, (dx,) = read(shop, f"x-{n}.pdf", invoice(f"UNIT-{n}", lines=TWO_LINES[:1]))
+        body = confirm_body(dx, doc_number=f"UNIT-{n}", lines=[
+            {**line(dx["lines"][0]["id"], unit=unit), "new_item": None, "product_id": pid}])
+        r = post(pg, f"{base}/purchase-drafts/{dx['id']}/confirm", body)
+        assert r.status_code == 201 and r.json()["warnings"] == expect, unit

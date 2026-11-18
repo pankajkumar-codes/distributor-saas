@@ -99,12 +99,26 @@ export function useSendPurchaseFile(businessId: string) {
   });
 }
 
+/** One Idempotency-Key per confirm attempt: a retry after a dropped answer returns the first result. An answer from the
+ * server (an error too) ends the attempt, so a corrected form is a new request with a new key. */
 export function useConfirmDraft(businessId: string, draftId: string) {
   const queryClient = useQueryClient();
+  const key = useRef(crypto.randomUUID());
   return useMutation<Confirmed, ApiError, ConfirmIn>({
     mutationFn: (body) =>
-      call(() => api.POST("/api/v1/b/{business_id}/purchase-drafts/{draft_id}/confirm", { params: { path: { business_id: businessId, draft_id: draftId } }, body })),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: purchasesKey(businessId) }),
+      call(() =>
+        api.POST("/api/v1/b/{business_id}/purchase-drafts/{draft_id}/confirm", {
+          params: { path: { business_id: businessId, draft_id: draftId }, header: { "Idempotency-Key": key.current } },
+          body,
+        }),
+      ),
+    onSuccess: () => {
+      key.current = crypto.randomUUID();
+      queryClient.invalidateQueries({ queryKey: purchasesKey(businessId) });
+    },
+    onError: (e) => {
+      if (e.status !== 0) key.current = crypto.randomUUID();
+    },
   });
 }
 

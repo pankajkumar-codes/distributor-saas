@@ -226,6 +226,11 @@ class PurchaseReceivedOut(BaseModel):
     price_needed: bool  # the selling price per 1 qty is still to be set (R2-M3)
 
 
+class PurchaseWarningOut(BaseModel):
+    line_no: int
+    code: Literal["tax_differs_from_rate", "unit_differs_from_product"]
+
+
 class PurchaseConfirmedOut(BaseModel):
     review_id: str
     draft_id: str
@@ -237,6 +242,7 @@ class PurchaseConfirmedOut(BaseModel):
     line_count: int
     created_at: datetime
     received: list[PurchaseReceivedOut] = []
+    warnings: list[PurchaseWarningOut] = []
 
 
 class PurchaseConfirmedListOut(BaseModel):
@@ -250,15 +256,26 @@ def _confirmed_out(c: purchases.Confirmed) -> PurchaseConfirmedOut:
                         invoice_total=None if c.invoice_total is None else str(c.invoice_total), line_count=c.line_count,
                         created_at=c.created_at,
                         received=[PurchaseReceivedOut(line_no=n, product_id=str(p), created_product=cp, price_needed=pn)
-                                  for n, p, cp, pn in c.received])
+                                  for n, p, cp, pn in c.received],
+                        warnings=[PurchaseWarningOut(line_no=n, code=code) for n, code in c.warnings])
 
 
 @router.post("/b/{business_id}/purchase-drafts/{draft_id}/confirm", status_code=http.HTTP_201_CREATED,
              response_model=PurchaseConfirmedOut, dependencies=CREATE)
-def confirm_draft(draft_id: str, body: PurchaseConfirmIn, uow: BusinessUoW, clock: Annotated[Clock, Depends(get_clock)]):
+def confirm_draft(draft_id: str, body: PurchaseConfirmIn, uow: BusinessUoW, request: Request,
+                  clock: Annotated[Clock, Depends(get_clock)],
+                  idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None):
     """The business confirms the invoice with the values it checked on the review screen. Once; a second call is a
-    conflict, not a second invoice."""
+    conflict, not a second invoice. With an Idempotency-Key, a retry of the same request returns the first answer."""
     purchases.require_business_type(uow)
+    if idempotency_key is None:
+        return _confirm(uow, draft_id, body, clock)
+    return run_once(uow.tx, uow.principal.business_id, idempotency_key, method=request.method,
+                    route=request.scope["route"].path, payload={"draft": draft_id, **body.model_dump(mode="json")},
+                    operation=lambda: _confirm(uow, draft_id, body, clock).model_dump(mode="json"))
+
+
+def _confirm(uow, draft_id: str, body: PurchaseConfirmIn, clock: Clock) -> PurchaseConfirmedOut:
     lines = [purchases.LineIn(
         draft_line_id=None if ln.draft_line_id is None else parse_id(ln.draft_line_id),
         product_id=None if ln.product_id is None else parse_id(ln.product_id),
@@ -276,9 +293,14 @@ def confirm_draft(draft_id: str, body: PurchaseConfirmIn, uow: BusinessUoW, cloc
 
 
 @router.post("/b/{business_id}/purchase-drafts/{draft_id}/discard", response_model=PurchaseDraftOut, dependencies=CREATE)
-def discard_draft(draft_id: str, uow: BusinessUoW):
+def discard_draft(draft_id: str, uow: BusinessUoW, request: Request,
+                  idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None):
     purchases.require_business_type(uow)
-    return _draft_out(purchases.discard(uow, parse_id(draft_id)))
+    if idempotency_key is None:
+        return _draft_out(purchases.discard(uow, parse_id(draft_id)))
+    return run_once(uow.tx, uow.principal.business_id, idempotency_key, method=request.method,
+                    route=request.scope["route"].path, payload={"draft": draft_id},
+                    operation=lambda: _draft_out(purchases.discard(uow, parse_id(draft_id))).model_dump(mode="json"))
 
 
 @router.get("/b/{business_id}/purchase-invoices", response_model=PurchaseConfirmedListOut, dependencies=VIEW)

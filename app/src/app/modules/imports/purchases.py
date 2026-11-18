@@ -16,11 +16,14 @@ import uuid
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
+import re
 
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 
-from app.modules.catalog.interface import ConfirmedPurchaseLine, NewCatalogItem, receive_confirmed_purchase_line
-from app.modules.business.interface import check_gstin, fy_of, get_profile, gstin_message
+from app.modules.catalog.interface import (ConfirmedPurchaseLine, NewCatalogItem, product_for_line,
+                                           receive_confirmed_purchase_line)
+from app.modules.business.interface import check_gstin, fy_of, gstin_message, require_business_type as _require_type
 from app.modules.refdata import value_on
 from platform_common import audit, storage
 from platform_common.clock import get_clock
@@ -152,14 +155,13 @@ class Confirmed:
     line_count: int
     created_at: datetime
     received: tuple = ()  # per line: (line_no, product_id, created_product, price_needed), set at confirm
+    warnings: tuple = ()  # (line_no, code): things worth a second look that never block the confirm
 
 
 def require_business_type(uow: UnitOfWork) -> None:
-    """R2 is for distributors and retailers: the business says which before it uses purchases. The
-    type is optional at sign-up and in setup, so the server asks, and the screen turns this code into a prompt."""
-    profile = get_profile(uow.tx)
-    if profile is None or profile.business_type is None:
-        raise Conflict("business_type_required", "Choose whether you are a distributor or a retailer first")
+    """R2 is for distributors and retailers: the business says which before it uses purchases. The shared check in
+    business refuses with 409 business_type_required, which the screen turns into a prompt."""
+    _require_type(uow.tx)
 
 
 def _business(uow: UnitOfWork) -> uuid.UUID:
@@ -368,10 +370,13 @@ def list_drafts(uow: UnitOfWork, *, file_id: uuid.UUID | None, open_only: bool, 
     return [_draft(uow, r) for r in rows[:limit]], len(rows) > limit
 
 
+_PLAIN_AMOUNT = re.compile(r"^[0-9]+(\.[0-9]+)?$")
+
+
 def to_decimal(value: str, field: str) -> Decimal:
     """An amount sent as text, exactly: plain digits with an optional point, no exponent, sign or spaces inside."""
     text_ = (value or "").strip()
-    if not text_.replace(".", "", 1).isdigit():  # also keeps out a sign, an exponent, spaces and NaN
+    if not _PLAIN_AMOUNT.match(text_):  # ASCII digits only: no sign, exponent, spaces, NaN or look-alike digits like "²"
         raise Invalid("amount_invalid", "Enter the amount as plain digits, like 1250.50", field=field)
     out = Decimal(text_)
     return out
@@ -411,21 +416,28 @@ def confirm(uow: UnitOfWork, draft_id: uuid.UUID, *, supplier_gstin: str, suppli
     own = {ln.id for ln in draft.lines}
     taken: set[uuid.UUID] = set()
     hsn_ok = value_on(tx, "hsn.pattern", today)
+    max_rate = Decimal(value_on(tx, "imports.purchase.max_gst_rate", today))
     for i, ln in enumerate(lines):
-        _check_line(ln, i, own, taken, hsn_ok)
+        _check_line(ln, i, own, taken, hsn_ok, max_rate)
     key = _fold(number)
     fy = fy_of(doc_date)
-    if tx.execute(text("select 1 from imports.purchase_reviews where business_id = :b and decision = 'confirmed'"
-                       " and supplier_gstin = :g and fy = :fy and doc_key = :k"),
-                  {"b": _business(uow), "g": supplier_gstin, "fy": fy, "k": key}).first():
+    if _already_confirmed(tx, _business(uow), supplier_gstin, fy, key):
         raise Conflict("purchase_already_confirmed", "You have already confirmed this invoice from this supplier")
+    warnings = _warnings(uow, lines, doc_date, tx)
     review_id = uuid7()
-    tx.execute(
-        text("insert into imports.purchase_reviews (id, business_id, draft_id, decision, supplier_gstin, supplier_name,"
-             " doc_number, doc_key, fy, doc_date, invoice_total, created_by)"
-             " values (:i, :b, :d, 'confirmed', :g, :sn, :n, :k, :fy, :dd, :t, :me)"),
-        {"i": review_id, "b": _business(uow), "d": draft_id, "g": supplier_gstin, "sn": name, "n": number, "k": key,
-         "fy": fy, "dd": doc_date, "t": invoice_total, "me": uow.principal.user_id})
+    try:
+        with tx.begin_nested():  # two confirms of one invoice from different files can pass the check together
+            tx.execute(
+                text("insert into imports.purchase_reviews (id, business_id, draft_id, decision, supplier_gstin,"
+                     " supplier_name, doc_number, doc_key, fy, doc_date, invoice_total, created_by)"
+                     " values (:i, :b, :d, 'confirmed', :g, :sn, :n, :k, :fy, :dd, :t, :me)"),
+                {"i": review_id, "b": _business(uow), "d": draft_id, "g": supplier_gstin, "sn": name, "n": number,
+                 "k": key, "fy": fy, "dd": doc_date, "t": invoice_total, "me": uow.principal.user_id})
+    except IntegrityError as exc:
+        if "purchase_reviews_one_confirmed" not in str(exc.orig):
+            raise
+        raise Conflict("purchase_already_confirmed",
+                       "You have already confirmed this invoice from this supplier") from exc
     received = []
     for no, ln in enumerate(lines, 1):
         line_id = uuid7()
@@ -442,7 +454,30 @@ def confirm(uow: UnitOfWork, draft_id: uuid.UUID, *, supplier_gstin: str, suppli
     audit.record(uow, "imports.purchase_confirmed", "purchase_review", review_id,
                  data={"review_id": str(review_id), "draft_id": str(draft_id), "lines": len(lines)})
     return Confirmed(review_id, draft_id, supplier_gstin, name, number, doc_date, invoice_total, len(lines),
-                     get_clock().now(), tuple(received))
+                     get_clock().now(), tuple(received), tuple(warnings))
+
+
+def _already_confirmed(tx, business_id: uuid.UUID, gstin: str, fy: str, key: str) -> bool:
+    return tx.execute(text("select 1 from imports.purchase_reviews where business_id = :b and decision = 'confirmed'"
+                           " and supplier_gstin = :g and fy = :fy and doc_key = :k"),
+                      {"b": business_id, "g": gstin, "fy": fy, "k": key}).first() is not None
+
+
+def _warnings(uow: UnitOfWork, lines: list[LineIn], doc_date: date, tx) -> list[tuple[int, str]]:
+    """Non-blocking: a tax column that does not match taxable value times rate (nothing is recomputed or fixed), and a unit
+    that differs from the unit of the existing product the line is received into."""
+    today = get_clock().today()
+    tolerance = Decimal(value_on(tx, "imports.purchase.tax_tolerance", today))
+    out: list[tuple[int, str]] = []
+    for no, ln in enumerate(lines, 1):
+        expected = ln.taxable_value * ln.gst_rate / 100
+        if abs(expected - (ln.igst + ln.cgst + ln.sgst)) > tolerance:
+            out.append((no, "tax_differs_from_rate"))
+        if ln.product_id is not None and ln.unit is not None:
+            have = product_for_line(tx, ln.product_id, doc_date).uqc
+            if have.strip().upper() != ln.unit.strip().upper():
+                out.append((no, "unit_differs_from_product"))
+    return out
 
 
 def _unit_cost(ln: LineIn) -> Decimal | None:
@@ -465,7 +500,7 @@ def _receive(uow: UnitOfWork, review_id: uuid.UUID, line_id: uuid.UUID, ln: Line
                                    unit_cost=_unit_cost(ln)), today=get_clock().today())
 
 
-def _check_line(ln: LineIn, i: int, own: set, taken: set, hsn_ok) -> None:
+def _check_line(ln: LineIn, i: int, own: set, taken: set, hsn_ok, max_rate: Decimal) -> None:
     where = f"lines.{i}"
     name = (ln.product_name or "").strip()
     if not name or len(name) > 120 or not name.isprintable():
@@ -480,6 +515,8 @@ def _check_line(ln: LineIn, i: int, own: set, taken: set, hsn_ok) -> None:
         v = getattr(ln, field)
         if not isinstance(v, Decimal) or not v.is_finite() or v < 0:
             raise Invalid(f"{field}_invalid", "Amounts can't be negative", field=f"{where}.{field}")
+    if ln.gst_rate > max_rate:
+        raise Invalid("gst_rate_invalid", "The GST rate can't be more than 100%", field=f"{where}.gst_rate")
     if ln.igst and (ln.cgst or ln.sgst):
         raise Invalid("tax_split_invalid", "A line has IGST, or CGST and SGST, not both", field=f"{where}.igst")
     if (ln.product_id is None) == (ln.new_item is None):
