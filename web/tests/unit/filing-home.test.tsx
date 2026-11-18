@@ -141,7 +141,7 @@ describe("Filing home", () => {
     server.reply(NOW, NOT_SET);
     open();
     const link = await screen.findByRole("link", { name: "Choose your filing frequency" });
-    expect(link).toHaveAttribute("href", "/b/b-1/settings/filing");
+    expect(link).toHaveAttribute("href", "/b/b-1/settings");
     expect(server.sent.filter((s) => s.path === NOW)).toHaveLength(1);
     expect(screen.queryByRole("table")).toBeNull();
   });

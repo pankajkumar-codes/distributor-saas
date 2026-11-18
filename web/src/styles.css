@@ -194,6 +194,8 @@ input:-webkit-autofill, input:-webkit-autofill:focus {
 .tablewrap { overflow-x: auto; }
 .label { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.setup-cols { align-items: start; gap: 0 24px; }
+.setup-h { font-size: 20px; margin: 8px 0 12px; }
 
 /* "Upcoming" (mock v13 .up): for anything not built yet, wherever it appears */
 .up { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; background: var(--sunk); color: var(--muted); padding: 2px 7px; border-radius: 6px; border: 1px solid var(--line); white-space: nowrap; }
