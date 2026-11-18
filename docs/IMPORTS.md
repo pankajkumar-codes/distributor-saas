@@ -453,7 +453,7 @@ PostgreSQL 16, Python 3.13, synthetic PDFs only; not in a Lambda.
 - **Cross-check coverage.** A test shows an OCR-read synthetic scan gives the same table rows (`to_table`) as its text-layer original, and the cross-check reads those staged rows. The cross-check itself (Postgres) was not run on an OCR-read upload.
 - **Not claimed.** Tried only on synthetic pages drawn from our own fixture generator at 200 dpi. Nothing was run on a real scan, a phone photo, a skewed or low-resolution page, or a language other than English; accuracy on those is unknown. The confidence floors (60, 30) are first guesses, not tuned.
 
-## Purchase invoices: upload, reading and review (R2-M2, `purchases.py`, `api_purchases.py`, D-082)
+## Purchase invoices: upload, reading and review (R2-M2, `purchases.py`, `api_purchases.py`, D-084)
 
 A business uploads a supplier's invoice as a PDF, or as a photo of a paper bill (JPG, PNG or HEIC), checks what we read on a review screen, and confirms or discards it. **Nothing reaches the catalog or stock before the business confirms.** At confirm, each line is received through `catalog.interface.receive_confirmed_purchase_line` (R2-M3) in the same transaction: a new catalog item (code, UQC, tax category, and rate with its valid-from date are the business's, the name and HSN are the line's) or an existing product, and one stock-in movement per line, once (source = the review and its line). A taken code, or any refusal from the catalog, undoes the whole confirm. The unit cost passed is taxable value divided by quantity, only when it is exact to two places (nothing is rounded for the ledger). `GET /purchase-code-check?code=` tells the screen whether a code is free before it submits.
 

@@ -310,6 +310,14 @@ Every row in `refdata/` is `provisional`. Before go-live:
 - **Reprints.** Every reprint reads the stored document, so it matches the first one. Whether to keep each generated PDF as a dated record is not decided.
 - **Renderer tests need the built task.** They skip unless `RENDERER_TASK` points at an unpacked renderer zip. The new template's tests, which need no native libraries, were run with `RENDERER_TASK` set to the source folder; WeasyPrint rendering of the new template runs only in CI's `renderer` job and has not been run locally.
 
+## R2-M6 monthly and quarterly files (2026-11-18)
+- **Purchase register is our own format.** It is not a GST portal file and no portal sample exists for purchases; it says `portal_file: false`. If Pankaj or the CA wants a specific layout (for example the GSTR-2B reconciliation or a books import), that is a change to `build_register`.
+- **Input tax credit.** Purchases are listed as the business confirmed them. Eligibility of credit, reverse charge on purchases, and a purchase from an unregistered supplier are not decided here (CA question, with CA-5).
+- **GSTR-1 JSON for sales is the return's own export.** The monthly files do not remake it. A business sees the two together only through the response's list of return instances; a one-button bundle that triggers the GSTR-1 export too is a screen decision.
+- **Web screen not built in this slice.** The routes (`POST/GET /period-files`) and OpenAPI types are in. The screen, and the "enabled only once the period has ended" button of R3, follow.
+- **Large periods.** A period with more than `filing.period_files.max_rows` rows of any kind is refused with `period_too_large`; the files are made inside the request, not a job. A job would be needed for bigger businesses.
+- **Workbook bytes.** The workbook is not byte-for-byte reproducible (the zip carries its own write times), so repeat requests return the stored file by fingerprint rather than rebuilding it.
+
 ## Release blockers (not R1 build blockers; Pankaj, 2026-11-17)
 These need Pankaj or his CA and do not stop building. Each must be done before production release.
 - **CA question sheet** (`team/program-lead/ca-question-sheet-v1.md`, CA-1 to CA-5 above and the platform treatment items): Pankaj takes it to his CA just before release.

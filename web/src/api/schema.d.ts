@@ -727,6 +727,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/period-files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Period Files */
+        get: operations["list_period_files_api_v1_b__business_id__period_files_get"];
+        put?: never;
+        /** Make Period Files */
+        post: operations["make_period_files_api_v1_b__business_id__period_files_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/period-files/{export_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Period Files */
+        get: operations["get_period_files_api_v1_b__business_id__period_files__export_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/plan": {
         parameters: {
             query?: never;
@@ -4317,6 +4352,99 @@ export interface components {
             /** Url */
             url?: string | null;
         };
+        /** PeriodExportOut */
+        PeriodExportOut: {
+            /** Created */
+            created: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Due Dates
+             * @default Check on the GST portal
+             */
+            due_dates: string;
+            /** Files */
+            files: components["schemas"]["PeriodFileOut"][];
+            /** Gstr1 Returns */
+            gstr1_returns: components["schemas"]["PeriodReturnOut"][];
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "month" | "quarter";
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+            /** Practice Documents */
+            practice_documents: number;
+            /** Purchase Lines */
+            purchase_lines: number;
+            /** Sales Lines */
+            sales_lines: number;
+        };
+        /** PeriodExportsOut */
+        PeriodExportsOut: {
+            /** Exports */
+            exports: components["schemas"]["PeriodExportOut"][];
+            /** Has More */
+            has_more: boolean;
+        };
+        /** PeriodFileOut */
+        PeriodFileOut: {
+            /**
+             * Name
+             * @enum {string}
+             */
+            name: "workbook" | "purchase_register";
+            /** Sha256 */
+            sha256: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /** Url */
+            url: string;
+        };
+        /** PeriodFilesIn */
+        PeriodFilesIn: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "month" | "quarter";
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+        };
+        /** PeriodReturnOut */
+        PeriodReturnOut: {
+            /** Form */
+            form: string;
+            /** Instance Id */
+            instance_id: string;
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+        };
         /** Person */
         Person: {
             /** Name */
@@ -7268,6 +7396,107 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CrossCheckOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_period_files_api_v1_b__business_id__period_files_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PeriodExportsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    make_period_files_api_v1_b__business_id__period_files_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PeriodFilesIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PeriodExportOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_period_files_api_v1_b__business_id__period_files__export_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                export_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PeriodExportOut"];
                 };
             };
             /** @description Validation Error */

@@ -105,6 +105,7 @@ ALLOWED_DATA: dict[str, frozenset[str]] = {
     "filing.accept_warning": frozenset({"check_code", "count"}),
     # A GSTR-1 file made from a return (R1-M8): which snapshot, its version and how many files. Never a figure.
     "filing.exported": frozenset({"snapshot_id", "version", "parts"}),
+    "filing.period_files_made": frozenset({"export_id", "kind", "period", "sales_lines", "purchase_lines"}),  # counts only
     "returns.filed": frozenset({"snapshot_id", "version", "changed_since_export"}),
     # A GSTR-3B worksheet (R1-M8b): its version, and for entries the save number and the field names that changed. The
     # amounts live in the insert-only worksheet tables, never in an audit row.
