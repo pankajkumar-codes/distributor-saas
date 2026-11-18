@@ -13,6 +13,7 @@ from app.modules.catalog.api_imports import router as product_imports_router
 from app.modules.catalog.api_products import router as products_router
 from app.modules.catalog.api_stock import router as stock_router
 from app.modules.imports.api import router as uploads_router
+from app.modules.imports.api_purchases import router as purchases_router
 from app.modules.imports.readers import register_readers
 from app.modules.sales.api import router as drafts_router
 from app.modules.identity.api import router as identity_router
@@ -62,6 +63,7 @@ app.include_router(drafts_router, prefix=API_PREFIX)
 app.include_router(filing_router, prefix=API_PREFIX)
 app.include_router(worksheet_router, prefix=API_PREFIX)
 app.include_router(uploads_router, prefix=API_PREFIX)
+app.include_router(purchases_router, prefix=API_PREFIX)
 app.include_router(refdata_router, prefix=API_PREFIX)
 app.include_router(jobs_router, prefix=API_PREFIX)  # platform routes (LLD-0 §3.7)
 if debug_env():

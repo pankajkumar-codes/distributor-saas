@@ -309,6 +309,27 @@
 - path: app/src/app/modules/imports/pdf/ocr_reader.py
   value: "2"
   reason: "halving a box to find its centre; page geometry, not a tax rule"
+- path: app/src/app/modules/imports/purchases.py
+  value: "255"
+  reason: "longest file name kept for a purchase file (matches the column check)"
+- path: app/src/app/modules/imports/purchases.py
+  value: "120"
+  reason: "longest product or supplier name on a purchase invoice (matches the column check)"
+- path: app/src/app/modules/imports/purchases.py
+  value: "40"
+  reason: "longest invoice number or unit on a purchase invoice (matches the column check)"
+- path: app/src/app/modules/imports/api_purchases.py
+  value: "120"
+  reason: "input length caps that match the purchase column checks"
+- path: app/src/app/modules/imports/api_purchases.py
+  value: "40"
+  reason: "input length caps that match the purchase column checks"
+- path: app/src/app/modules/imports/api_purchases.py
+  value: "8"
+  reason: "longest HSN code (matches the column check)"
+- path: app/src/app/modules/imports/api_purchases.py
+  value: "24"
+  reason: "longest amount text accepted at the edge, before it is parsed as a Decimal"
 - path: app/src/app/modules/catalog/api_stock.py
   value: "24"
   reason: "max length of a signed decimal quantity string in a request body; input hygiene"

@@ -37,6 +37,8 @@ ignore_imports =
     app.modules.imports.** -> app.modules.filing.interface
 ; imports' parse job checks a file's seller GSTIN against the business's own (platform-reader-spec §1 rule 8).
     app.modules.imports.** -> app.modules.business.interface
+; imports' purchase confirm receives each confirmed line into the catalog and stock (R2-M2, R2-M3).
+    app.modules.imports.** -> app.modules.catalog.interface
 ; sales checks buyers and products through catalog and states through business (LLD-4 §8.1).
     app.modules.sales.** -> app.modules.catalog.interface
     app.modules.sales.** -> app.modules.business.interface

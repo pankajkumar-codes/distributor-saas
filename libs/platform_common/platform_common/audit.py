@@ -95,6 +95,12 @@ ALLOWED_DATA: dict[str, frozenset[str]] = {
     # Confirming a run into documents (R1-M7): counts only, never a number, GSTIN or value.
     "imports.confirmed": frozenset({"run_id", "section", "documents", "lines", "accepted_changes", "skipped_changes"}),
     "imports.none_this_month": frozenset({"section", "month"}),
+    # Purchase invoices (R2-M2): ids, counts and the reader's id only; never a number, GSTIN, name or value.
+    "imports.purchase_file_received": frozenset({"file_id"}),
+    "imports.purchase_file_rejected": frozenset({"file_id", "reason"}),
+    "imports.purchase_file_read": frozenset({"file_id", "drafts", "reader"}),
+    "imports.purchase_confirmed": frozenset({"review_id", "draft_id", "lines"}),
+    "imports.purchase_discarded": frozenset({"review_id", "draft_id"}),
     # Accepting a warning on a return as shown (R1-M8): the check code and how many items; the note is the reason.
     "filing.accept_warning": frozenset({"check_code", "count"}),
     # A GSTR-1 file made from a return (R1-M8): which snapshot, its version and how many files. Never a figure.
