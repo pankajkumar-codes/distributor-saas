@@ -82,10 +82,21 @@ input[aria-invalid="true"], select[aria-invalid="true"] { border-color: var(--ba
 .otp legend { font-size: 13px; font-weight: 600; margin-bottom: 6px; padding: 0; }
 .otp input { width: 44px; height: 52px; padding: 0; text-align: center; font-size: 20px; font-weight: 700; background: var(--surface); border: 1.5px solid var(--control); border-radius: 9px; font-variant-numeric: tabular-nums; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.topbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--line); }
+.topbar { padding: 10px 0; background: var(--surface); border-bottom: 1px solid var(--line); }
+.topbar-in { max-width: 62.5rem; margin: 0 auto; padding: 0 16px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.topbar .brand { margin: 0 auto 0 0; }
+.topbar .hint { margin: 0; font-size: 12px; }
+.num { font-variant-numeric: tabular-nums; }
+.nav { display: flex; gap: 2px; flex-wrap: wrap; }
+.nav a { padding: 8px 11px; border-radius: 8px; font-size: 14px; font-weight: 500; color: var(--muted); text-decoration: none; min-height: 36px; display: inline-flex; align-items: center; }
+.nav a:hover { background: var(--sunk); }
+.nav a[aria-current="page"] { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+/* Signed-in pages sit in the mock's centred column: form pages 760px, table pages the full 1000px. */
+.topbar ~ .page { max-width: 47.5rem; }
+.topbar ~ .page.page-wide { max-width: 62.5rem; }
 .list { list-style: none; padding: 0; }
 .list li { padding: 12px 0; border-bottom: 1px solid var(--line); }
-.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; margin: 0 0 16px; min-width: 0; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; margin: 0 0 12px; min-width: 0; }
 .card h2 { margin-top: 0; }
 .tag { color: var(--muted); font-size: 12px; font-weight: 600; }
 .nudge-block .tag { color: var(--bad); }
@@ -191,3 +202,24 @@ ol.steps > li { counter-increment: s; position: relative; padding: 12px 0 12px 4
 ol.steps > li:last-child { border-bottom: 0; }
 ol.steps > li::before { content: counter(s); position: absolute; left: 0; top: 10px; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 700; background: var(--gst-soft); color: var(--gst); }
 .diff { background: var(--warn-soft); font-weight: 700; color: var(--warn); border-radius: 4px; padding: 1px 5px; }
+.label { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.setup-cols { align-items: start; gap: 0 24px; }
+.setup-h { font-size: 20px; margin: 8px 0 12px; }
+
+/* "Upcoming" (mock v13 .up): for anything not built yet, wherever it appears */
+.up { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; background: var(--sunk); color: var(--muted); padding: 2px 7px; border-radius: 6px; border: 1px solid var(--line); white-space: nowrap; }
+/* Numbered rows (mock v13 .step/.dot): a round dot, green and ticked when done */
+.setup-step { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 12px; align-items: center; }
+.dot { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 700; background: var(--gst-soft); color: var(--gst); }
+.dot.done { background: var(--ok); color: var(--surface); }
+/* Density (mock v13): one view per screen. Cards that sit side by side drop their own bottom margin. */
+/* Home: two columns that fill top to bottom, so a short card never leaves a hole beside a tall one. */
+.grid2.cards { display: block; columns: 2; column-gap: 14px; }
+.grid2.cards > .card { break-inside: avoid; margin: 0 0 14px; }
+@media (max-width: 700px) { .grid2.cards { columns: 1; } }
+.topbar ~ .page { padding-top: 18px; padding-bottom: 32px; }
+.topbar ~ .page h1 { margin-bottom: 10px; }
+.card h2 { font-size: 17px; margin-bottom: 8px; }
+.list li { padding: 7px 0; }
+.card .list { margin: 0; }

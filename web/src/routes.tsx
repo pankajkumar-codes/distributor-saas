@@ -21,12 +21,10 @@ import { ImportPage } from "./screens/products/ImportPage";
 import { ProductPage } from "./screens/products/ProductPage";
 import { ProductsPage } from "./screens/products/ProductsPage";
 import { ResetPage } from "./screens/reset/ResetPage";
-import { SettingsPage } from "./screens/settings/SettingsPage";
+import { SettingsPage, ToBusinessSetup } from "./screens/settings/SettingsPage";
 import { AuditPage } from "./screens/settings/AuditPage";
 import { SecurityPage } from "./screens/settings/SecurityPage";
-import { CompanyPage } from "./screens/settings/CompanyPage";
 import { MarketplacesPage } from "./screens/settings/MarketplacesPage";
-import { FilingPage } from "./screens/settings/FilingPage";
 import { SupportPage } from "./screens/settings/SupportPage";
 import { SigninPage } from "./screens/signin/SigninPage";
 import { SupportBusinessesPage } from "./screens/support/SupportBusinessesPage";
@@ -63,9 +61,9 @@ export const routes: RouteObject[] = [
       ]
     : []),
   { path: "/b/:businessId/settings", element: <PageTitle title="Business setup"><RequireAuth><SettingsPage /></RequireAuth></PageTitle> },
-  { path: "/b/:businessId/settings/company", element: <PageTitle title="Business details"><RequireAuth><CompanyPage /></RequireAuth></PageTitle> },
+  { path: "/b/:businessId/settings/company", element: <RequireAuth><ToBusinessSetup /></RequireAuth> },
   { path: "/b/:businessId/onboarding/marketplaces", element: <PageTitle title="Marketplaces you sell on"><RequireAuth><MarketplacesPage /></RequireAuth></PageTitle> },
-  { path: "/b/:businessId/settings/filing", element: <PageTitle title="Filing frequency"><RequireAuth><FilingPage /></RequireAuth></PageTitle> },
+  { path: "/b/:businessId/settings/filing", element: <RequireAuth><ToBusinessSetup /></RequireAuth> },
   { path: "/b/:businessId/settings/support", element: <PageTitle title="Support access"><RequireAuth><SupportPage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/settings/audit", element: <PageTitle title="Audit log"><RequireAuth><AuditPage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/settings/security", element: <PageTitle title="Two-step sign-in"><RequireAuth><SecurityPage /></RequireAuth></PageTitle> },

@@ -91,7 +91,7 @@ export function HomePage() {
   return (
     <>
       <TopBar title={business.display_name} gstin={business.gstin} />
-      <main className="page">
+      <main className="page page-wide">
         <h1>{greeting(data?.greeting_name)}</h1>
         {warnings.length > 0 && (
           <Banner>
@@ -113,6 +113,7 @@ export function HomePage() {
           </Banner>
         )}
 
+        <div className="grid2 cards">
         {me.data && !me.data.user.totp_enabled && (
           <section className="card" aria-labelledby="totp-prompt">
             <h2 id="totp-prompt">Protect your account</h2>
@@ -149,14 +150,18 @@ export function HomePage() {
               {data.checklist.done} of {data.checklist.total} done
             </p>
             <ul className="list">
-              {items.map((item) => {
+              {items.map((item, i) => {
                 const to = screenPath(item.href, businessId);
                 return (
-                  <li key={item.key} className="check">
-                    <span aria-hidden="true">{item.done ? "✓" : "○"}</span>{" "}
-                    {item.done || !to ? <span>{ITEMS[item.key]}</span> : <Link to={to}>{ITEMS[item.key]}</Link>}
-                    <span className="visually-hidden">{item.done ? " (done)" : " (not done)"}</span>
-                    {!item.done && !to && <span className="tag"> Upcoming</span>}
+                  <li key={item.key} className="setup-step">
+                    <span className={item.done ? "dot done" : "dot"} aria-hidden="true">
+                      {item.done ? "✓" : i + 1}
+                    </span>
+                    <span>
+                      {item.done || !to ? <span>{ITEMS[item.key]}</span> : <Link to={to}>{ITEMS[item.key]}</Link>}
+                      <span className="visually-hidden">{item.done ? " (done)" : " (not done)"}</span>{" "}
+                      {!item.done && !to && <span className="up">Upcoming</span>}
+                    </span>
                   </li>
                 );
               })}
@@ -194,10 +199,7 @@ export function HomePage() {
           </h2>
           <ul className="list">
             <li>
-              <Link to={`/b/${businessId}/settings/company`}>Business details</Link>
-            </li>
-            <li>
-              <Link to={`/b/${businessId}/settings/filing`}>Filing frequency</Link>
+              <Link to={`/b/${businessId}/settings`}>Business details, where you sell and filing frequency</Link>
             </li>
             {SUPPORT_VIEWERS.has(business.role) && (
               <li>
@@ -216,6 +218,7 @@ export function HomePage() {
             )}
           </ul>
         </nav>
+        </div>
       </main>
     </>
   );
