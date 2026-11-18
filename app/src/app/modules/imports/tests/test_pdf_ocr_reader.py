@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from app.modules.imports.pdf import Limits, PdfRefused, TextLayerReader
+from app.modules.imports.pdf import Limits, PdfRefused, TextLayerReader, to_table
 from app.modules.imports.pdf import ocr_reader
 from app.modules.imports.pdf.extract import assemble, read_page
 from app.modules.imports.pdf.ocr_reader import OcrReader, OcrUnavailable, _rows
@@ -173,3 +173,13 @@ def test_a_dropped_value_word_ends_up_blank_and_named_unclear_in_the_invoice():
     assert sure.lines[0].taxable_value == "200.00" and "taxable_value" not in sure.lines[0].unclear
     unsure = invoice(page(20))
     assert unsure.lines[0].taxable_value is None and "taxable_value" in unsure.lines[0].unclear
+
+
+def test_an_ocr_read_scan_becomes_the_same_table_rows_as_its_text_layer_original():
+    """What staging, the review screen and the Excel cross-check read is the table: same rows from both readers."""
+    original = one_invoice()
+    scanned = scan(original)
+    from_text = to_table(TextLayerReader(HSN).read(original, LIMITS).invoices, filename="a.pdf", pdf=original)
+    from_scan = to_table(ocr(scanned).invoices, filename="a.pdf", pdf=scanned)
+    assert from_scan.rows == from_text.rows
+    assert len(from_scan.rows) == 2  # the headings and one line
