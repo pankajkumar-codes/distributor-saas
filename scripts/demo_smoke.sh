@@ -65,11 +65,14 @@ for n in 1 2 3; do
   under "$(secs "$r")" 1 || fail "health through nginx took $(secs "$r") s"
 done
 pass "/api/v1/health through nginx: 200, under 1 s, three times"
-r=$(req "$URL/"); [ "$(status "$r")" = 200 ] && grep -q 'id="root"' "$BODY" || fail "the app page did not load: $r"
+# "/" is the Kartaa landing page for a visitor, and the app for someone with the signed-in hint cookie (demo/nginx.conf).
+r=$(req "$URL/"); [ "$(status "$r")" = 200 ] && grep -q 'href="/signin"' "$BODY" && ! grep -q 'id="root"' "$BODY" || fail "a visitor at / did not get the landing page: $r"
+curl -sSI -m 20 "$URL/" | grep -qi '^cache-control: no-cache' || fail "/ should be sent with Cache-Control: no-cache"
+r=$(req -H 'Cookie: kartaa_in=1' "$URL/"); [ "$(status "$r")" = 200 ] && grep -q 'id="root"' "$BODY" || fail "a signed-in visitor at / did not get the app: $r"
 r=$(req "$URL/signin"); [ "$(status "$r")" = 200 ] && grep -q 'id="root"' "$BODY" || fail "/signin did not load the app: $r"
 r=$(req "$URL/assets/does-not-exist.js"); [ "$(status "$r")" = 404 ] || fail "a missing asset should be 404, got: $r"
-pass "the app page and /signin load; a missing asset is a 404"
-req "$URL/" >/dev/null
+pass "/ is the landing page for a visitor and the app when signed in; /signin loads; a missing asset is a 404"
+req -H 'Cookie: kartaa_in=1' "$URL/" >/dev/null
 ASSET=$(grep -o '/assets/[^"]*\.js' "$BODY" | head -1)
 [ -n "$ASSET" ] || fail "no script found in the page"
 r=$(req "$URL$ASSET"); [ "$(status "$r")" = 200 ] || fail "the app's script did not load: $r"
