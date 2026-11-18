@@ -85,6 +85,7 @@ MSG
     # Same question asked from inside the web container, which skips Docker's port forwarding. If this answers
     # but the lines above do not, the problem is between your computer and Docker, not in the demo itself.
     dc exec -T web wget -q -T 5 -O /dev/null http://127.0.0.1:5173/api/v1/health && echo "inside the web container, page and API through it: OK" || echo "inside the web container: no answer within 5 s"
+    docker stats --no-stream --format "{{.Name}}: cpu {{.CPUPerc}}, memory {{.MemUsage}}" $(dc ps -q) 2>/dev/null
     dc exec -T api python -c "import urllib.request as u; print('inside the api container: HTTP', u.urlopen('http://localhost:8000/api/v1/health', timeout=5).status)" || echo "inside the api container: no answer within 5 s"
     ;;
   logs)
