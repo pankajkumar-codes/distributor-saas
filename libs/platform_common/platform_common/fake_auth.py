@@ -6,17 +6,26 @@ survives refresh; refresh tokens are opaque and not rotated; TOTP adds a challen
 step. Tokens are RS256 JWTs signed with a key made at start-up and published by
 `jwks()`, so verification follows the same path as for Cognito's tokens.
 
-Never used outside PLATFORM_ENV local or test: nothing here is persisted or secret.
+Never used outside PLATFORM_ENV local or test: nothing here is secret. With `state_path` (the
+local demo sets DEMO_AUTH_STATE_FILE) the users, refresh tokens and signing key are also kept in
+that file, so restarting the API process does not sign everyone out or forget their accounts.
+Otherwise nothing is persisted.
 """
+
+import base64
+import json
+import os
 
 import hashlib
 import hmac
 import secrets
 import uuid
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from pathlib import Path
 from datetime import datetime, timedelta
 
 import jwt
+from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
 from .auth import debug_env
@@ -47,15 +56,48 @@ class _Refresh:
 
 
 class FakeAuthProvider:
-    def __init__(self, clock: Clock | None = None):
+    def __init__(self, clock: Clock | None = None, state_path: str | os.PathLike | None = None):
         if not debug_env():
             raise RuntimeError("FakeAuthProvider is for local and test only")
         self._clock = clock or Clock()
+        self._state_path = Path(state_path) if state_path else None
         self._key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         self._kid = uuid.uuid4().hex
         self._users: dict[str, _User] = {}  # by normalised email
         self._refresh: dict[str, _Refresh] = {}
         self._challenges: dict[str, tuple[str, datetime]] = {}  # challenge -> (email, expires)
+        if self._state_path is not None and self._state_path.exists():
+            self._load()
+        else:
+            self._save()
+
+    # -- optional state file (the local demo) ---------------------------------
+    def _save(self) -> None:
+        if self._state_path is None:
+            return
+        pem = self._key.private_bytes(
+            serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()
+        )
+        state = {
+            "key": base64.b64encode(pem).decode(),
+            "kid": self._kid,
+            "users": {k: asdict(u) for k, u in self._users.items()},
+            "refresh": {k: asdict(r) for k, r in self._refresh.items()},
+            "challenges": {k: [e, x.isoformat()] for k, (e, x) in self._challenges.items()},
+        }
+        tmp = self._state_path.with_name(self._state_path.name + ".tmp")
+        tmp.parent.mkdir(parents=True, exist_ok=True)
+        tmp.write_text(json.dumps(state))
+        os.replace(tmp, self._state_path)  # whole file or nothing, even if the process stops here
+
+    def _load(self) -> None:
+        state = json.loads(self._state_path.read_text())
+        key = serialization.load_pem_private_key(base64.b64decode(state["key"]), password=None)
+        assert isinstance(key, rsa.RSAPrivateKey)
+        self._key, self._kid = key, state["kid"]
+        self._users = {k: _User(**u) for k, u in state["users"].items()}
+        self._refresh = {k: _Refresh(**r) for k, r in state["refresh"].items()}
+        self._challenges = {k: (e, datetime.fromisoformat(x)) for k, (e, x) in state["challenges"].items()}
 
     # -- helpers for tests --------------------------------------------------
     @staticmethod
@@ -84,6 +126,7 @@ class FakeAuthProvider:
             raise AuthRefused("user_exists")
         sub = str(uuid.uuid4())
         self._users[email] = _User(sub, email, password)
+        self._save()
         return sub
 
     def get_sub(self, email: str) -> str | None:
@@ -97,6 +140,7 @@ class FakeAuthProvider:
         if u.totp_enabled:
             challenge = secrets.token_urlsafe(32)
             self._challenges[challenge] = (u.email, self._clock.now() + timedelta(seconds=CHALLENGE_SECONDS))
+            self._save()
             return AuthResult(challenge=challenge)
         return self._sign_in(u)
 
@@ -108,11 +152,13 @@ class FakeAuthProvider:
             raise AuthRefused("challenge_expired")  # like Cognito: not this user's session
         if self._clock.now() >= expires:
             self._challenges.pop(challenge, None)
+            self._save()
             raise AuthRefused("challenge_expired")
         u = self._users[owner]
         if not hmac.compare_digest(self.totp_code(u.totp_secret), code):
             raise AuthRefused("totp_not_accepted", challenge=challenge)
         del self._challenges[challenge]
+        self._save()
         return self._sign_in(u)
 
     def refresh(self, refresh_token: str) -> AuthResult:
@@ -124,24 +170,29 @@ class FakeAuthProvider:
     def revoke_refresh(self, refresh_token: str) -> None:
         if refresh_token in self._refresh:
             self._refresh[refresh_token].revoked = True
+            self._save()
 
     def set_password(self, sub: str, password: str) -> None:
         self._by_sub(sub).password = password
+        self._save()
 
     def change_password(self, access_token: str, old: str, new: str) -> None:
         u = self._by_sub(self._sub_of(access_token))
         if not hmac.compare_digest(u.password, old):
             raise AuthRefused("not_authorized")
         u.password = new
+        self._save()
 
     def global_sign_out(self, sub: str) -> None:
         for r in self._refresh.values():
             if r.sub == sub:
                 r.revoked = True
+        self._save()
 
     def associate_totp(self, access_token: str) -> str:
         u = self._by_sub(self._sub_of(access_token))
         u.totp_secret = secrets.token_hex(20)
+        self._save()
         return u.totp_secret
 
     def verify_totp(self, access_token: str, code: str) -> bool:
@@ -149,11 +200,13 @@ class FakeAuthProvider:
         if u.totp_secret is None or not hmac.compare_digest(self.totp_code(u.totp_secret), code):
             return False
         u.totp_enabled = True
+        self._save()
         return True
 
     def remove_totp(self, sub: str) -> None:
         u = self._by_sub(sub)
         u.totp_secret, u.totp_enabled = None, False
+        self._save()
 
     def jwks(self) -> dict:
         public = jwt.algorithms.RSAAlgorithm.to_jwk(self._key.public_key(), as_dict=True)
@@ -183,6 +236,7 @@ class FakeAuthProvider:
         origin_jti, auth_time = str(uuid.uuid4()), int(self._clock.now().timestamp())
         token = secrets.token_urlsafe(48)
         self._refresh[token] = _Refresh(u.sub, origin_jti, auth_time)
+        self._save()
         return AuthResult(
             access_token=self._access(u.sub, origin_jti, auth_time), refresh_token=token, expires_in=ACCESS_SECONDS
         )

@@ -2,8 +2,8 @@
 # Start it with demo.ps1 (Windows) or ./demo.sh (Mac, Linux); do not run this file by hand.
 #
 # Local only: made-up data, sign-in codes printed to the terminal instead of emailed, a
-# throwaway database. Sign-in is kept in the API's memory, so the demo forgets everything
-# whenever it stops, and that is why every start begins from an empty database.
+# throwaway database. Sign-in accounts live in a file in the `build` volume (DEMO_AUTH_STATE_FILE), so restarting
+# only the API keeps them; stopping the demo removes the volume, and that is why every start begins empty.
 name: gstdemo
 
 x-api: &api
@@ -16,6 +16,7 @@ x-api: &api
     LOCAL_OBJECTS_DIR: /srv/build/objects
     DEMO_API: http://api:8000
     DEMO_TOKEN_FILE: /srv/build/demo-token.json
+    DEMO_AUTH_STATE_FILE: /srv/build/auth-state.json  # accounts and sign-in keys survive an API restart (not `down -v`)
   volumes:
     - build:/srv/build
 
