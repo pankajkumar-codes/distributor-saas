@@ -34,7 +34,7 @@ export function UploadsPage() {
   }
   if (businesses.error) {
     return (
-      <main className="page">
+      <main className="page page-wide">
         <Banner tone="error">{errorText(businesses.error)}</Banner>
       </main>
     );
@@ -55,7 +55,7 @@ export function UploadsPage() {
   return (
     <>
       <TopBar title={business.display_name} gstin={business.gstin} />
-      <main className="page">
+      <main className="page page-wide">
         <p className="step">
           <Link to={`/b/${businessId}/filing`}>GST filing</Link>
         </p>
