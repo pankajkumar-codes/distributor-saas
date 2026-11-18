@@ -3,6 +3,9 @@
 It is off unless the caller passes `enabled=True`, which comes from refdata `imports.pdf.bedrock_enabled`
 (false). Pankaj's decision D2 is the free reader; switching this on needs his approval, and the model
 profile ID and price must first be read from the AWS console, so no profile ID is stored in the code.
+Tenant data stays in India (D-094): the reader refuses, before any call, a profile that is not a plain model id
+or the ARN of a model or profile in ap-south-1 or ap-south-2, and the client is built pinned to India
+(`platform_common.aws.bedrock_client`).
 The client is injected (a `bedrock-runtime` client in production, a fake in tests): this module imports no
 AWS library and makes no call itself. Whatever the model returns is untrusted: it is parsed as JSON,
 checked field by field, and anything that does not fit is left blank and named in `unclear`, never
@@ -12,6 +15,8 @@ repaired. A value read is never logged and never put in an error.
 import json
 import re
 from typing import Any
+
+from platform_common.regions import bedrock_model_in_india
 
 from .interface import ExtractedInvoice, ExtractedLine, Limits, PdfRefused, ReadResult
 
@@ -56,6 +61,10 @@ class BedrockReader:
             raise PdfRefused("pdf_paid_reader_off")
         if not self._profile_id.strip():
             raise PdfRefused("pdf_paid_reader_not_configured")
+        if not bedrock_model_in_india(self._profile_id):
+            # D-094: only a plain model id (it runs in the client's Indian region) or the ARN of an Indian profile;
+            # a us., eu., apac. or global. profile sends the document to other regions. Nothing is called.
+            raise PdfRefused("pdf_paid_reader_region_refused")
         if not pdf.startswith(b"%PDF-"):
             raise PdfRefused("pdf_not_a_pdf")
         if len(pdf) > _MAX_BYTES:
