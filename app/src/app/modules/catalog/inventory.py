@@ -376,7 +376,7 @@ def record_sale_out(uow: UnitOfWork, *, product_id: uuid.UUID, quantity: Decimal
     with the invoice. It NEVER refuses for lack of stock: the balance may go to or below zero
     (Pankaj's R2 rule), and the screens show "no stock". Called only by sales' finalize.
     A retry returns the movement already written. `practice` is true for a practice-numbered
-    invoice: it takes stock out like any other (CEO, 2026-11-18) and is tagged so it can be
+    invoice: it takes stock out like any other (CEO decision) and is tagged so it can be
     filtered or reversed later.
     """
     qty = parse_quantity(quantity)
