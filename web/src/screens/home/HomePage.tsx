@@ -91,7 +91,7 @@ export function HomePage() {
   return (
     <>
       <TopBar title={business.display_name} gstin={business.gstin} />
-      <main className="page">
+      <main className="page page-wide">
         <h1>{greeting(data?.greeting_name)}</h1>
         {warnings.length > 0 && (
           <Banner>
@@ -113,6 +113,7 @@ export function HomePage() {
           </Banner>
         )}
 
+        <div className="grid2 cards">
         {me.data && !me.data.user.totp_enabled && (
           <section className="card" aria-labelledby="totp-prompt">
             <h2 id="totp-prompt">Protect your account</h2>
@@ -213,6 +214,7 @@ export function HomePage() {
             )}
           </ul>
         </nav>
+        </div>
       </main>
     </>
   );

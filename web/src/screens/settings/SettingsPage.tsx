@@ -31,7 +31,7 @@ export function SettingsPage() {
   }
   if (businesses.error) {
     return (
-      <main className="page">
+      <main className="page page-wide">
         <Banner tone="error">{errorText(businesses.error)}</Banner>
       </main>
     );
