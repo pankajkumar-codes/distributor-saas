@@ -8,7 +8,7 @@ type Issue = components["schemas"]["IssueOut"];
 
 // Display only: every figure is the server's string; the page does no tax arithmetic.
 
-function Issues({ title, items, tone }: { title: string; items: Issue[]; tone: "error" | "info" }) {
+function Issues({ title, items, tone, canLeave }: { title: string; items: Issue[]; tone: "error" | "info"; canLeave: boolean }) {
   const { businessId = "" } = useParams();
   const here = useLocation().pathname;
   if (items.length === 0) return null;
@@ -23,10 +23,16 @@ function Issues({ title, items, tone }: { title: string; items: Issue[]; tone: "
             {i.code === "hsn_needs_turnover_band" && (
               <>
                 {" "}
-                <Link to={`/b/${businessId}/settings#last-year-band`} state={{ backTo: here }}>
-                  Set last year's turnover band
-                </Link>{" "}
-                (you'll come back to this invoice).
+                {canLeave ? (
+                  <>
+                    <Link to={`/b/${businessId}/settings#last-year-band`} state={{ backTo: here }}>
+                      Set last year's turnover band
+                    </Link>{" "}
+                    (you'll come back to this invoice).
+                  </>
+                ) : (
+                  "Save your changes first, then you can set last year's turnover band."
+                )}
               </>
             )}
           </li>
@@ -37,14 +43,14 @@ function Issues({ title, items, tone }: { title: string; items: Issue[]; tone: "
 }
 
 /** What the draft would be, as of its last save (the save response's computation). */
-export function Totals({ c, states }: { c: Computation; states: Record<string, string> }) {
+export function Totals({ c, states, canLeave = true }: { c: Computation; states: Record<string, string>; canLeave?: boolean }) {
   const heads: [string, string][] = c.is_inter_state
     ? [["IGST", c.igst_total]]
     : [["CGST", c.cgst_total], [c.utgst ? "UTGST" : "SGST", c.sgst_total]]; // fmt: skip
   return (
     <section aria-label="Totals">
-      <Issues title="Fix before finalizing" items={c.blocks} tone="error" />
-      <Issues title="Please check" items={c.warnings} tone="info" />
+      <Issues title="Fix before finalizing" items={c.blocks} tone="error" canLeave={canLeave} />
+      <Issues title="Please check" items={c.warnings} tone="info" canLeave={canLeave} />
       {c.pos_state_code && (
         <p>
           Place of supply: {c.pos_state_code} {states[c.pos_state_code] ?? ""} · {c.is_inter_state ? "IGST" : c.utgst ? "CGST + UTGST" : "CGST + SGST"}

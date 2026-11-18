@@ -50,6 +50,7 @@ export function InvoicePage() {
     queryKey: ["b", businessId, "draft", draftId],
     enabled: Boolean(business && draftId),
     staleTime: Infinity, // the page moves it on each save; a re-read is the stale banner's choice
+    refetchOnMount: "always", // coming back from another page (e.g. Business setup) shows the server's checks as they are now
     queryFn: () => call(() => api.GET("/api/v1/b/{business_id}/drafts/{draft_id}", { params: { path } })),
   });
   const ids = [...new Set((form?.lines ?? loaded.data?.lines ?? []).map((l) => l.product_id))];
@@ -68,6 +69,11 @@ export function InvoicePage() {
       setSaved(loaded.data);
       setForm(formOf(loaded.data));
     }
+  }, [loaded.data, saved]);
+  // The server recomputes a draft's checks whenever it is read (e.g. after the turnover band was set on Business setup).
+  // The same version read again carries fresh checks; take them, leaving what the user has typed alone.
+  useEffect(() => {
+    if (loaded.data && saved && loaded.data !== saved && loaded.data.id === saved.id && loaded.data.version === saved.version) setSaved(loaded.data);
   }, [loaded.data, saved]);
 
   const save = useMutation<Draft, ApiError, Form>({
@@ -253,7 +259,7 @@ export function InvoicePage() {
         </form>
 
         {saved?.computation ? (
-          <Totals c={saved.computation} states={stateNames} />
+          <Totals c={saved.computation} states={stateNames} canLeave={!dirty} />
         ) : (
           saved && (
             <p>

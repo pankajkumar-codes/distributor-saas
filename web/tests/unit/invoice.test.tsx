@@ -59,6 +59,30 @@ describe("a check that needs last year's turnover band", () => {
     expect(window.location.pathname).toBe("/b/b-1/settings");
     expect(window.history.state?.usr?.backTo).toBe("/b/b-1/invoices/d-1");
   });
+
+  it("shows the server's fresh checks when the user comes back, so Finalize is no longer held", async () => {
+    server.reply("/api/v1/b/b-1/products/p-1", { status: 200, body: product });
+    const block = { code: "hsn_needs_turnover_band", fix: "Tell us last year's turnover band (FY 2025-26) to use 4-digit HSN codes.", field: "business.turnover_band", line_no: 1 };
+    server.reply(ONE, { status: 200, body: draft({ computation: computation({ blocks: [block] }) }) }, { status: 200, body: draft({ computation: computation() }) });
+    open("/b/b-1/invoices/d-1");
+    fireEvent.click(await screen.findByRole("link", { name: "Set last year's turnover band" }));
+    await waitFor(() => expect(window.location.pathname).toBe("/b/b-1/settings"));
+    window.history.back();
+    await waitFor(() => expect(window.location.pathname).toBe("/b/b-1/invoices/d-1"));
+    await waitFor(() => expect(screen.queryByText(/Tell us last year's turnover band/)).toBeNull());
+    expect(screen.getByRole("button", { name: "Finalize invoice" })).toBeEnabled();
+  });
+
+  it("does not offer to leave while there are unsaved edits", async () => {
+    server.reply("/api/v1/b/b-1/products/p-1", { status: 200, body: product });
+    const block = { code: "hsn_needs_turnover_band", fix: "Tell us last year's turnover band (FY 2025-26) to use 4-digit HSN codes.", field: "business.turnover_band", line_no: 1 };
+    server.reply(ONE, { status: 200, body: draft({ computation: computation({ blocks: [block] }) }) });
+    open("/b/b-1/invoices/d-1");
+    await screen.findByRole("link", { name: "Set last year's turnover band" });
+    fireEvent.change(screen.getByLabelText("Quantity"), { target: { value: "11" } });
+    expect(screen.queryByRole("link", { name: "Set last year's turnover band" })).toBeNull();
+    expect(screen.getByText(/Save your changes first/)).toBeInTheDocument();
+  });
 });
 
 describe("the draft invoice form", () => {
