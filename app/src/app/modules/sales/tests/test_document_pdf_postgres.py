@@ -164,3 +164,47 @@ def test_the_stored_document_never_changes_and_a_later_profile_edit_does_not_rea
         c.execute(text("select set_config('app.tenant_id', :b, true), set_config('app.role', 'admin', true)"), {"b": str(biz)})
         with pytest.raises(Exception, match="permission denied|insert-only"):
             c.execute(text("update sales.documents set doc_total = 0 where id = :d"), {"d": doc["id"]})
+
+
+def _get(pg, biz, doc_id, sub="alice"):
+    return pg.client.get(f"/api/v1/b/{biz}/documents/{doc_id}", headers=h(sub))
+
+
+def test_a_reload_finds_the_document_its_pdf_state_and_its_stock_movements(shop):
+    pg, biz, _, jobs_q, _, store = shop
+    doc = _document(pg, biz)
+    one = _get(pg, biz, doc["id"])
+    assert one.status_code == 200
+    body = one.json()
+    assert body["id"] == doc["id"] and body["is_practice"] is True and body["doc_number"] == doc["doc_number"]
+    assert body["stock_movements"] == 1  # one line, one sale_out
+    assert body["pdf"] == {"status": "none", "job_id": None, "attempt": None, "url": None, "error_code": None}
+    job_id = _ask(pg, biz, doc).json()["job_id"]
+    assert _get(pg, biz, doc["id"]).json()["pdf"]["status"] == "queued"
+    jobs_q.drain(jobs.handle_message)
+    assert _get(pg, biz, doc["id"]).json()["pdf"]["status"] == "rendering"
+    store.put(biz, render.document_key(biz, uuid.UUID(job_id)), b"%PDF-1.7 test", "application/pdf")
+    pdf = _get(pg, biz, doc["id"]).json()["pdf"]
+    assert (pdf["status"], pdf["job_id"], pdf["attempt"]) == ("ready", job_id, 1) and pdf["url"]
+    with pg.owner.connect() as c:  # reading never queues anything
+        assert c.execute(text("select count(*) from platform.jobs where type = 'sales.document_pdf'")).scalar() == 1
+
+
+def test_documents_are_listed_newest_first_for_this_business_only(shop):
+    pg, biz, other, _, _, _ = shop
+    first, second = _document(pg, biz), _document(pg, biz)
+    mine = pg.client.get(f"/api/v1/b/{biz}/documents", headers=h("alice")).json()
+    assert [d["id"] for d in mine["documents"]] == [second["id"], first["id"]] and mine["has_more"] is False
+    page = pg.client.get(f"/api/v1/b/{biz}/documents?limit=1", headers=h("alice")).json()
+    assert len(page["documents"]) == 1 and page["has_more"] is True
+    assert pg.client.get(f"/api/v1/b/{other}/documents", headers=h("bob")).json()["documents"] == []
+
+
+def test_another_business_cannot_read_a_document_and_a_ca_can(shop):
+    pg, biz, other, _, _, _ = shop
+    doc = _document(pg, biz)
+    r = _get(pg, other, doc["id"], sub="bob")
+    assert (r.status_code, r.json()["error"]["code"]) == (404, "not_found")
+    assert _get(pg, biz, doc["id"], sub="bob").status_code == 404  # not a member of that business
+    assert _get(pg, biz, doc["id"], sub="cathy").status_code == 200
+    assert _get(pg, biz, str(uuid.uuid4())).status_code == 404

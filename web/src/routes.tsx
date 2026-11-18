@@ -19,6 +19,10 @@ import { HomePage } from "./screens/home/HomePage";
 import { BusinessPage } from "./screens/onboarding/BusinessPage";
 import { CustomerPage } from "./screens/customers/CustomerPage";
 import { CustomersPage } from "./screens/customers/CustomersPage";
+import { PlanPage } from "./screens/plan/PlanPage";
+import { StockPage } from "./screens/stock/StockPage";
+import { DocumentPage } from "./screens/invoices/DocumentPage";
+import { DocumentsPage } from "./screens/invoices/DocumentsPage";
 import { InvoicePage } from "./screens/invoices/InvoicePage";
 import { ImportPage } from "./screens/products/ImportPage";
 import { ProductPage } from "./screens/products/ProductPage";
@@ -60,6 +64,10 @@ export const routes: RouteObject[] = [
   { path: "/b/:businessId/products/:productId", element: <PageTitle title="Product"><RequireAuth><ProductPage /></RequireAuth></PageTitle> },
   ...(FEATURES.invoicing
     ? [
+        { path: "/b/:businessId/stock", element: <PageTitle title="Stock"><RequireAuth><StockPage /></RequireAuth></PageTitle> },
+        { path: "/b/:businessId/settings/plan", element: <PageTitle title="Invoicing plan"><RequireAuth><PlanPage /></RequireAuth></PageTitle> },
+        { path: "/b/:businessId/documents", element: <PageTitle title="Issued invoices"><RequireAuth><DocumentsPage /></RequireAuth></PageTitle> },
+        { path: "/b/:businessId/documents/:documentId", element: <PageTitle title="Invoice"><RequireAuth><DocumentPage /></RequireAuth></PageTitle> },
         { path: "/b/:businessId/invoices/new", element: <PageTitle title="New invoice"><RequireAuth><InvoicePage /></RequireAuth></PageTitle> },
         { path: "/b/:businessId/invoices/:draftId", element: <PageTitle title="Invoice"><RequireAuth><InvoicePage /></RequireAuth></PageTitle> },
         { path: "/b/:businessId/purchases", element: <PageTitle title="Purchase invoices"><RequireAuth><PurchasesPage /></RequireAuth></PageTitle> },

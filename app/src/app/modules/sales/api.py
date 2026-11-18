@@ -18,11 +18,13 @@ from fastapi import status as http
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
 from app.modules.business.interface import require_business_type
+from app.modules.catalog.interface import movements_for_document
+from app.modules.filing import interface as filing
 from platform_common.clock import Clock, get_clock
 from platform_common.etag import if_match_version, set_etag
 from platform_common.idempotency import run_once
 from platform_common.errors import Deny, Invalid
-from platform_common.paging import DEFAULT_LIMIT, MAX_LIMIT
+from platform_common.paging import DEFAULT_LIMIT, MAX_LIMIT, PageParams, page_params
 from platform_common.permissions import Permission, require
 from platform_common.uow import BusinessUoW, parse_id
 
@@ -449,3 +451,93 @@ def document_pdf_request(document_id: str, uow: BusinessUoW):
 @router.get("/b/{business_id}/documents/{document_id}/pdf/{job_id}", response_model=PreviewOut, dependencies=VIEW)
 def document_pdf_status(document_id: str, job_id: str, uow: BusinessUoW):
     return document_pdf.status(uow, parse_id(document_id), parse_id(job_id))
+
+
+class InvoicingPlanOut(BaseModel):
+    name: str
+    monthly_rupees: int
+    quarterly_rupees: int
+    gst_note: str
+    free_for_now: bool  # true while payments are a placeholder: nothing is charged
+    free_invoices: int
+    used: int  # finalized invoices, practice ones included (D-086), counted on the server
+    remaining_free: int
+    needs_plan: bool  # the next invoice would be refused (402 invoice_plan_required)
+
+
+@router.get("/b/{business_id}/invoicing-plan", response_model=InvoicingPlanOut, dependencies=VIEW)
+def get_invoicing_plan(uow: BusinessUoW):
+    """The invoicing plan, its prices, how many free invoices are used, and whether the next one needs the plan. Read-only."""
+    used = finalize.invoices_used(uow)
+    free = filing.FREE_INVOICES
+    return {
+        "name": "Invoicing and GST", "monthly_rupees": filing.INVOICING["monthly"],
+        "quarterly_rupees": filing.INVOICING["quarterly"], "gst_note": filing.GST_NOTE,
+        "free_for_now": filing.free_for_now(), "free_invoices": free, "used": used,
+        "remaining_free": max(free - used, 0),
+        "needs_plan": used >= free and not filing.invoicing_allowed(uow.tx, uow.principal.business_id),
+    }
+
+
+class PlanChangeOut(BaseModel):
+    current_price: str
+    unused_credit: str
+    new_price: str
+    amount_due: str  # rupees before GST on our fee; display only, nothing is charged
+    credit_left_over: str
+    gst_note: str
+    free_for_now: bool
+
+
+@router.get("/b/{business_id}/plan-change-preview", response_model=PlanChangeOut, dependencies=VIEW)
+def plan_change_preview(
+    uow: BusinessUoW,  # noqa: ARG001 (the tenant is checked by the route's dependencies; the figures are the price list)
+    from_plan: Literal["gst_filing", "invoicing"],
+    from_frequency: Literal["monthly", "quarterly"],
+    to_plan: Literal["gst_filing", "invoicing"],
+    to_frequency: Literal["monthly", "quarterly"],
+    days_left: int,
+    period_days: int,
+):
+    """What a plan change would show: the unused part of the current period credited, the new plan's full price from now.
+    Display only (D-086); the figures are the price list, never a charge."""
+    try:
+        out = filing.prorated_change(from_plan, from_frequency, to_plan, to_frequency,
+                                     days_left=days_left, period_days=period_days)
+    except ValueError as e:
+        raise Invalid("plan_change_invalid", "Check the days left in the current period.", field="days_left") from e
+    return {**out, "gst_note": filing.GST_NOTE, "free_for_now": filing.free_for_now()}
+
+
+class DocumentPdfState(BaseModel):
+    status: Literal["none", "queued", "rendering", "ready", "failed"]  # none: no PDF has been asked for yet
+    job_id: str | None = None
+    attempt: int | None = None
+    url: str | None = None  # when ready: a link good for 60 seconds
+    error_code: str | None = None
+
+
+class DocumentDetailOut(DocumentOut):
+    pdf: DocumentPdfState
+    stock_movements: int  # the stock-out rows this invoice wrote, one per line; 0 if it wrote none
+
+
+class DocumentsOut(BaseModel):
+    documents: list[DocumentOut]
+    has_more: bool
+
+
+@router.get("/b/{business_id}/documents", response_model=DocumentsOut, dependencies=VIEW)
+def list_documents(uow: BusinessUoW, page: Annotated[PageParams, Depends(page_params)]):
+    """The business's finalized documents, newest first (practice ones included, each says `is_practice`). Read-only."""
+    found, more = finalize.list_documents(uow, page.limit, page.offset)
+    return {"documents": [_document(d) for d in found], "has_more": more}
+
+
+@router.get("/b/{business_id}/documents/{document_id}", response_model=DocumentDetailOut, dependencies=VIEW)
+def get_document(document_id: str, uow: BusinessUoW):
+    """One finalized document as stored, where its PDF stands and how many stock movements it wrote. Read-only: nothing
+    is queued; ask for the PDF with POST .../pdf."""
+    did = parse_id(document_id)
+    doc = finalize.get_document(uow, did)
+    return {**_document(doc), "pdf": document_pdf.current(uow, did), "stock_movements": movements_for_document(uow.tx, did)}

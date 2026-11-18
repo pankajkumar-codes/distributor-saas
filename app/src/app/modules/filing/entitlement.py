@@ -36,3 +36,20 @@ def set_check(check: Check | None) -> None:
     """The payment provider integration installs its rule here; None puts back the default."""
     global _check
     _check = check or _demo_only
+
+
+# The invoicing plan's hook (R2-M7): may this business finalize invoices beyond the free ones? Same rule as above: open while
+# payments are a placeholder, closed (fail-closed) when they are not and no real check was installed.
+_invoice_check: Check = _demo_only
+
+
+def invoicing_allowed(tx: Session, business_id: uuid.UUID) -> bool:
+    try:
+        return bool(_invoice_check(tx, business_id))
+    except Exception:  # noqa: BLE001  (a broken check must close the door, not open it)
+        return False
+
+
+def set_invoice_check(check: Check | None) -> None:
+    global _invoice_check
+    _invoice_check = check or _demo_only

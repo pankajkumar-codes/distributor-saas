@@ -18,10 +18,11 @@ from sqlalchemy import bindparam, text
 from sqlalchemy.types import JSON
 
 from app.modules.business.interface import Profile, SeriesSetting, fy_of, get_profile, series_setting
+from app.modules.filing.interface import FREE_INVOICES, invoicing_allowed
 from app.modules.catalog.interface import customer_snapshot, mark_used, record_sale_out
 from app.modules.refdata import RefdataMissing, value_on
 from platform_common import audit
-from platform_common.errors import Deny, Invalid
+from platform_common.errors import AppError, Deny, Invalid
 from platform_common.ids import uuid7
 from platform_common.uow import UnitOfWork
 
@@ -53,6 +54,32 @@ class FinalizeBlocked(Invalid):
         return out
 
 
+class InvoicePlanRequired(AppError):
+    """402: the business has used its free invoices and has no invoicing plan (R2-M7, D-086)."""
+
+    status = 402
+    code = "invoice_plan_required"
+
+
+def invoices_used(uow: UnitOfWork) -> int:
+    """Finalized invoices of this business, practice or not (D-086), counted on the server."""
+    return uow.tx.execute(
+        text("select count(*) from sales.documents where business_id = :b and kind = 'invoice'"),
+        {"b": _business(uow)},
+    ).scalar_one()
+
+
+def check_plan(uow: UnitOfWork) -> None:
+    """The free invoices are the first FREE_INVOICES; the next needs the invoicing plan. While payments are a placeholder
+    (FREE_FOR_NOW) the plan is free and nothing is refused. Called inside the series lock, so two finalizes in one series
+    cannot both take the last free one."""
+    if invoices_used(uow) >= FREE_INVOICES and not invoicing_allowed(uow.tx, _business(uow)):
+        raise InvoicePlanRequired(
+            message=f"Your first {FREE_INVOICES} invoices are free. Choose an invoicing plan to issue more.",
+            fix="Choose an invoicing plan",
+        )
+
+
 def enabled(uow: UnitOfWork, today: date) -> bool:
     """The switch. No row on `today` counts as off."""
     try:
@@ -75,6 +102,35 @@ def document_for_draft(uow: UnitOfWork, draft_id: uuid.UUID) -> dict | None:
         .one_or_none()
     )
     return None if row is None else dict(row)
+
+
+def get_document(uow: UnitOfWork, document_id: uuid.UUID) -> dict:
+    """One finalized document of this business; another business's, or an unknown one, is a 404."""
+    row = (
+        uow.tx.execute(
+            text(f"select {_DOCUMENT_COLUMNS} from sales.documents where id = :i and business_id = :b"),
+            {"i": document_id, "b": _business(uow)},
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if row is None:
+        raise Deny("not_found")
+    return dict(row)
+
+
+def list_documents(uow: UnitOfWork, limit: int, offset: int) -> tuple[list[dict], bool]:
+    """This business's finalized documents, newest first."""
+    rows = (
+        uow.tx.execute(
+            text(f"select {_DOCUMENT_COLUMNS} from sales.documents where business_id = :b"
+                 " order by finalized_at desc, id desc limit :n offset :o"),
+            {"b": _business(uow), "n": limit + 1, "o": offset},
+        )
+        .mappings()
+        .all()
+    )
+    return [dict(r) for r in rows[:limit]], len(rows) > limit
 
 
 def finalize(uow: UnitOfWork, draft_id: uuid.UUID, if_match: int | None, today: date) -> dict:
@@ -116,6 +172,7 @@ def finalize(uow: UnitOfWork, draft_id: uuid.UUID, if_match: int | None, today: 
     series_id, number = allocate(
         uow, gstin=profile.gstin, kind=d["kind"], fy=fy, practice=practice, setting=setting, on=doc_date
     )
+    check_plan(uow)
     mark_used(uow.tx, [ln.product.product_id for ln in c.lines], d["customer_id"])
     document_id = _insert(
         uow, d, c, profile, series_id=series_id, number=number, doc_date=doc_date, fy=fy, practice=practice
