@@ -1,0 +1,239 @@
+"""Purchase invoices (R2-M2): upload, reading and the review, on PostgreSQL as app_rw. Skipped unless PG_ADMIN_URL is
+set. Synthetic PDFs and made-up photos only. Reading is the text-layer reader in the real sandbox."""
+
+import uuid
+
+import pytest
+from sqlalchemy import text
+
+from .conftest import PG_ADMIN_URL, new_business, scalar
+from .fixtures.pdf import invoice_page, pdf
+from .test_uploads_postgres import get, post, run_jobs, shop  # noqa: F401  (the shop fixture)
+
+pytestmark = pytest.mark.skipif(not PG_ADMIN_URL, reason="PG_ADMIN_URL not set")
+
+
+ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+
+def check_character(first14):  # the GSTIN check character, worked out here so the test stands on its own
+    total = sum((v := ALPHABET.index(ch) * (2 if i % 2 else 1)) // 36 + v % 36 for i, ch in enumerate(first14))
+    return ALPHABET[(36 - total % 36) % 36]
+
+
+def gstin(core="19ABCDE1234F1Z"):
+    return core + check_character(core)
+
+
+SUPPLIER = gstin()
+assert len(SUPPLIER) == 15 and set(SUPPLIER) <= set(ALPHABET)
+TWO_LINES = (("6109", "2", "PCS", "200.00", "18", "18.00", "18.00", ""),
+             ("6110", "1", "NOS", "100.00", "18", "9.00", "9.00", ""))
+JPEG = b"\xff\xd8\xff\xe0 made-up photo"
+
+
+def send_file(shop_, name, content, ctype, sub="alice"):
+    pg, biz, _ = shop_
+    started = post(pg, f"/api/v1/b/{biz}/purchase-files", {"file_name": name, "size_bytes": len(content)}, sub=sub,
+                   key=uuid.uuid4().hex)
+    assert started.status_code == 201, started.text
+    up = started.json()["upload"]
+    assert pg.client.post(up["url"], data=up["fields"], files={"file": (name, content, ctype)}).status_code == 204
+    done = post(pg, f"/api/v1/b/{biz}/purchase-files/{started.json()['file_id']}/complete", sub=sub)
+    assert done.status_code == 202, done.text
+    return started.json()["file_id"]
+
+
+def read(shop_, name, content, ctype="application/pdf", sub="alice"):
+    file_id = send_file(shop_, name, content, ctype, sub)
+    run_jobs(shop_)
+    pg, biz, _ = shop_
+    f = get(pg, f"/api/v1/b/{biz}/purchase-files/{file_id}", sub).json()
+    drafts = get(pg, f"/api/v1/b/{biz}/purchase-drafts?file_id={file_id}", sub).json()["drafts"]
+    return f, drafts
+
+
+def invoice(number="SUP-1", lines=TWO_LINES, **kw):
+    return pdf([invoice_page(number, seller=SUPPLIER, lines=lines, **kw)])
+
+
+def line(draft_line=None, **kw):
+    return {"draft_line_id": draft_line, "product_name": "Cotton tee", "hsn": "6109", "quantity": "2", "unit": "PCS",
+            "taxable_value": "200.00", "gst_rate": "18", "cgst": "18.00", "sgst": "18.00", **kw}
+
+
+def confirm_body(draft, **kw):
+    body = {"supplier_gstin": SUPPLIER, "supplier_name": "Demo Seller", "doc_number": "SUP-1", "doc_date": "2026-07-03",
+            "invoice_total": "236.00"}
+    body.update(kw)
+    if "lines" not in kw:
+        body["lines"] = [line(draft["lines"][0]["id"]),
+                         line(draft["lines"][1]["id"], hsn="6110", quantity="1", taxable_value="100.00",
+                              cgst="9.00", sgst="9.00")]
+    return body
+
+
+def test_a_text_pdf_is_read_into_a_draft_the_business_reviews(shop):  # noqa: F811
+    pg, biz, _ = shop
+    f, drafts = read(shop, "bill.pdf", invoice())
+    assert (f["status"], f["kind"], f["reject_reason"]) == ("read", "pdf", None)
+    (d,) = drafts
+    assert (d["reader"], d["supplier_gstin"], d["doc_number"], d["decision"]) == ("pdf_text_v1", SUPPLIER, "SUP-1", None)
+    assert [(ln["hsn"], ln["quantity"], ln["taxable_value"]) for ln in d["lines"]] == [
+        ("6109", "2", "200.00"), ("6110", "1", "100.00")]
+    done = post(pg, f"/api/v1/b/{biz}/purchase-drafts/{d['id']}/confirm", confirm_body(d))
+    assert done.status_code == 201, done.text
+    assert (done.json()["doc_number"], done.json()["line_count"]) == ("SUP-1", 2)
+    assert get(pg, f"/api/v1/b/{biz}/purchase-drafts/{d['id']}").json()["decision"] == "confirmed"
+    listed = get(pg, f"/api/v1/b/{biz}/purchase-invoices").json()["invoices"]
+    assert [(i["doc_number"], i["line_count"]) for i in listed] == [("SUP-1", 2)]
+    back = scalar(pg.owner, "select count(*) from imports.purchase_review_lines where draft_line_id is not null")
+    assert back == 2  # every confirmed line traces to the line that was read
+    # nothing reached the catalog
+    assert scalar(pg.owner, "select count(*) from catalog.products") == 0
+
+
+def test_a_photo_is_kept_and_gets_a_blank_draft_the_business_types_in(shop):  # noqa: F811
+    pg, biz, _ = shop
+    f, (d,) = read(shop, "bill.jpg", JPEG, "image/jpeg")
+    assert (f["status"], f["kind"]) == ("read", "image")
+    assert (d["reader"], d["lines"], d["supplier_gstin"]) == ("none", [], None)
+    assert set(d["unclear"]) == {"supplier_gstin", "doc_number", "doc_date", "invoice_total"}
+    body = confirm_body(d, lines=[line()])
+    assert post(pg, f"/api/v1/b/{biz}/purchase-drafts/{d['id']}/confirm", body).status_code == 201
+    assert scalar(pg.owner, "select draft_line_id from imports.purchase_review_lines") is None  # typed in
+
+
+def test_a_pdf_with_no_text_layer_becomes_a_blank_draft_not_a_refusal(shop):  # noqa: F811
+    from .test_pdf_ocr_reader import image_pdf  # a picture-only page
+
+    f, (d,) = read(shop, "scan.pdf", image_pdf(100, 100, b"\xff" * 10000))
+    assert (f["status"], d["reader"], d["lines"]) == ("read", "none", [])
+
+
+def test_the_same_file_twice_is_one_set_of_drafts(shop):  # noqa: F811
+    pg, biz, _ = shop
+    read(shop, "bill.pdf", invoice())
+    f, drafts = read(shop, "bill-again.pdf", invoice())
+    assert (f["status"], f["reject_reason"], drafts) == ("rejected", "already_uploaded", [])
+    assert "already uploaded" in f["reject_message"]
+    assert scalar(pg.owner, "select count(*) from imports.purchase_drafts") == 1
+
+
+def test_a_complete_called_twice_is_one_job(shop):  # noqa: F811
+    pg, biz, _ = shop
+    file_id = send_file(shop, "bill.pdf", invoice(), "application/pdf")
+    again = post(pg, f"/api/v1/b/{biz}/purchase-files/{file_id}/complete")
+    assert again.status_code == 202
+    assert len(run_jobs(shop)) == 1
+    assert scalar(pg.owner, "select count(*) from imports.purchase_drafts") == 1
+
+
+def test_a_wrong_kind_of_file_is_turned_away(shop):  # noqa: F811
+    pg, biz, _ = shop
+    f, drafts = read(shop, "bill.pdf", b"not a pdf at all")
+    assert (f["status"], f["reject_reason"], drafts) == ("rejected", "not_a_pdf", [])
+    f, _ = read(shop, "bill.jpg", b"not a picture", "image/jpeg")
+    assert f["reject_reason"] == "not_an_image"
+    r = post(pg, f"/api/v1/b/{biz}/purchase-files", {"file_name": "bill.docx", "size_bytes": 10}, key="k-docx")
+    assert (r.status_code, r.json()["error"]["code"]) == (422, "file_type_not_allowed")
+
+
+def test_confirm_checks_the_values_on_the_server(shop):  # noqa: F811
+    pg, biz, _ = shop
+    _, (d,) = read(shop, "bill.pdf", invoice())
+    url = f"/api/v1/b/{biz}/purchase-drafts/{d['id']}/confirm"
+    good = confirm_body(d)
+
+    def refused(code, **kw):
+        r = post(pg, url, {**good, **kw})
+        assert (r.status_code, r.json()["error"]["code"]) == (422, code), r.text
+
+    refused("supplier_gstin_invalid", supplier_gstin="19ABCDE1234F1Z0")  # bad check character
+    refused("doc_number_invalid", doc_number="  ")
+    refused("doc_date_in_future", doc_date="2027-01-01")
+    refused("lines_invalid", lines=[])
+    refused("product_name_invalid", lines=[line(product_name=" ")])
+    refused("hsn_invalid", lines=[line(hsn="61")])
+    refused("tax_split_invalid", lines=[line(igst="36.00")])
+    refused("draft_line_invalid", lines=[line(str(uuid.uuid4()))])
+    refused("draft_line_invalid", lines=[line(d["lines"][0]["id"]), line(d["lines"][0]["id"])])
+    assert post(pg, url, {**good, "lines": [line(quantity="0")]}).status_code == 422
+    assert post(pg, url, {**good, "lines": [line(taxable_value="-1")]}).status_code == 422
+    assert scalar(pg.owner, "select count(*) from imports.purchase_reviews") == 0
+
+
+def test_a_draft_is_decided_once_and_an_invoice_is_confirmed_once(shop):  # noqa: F811
+    pg, biz, _ = shop
+    _, (d,) = read(shop, "bill.pdf", invoice())
+    url = f"/api/v1/b/{biz}/purchase-drafts/{d['id']}"
+    assert post(pg, url + "/confirm", confirm_body(d)).status_code == 201
+    again = post(pg, url + "/confirm", confirm_body(d))
+    assert (again.status_code, again.json()["error"]["code"]) == (409, "purchase_already_reviewed")
+    assert post(pg, url + "/discard").status_code == 409
+    # the same supplier invoice number from another file is a duplicate, case and spaces folded
+    _, (d2,) = read(shop, "other.pdf", invoice("SUP-2"))
+    dup = post(pg, f"/api/v1/b/{biz}/purchase-drafts/{d2['id']}/confirm", confirm_body(d2, doc_number=" sup-1 "))
+    assert (dup.status_code, dup.json()["error"]["code"]) == (409, "purchase_already_confirmed")
+    assert scalar(pg.owner, "select count(*) from imports.purchase_reviews") == 1
+
+
+def test_discarding_keeps_the_draft_and_blocks_nothing_else(shop):  # noqa: F811
+    pg, biz, _ = shop
+    _, (d,) = read(shop, "bill.pdf", invoice())
+    out = post(pg, f"/api/v1/b/{biz}/purchase-drafts/{d['id']}/discard")
+    assert (out.status_code, out.json()["decision"]) == (200, "discarded")
+    assert get(pg, f"/api/v1/b/{biz}/purchase-drafts?open_only=true").json()["drafts"] == []
+    assert len(get(pg, f"/api/v1/b/{biz}/purchase-drafts").json()["drafts"]) == 1
+    assert get(pg, f"/api/v1/b/{biz}/purchase-invoices").json()["invoices"] == []
+
+
+def test_reviews_and_drafts_are_insert_only(shop):  # noqa: F811
+    pg, biz, _ = shop
+    _, (d,) = read(shop, "bill.pdf", invoice())
+    post(pg, f"/api/v1/b/{biz}/purchase-drafts/{d['id']}/confirm", confirm_body(d))
+    for table in ("purchase_drafts", "purchase_draft_lines", "purchase_reviews", "purchase_review_lines"):
+        with pytest.raises(Exception, match="insert-only|permission denied"):
+            with pg.owner.connect() as c:
+                c.execute(text(f"update imports.{table} set business_id = business_id"))
+        with pytest.raises(Exception, match="insert-only|permission denied"):
+            with pg.owner.connect() as c:
+                c.execute(text(f"delete from imports.{table}"))
+
+
+def test_another_business_cannot_see_or_decide_them(shop):  # noqa: F811
+    pg, biz, _ = shop
+    file_id = send_file(shop, "bill.pdf", invoice(), "application/pdf")
+    run_jobs(shop)
+    d = get(pg, f"/api/v1/b/{biz}/purchase-drafts?file_id={file_id}").json()["drafts"][0]
+    other = new_business(pg, "bob")
+    assert get(pg, f"/api/v1/b/{other}/purchase-files/{file_id}", sub="bob").status_code == 404
+    assert get(pg, f"/api/v1/b/{other}/purchase-drafts/{d['id']}", sub="bob").status_code == 404
+    assert post(pg, f"/api/v1/b/{other}/purchase-drafts/{d['id']}/confirm", confirm_body(d), sub="bob").status_code == 404
+    assert post(pg, f"/api/v1/b/{other}/purchase-drafts/{d['id']}/discard", sub="bob").status_code == 404
+    assert post(pg, f"/api/v1/b/{other}/purchase-files/{file_id}/complete", sub="bob").status_code == 404
+    assert get(pg, f"/api/v1/b/{other}/purchase-drafts", sub="bob").json()["drafts"] == []
+    assert get(pg, f"/api/v1/b/{biz}/purchase-drafts/{d['id']}", sub="bob").status_code == 404  # not a member of biz
+
+
+def test_roles(shop):  # noqa: F811
+    pg, biz, _ = shop
+    _, (d,) = read(shop, "bill.pdf", invoice())
+    base = f"/api/v1/b/{biz}"
+    assert get(pg, f"{base}/purchase-drafts", sub="cathy").status_code == 200  # the CA reads
+    assert post(pg, f"{base}/purchase-drafts/{d['id']}/confirm", confirm_body(d), sub="cathy").status_code == 404
+    assert post(pg, f"{base}/purchase-drafts/{d['id']}/discard", sub="cathy").status_code == 404
+    assert post(pg, f"{base}/purchase-files", {"file_name": "a.pdf", "size_bytes": 5}, sub="cathy",
+                key="k-cathy").status_code == 404
+    assert post(pg, f"{base}/purchase-drafts/{d['id']}/discard", sub="adam").status_code == 200  # an admin decides
+
+
+def test_no_value_reaches_the_audit_log(shop):  # noqa: F811
+    pg, biz, _ = shop
+    _, (d,) = read(shop, "bill.pdf", invoice())
+    post(pg, f"/api/v1/b/{biz}/purchase-drafts/{d['id']}/confirm", confirm_body(d))
+    rows = scalar(pg.owner, "select string_agg(action || coalesce(data::text, ''), ' ') from platform.audit_log"
+                            " where action like 'imports.purchase%'")
+    assert "imports.purchase_confirmed" in rows
+    for secret in (SUPPLIER, "SUP-1", "Cotton tee", "Demo Seller", "200.00"):
+        assert secret not in rows

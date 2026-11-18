@@ -52,15 +52,20 @@ PDF_REJECTS = {"not_a_pdf": "not_a_pdf", "encrypted": "pdf_encrypted", "ambiguou
 MB = 1024 * 1024
 
 
+def pdf_limits(tx, today) -> Limits:
+    """The caps on an untrusted PDF, all from refdata."""
+    return Limits(max_pages=int(value_on(tx, "imports.pdf.max_pages", today)),
+                  max_chars_per_page=int(value_on(tx, "imports.pdf.max_chars_per_page", today)),
+                  max_documents=int(value_on(tx, "imports.pdf.max_documents", today)),
+                  max_seconds=int(value_on(tx, "imports.pdf.max_seconds", today)))
+
+
 def read_pdf(uow: UnitOfWork, *, upload_id: uuid.UUID, file_name: str, content: bytes, today) -> list[ImportRun]:
     """Reads an own-invoice PDF in the sandbox and stages its invoices like a spreadsheet's rows. A PDF with a page that
     has no text layer (a scan or a photo) is refused whole: a page with no text has no row to hold, and OCR is a later
     slice."""
     tx = uow.tx
-    limits = Limits(max_pages=int(value_on(tx, "imports.pdf.max_pages", today)),
-                    max_chars_per_page=int(value_on(tx, "imports.pdf.max_chars_per_page", today)),
-                    max_documents=int(value_on(tx, "imports.pdf.max_documents", today)),
-                    max_seconds=int(value_on(tx, "imports.pdf.max_seconds", today)))
+    limits = pdf_limits(tx, today)
     try:
         result = read_sandboxed(content, limits, value_on(tx, "hsn.pattern", today).pattern,
                                 max_memory_bytes=int(value_on(tx, "imports.pdf.max_memory_mb", today)) * MB)

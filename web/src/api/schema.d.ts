@@ -987,6 +987,153 @@ export interface paths {
         patch: operations["patch_profile_api_v1_b__business_id__profile_patch"];
         trace?: never;
     };
+    "/api/v1/b/{business_id}/purchase-drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Drafts */
+        get: operations["list_drafts_api_v1_b__business_id__purchase_drafts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/purchase-drafts/{draft_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Draft */
+        get: operations["get_draft_api_v1_b__business_id__purchase_drafts__draft_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/purchase-drafts/{draft_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Draft
+         * @description The business confirms the invoice with the values it checked on the review screen. Once; a second call is a
+         *     conflict, not a second invoice.
+         */
+        post: operations["confirm_draft_api_v1_b__business_id__purchase_drafts__draft_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/purchase-drafts/{draft_id}/discard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Discard Draft */
+        post: operations["discard_draft_api_v1_b__business_id__purchase_drafts__draft_id__discard_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/purchase-files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Files */
+        get: operations["list_files_api_v1_b__business_id__purchase_files_get"];
+        put?: never;
+        /**
+         * Start File
+         * @description A purchase file and a presigned POST for exactly its key, type and declared size.
+         */
+        post: operations["start_file_api_v1_b__business_id__purchase_files_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/purchase-files/{file_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get File */
+        get: operations["get_file_api_v1_b__business_id__purchase_files__file_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/purchase-files/{file_id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete File
+         * @description The upload finished: check it is there, then queue the read. Calling it again returns the same job.
+         */
+        post: operations["complete_file_api_v1_b__business_id__purchase_files__file_id__complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/purchase-invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Purchase Invoices */
+        get: operations["list_purchase_invoices_api_v1_b__business_id__purchase_invoices_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/returns": {
         parameters: {
             query?: never;
@@ -2735,18 +2882,12 @@ export interface components {
              */
             state: "confirmed" | "unconfirmed";
         };
-        /** ConfirmedOut */
-        ConfirmedOut: {
-            /** Accepted Changes */
-            accepted_changes: number;
-            /** Documents */
-            documents: number;
-            /** Lines */
-            lines: number;
-            /** Run Id */
-            run_id: string;
-            /** Skipped Changes */
-            skipped_changes: number;
+        /** ConfirmedListOut */
+        ConfirmedListOut: {
+            /** Has More */
+            has_more: boolean;
+            /** Invoices */
+            invoices: components["schemas"]["app__modules__imports__api_purchases__ConfirmedOut"][];
         };
         /** CoverageOut */
         CoverageOut: {
@@ -2968,7 +3109,7 @@ export interface components {
              * Lines
              * @default []
              */
-            lines: components["schemas"]["LineIn"][];
+            lines: components["schemas"]["app__modules__sales__api__LineIn"][];
             /** Pos Override */
             pos_override?: string | null;
             /** Pos Override Reason */
@@ -2980,70 +3121,50 @@ export interface components {
              */
             ship_to_third_party: boolean;
         };
-        /** DraftOut */
-        DraftOut: {
-            /** Bill To */
-            bill_to: {
-                [key: string]: unknown;
-            } | null;
-            /** Cash Buyer */
-            cash_buyer: {
-                [key: string]: unknown;
-            } | null;
-            /** Charges */
-            charges: {
-                [key: string]: unknown;
-            }[];
-            computation?: components["schemas"]["ComputationOut"] | null;
-            /** Computed At */
-            computed_at: string | null;
-            /** Created At */
-            created_at: string;
-            /** Customer Collects */
-            customer_collects: boolean;
-            /** Customer Id */
-            customer_id: string | null;
-            /** Doc Date */
-            doc_date: string | null;
-            /** Eway */
-            eway: {
-                [key: string]: unknown;
-            } | null;
+        /** DraftLineOut */
+        DraftLineOut: {
+            /** Cess */
+            cess: string | null;
+            /** Cgst */
+            cgst: string | null;
+            /** Gst Rate */
+            gst_rate: string | null;
+            /** Hsn */
+            hsn: string | null;
             /** Id */
             id: string;
-            /** Invoice Discount */
-            invoice_discount: string;
-            /** Kind */
-            kind: string;
-            /** Lines */
-            lines: components["schemas"]["LineOut"][];
-            /** Pos Override */
-            pos_override: string | null;
-            /** Pos Override Reason */
-            pos_override_reason: string | null;
-            /** Ready */
-            ready: boolean | null;
-            /** Ship To */
-            ship_to: {
-                [key: string]: unknown;
-            } | null;
-            /** Ship To Third Party */
-            ship_to_third_party: boolean;
-            /** Total */
-            total: string | null;
-            /** Updated At */
-            updated_at: string;
-            /** Version */
-            version: number;
+            /** Igst */
+            igst: string | null;
+            /** Line No */
+            line_no: number;
+            /** Page */
+            page: number;
+            /** Quantity */
+            quantity: string | null;
+            /** Sgst */
+            sgst: string | null;
+            /** Taxable Value */
+            taxable_value: string | null;
+            /** Unclear */
+            unclear: string[];
+            /** Unit */
+            unit: string | null;
         };
         /** DraftPageOut */
         DraftPageOut: {
             /** Has More */
             has_more: boolean;
             /** Items */
-            items: components["schemas"]["DraftOut"][];
+            items: components["schemas"]["app__modules__sales__api__DraftOut"][];
             /** Next Cursor */
             next_cursor: string | null;
+        };
+        /** DraftsOut */
+        DraftsOut: {
+            /** Drafts */
+            drafts: components["schemas"]["app__modules__imports__api_purchases__DraftOut"][];
+            /** Has More */
+            has_more: boolean;
         };
         /** DrillOut */
         DrillOut: {
@@ -3219,6 +3340,47 @@ export interface components {
             /** Version */
             version?: number | null;
         };
+        /** FileOut */
+        FileOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** File Name */
+            file_name: string;
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "pdf" | "image";
+            /** Reject Message */
+            reject_message: string | null;
+            /** Reject Reason */
+            reject_reason: string | null;
+            /** Size Bytes */
+            size_bytes: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "received" | "read" | "rejected";
+        };
+        /** FileStartIn */
+        FileStartIn: {
+            /** File Name */
+            file_name: string;
+            /** Size Bytes */
+            size_bytes: number;
+        };
+        /** FileStartOut */
+        FileStartOut: {
+            /** File Id */
+            file_id: string;
+            upload: components["schemas"]["PresignedPostOut"];
+        };
         /** FiledIn */
         FiledIn: {
             accept_changed?: components["schemas"]["AcceptChangedIn"] | null;
@@ -3250,6 +3412,13 @@ export interface components {
              * @constant
              */
             status: "filed_locked";
+        };
+        /** FilesOut */
+        FilesOut: {
+            /** Files */
+            files: components["schemas"]["FileOut"][];
+            /** Has More */
+            has_more: boolean;
         };
         /** FilingProfileOut */
         FilingProfileOut: {
@@ -3674,19 +3843,6 @@ export interface components {
         JobsOut: {
             /** Items */
             items: components["schemas"]["JobOut"][];
-        };
-        /** LineIn */
-        LineIn: {
-            /** Discount Kind */
-            discount_kind?: ("amount" | "percent") | null;
-            /** Discount Value */
-            discount_value?: string | null;
-            /** Product Id */
-            product_id: string;
-            /** Quantity */
-            quantity: string;
-            /** Unit Price */
-            unit_price?: string | null;
         };
         /** LineOut */
         LineOut: {
@@ -4916,6 +5072,19 @@ export interface components {
             /** Changed */
             changed?: components["schemas"]["ChangedChoice"][];
         };
+        /** ConfirmedOut */
+        app__modules__imports__api__ConfirmedOut: {
+            /** Accepted Changes */
+            accepted_changes: number;
+            /** Documents */
+            documents: number;
+            /** Lines */
+            lines: number;
+            /** Run Id */
+            run_id: string;
+            /** Skipped Changes */
+            skipped_changes: number;
+        };
         /** DifferenceOut */
         app__modules__imports__api__DifferenceOut: {
             /** Excel */
@@ -4984,6 +5153,188 @@ export interface components {
              * @enum {string}
              */
             status: "pending" | "received" | "parsing" | "parsed" | "stored" | "rejected" | "expired";
+        };
+        /** ConfirmIn */
+        app__modules__imports__api_purchases__ConfirmIn: {
+            /**
+             * Doc Date
+             * Format: date
+             */
+            doc_date: string;
+            /** Doc Number */
+            doc_number: string;
+            /** Invoice Total */
+            invoice_total?: string | null;
+            /** Lines */
+            lines: components["schemas"]["app__modules__imports__api_purchases__LineIn"][];
+            /** Supplier Gstin */
+            supplier_gstin: string;
+            /** Supplier Name */
+            supplier_name?: string | null;
+        };
+        /** ConfirmedOut */
+        app__modules__imports__api_purchases__ConfirmedOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Doc Date
+             * Format: date
+             */
+            doc_date: string;
+            /** Doc Number */
+            doc_number: string;
+            /** Draft Id */
+            draft_id: string;
+            /** Invoice Total */
+            invoice_total: string | null;
+            /** Line Count */
+            line_count: number;
+            /** Review Id */
+            review_id: string;
+            /** Supplier Gstin */
+            supplier_gstin: string;
+            /** Supplier Name */
+            supplier_name: string | null;
+        };
+        /** DraftOut */
+        app__modules__imports__api_purchases__DraftOut: {
+            /** Decision */
+            decision: ("confirmed" | "discarded") | null;
+            /** Doc Date */
+            doc_date: string | null;
+            /** Doc Number */
+            doc_number: string | null;
+            /** Doc Type */
+            doc_type: string | null;
+            /** File Id */
+            file_id: string;
+            /** File Name */
+            file_name: string;
+            /** Id */
+            id: string;
+            /** Invoice Total */
+            invoice_total: string | null;
+            /** Lines */
+            lines: components["schemas"]["DraftLineOut"][];
+            /** Ordinal */
+            ordinal: number;
+            /** Pages */
+            pages: number[];
+            /** Reader */
+            reader: string;
+            /** Supplier Gstin */
+            supplier_gstin: string | null;
+            /** Unclear */
+            unclear: string[];
+        };
+        /** LineIn */
+        app__modules__imports__api_purchases__LineIn: {
+            /**
+             * Cess
+             * @default 0
+             */
+            cess: string;
+            /**
+             * Cgst
+             * @default 0
+             */
+            cgst: string;
+            /** Draft Line Id */
+            draft_line_id?: string | null;
+            /** Gst Rate */
+            gst_rate: string;
+            /** Hsn */
+            hsn: string;
+            /**
+             * Igst
+             * @default 0
+             */
+            igst: string;
+            /** Product Name */
+            product_name: string;
+            /** Quantity */
+            quantity: string;
+            /**
+             * Sgst
+             * @default 0
+             */
+            sgst: string;
+            /** Taxable Value */
+            taxable_value: string;
+            /** Unit */
+            unit?: string | null;
+        };
+        /** DraftOut */
+        app__modules__sales__api__DraftOut: {
+            /** Bill To */
+            bill_to: {
+                [key: string]: unknown;
+            } | null;
+            /** Cash Buyer */
+            cash_buyer: {
+                [key: string]: unknown;
+            } | null;
+            /** Charges */
+            charges: {
+                [key: string]: unknown;
+            }[];
+            computation?: components["schemas"]["ComputationOut"] | null;
+            /** Computed At */
+            computed_at: string | null;
+            /** Created At */
+            created_at: string;
+            /** Customer Collects */
+            customer_collects: boolean;
+            /** Customer Id */
+            customer_id: string | null;
+            /** Doc Date */
+            doc_date: string | null;
+            /** Eway */
+            eway: {
+                [key: string]: unknown;
+            } | null;
+            /** Id */
+            id: string;
+            /** Invoice Discount */
+            invoice_discount: string;
+            /** Kind */
+            kind: string;
+            /** Lines */
+            lines: components["schemas"]["LineOut"][];
+            /** Pos Override */
+            pos_override: string | null;
+            /** Pos Override Reason */
+            pos_override_reason: string | null;
+            /** Ready */
+            ready: boolean | null;
+            /** Ship To */
+            ship_to: {
+                [key: string]: unknown;
+            } | null;
+            /** Ship To Third Party */
+            ship_to_third_party: boolean;
+            /** Total */
+            total: string | null;
+            /** Updated At */
+            updated_at: string;
+            /** Version */
+            version: number;
+        };
+        /** LineIn */
+        app__modules__sales__api__LineIn: {
+            /** Discount Kind */
+            discount_kind?: ("amount" | "percent") | null;
+            /** Discount Value */
+            discount_value?: string | null;
+            /** Product Id */
+            product_id: string;
+            /** Quantity */
+            quantity: string;
+            /** Unit Price */
+            unit_price?: string | null;
         };
     };
     responses: never;
@@ -5873,7 +6224,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DraftOut"];
+                    "application/json": components["schemas"]["app__modules__sales__api__DraftOut"];
                 };
             };
             /** @description Validation Error */
@@ -5905,7 +6256,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DraftOut"];
+                    "application/json": components["schemas"]["app__modules__sales__api__DraftOut"];
                 };
             };
             /** @description Validation Error */
@@ -5943,7 +6294,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DraftOut"];
+                    "application/json": components["schemas"]["app__modules__sales__api__DraftOut"];
                 };
             };
             /** @description Validation Error */
@@ -7263,6 +7614,311 @@ export interface operations {
             };
         };
     };
+    list_drafts_api_v1_b__business_id__purchase_drafts_get: {
+        parameters: {
+            query?: {
+                file_id?: string | null;
+                open_only?: boolean;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_draft_api_v1_b__business_id__purchase_drafts__draft_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__modules__imports__api_purchases__DraftOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_draft_api_v1_b__business_id__purchase_drafts__draft_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["app__modules__imports__api_purchases__ConfirmIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__modules__imports__api_purchases__ConfirmedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    discard_draft_api_v1_b__business_id__purchase_drafts__draft_id__discard_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__modules__imports__api_purchases__DraftOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_files_api_v1_b__business_id__purchase_files_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FilesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_file_api_v1_b__business_id__purchase_files_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FileStartIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileStartOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_file_api_v1_b__business_id__purchase_files__file_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                file_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    complete_file_api_v1_b__business_id__purchase_files__file_id__complete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                file_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobRef"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_purchase_invoices_api_v1_b__business_id__purchase_invoices_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfirmedListOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_returns_api_v1_b__business_id__returns_get: {
         parameters: {
             query?: {
@@ -7927,7 +8583,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ConfirmedOut"];
+                    "application/json": components["schemas"]["app__modules__imports__api__ConfirmedOut"];
                 };
             };
             /** @description Validation Error */

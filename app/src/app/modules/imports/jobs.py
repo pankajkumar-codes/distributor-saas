@@ -15,11 +15,12 @@ from platform_common.permissions import Permission, has_permission
 
 from platform_common.clock import get_clock
 
-from . import bundles, uploads
+from . import bundles, purchases, uploads
 
 PARSE = "imports.parse"
 CLASSIFY_BUNDLE = "imports.bundle_classify"
 STAGE_BUNDLE = "imports.bundle_stage"
+PURCHASE_PARSE = "imports.purchase_parse"
 
 
 def _upload_id(ctx: jobs.JobContext) -> uuid.UUID:
@@ -104,3 +105,32 @@ def classify_bundle(ctx: jobs.JobContext) -> dict:
 @jobs.handler(STAGE_BUNDLE)
 def stage_bundle(ctx: jobs.JobContext) -> dict:
     return _bundle_job(ctx, bundles.stage, "staging")
+
+
+@jobs.handler(PURCHASE_PARSE)
+def parse_purchase(ctx: jobs.JobContext) -> dict:
+    """Reads one purchase file into drafts, like `parse` does for an upload: the queuing user's role is re-checked, a
+    file we cannot use is settled as rejected, an unexpected fault is retried and on the last attempt settled."""
+    file_id = _upload_id(ctx)
+    p = ctx.uow.principal
+
+    def settle(reason: str) -> dict:
+        try:
+            if purchases.get_file(ctx.uow, file_id).status == "received":
+                purchases.reject(ctx.uow, file_id, reason)
+        except (AppError, Deny):
+            pass
+        return {"file_id": str(file_id), "status": "rejected", "error": reason}
+
+    if not has_permission(member_role(ctx.uow.tx, p.business_id, p.user_id), Permission.UPLOADS_CREATE):
+        return settle("not_allowed")
+    try:
+        with ctx.uow.tx.begin_nested():
+            done = purchases.process_or_settled(ctx.uow, file_id)
+    except (AppError, Deny):
+        return settle("read_failed")
+    except Exception:
+        if ctx.attempt >= jobs.MAX_ATTEMPTS:
+            return settle("read_failed")
+        raise  # rolled back, retried
+    return {"file_id": str(file_id), "status": done.status}
