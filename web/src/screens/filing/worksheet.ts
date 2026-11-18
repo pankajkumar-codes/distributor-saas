@@ -46,3 +46,24 @@ export function useWorksheetExcel(businessId: string, instanceId: string) {
     mutationFn: () => call(() => api.GET("/api/v1/b/{business_id}/returns/{instance_id}/worksheet/excel", { params: { path: path(businessId, instanceId) } })),
   });
 }
+
+export type PdfStatus = components["schemas"]["PdfStatusOut"];
+
+/** POST …/worksheet/pdf: queue the PDF of the latest build and saved entries; the answer is the job to watch. */
+export function useStartWorksheetPdf(businessId: string, instanceId: string) {
+  return useMutation<{ job_id: string }, ApiError>({
+    mutationFn: () => call(() => api.POST("/api/v1/b/{business_id}/returns/{instance_id}/worksheet/pdf", { params: { path: path(businessId, instanceId) } })),
+  });
+}
+
+/** GET …/worksheet/pdf/{job}: asked again every 1.5 seconds while queued or rendering. The link lasts 60 seconds, so it is never cached. */
+export function useWorksheetPdfStatus(businessId: string, instanceId: string, jobId: string | null) {
+  return useQuery<PdfStatus, ApiError>({
+    queryKey: [...worksheetKey(businessId, instanceId), "pdf", jobId],
+    queryFn: () => call(() => api.GET("/api/v1/b/{business_id}/returns/{instance_id}/worksheet/pdf/{job_id}", { params: { path: { ...path(businessId, instanceId), job_id: jobId ?? "" } } })),
+    enabled: jobId !== null,
+    refetchInterval: (q) => (q.state.status === "success" && (q.state.data?.status === "queued" || q.state.data?.status === "rendering") ? 1500 : false), // an error stops it; the last answer is still held
+    retry: false,
+    gcTime: 0,
+  });
+}
