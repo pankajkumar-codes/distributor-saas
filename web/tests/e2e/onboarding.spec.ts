@@ -35,7 +35,7 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   // the unit tests cover the warning words. The details and the frequency are both done.
   const setup = page.getByRole("region", { name: "Set up your business" });
   await expect(setup.getByText("3 of 6 done")).toBeVisible();
-  await expect(setup.getByText("Coming soon").first()).toBeVisible();
+  await expect(setup.getByText("Upcoming").first()).toBeVisible();
   // Filing home (R1-M2): the server's deadlines, none confirmed yet, so each row says to check the portal.
   await page.getByRole("link", { name: "Your GST filing and deadlines" }).click();
   await expect(page.getByRole("heading", { name: "Your GST filing" })).toBeVisible();
