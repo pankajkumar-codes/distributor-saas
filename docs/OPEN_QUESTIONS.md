@@ -360,6 +360,7 @@ Three things only Pankaj can settle; none stops the build.
 - Confirmation window: the "Yes" must come within 10 minutes of the sign-in (`auth.session_confirm_minutes`, provisional). Owner may want it shorter or longer.
 - Support accounts follow the same rule as everyone. A support person signed in on two machines is asked the same question.
 - The ended browser is not told at once: its access token (up to 5 minutes) is refused at its next call, and it then shows the session-timed-out screen. Instant sign-out would need a push channel, which is not built.
+- Live window (D-093): a session counts as active for this question only if used in the last 30 minutes (`auth.session_live_minutes`, provisional). Someone who leaves a tab idle for 30+ minutes and then signs in elsewhere is not asked; the idle tab is ended and shows the timed-out screen at its next call. Owner may want a different window.
 - Sessions that already exist before this release are left alone; a person with two old sessions is asked on their next sign-in only if one of them is still live.
 
 ## Release blockers (not R1 build blockers; Pankaj, 2026-11-17)
