@@ -10,7 +10,7 @@ import { Button } from "../../kit/Button";
 import { Field } from "../../kit/Field";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
-import { useBuildWorksheet, useSaveEntries, useWorksheetExcel, useWorksheet, type Outward, type Worksheet } from "./worksheet";
+import { useBuildWorksheet, useSaveEntries, useStartWorksheetPdf, useWorksheetExcel, useWorksheetPdfStatus, useWorksheet, type Outward, type Worksheet } from "./worksheet";
 import { HEAD_NAME, TABLES, typedHeads } from "./worksheetRows";
 
 const TAX_HEADS = ["igst", "cgst", "sgst", "cess"] as const;
@@ -115,6 +115,29 @@ function ExcelButton({ businessId, instanceId }: { businessId: string; instanceI
       </Button>
       <span className="hint"> The file has what you have saved, not boxes you are still typing in.</span>
       {excel.isError && <Banner tone="error">{errorText(excel.error)}</Banner>}
+    </div>
+  );
+}
+
+/** The PDF is made in the background: queued, rendering, then a 60-second link. It holds what was last saved too. */
+function PdfButton({ businessId, instanceId }: { businessId: string; instanceId: string }) {
+  const [jobId, setJobId] = useState<string | null>(null);
+  const start = useStartWorksheetPdf(businessId, instanceId);
+  const status = useWorksheetPdfStatus(businessId, instanceId, jobId);
+  const s = status.data?.status;
+  const working = start.isPending || (!status.isError && (s === "queued" || s === "rendering"));
+  return (
+    <div>
+      <Button variant="secondary" busy={working} onClick={() => start.mutate(undefined, { onSuccess: (r) => setJobId(r.job_id) })}>
+        {working ? "Making the PDF…" : "Make a PDF"}
+      </Button>
+      {s === "ready" && status.data?.url && (
+        <p>
+          <a href={status.data.url}>Download the PDF</a> <span className="hint">The link works for 60 seconds. Make the PDF again for a new one.</span>
+        </p>
+      )}
+      {start.isError && <Banner tone="error">We couldn't make the PDF. {errorText(start.error)}</Banner>}
+      {(s === "failed" || status.isError) && <Banner tone="error">We couldn't make the PDF. Try again. Nothing was lost.</Banner>}
     </div>
   );
 }
@@ -278,6 +301,10 @@ export function WorksheetPage() {
               </Button>
             </p>
             {ws.built && <ExcelButton businessId={businessId} instanceId={instanceId} />}
+            {ws.built && <PdfButton key={`${ws.outward?.version ?? 0}-${ws.entries_seq ?? 0}`} businessId={businessId} instanceId={instanceId} />}
+            <p>
+              <Link to={`/b/${businessId}/filing/${instanceId}/portal-guide-3b`}>How to enter this on the GST portal</Link>
+            </p>
             {ws.outward && <OutwardCard o={ws.outward} />}
             <EntriesForm businessId={businessId} instanceId={instanceId} ws={ws} />
           </>
