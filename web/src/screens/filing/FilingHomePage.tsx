@@ -2,12 +2,19 @@ import { Link, useParams } from "react-router-dom";
 
 import { errorText } from "../../api/errors";
 import { formatDate, previousFy } from "../../format/dates";
-import { canPrepareReturns } from "../../auth/roles";
+import { canPrepareReturns, canViewUploads } from "../../auth/roles";
 import { useMyBusinesses } from "../../auth/useMyBusinesses";
 import { Banner } from "../../kit/Banner";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
+import { useChannels } from "../uploads/useChannels";
 import { useReturns, type ReturnRow } from "./returns";
+
+const PLATFORMS: [string, string][] = [
+  ["amazon", "Amazon"],
+  ["flipkart", "Flipkart"],
+  ["meesho", "Meesho"],
+];
 
 // R1 shows only these two forms (IFF and PMT-06 are not part of R1).
 const FORMS: Record<string, string> = { GSTR1: "GSTR-1", GSTR3B: "GSTR-3B" };
@@ -62,6 +69,8 @@ export function FilingHomePage() {
     Boolean(business) && now.isSuccess && now.data.filing_frequency !== null,
   );
 
+  const channels = useChannels(businessId, Boolean(business) && business?.role !== "support");
+
   if (businesses.isPending) {
     return (
       <main className="page" aria-busy="true">
@@ -112,6 +121,7 @@ export function FilingHomePage() {
                     <th scope="col">Return</th>
                     <th scope="col">Due date</th>
                     <th scope="col">Status</th>
+                    {canPrepareReturns(business.role) && <th scope="col">Action</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -123,25 +133,27 @@ export function FilingHomePage() {
                           {formatDate(r.period_start)} to {formatDate(r.period_end)}
                         </div>
                       </td>
-                      <td>
-                        {FORMS[r.form]}
-                        {r.form === "GSTR1" && canPrepareReturns(business.role) && (
-                          <div>
-                            <Link to={`/b/${businessId}/filing/${r.instance_id}`}>Review the draft</Link>
-                          </div>
-                        )}
-                        {r.form === "GSTR3B" && canPrepareReturns(business.role) && (
-                          <div>
-                            <Link to={`/b/${businessId}/filing/${r.instance_id}/worksheet`}>Open the worksheet</Link>
-                          </div>
-                        )}
-                      </td>
+                      <td>{FORMS[r.form]}</td>
                       <td>
                         <DueDate row={r} />
                       </td>
                       <td>
                         <span className="chip">{STATUS[r.status] ?? r.status}</span>
                       </td>
+                      {canPrepareReturns(business.role) && (
+                        <td>
+                          {r.form === "GSTR1" && (
+                            <Link className="btn btn-secondary" to={`/b/${businessId}/filing/${r.instance_id}`}>
+                              Review the draft
+                            </Link>
+                          )}
+                          {r.form === "GSTR3B" && (
+                            <Link className="btn btn-secondary" to={`/b/${businessId}/filing/${r.instance_id}/worksheet`}>
+                              Open the worksheet
+                            </Link>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -150,6 +162,34 @@ export function FilingHomePage() {
             <p>
               <Link to={`/b/${businessId}/settings/filing`}>Change how often you file</Link>
             </p>
+          </section>
+        )}
+        {now.isSuccess && !notSet && business.role !== "support" && (
+          <section className="card" aria-labelledby="add">
+            <h2 id="add">What you can add</h2>
+            <div className="grid2">
+              <div>
+                <div className="label">Platforms</div>
+                <p>
+                  {channels.data
+                    ? PLATFORMS.filter(([k]) => channels.data[k as "amazon" | "flipkart" | "meesho"]).map(([, n]) => n).join(", ") || "None chosen yet"
+                    : channels.isError
+                      ? "We couldn't load this."
+                      : "…"}
+                </p>
+              </div>
+              <div>
+                <div className="label">Own sales invoices</div>
+                <p>{channels.data ? (channels.data.own_invoices ? "PDF and/or Excel" : "Not chosen") : "…"}</p>
+              </div>
+            </div>
+            {canViewUploads(business.role) && (
+              <div className="row">
+                <Link className="btn btn-primary" to={`/b/${businessId}/uploads`}>
+                  Continue to uploads
+                </Link>
+              </div>
+            )}
           </section>
         )}
       </main>
