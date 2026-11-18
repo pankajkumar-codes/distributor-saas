@@ -4,13 +4,14 @@ import { Link, useParams } from "react-router-dom";
 import { errorText } from "../../api/errors";
 import { canPrepareReturns } from "../../auth/roles";
 import { useMyBusinesses } from "../../auth/useMyBusinesses";
+import { formatDate, formatDateTimeIst } from "../../format/dates";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { NotFound } from "../../kit/NotFound";
 import { SelectField } from "../../kit/SelectField";
 import { TopBar } from "../../kit/TopBar";
 import { finishedPeriods, type PeriodKind } from "./periods";
-import { useConfirm, useGate, useOpenFile, type Gate, type GateItem } from "./useGate";
+import { useConfirm, useGate, useNoSales, useOpenFile, type Gate, type GateItem } from "./useGate";
 import { useFilingProfile } from "./usePeriodFiles";
 
 const ITEM_TEXT: Record<GateItem, string> = {
@@ -30,6 +31,10 @@ const REASON_TEXT: Record<string, string> = {
 
 const PLATFORM_NAME = { amazon: "Amazon", flipkart: "Flipkart", meesho: "Meesho" } as const;
 
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+/** "2026-10" as "Oct 2026". */
+const monthText = (ym: string) => `${MONTH_NAMES[Number(ym.slice(5, 7)) - 1] ?? ym.slice(5, 7)} ${ym.slice(0, 4)}`;
+
 const today = () => new Date().toISOString().slice(0, 10);
 
 function Checks({ gate, businessId, kind, start }: { gate: Gate; businessId: string; kind: PeriodKind; start: string }) {
@@ -42,11 +47,41 @@ function Checks({ gate, businessId, kind, start }: { gate: Gate; businessId: str
           <label>
             <input type="checkbox" checked={c.confirmed && !c.stale} onChange={(e) => confirm.mutate({ item: c.item, confirmed: e.target.checked })} /> {ITEM_TEXT[c.item]}
           </label>
+          {c.confirmed && !c.stale && c.at && <p className="hint">Confirmed on {formatDateTimeIst(c.at)}. This is kept in your audit log.</p>}
           {c.stale && <p className="hint">You confirmed this, but your records changed since. Tick it again once it is true.</p>}
         </div>
       ))}
       {confirm.error && <Banner tone="error">{errorText(confirm.error)}</Banner>}
     </fieldset>
+  );
+}
+
+/**
+ * The marketplace-files step (R3-M4): only the platforms the business sells on, and only the months still missing. Each
+ * month is met by uploading the file or by saying there were no sales there. Nothing shows when nothing is missing.
+ */
+function PlatformStep({ gate, businessId, kind, start }: { gate: Gate; businessId: string; kind: PeriodKind; start: string }) {
+  const none = useNoSales(businessId, kind, start);
+  if (gate.platform_files.length === 0) return null;
+  return (
+    <section aria-labelledby="platform-step" className="stack">
+      <h2 id="platform-step">Marketplace files</h2>
+      <p className="hint">You sell on more than one place, so each marketplace needs its file for every month of this period.</p>
+      <ul>
+        {gate.platform_files.flatMap((p) =>
+          p.missing_months.map((m) => (
+            <li key={`${p.platform}-${m}`}>
+              {PLATFORM_NAME[p.platform]}, {monthText(m)}: no file yet.{" "}
+              <Link to={`/b/${businessId}/uploads`}>Upload it</Link>{" "}
+              <Button type="button" variant="link" disabled={none.isPending} onClick={() => none.mutate({ platform: p.platform, month: m })} aria-label={`No ${PLATFORM_NAME[p.platform]} sales in ${monthText(m)}`}>
+                We had no sales there
+              </Button>
+            </li>
+          )),
+        )}
+      </ul>
+      {none.error && <Banner tone="error">{errorText(none.error)}</Banner>}
+    </section>
   );
 }
 
@@ -115,23 +150,9 @@ export function FilePeriodPage() {
         {g && (
           <>
             <Checks gate={g} businessId={businessId} kind={kind} start={start} />
-            {g.platform_files.length > 0 && (
-              <div className="stack">
-                <h2>Marketplace files</h2>
-                <ul>
-                  {g.platform_files.map((p) => (
-                    <li key={p.platform}>
-                      {PLATFORM_NAME[p.platform]}: files missing for {p.missing_months.join(", ")}.
-                    </li>
-                  ))}
-                </ul>
-                <p>
-                  <Link to={`/b/${businessId}/uploads`}>Add your marketplace files</Link>, or mark a month as having no sales there.
-                </p>
-              </div>
-            )}
-            <p className="hint">Due date: {g.due_date ?? g.due_dates}.</p>
-            {!g.ended && <p className="hint">Filing for this period opens on {g.opens_on}.</p>}
+            <PlatformStep gate={g} businessId={businessId} kind={kind} start={start} />
+            <p className="hint">Due date: {g.due_date ? formatDate(g.due_date) : g.due_dates}.</p>
+            {!g.ended && <p className="hint">Filing for this period opens on {formatDate(g.opens_on)}.</p>}
             <Button type="button" disabled={!g.can_file || open.isPending} onClick={() => open.mutate()}>
               {open.isPending ? "Getting your file…" : "Get my GSTR-1 file"}
             </Button>
@@ -157,6 +178,9 @@ export function FilePeriodPage() {
                 </ul>
               </div>
             )}
+            <p className="hint">
+              Locking this period and marking it filed from here: <span className="tag">Upcoming</span>. For now, lock and mark each return as filed on its own return screen.
+            </p>
           </>
         )}
       </main>

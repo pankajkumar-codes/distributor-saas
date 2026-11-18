@@ -4,7 +4,7 @@ import { Link, useLocation, useParams } from "react-router-dom";
 import { api, call } from "../../api/client";
 import { errorText, type ApiError } from "../../api/errors";
 import type { components } from "../../api/schema";
-import { canCreateDocuments, canViewUploads } from "../../auth/roles";
+import { canCreateDocuments, canPrepareReturns, canViewUploads } from "../../auth/roles";
 import { FEATURES } from "../../features";
 import { TOTP_PROMPTED, useMe } from "../../auth/useMe";
 import { SUPPORT_ROLE, useMyBusinesses } from "../../auth/useMyBusinesses";
@@ -193,6 +193,11 @@ export function HomePage() {
             <li>
               <Link to={`/b/${businessId}/filing`}>Your GST filing and deadlines</Link>
             </li>
+            {FEATURES.invoicing && canPrepareReturns(business.role) && (
+              <li>
+                <Link to={`/b/${businessId}/file-period`}>File from your own invoices</Link>
+              </li>
+            )}
             {canViewUploads(business.role) && (
               <li>
                 <Link to={`/b/${businessId}/uploads`}>Upload your reports</Link>
