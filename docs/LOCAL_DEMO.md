@@ -226,14 +226,22 @@ its data in memory, not on any disk, so it never waits for the disk.)
    its output.
 3. Live view while you reproduce it: `docker compose -p gstdemo logs -f api web db` (Ctrl+C to stop watching).
    `docker compose -p gstdemo ps` lists the pieces. The project name is `gstdemo`.
-4. More detail from the API: `UVICORN_LOG_LEVEL=debug ./demo.sh` (the database already logs any statement slower than
+4. **At the moment it fails** (page says "We couldn't reach the server"), run these four, in this order, and send the results:
+   1. inside the web container: `docker compose -p gstdemo exec web wget -q -T 5 -O - http://127.0.0.1:5173/api/v1/health`
+   2. from WSL or Mac/Linux: `curl -m 10 -i http://127.0.0.1:5173/api/v1/health`
+   3. from Windows PowerShell: `curl.exe -m 10 -i http://127.0.0.1:5173/api/v1/health`
+   4. `docker compose -p gstdemo logs --since 5m web api`, and a screenshot of the browser's Network tab (F12) showing
+      the failed request's status (failed, blocked, cancelled or pending).
+   If (1) answers and (2) or (3) hang, Docker's port forwarding between your computer and the container is the problem, not
+   the demo; `./demo.sh check` runs (1) for you. If (1) hangs, the API itself is frozen (it runs some database calls on its event loop, so one stuck database call stops every request, even `/health`); `docker compose -p gstdemo restart api` frees it, but the demo forgets every account, the ready-made one too; run `./demo.sh` again to get it back. Also send `./demo.sh check` (it lists CPU and memory per piece).
+5. More detail from the API: `UVICORN_LOG_LEVEL=debug ./demo.sh` (the database already logs any statement slower than
    half a second, and lock waits).
 
 ## 6. How it is built (for the team)
 
 `docker-compose.demo.yml` starts PostgreSQL 16, applies every migration (`migrator.local`, the same code CI
 uses), starts the API with `PLATFORM_ENV=local` (jobs run inline, files go to a local folder, mail goes to a file)
-and `DEMO_READERS=1`, serves the built web app with `vite preview` (which passes `/api` to the API), and runs
+and `DEMO_READERS=1`, serves the built web app with nginx (`demo/nginx.conf`: it passes `/api` to the API, opening a fresh connection for every request and giving up after 3 s to connect, so no stuck connection can wedge the page), and runs
 `demo/watch_codes.py` to print codes. `demo/seed.py` signs the demo user up through the API's own sign-up path
 and creates the made-up business. Sample files are built by `demo/make_samples.py`; a test keeps the committed
 files equal to the generator's output and checks each file does what section 4 says.
