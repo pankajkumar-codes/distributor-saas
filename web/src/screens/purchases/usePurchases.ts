@@ -25,6 +25,21 @@ export function useProfile(businessId: string) {
   });
 }
 
+/** Saves the business type (distributor or retail) with PATCH /profile, as Business setup does. */
+export function useChooseBusinessType(businessId: string) {
+  const queryClient = useQueryClient();
+  return useMutation<unknown, ApiError, { type: "distributor" | "retail"; version: number }>({
+    mutationFn: ({ type, version }) =>
+      call(() =>
+        api.PATCH("/api/v1/b/{business_id}/profile", {
+          params: { path: { business_id: businessId }, header: { "If-Match": String(version) } },
+          body: { business_type: type },
+        }),
+      ),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["b", businessId, "profile"] }),
+  });
+}
+
 /** The recent purchase files, newest first; while one is still being read the list looks again every few seconds. */
 export function usePurchaseFiles(businessId: string, enabled = true) {
   return useQuery<PurchaseFile[], ApiError>({

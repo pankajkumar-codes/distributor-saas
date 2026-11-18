@@ -9,6 +9,7 @@ vi.mock("../../src/features", () => ({ FEATURES: { invoicing: true } })); // R2 
 
 const B = "/api/v1/b/b-1";
 const me = (role = "owner") => ({ status: 200, body: { businesses: [{ business_id: "b-1", display_name: "Vashi Essentials", gstin: null, role }] } });
+const profile = (business_type: string | null) => ({ status: 200, body: { business_id: "b-1", business_type, version: 7 } });
 const row = (over: Record<string, unknown> = {}) => ({
   product_id: "p-1", code: "AVG", name: "Aloe Vera Gel", uqc: "PCS", status: "active", sale_rate: "120.00", price_needed: false, on_hand: "12.000", no_stock: false, ...over,
 });
@@ -28,6 +29,7 @@ const open = (path: string, role = "owner") => {
 
 describe("stock", () => {
   it("shows on hand, a No stock note, and the price per 1 qty from the server", async () => {
+    server.reply(`${B}/profile`, profile("retail"));
     server.reply(`${B}/stock`, { status: 200, body: { items: [row(), row({ product_id: "p-2", code: "SOAP", name: "Soap", sale_rate: "45.00", on_hand: "-2.000", no_stock: true })], has_more: false } });
     open("/b/b-1/stock");
     expect(await screen.findByText("Aloe Vera Gel")).toBeInTheDocument();
@@ -37,15 +39,15 @@ describe("stock", () => {
     expect(screen.getByText(/-2.000 PCS/)).toBeInTheDocument();
   });
 
-  it("shows the stock without asking for a business type", async () => {
-    server.reply(`${B}/stock`, { status: 200, body: { items: [row()], has_more: false } });
+  it("asks for the business type first", async () => {
+    server.reply(`${B}/profile`, profile(null));
     open("/b/b-1/stock");
-    expect(await screen.findByText("Aloe Vera Gel")).toBeInTheDocument();
-    expect(screen.queryByText(/what kind of business/)).toBeNull();
-    expect(server.paths()).not.toContain(`${B}/profile`);
+    expect(await screen.findByRole("heading", { name: "First, what kind of business is this?" })).toBeInTheDocument();
+    expect(server.paths()).not.toContain(`${B}/stock`);
   });
 
   it("filters by Price needed through the server and saves a price with the product's version", async () => {
+    server.reply(`${B}/profile`, profile("distributor"));
     server.reply(`${B}/stock`, { status: 200, body: { items: [row()], has_more: false } });
     open("/b/b-1/stock");
     await screen.findByText("Aloe Vera Gel");
@@ -66,6 +68,7 @@ describe("stock", () => {
   });
 
   it("hides the price box from a role that cannot edit the catalog", async () => {
+    server.reply(`${B}/profile`, profile("retail"));
     server.reply(`${B}/stock`, { status: 200, body: { items: [row({ sale_rate: "0.00", price_needed: true })], has_more: false } });
     open("/b/b-1/stock", "ca");
     expect(await screen.findByText("Price needed")).toBeInTheDocument();
