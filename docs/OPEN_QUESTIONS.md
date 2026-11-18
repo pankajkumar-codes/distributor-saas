@@ -343,6 +343,12 @@ Every row in `refdata/` is `provisional`. Before go-live:
 - **Combining.** The gate decides when the file may be made. How platform rows and our own invoices are merged into one GSTR-1 stays with the return build (R3-M3, Staff 2 (4)); nothing here merges data.
 - **Platform files the readers do not cover** (a platform not among the three) cannot be asked for; the gate says nothing about them.
 
+## R4-M1 and R4-M3 team members by invitation (2026-11-18)
+- **The server side already existed.** Invitations (hashed single-use tokens, expiry, accept by email, member list, role change, deactivate, audit) were built under LLD-2 and are tested; this slice adds the route-permission test and the token-never-logged test. See `docs/INVITATIONS.md`. The web screens for them are the next step (web thread).
+- **Copy-link option.** The link is only mailed. If the owner wants to share a link by chat or hand it over, the create route could return it once to the admin (it is shown in no log). Needs an owner/EM decision; not built.
+- **`GET /b/{id}/returns` has no permission.** Every other returns route needs `returns.prepare`; the list can be read by billing as well (it shows period, due date and status, no figures). It is in the allowlist of the route-permission test with this note. Decide whether to require `returns.prepare` (the web shell must not call it for billing first).
+- **Other no-permission reads.** `home`, `profile`, `filing-profile` and `channels` are readable by every active member by design; each is still refused to a non-member.
+
 ## Release blockers (not R1 build blockers; Pankaj, 2026-11-17)
 These need Pankaj or his CA and do not stop building. Each must be done before production release.
 - **CA question sheet** (`team/program-lead/ca-question-sheet-v1.md`, CA-1 to CA-5 above and the platform treatment items): Pankaj takes it to his CA just before release.

@@ -518,3 +518,36 @@ def test_audit_log_view_filters_and_pages(team):
     assert [i["action"] for i in client.get(f"/api/v1/b/{other}/audit-log", headers=H("olga")).json()["items"]] == [
         "business.create"
     ]
+
+
+def test_an_invite_token_never_reaches_a_log_an_audit_row_or_a_stored_column(team, caplog):
+    """R4-M1: the link's token exists only in the mail and in the invitee's address bar. Run the whole life of an invite, a
+    resend that kills the first link, a wrong person, an unknown token, a cancel and an accept, then look for every token."""
+    import logging
+
+    caplog.set_level(logging.DEBUG)
+    client, _, mail, tid = team
+    assert invite(client, tid, "bob", "billing").status_code == 201
+    first = token(mail, "bob")
+    inv_id = client.get(f"/api/v1/b/{tid}/members", headers=H("alice")).json()["invites"][0]["id"]
+    assert client.post(f"/api/v1/b/{tid}/invitations/{inv_id}/resend", headers=H("alice")).status_code == 200
+    second = token(mail, "bob")
+    assert first != second
+    assert client.get(f"/api/v1/me/invitations/{first}", headers=H("bob")).status_code == 404  # the old link is dead
+    assert client.get(f"/api/v1/me/invitations/{second}", headers=H("eve")).status_code == 404  # someone else's
+    unknown = "u" * 43
+    assert client.get(f"/api/v1/me/invitations/{unknown}", headers=H("bob")).status_code == 404
+    assert client.post(f"/api/v1/me/invitations/{second}/accept", headers=H("bob")).status_code == 200
+    assert invite(client, tid, "carol", "ca").status_code == 201
+    third = token(mail, "carol")
+    cid = next(i["id"] for i in client.get(f"/api/v1/b/{tid}/members", headers=H("alice")).json()["invites"])
+    assert client.post(f"/api/v1/b/{tid}/invitations/{cid}/cancel", headers=H("alice")).status_code == 200
+    tokens = [first, second, unknown, third]
+    # the test client's own "HTTP Request: GET ..." line is the caller's, not the app's: leave httpx out
+    logged = "\n".join(r.getMessage() for r in caplog.records if not r.name.startswith("httpx"))
+    for t in tokens:
+        assert t not in logged
+    assert all(t not in str(d) for (d,) in owner_sql("select data from platform.audit_log") for t in tokens)
+    # in the table only as a hash, and every stored column is free of the raw token
+    rows = owner_sql("select row_to_json(i)::text from identity.invitations i")
+    assert rows and all(t not in r[0] for r in rows for t in tokens)
