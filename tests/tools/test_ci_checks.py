@@ -81,3 +81,11 @@ def test_the_clock_rule_fails_on_the_planted_file(tmp_path):
                           str(target)], capture_output=True, text=True)
     assert out.returncode == 1
     assert out.stdout.count("TID251") == 4
+
+
+def test_every_function_role_is_refused_calls_outside_india():
+    """D-094: the function module attaches a Deny on aws:RequestedRegion for anything but the two Indian regions."""
+    text = (ROOT / "infra" / "modules" / "function" / "main.tf").read_text()
+    assert 'resource "aws_iam_role_policy" "india_only"' in text
+    assert '"aws:RequestedRegion" = ["ap-south-1", "ap-south-2"]' in text
+    assert 'Effect = "Deny"' in text

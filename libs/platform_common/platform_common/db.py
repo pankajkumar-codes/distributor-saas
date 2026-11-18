@@ -32,7 +32,10 @@ def _iam_engine() -> Engine:
         pool_size=1,
         max_overflow=0,
     )
-    rds = boto3.client("rds")
+    from .regions import check_endpoints, configured_region  # tenant data stays in India (D-094)
+
+    check_endpoints()
+    rds = boto3.client("rds", region_name=configured_region())
 
     @event.listens_for(engine, "do_connect")
     def _token(dialect, conn_rec, cargs, cparams):  # noqa: ARG001

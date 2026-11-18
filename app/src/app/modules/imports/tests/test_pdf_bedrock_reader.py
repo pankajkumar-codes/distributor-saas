@@ -31,7 +31,7 @@ class Fake:
         return {"output": {"message": {"content": [{"text": self._text}]}}}
 
 
-def reader(fake, enabled=True, profile="profile-x"):
+def reader(fake, enabled=True, profile="anthropic.test-model-v1:0"):
     r: InvoiceReader = BedrockReader(fake, profile, enabled)
     return r
 
@@ -55,7 +55,7 @@ def test_without_a_profile_id_it_refuses_and_makes_no_call():
 def test_a_good_reply_gives_the_same_shape_as_the_text_reader():
     fake = Fake(json.dumps(GOOD))
     (inv,) = reader(fake).read(PDF, LIMITS).invoices
-    assert fake.calls[0]["modelId"] == "profile-x" and fake.calls[0]["inferenceConfig"]["temperature"] == 0
+    assert fake.calls[0]["modelId"] == "anthropic.test-model-v1:0" and fake.calls[0]["inferenceConfig"]["temperature"] == 0
     assert (inv.doc_number, inv.doc_date, inv.invoice_total, inv.pages) == ("INV-1", "03-07-2026", "118.00", (1,))
     assert inv.unclear == {"buyer_gstin"}
     assert inv.lines[0].cgst == "9.00" and inv.lines[0].igst is None and not inv.lines[0].unclear
@@ -124,3 +124,21 @@ def test_a_non_pdf_or_oversized_file_is_refused_before_anything_is_sent():
 def test_the_same_file_read_twice_gives_the_same_result():
     fake = Fake(json.dumps(GOOD))
     assert reader(fake).read(PDF, LIMITS) == reader(fake).read(PDF, LIMITS)
+
+
+@pytest.mark.parametrize("profile", [
+    "us.anthropic.test-model-v1:0", "eu.anthropic.test-model-v1:0", "apac.anthropic.test-model-v1:0",
+    "global.anthropic.test-model-v1:0", "arn:aws:bedrock:us-east-1:123456789012:inference-profile/x", "profile-x",
+])
+def test_a_profile_that_could_send_the_document_out_of_india_is_refused_and_makes_no_call(profile):
+    fake = Fake(json.dumps(GOOD))
+    with pytest.raises(PdfRefused) as e:
+        reader(fake, profile=profile).read(PDF, LIMITS)
+    assert e.value.code == "pdf_paid_reader_region_refused" and fake.calls == []
+
+
+def test_an_indian_profile_arn_is_accepted():
+    fake = Fake(json.dumps(GOOD))
+    arn = "arn:aws:bedrock:ap-south-1:123456789012:inference-profile/some-profile"
+    reader(fake, profile=arn).read(PDF, LIMITS)
+    assert fake.calls[0]["modelId"] == arn

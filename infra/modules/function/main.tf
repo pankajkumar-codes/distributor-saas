@@ -109,6 +109,30 @@ resource "aws_iam_role_policy" "this" {
   policy = jsonencode({ Version = "2012-10-17", Statement = local.statements })
 }
 
+# Tenant data stays in India (D-094): whatever else is granted, this function's role is refused any call made in
+# a region other than Mumbai and Hyderabad. Services that have no region of their own (IAM, STS, CloudFront,
+# Route 53 and the account-level ones) are exempt, as AWS requires. A drift guard: the Allow statements above
+# already name this stack's own resources, so this changes nothing today.
+resource "aws_iam_role_policy" "india_only" {
+  name   = "india-only"
+  role   = aws_iam_role.this.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid    = "DenyOutsideIndia"
+      Effect = "Deny"
+      NotAction = [
+        "iam:*", "sts:*", "cloudfront:*", "route53:*", "route53domains:*", "support:*", "budgets:*",
+        "ce:*", "cur:*", "health:*", "trustedadvisor:*", "globalaccelerator:*", "waf:*", "organizations:*",
+      ]
+      Resource = "*"
+      Condition = {
+        StringNotEquals = { "aws:RequestedRegion" = ["ap-south-1", "ap-south-2"] }
+      }
+    }]
+  })
+}
+
 resource "aws_cloudwatch_log_group" "this" {
   name              = "/aws/lambda/${var.name}"
   retention_in_days = var.log_retention_days
