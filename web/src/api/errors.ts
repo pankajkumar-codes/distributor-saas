@@ -39,6 +39,9 @@ export function toApiError(response: Response | undefined, body: unknown, detail
 }
 
 const BY_CODE: Record<string, string> = {
+  // Catalog: a record that has been on an invoice is kept for the invoice's sake
+  customer_in_use: "This customer is on invoices, so it can be archived but not deleted.",
+  product_in_use: "This product is on invoices, so it can be archived but not deleted.",
   // Invoicing (R2)
   invoice_plan_required: "You have used your free invoices. Choose the invoicing plan to keep creating invoices.",
   business_type_required: "Choose Distributor or Retail in Business setup first.",
