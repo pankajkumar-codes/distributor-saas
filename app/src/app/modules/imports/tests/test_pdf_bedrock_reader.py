@@ -129,6 +129,8 @@ def test_the_same_file_read_twice_gives_the_same_result():
 @pytest.mark.parametrize("profile", [
     "us.anthropic.test-model-v1:0", "eu.anthropic.test-model-v1:0", "apac.anthropic.test-model-v1:0",
     "global.anthropic.test-model-v1:0", "arn:aws:bedrock:us-east-1:123456789012:inference-profile/x", "profile-x",
+    "arn:aws:bedrock:ap-south-1:123456789012:inference-profile/apac.anthropic.test-model-v1:0",
+    "arn:aws:bedrock:ap-south-1:123456789012:application-inference-profile/abc123",
 ])
 def test_a_profile_that_could_send_the_document_out_of_india_is_refused_and_makes_no_call(profile):
     fake = Fake(json.dumps(GOOD))
@@ -137,8 +139,8 @@ def test_a_profile_that_could_send_the_document_out_of_india_is_refused_and_make
     assert e.value.code == "pdf_paid_reader_region_refused" and fake.calls == []
 
 
-def test_an_indian_profile_arn_is_accepted():
+def test_an_indian_foundation_model_arn_is_accepted():
     fake = Fake(json.dumps(GOOD))
-    arn = "arn:aws:bedrock:ap-south-1:123456789012:inference-profile/some-profile"
+    arn = "arn:aws:bedrock:ap-south-1::foundation-model/anthropic.test-model-v1:0"
     reader(fake, profile=arn).read(PDF, LIMITS)
     assert fake.calls[0]["modelId"] == arn

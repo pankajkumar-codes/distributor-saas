@@ -43,11 +43,11 @@ def test_any_other_endpoint_is_refused(url):
     [
         "anthropic.claude-test-v1:0",
         "amazon.nova-test-v1:0",
-        "arn:aws:bedrock:ap-south-1:123456789012:inference-profile/some-profile",
-        "arn:aws:bedrock:ap-south-2:123456789012:foundation-model/anthropic.claude-test-v1:0",
+        "arn:aws:bedrock:ap-south-1::foundation-model/anthropic.claude-test-v1:0",
+        "arn:aws:bedrock:ap-south-2::foundation-model/amazon.nova-test-v1:0",
     ],
 )
-def test_a_model_that_runs_where_the_client_is_pinned_is_accepted(model):
+def test_a_model_that_runs_where_the_client_is_pinned_or_a_foundation_model_in_india_is_accepted(model):
     assert bedrock_model_in_india(model)
 
 
@@ -60,6 +60,16 @@ def test_a_model_that_runs_where_the_client_is_pinned_is_accepted(model):
         "global.anthropic.claude-test-v1:0",
         "in.anthropic.claude-test-v1:0",  # unverified: refused until it is read from the console and approved
         "arn:aws:bedrock:us-east-1:123456789012:inference-profile/us.anthropic.claude-test-v1:0",
+        "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-test-v1:0",
+        "arn:aws:bedrock:::foundation-model/anthropic.claude-test-v1:0",
+        "arn:aws:bedrock:ap-south-1::foundation-model/us.anthropic.claude-test-v1:0",  # a geography id inside an ARN
+        "arn:aws:bedrock:ap-south-1::foundation-model/profile-x",
+        # An inference-profile ARN is refused even in an Indian region: a system profile can be apac. or global.,
+        # and an application profile can wrap one. Each needs an allowlist entry after its own review.
+        "arn:aws:bedrock:ap-south-1:123456789012:inference-profile/apac.anthropic.claude-test-v1:0",
+        "arn:aws:bedrock:ap-south-1:123456789012:inference-profile/global.anthropic.claude-test-v1:0",
+        "arn:aws:bedrock:ap-south-1:123456789012:application-inference-profile/abc123",
+        "arn:aws:bedrock:ap-south-1:123456789012:inference-profile/some-profile",
         "arn:aws:bedrock::123456789012:inference-profile/x",
         "profile-x",
         "",

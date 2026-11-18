@@ -18,7 +18,7 @@ Resolve these before the affected functionality is used for live financial trans
 11. Is CSV/Excel export sufficient for the first release, or is a specific connector commercially necessary?
 12. Expected number of tenants in year one and likely import/report volume?
 13. Monthly cloud budget range, including database, storage, backups, monitoring, and support?
-14. Preferred hosting region and any data residency or customer-contract requirements?
+14. Preferred hosting region and any data residency or customer-contract requirements? **Answered 2026-11-18: tenant data stays in India (D-094).** Follow-ups below.
 15. Who will operate production, handle incidents, and manage backups?
 
 ## P2 — Product expansion
@@ -362,6 +362,14 @@ Three things only Pankaj can settle; none stops the build.
 - The ended browser is not told at once: its access token (up to 5 minutes) is refused at its next call, and it then shows the session-timed-out screen. Instant sign-out would need a push channel, which is not built.
 - Live window (D-093): a session counts as active for this question only if used in the last 30 minutes (`auth.session_live_minutes`, provisional). Someone who leaves a tab idle for 30+ minutes and then signs in elsewhere is not asked; the idle tab is ended and shows the timed-out screen at its next call. Owner may want a different window.
 - Sessions that already exist before this release are left alone; a person with two old sessions is asked on their next sign-in only if one of them is still live.
+
+## India-only data (2026-11-18, D-094)
+
+- **API behind CloudFront?** CloudFront is global: its edges and regional caches can sit outside India, and the API carries invoices, GST data, the Authorization header and the refresh cookie. Recommended: CloudFront for the public static files only, and the API on a regional API Gateway custom domain in ap-south-1 on a sibling name (`api.<domain>`; the refresh cookie and CORS need adjusting). Alternative: serve the static files from the same regional API, no CDN. CEO and Pankaj to confirm; affects the domain plan and costs a small amount.
+- **In-country Bedrock.** Is an in-country Anthropic model profile available in ap-south-1 or ap-south-2 and approved? Pankaj reads it from the AWS console (also open under D-077). If there is none, the picture reader stays off or uses the local OCR only (D-078).
+- **Support and developer access from outside India.** The rule covers storage and transfer by the system; whether a person viewing customer data from abroad counts is the CEO's call.
+- **Cognito.** Confirm at the first staging deploy that Cognito sends no email of its own and has no region-bound add-on (set `email_configuration` explicitly).
+- **Real sample data.** Where does Pankaj's real GSTR-1 zip sit today, and should it live only on his own machine? (Source: Staff 2 India-only audit, findings F1 to F10.)
 
 ## Release blockers (not R1 build blockers; Pankaj, 2026-11-17)
 These need Pankaj or his CA and do not stop building. Each must be done before production release.

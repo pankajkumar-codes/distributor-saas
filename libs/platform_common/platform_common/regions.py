@@ -21,7 +21,10 @@ _REGIONAL_HOST = re.compile(r"(^|\.)(" + "|".join(re.escape(r) for r in INDIA_RE
 # regions, so it is not on this list on purpose. A profile that stays in India is named by its ARN below.
 _PROVIDERS = frozenset({"anthropic", "amazon", "meta", "mistral", "cohere", "ai21", "deepseek"})
 _MODEL_ID = re.compile(r"^([a-z0-9-]+)\.[A-Za-z0-9][A-Za-z0-9._:-]*$")
-_BEDROCK_ARN = re.compile(r"^arn:aws:bedrock:([a-z0-9-]*):[0-9]{12}:[a-z-]+/[A-Za-z0-9._:/-]+$")
+# Only a foundation-model ARN is accepted. An inference-profile ARN is refused whatever its region: a system profile
+# can be a geography one (apac., global.) that routes out of India, and an application profile can wrap one, so a
+# profile needs its own review and an allowlist entry here before it is used.
+_BEDROCK_ARN = re.compile(r"^arn:aws:bedrock:([a-z0-9-]*)::foundation-model/([A-Za-z0-9][A-Za-z0-9._:-]*)$")
 
 
 class RegionRefused(RuntimeError):
@@ -57,12 +60,13 @@ def check_endpoints(env: Mapping[str, str] | None = None) -> None:
 
 
 def bedrock_model_in_india(model_id: str) -> bool:
-    """True for a plain model id (it runs in the region of the pinned client) or for the ARN of a model or inference
-    profile in an Indian region. False for a geography-prefixed or global inference profile id, an ARN in another
-    region or with no region, and anything not recognised."""
+    """True for a plain model id (it runs in the region of the pinned client) or for the ARN of a foundation model in
+    an Indian region. False for a geography-prefixed or global inference profile id, any inference-profile ARN
+    (system or application) until it is allowlisted, an ARN in another region or with no region, and anything not
+    recognised."""
     model_id = (model_id or "").strip()
     arn = _BEDROCK_ARN.match(model_id)
     if arn:
-        return arn.group(1) in INDIA_REGIONS
+        return arn.group(1) in INDIA_REGIONS and bedrock_model_in_india(arn.group(2))
     found = _MODEL_ID.match(model_id)
     return bool(found) and found.group(1) in _PROVIDERS
