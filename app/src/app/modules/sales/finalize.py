@@ -18,7 +18,7 @@ from sqlalchemy import bindparam, text
 from sqlalchemy.types import JSON
 
 from app.modules.business.interface import Profile, SeriesSetting, fy_of, get_profile, series_setting
-from app.modules.catalog.interface import customer_snapshot, mark_used
+from app.modules.catalog.interface import customer_snapshot, mark_used, record_sale_out
 from app.modules.refdata import RefdataMissing, value_on
 from platform_common import audit
 from platform_common.errors import Deny, Invalid
@@ -287,6 +287,10 @@ def _insert(
                 "confirmed": p.rate_confirmed,
             },
         )
+        # R2-M4: the sale takes stock out, once per invoice line, in this same transaction. It
+        # never refuses for lack of stock (the balance may go to or below zero).
+        record_sale_out(uow, product_id=p.product_id, quantity=ln.quantity, document_id=document_id,
+                        document_line_id=line_id, sold_on=doc_date)
         for t in ln.taxes:
             tx.execute(
                 text(

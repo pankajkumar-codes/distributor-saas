@@ -91,6 +91,8 @@ def compute(inp: ComputeInput) -> Computation:
             )
         )
 
+    _stock_warnings(inp, checks)
+
     def total_of(*components):
         return sum((t.amount for ln in lines for t in ln.taxes if t.component in components), ZERO)
 
@@ -240,6 +242,18 @@ def _line_checks(i: int, line: LineIn, inp: ComputeInput, checks: _Checks) -> De
     if p is None:
         checks.block("product_unknown", "Choose a product.", f"{at}.product_id", n)
         return None
+    if p.price_needed and line.unit_price is not None and line.unit_price == p.sale_rate:
+        # R2-M4: a product made from a purchase line has no selling price until the business sets one,
+        # and the draft would otherwise carry the placeholder as the price. Typing a price for this
+        # invoice, or setting the product's, clears it. Never about stock.
+        checks.block(
+            "price_not_set",
+            "Set a selling price for this product, or type a price for this invoice.",
+            f"{at}.unit_price",
+            n,
+        )
+    elif line.unit_price == ZERO:
+        checks.warn("price_zero", "This line's price is 0. Check it before you finalize.", f"{at}.unit_price", n)
     if p.status != "active":
         checks.block(
             "product_archived", "This product is archived. Restore it or choose another.", f"{at}.product_id", n
@@ -292,6 +306,33 @@ def _line_checks(i: int, line: LineIn, inp: ComputeInput, checks: _Checks) -> De
             n,
         )
     return p.rate
+
+
+def _stock_warnings(inp: ComputeInput, checks: _Checks) -> None:
+    """R2-M4, warnings only: a product with nothing in stock, or less than this invoice sells
+    in total, is flagged on its first line. Nothing here blocks the draft or the finalize
+    (Pankaj's R2 rule: "no stock" is information)."""
+    wanted: dict = {}
+    for line in inp.lines:
+        if line.product is not None and line.quantity is not None:
+            wanted[line.product.product_id] = wanted.get(line.product.product_id, ZERO) + line.quantity
+    seen = set()
+    for i, line in enumerate(inp.lines):
+        p = line.product
+        if p is None or line.quantity is None or p.product_id in seen:
+            continue
+        seen.add(p.product_id)
+        at = f"lines.{i}.quantity"
+        if p.on_hand <= ZERO:
+            checks.warn("no_stock", f"No stock of {p.code}. You can still make this invoice.", at, line.line_no)
+        elif wanted[p.product_id] > p.on_hand:
+            checks.warn(
+                "low_stock",
+                f"Only {p.on_hand:f} {p.uqc} of {p.code} in stock; this invoice sells {wanted[p.product_id]:f}."
+                " You can still make it.",
+                at,
+                line.line_no,
+            )
 
 
 def _classify(inp: ComputeInput, inter: bool | None, doc_total: Decimal):

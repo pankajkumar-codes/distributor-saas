@@ -88,8 +88,9 @@ def ctx(c, user, tenant=None, grant=None, role=None):
     )
 
 
-def new_business(pg, sub: str = "alice") -> uuid.UUID:
-    """A business created through POST /b, owned by `sub`."""
+def new_business(pg, sub: str = "alice", business_type: str | None = "retail") -> uuid.UUID:
+    """A business created through POST /b, owned by `sub`. R2 invoicing needs a business type,
+    so tests get one unless they pass None."""
     body = {
         "registration": {"kind": "gstin", "gstin": "19AAPFU0939F1ZS"},
         "legal_name": "Test Traders LLP",
@@ -97,6 +98,7 @@ def new_business(pg, sub: str = "alice") -> uuid.UUID:
         "address": {"line1": "1 Test Road", "city": "Kolkata", "pin": "700016", "state_code": "19"},
         "turnover_band": "up_to_threshold",
         "einvoice_history": "no",
+        **({"business_type": business_type} if business_type else {}),
     }
     r = pg.client.post("/api/v1/b", json=body, headers={**as_user(sub), "Idempotency-Key": uuid.uuid4().hex})
     assert r.status_code == 201, r.text

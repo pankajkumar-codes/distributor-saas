@@ -17,6 +17,7 @@ from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi import status as http
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
+from app.modules.business.interface import require_business_type
 from platform_common.clock import Clock, get_clock
 from platform_common.etag import if_match_version, set_etag
 from platform_common.idempotency import run_once
@@ -29,7 +30,15 @@ from . import drafts, finalize, preview
 from .compute import Computation
 
 router = APIRouter(tags=["sales"])
-EDIT = [Depends(require(Permission.DOCUMENTS_CREATE))]
+
+
+def _business_type_chosen(uow: BusinessUoW) -> None:
+    """R2: invoicing needs the business type first (CEO); 409 business_type_required otherwise."""
+    require_business_type(uow.tx)
+
+
+# The permission check runs first, so a role without it still gets the plain 404.
+EDIT = [Depends(require(Permission.DOCUMENTS_CREATE)), Depends(_business_type_chosen)]
 
 Text = Annotated[str, Field(max_length=300)]
 # A string only: a JSON number is refused by the type, so a float never reaches money().

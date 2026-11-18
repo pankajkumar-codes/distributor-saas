@@ -46,6 +46,7 @@ def product(rate, *, code="SYN", hsn="3401", **kw):
         rate_valid_from=date(2025, 9, 22),
         rate_confirmed=True,
         rate_changed_within_warning_window=False,
+        on_hand=D("1000000"),  # plenty: the older tests are not about stock
     )
     return ProductForLine(**{**fields, **kw})
 
@@ -510,3 +511,60 @@ def test_amount_in_words_refuses_floats_and_sub_paisa():
     for bad in (1.5, D("1.005"), D("-1.00")):
         with pytest.raises(ValueError):
             inr(bad)
+
+
+# -- R2-M4: stock warns and never blocks; a product with no selling price set ------------------
+
+
+def _codes(c):
+    return [(i.code, i.line_no) for i in c.warnings if i.code in ("no_stock", "low_stock")]
+
+
+def test_no_stock_and_low_stock_warn_but_never_block():
+    sold_out = line("2", "100", "18", n=1, on_hand=D("0"))
+    negative = line("1", "100", "18", n=2, on_hand=D("-3.5"), code="NEG")
+    short = line("5", "100", "18", n=3, on_hand=D("4"), code="LOW")
+    enough = line("4", "100", "18", n=4, on_hand=D("4"), code="OK")
+    c = run([sold_out, negative, short, enough], registered(MH))
+    assert _codes(c) == [("no_stock", 1), ("no_stock", 2), ("low_stock", 3)]
+    assert c.blocks == ()
+    assert c.doc_total > 0  # the invoice is computed in full
+
+
+def test_the_same_product_on_two_lines_is_judged_on_the_total_and_warned_once():
+    pid = uuid.uuid4()
+    a = line("3", "10", "18", n=1, product_id=pid, on_hand=D("4"))
+    b = line("3", "10", "18", n=2, product_id=pid, on_hand=D("4"))
+    c = run([a, b], registered(MH))
+    assert _codes(c) == [("low_stock", 1)]
+    assert "6" in [i.fix for i in c.warnings if i.code == "low_stock"][0]
+    assert c.blocks == ()
+
+
+def test_stock_quantities_are_exact_decimals():
+    c = run([line("0.3", "10", "18", n=1, on_hand=D("0.1") + D("0.2"))], registered(MH))
+    assert _codes(c) == []  # 0.1 + 0.2 is exactly 0.3, so nothing is short
+
+
+def test_a_product_whose_price_was_never_set_blocks_finalize_unless_a_price_is_typed():
+    unset = dict(price_needed=True, sale_rate=D("0.00"))
+    placeholder = run([line("1", "0.00", "18", n=1, **unset)], registered(MH))
+    assert [(b.code, b.line_no) for b in placeholder.blocks] == [("price_not_set", 1)]
+    typed = run([line("1", "55.00", "18", n=1, **unset)], registered(MH))
+    assert typed.blocks == ()  # a price typed for this invoice is allowed (prices are editable per invoice)
+    set_up = run([line("1", "0.00", "18", n=1, price_needed=False, sale_rate=D("0.00"))], registered(MH))
+    assert "price_not_set" not in [b.code for b in set_up.blocks]
+
+
+def test_a_price_edited_on_the_invoice_recalculates_the_gst():
+    base = run([line("2", "100.00", "18", n=1)], registered(MH))
+    edited = run([line("2", "120.00", "18", n=1)], registered(MH))
+    assert base.taxable_total == D("200.00") and edited.taxable_total == D("240.00")
+    assert (base.cgst_total, edited.cgst_total) == (D("18.00"), D("21.60"))
+
+
+def test_a_zero_price_warns_once_the_product_price_is_set_but_never_blocks():
+    c = run([line("1", "0.00", "18", n=1, price_needed=False, sale_rate=D("0.00"))], registered(MH))
+    assert [(w.code, w.line_no) for w in c.warnings if w.code == "price_zero"] == [("price_zero", 1)]
+    assert "price_not_set" not in [b.code for b in c.blocks]
+

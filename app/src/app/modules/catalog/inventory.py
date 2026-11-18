@@ -361,3 +361,23 @@ def reverse(uow: UnitOfWork, movement_id: uuid.UUID, reason, *, today: date) -> 
     audit.record(uow, "stock.reversed", "product", row.product_id, reason=why,
                  data={"code": p.code, "quantity": f"{-row.quantity:f}"})
     return new_id
+
+
+def record_sale_out(uow: UnitOfWork, *, product_id: uuid.UUID, quantity: Decimal, document_id: uuid.UUID,
+                    document_line_id: uuid.UUID, sold_on: date) -> uuid.UUID:
+    """A finalized invoice line takes stock out: one negative movement, once per
+    (document_id, document_line_id), in the caller's unit of work so it commits or rolls back
+    with the invoice. It NEVER refuses for lack of stock: the balance may go to or below zero
+    (Pankaj's R2 rule), and the screens show "no stock". Called only by sales' finalize.
+    A retry returns the movement already written.
+    """
+    qty = parse_quantity(quantity)
+    row = uow.tx.execute(
+        text("select id from catalog.stock_movements where business_id = :b and kind = 'sale_out'"
+             " and source_type = 'sales_invoice' and source_id = :s and source_line_id = :l"),
+        {"b": uow.principal.business_id, "s": document_id, "l": document_line_id},
+    ).one_or_none()
+    if row is not None:
+        return row.id
+    return _post(uow, product_id, "sale_out", -qty, sold_on, source_type="sales_invoice", source_id=document_id,
+                 source_line_id=document_line_id)
