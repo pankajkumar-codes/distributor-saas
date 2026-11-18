@@ -190,3 +190,4 @@ ol.steps { list-style: none; margin: 0 0 12px; padding: 0; counter-reset: s; }
 ol.steps > li { counter-increment: s; position: relative; padding: 12px 0 12px 44px; border-bottom: 1px solid var(--line); }
 ol.steps > li:last-child { border-bottom: 0; }
 ol.steps > li::before { content: counter(s); position: absolute; left: 0; top: 10px; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 700; background: var(--gst-soft); color: var(--gst); }
+.diff { background: var(--warn-soft); font-weight: 700; color: var(--warn); border-radius: 4px; padding: 1px 5px; }
