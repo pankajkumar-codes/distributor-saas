@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { errorText, toApiError } from "../../src/api/errors";
+import { errorText, plainValidation, toApiError } from "../../src/api/errors";
 
 const response = (status: number, headers: Record<string, string> = {}) => new Response(null, { status, headers });
 
@@ -46,5 +46,26 @@ describe("errorText", () => {
     expect(errorText(err(0))).toMatch(/couldn't reach/);
     expect(errorText(err(0, { code: "timeout" }))).toBe("The server is taking too long to answer. Try again in a moment."); // gave up waiting
     expect(errorText(err(400, { code: "something_new" }))).toBe("That didn't work. Try again.");
+  });
+});
+
+describe("plainValidation", () => {
+  it("turns the framework's checks into plain sentences by the field they name", () => {
+    expect(plainValidation("String should match pattern '^[0-9]{6}$'", "address.pin")).toBe("A PIN code is 6 digits and doesn't start with 0.");
+    expect(plainValidation("String should match pattern '^\\s*[^@\\s]+@[^@\\s]+$'", "email")).toBe("Enter a valid email address, like name@business.in.");
+    expect(plainValidation("Input should be 'taxable', 'exempt', 'nil_rated' or 'non_gst'", "tax_category")).toBe("Choose how GST applies.");
+    expect(plainValidation("String should have at most 300 characters", "name")).toBe("That is too long. Make it shorter.");
+    expect(plainValidation("Field required", "name")).toBe("This is required.");
+    expect(plainValidation("that isn't a GST state code", "cash_buyer.state_code")).toBe("Choose a state from the list.");
+  });
+
+  it("falls back to a plain line for a field it has no wording for, and leaves plain messages alone", () => {
+    expect(plainValidation("String should match pattern '^x$'", "other")).toBe("That isn't in the format we expect. Check it and try again.");
+    expect(plainValidation("Another product already uses this code", "code")).toBe("Another product already uses this code");
+  });
+
+  it("is applied to every API error message", () => {
+    const body = { error: { code: "invalid", message: "String should match pattern '^[0-9]{6}$'", field: "pin" } };
+    expect(toApiError(response(422), body).message).toBe("A PIN code is 6 digits and doesn't start with 0.");
   });
 });
