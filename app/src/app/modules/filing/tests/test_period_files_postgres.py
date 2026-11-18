@@ -60,7 +60,7 @@ def sale(pg, biz, number, on, *, practice=False, kind="invoice", taxable="100.00
                  " values (:l, :b, :c, 9, :a)", l=line, b=biz, c=comp, a=Decimal(amt))
 
 
-def purchase(pg, biz, number, on, *, file_name="bill.pdf", taxable="200.00"):
+def purchase(pg, biz, number, on, *, file_name="bill.pdf", taxable="200.00", product="Cotton tee"):
     f, d, dl, r = (uuid.uuid4() for _ in range(4))
     seed(pg, "insert into imports.purchase_files (id, business_id, s3_key, file_name, size_bytes, kind, status, created_by)"
              " values (:f, :b, 'k', :fn, 5, 'pdf', 'read', :u)", f=f, b=biz, fn=file_name, u=uuid.uuid4())
@@ -73,8 +73,8 @@ def purchase(pg, biz, number, on, *, file_name="bill.pdf", taxable="200.00"):
              " '2026-27', :on, 236, :u)", r=r, b=biz, d=d, n=number, k=number.upper(), on=on, u=uuid.uuid4())
     seed(pg, "insert into imports.purchase_review_lines (id, business_id, review_id, line_no, draft_line_id, product_id,"
              " created_product, product_name, hsn, unit, quantity, taxable_value, gst_rate, cgst, sgst)"
-             " values (:l, :b, :r, 1, :dl, :p, true, 'Cotton tee', '6109', 'PCS', 2, :t, 18, 18, 18)",
-         l=uuid.uuid4(), b=biz, r=r, dl=dl, p=uuid.uuid4(), t=Decimal(taxable))
+             " values (:l, :b, :r, 1, :dl, :p, true, :pn, '6109', 'PCS', 2, :t, 18, 18, 18)",
+         l=uuid.uuid4(), b=biz, r=r, dl=dl, p=uuid.uuid4(), t=Decimal(taxable), pn=product)
     return f
 
 
@@ -209,3 +209,35 @@ def test_exports_are_insert_only_and_the_audit_row_has_counts_only(shop):
                 c.execute(text(f"update filing.{table} set business_id = business_id"))
     data = scalar(pg.owner, "select data::text from platform.audit_log where action = 'filing.period_files_made'")
     assert out["id"] in data and "SUP-1" not in data and "INV-1" not in data and GSTIN not in data
+
+
+def test_typed_text_that_looks_like_a_formula_stays_text_in_the_workbook(shop):
+    pg, biz = shop
+    evil = '=HYPERLINK("http://example.invalid","click")'
+    purchase(pg, biz, "SUP-1", date(2026, 11, 5), file_name=evil, product="=1+1")
+    out = make(pg, biz).json()
+    raw = bytes_of(pg, biz, out["id"], "workbook")
+    book = openpyxl.load_workbook(io.BytesIO(raw))
+    (row,) = sheet(book, "Purchases")[2:]
+    assert evil in row and "=1+1" in row
+    for ws in book.worksheets:  # no formula cell anywhere, and the file holds no <f> element
+        assert all(c.data_type != "f" for r in ws.iter_rows() for c in r)
+    import zipfile
+
+    with zipfile.ZipFile(io.BytesIO(raw)) as z:
+        assert not any(b"<f>" in z.read(n) or b"<f " in z.read(n) for n in z.namelist() if n.startswith("xl/worksheets/"))
+
+
+def test_a_closed_download_rule_refuses_before_anything_is_built_or_stored(shop):
+    from app.modules.filing import entitlement
+
+    pg, biz = shop
+    month_data(pg, biz)
+    entitlement.set_check(lambda tx, b: False)
+    try:
+        r = make(pg, biz)
+    finally:
+        entitlement.set_check(None)
+    assert (r.status_code, r.json()["error"]["code"]) == (409, "download_not_available")
+    assert scalar(pg.owner, "select count(*) from filing.period_exports") == 0
+    assert not any(p.is_file() for p in get_store().root.rglob("*")) if hasattr(get_store(), "root") else True

@@ -315,8 +315,12 @@ Every row in `refdata/` is `provisional`. Before go-live:
 - **Input tax credit.** Purchases are listed as the business confirmed them. Eligibility of credit, reverse charge on purchases, and a purchase from an unregistered supplier are not decided here (CA question, with CA-5).
 - **GSTR-1 JSON for sales is the return's own export.** The monthly files do not remake it. A business sees the two together only through the response's list of return instances; a one-button bundle that triggers the GSTR-1 export too is a screen decision.
 - **Web screen not built in this slice.** The routes (`POST/GET /period-files`) and OpenAPI types are in. The screen, and the "enabled only once the period has ended" button of R3, follow.
-- **Large periods.** A period with more than `filing.period_files.max_rows` rows of any kind is refused with `period_too_large`; the files are made inside the request, not a job. A job would be needed for bigger businesses.
+- **Large periods.** (cap now 10,000, see below) A period with more than `filing.period_files.max_rows` rows of any kind is refused with `period_too_large`; the files are made inside the request, not a job. A job would be needed for bigger businesses.
 - **Workbook bytes.** The workbook is not byte-for-byte reproducible (the zip carries its own write times), so repeat requests return the stored file by fingerprint rather than rebuilding it.
+- **Purchases are placed in a period by invoice date (CA question).** Whether input tax credit follows the invoice date, the date received or the date the business confirmed it is for the CA sheet; the workbook says it does not decide ITC. A purchase confirmed late for an exported month makes a new export (the old stays, insert-only); the screen shows the newest first.
+- **Cap lowered to 10,000 rows per kind (Staff review of M6, S1).** Files are still built inside the request; 50,000 was never measured. `filing.period_files.max_rows` is now 10,000 until someone measures the API Lambda's time and memory on a real large month, or generation moves to a job. A month above the cap is refused with `period_too_large`.
+- **Download rule checked first (S2/S3).** The plan check runs before anything is built or stored, so a refusal leaves no objects behind.
+- **Excel text stays text (B1).** Every text cell is written as a string cell, so a supplier name or document number that starts with `=` is shown as text, never run as a formula.
 
 ## Release blockers (not R1 build blockers; Pankaj, 2026-11-17)
 These need Pankaj or his CA and do not stop building. Each must be done before production release.

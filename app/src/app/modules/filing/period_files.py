@@ -190,7 +190,7 @@ def build_workbook(gstin: str, period: Period, sales, purchases, practice) -> by
     rows += [(), ("The GSTR-1 file for sales is made from the return screen, not here.",),
              ("Amounts are exactly as held; nothing is rounded for this file.",)]
     for r in rows:
-        s.append(list(r))
+        _append(s, list(r))
     s["A1"].font = bold
     for name, headers, data, cols, note in (
         ("Sales", SALES_HEADERS, sales, SALES_COLUMNS, "Live invoices and credit notes only. Credit notes are shown, not netted."),
@@ -198,16 +198,25 @@ def build_workbook(gstin: str, period: Period, sales, purchases, practice) -> by
         ("Practice (not filed)", PRACTICE_HEADERS, practice, PRACTICE_COLUMNS, "Practice documents. They are not filed and are in no total."),
     ):
         ws = wb.create_sheet(name)
-        ws.append([note])
-        ws.append(list(headers))
+        _append(ws, [note])
+        _append(ws, list(headers))
         for c in ws[HEADER_ROW]:
             c.font = bold
         width = len(cols)
         for row in data:
-            ws.append([_cell(v) for v in row[:width]])
+            _append(ws, [_cell(v) for v in row[:width]])
     out = io.BytesIO()
     wb.save(out)
     return out.getvalue()
+
+
+def _append(ws, values: list) -> None:
+    """Append a row with every text value forced to a string cell. openpyxl turns a string that starts with "=" into a live
+    formula, and names, document numbers and file names are typed by users (formula injection), so text stays text."""
+    ws.append(values)
+    for c in ws[ws.max_row]:
+        if isinstance(c.value, str):
+            c.data_type = "s"
 
 
 def _cell(v):
@@ -242,8 +251,12 @@ def build_register(gstin: str, period: Period, purchases) -> bytes:
 
 
 def generate(uow: UnitOfWork, kind: str, start: date, today: date) -> PeriodExport:
+    from . import entitlement
+
     tx = uow.tx
     business = uow.principal.business_id
+    if not entitlement.allowed(tx, business):  # before any work: a refusal must not build or store anything
+        raise Conflict("download_not_available", "Downloading the file is not available for your plan yet.")
     period = period_of(tx, kind, start, today)
     gstin = _gstin(tx)
     cap = int(value_on(tx, "filing.period_files.max_rows", today))
