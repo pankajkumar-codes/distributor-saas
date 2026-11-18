@@ -4,7 +4,7 @@ import { Link, useLocation, useParams } from "react-router-dom";
 import { api, call } from "../../api/client";
 import { errorText, type ApiError } from "../../api/errors";
 import type { components } from "../../api/schema";
-import { canCreateDocuments, canViewUploads } from "../../auth/roles";
+import { canCreateDocuments, canPrepareReturns, canViewUploads } from "../../auth/roles";
 import { FEATURES } from "../../features";
 import { TOTP_PROMPTED, useMe } from "../../auth/useMe";
 import { SUPPORT_ROLE, useMyBusinesses } from "../../auth/useMyBusinesses";
@@ -62,8 +62,8 @@ export function HomePage() {
     queryFn: () => call(() => api.GET("/api/v1/b/{business_id}/home", { params: { path: { business_id: businessId } } })),
     enabled: Boolean(business),
   });
-  // The GST card shows the server's current periods (the same call as Filing home); if it fails the card just has the button.
-  const returns = useReturns(businessId, undefined, Boolean(business));
+  // The GST card shows the server's current periods (the same call as Filing home; only for roles that may prepare returns, the others would get a 403); if it fails the card just has the button.
+  const returns = useReturns(businessId, undefined, Boolean(business) && canPrepareReturns(business?.role ?? ""));
   // Owners and CAs are asked to turn on two-step sign-in (H-1 item 3); nobody else is asked.
   const me = useMe({ enabled: Boolean(business && TOTP_PROMPTED.has(business.role)) });
   // Warnings from creating the business, handed over by /onboarding/business; gone on reload.

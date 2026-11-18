@@ -89,6 +89,17 @@ describe("Home", () => {
     expect(within(card).getByRole("link", { name: "Open Filing home" })).toHaveAttribute("href", "/b/b-1/filing");
   });
 
+  it("doesn't ask for the periods when the role can't prepare returns (it would be refused)", async () => {
+    server = fakeApi(); // a fresh one, so the queued owner answer from beforeEach isn't used
+    server.reply(REFRESH, { status: 200, body: { access_token: "t", expires_in: 3600 } });
+    server.reply(ME, { status: 200, body: { businesses: [{ business_id: "b-1", display_name: "Vashi Essentials", gstin: null, role: "billing" }] } });
+    server.reply(HOME, home());
+    open();
+    const card = await screen.findByRole("navigation", { name: "GST filing" });
+    expect(within(card).getByRole("link", { name: "Open Filing home" })).toBeInTheDocument();
+    expect(server.paths()).not.toContain("/api/v1/b/b-1/returns");
+  });
+
   it("still shows the GST filing card with its button when the periods can't be loaded", async () => {
     server.reply(HOME, home());
     server.reply("/api/v1/b/b-1/returns", { status: 500, body: { detail: "x" } });
