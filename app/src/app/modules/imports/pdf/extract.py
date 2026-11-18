@@ -6,8 +6,10 @@ do: no tax logic, no rate inference, no arithmetic check (R1-M7 does those), no 
 description is read into a result (only the buyer's GSTIN), and no number is parsed through binary float.
 The HSN shape is the caller's refdata `hsn.pattern` (format only; the minimum length by turnover is a CA
 question this module never decides). Numeric dates are read day first (DD/MM/YYYY); a date that is not a real
-calendar date that way is left blank. Layouts with the tax split over two heading rows (a "CGST" group over "Rate" and "Amt") or with labels above
-their values in a grid are not read in this slice: their fields stay blank for the seller to fill in.
+calendar date that way is left blank. Two further layouts are read (slice 4c): a tax group over "Rate" and "Amt"
+sub-headings (the amount column is used; a rate under IGST is the rate only when there is no GST % column, and a
+CGST or SGST rate is never doubled into one), and a row of labels over a row of values (joined into "label: value"
+only when every label has a value under it and the row holds nothing else).
 """
 
 import re
@@ -39,6 +41,13 @@ QTY_UNIT = re.compile(r"^(\d[\d,]*(?:\.\d+)?)\s*([A-Za-z]{1,10})?$")
 DOC_TYPES = (("credit note", "Credit note"), ("debit note", "Debit note"), ("tax invoice", "Invoice"),
              ("invoice", "Invoice"))
 TITLE_ROWS = 6
+LABEL_ONLY = re.compile(
+    r"^(?:original\s+)?(?:(?:tax\s+)?invoice|credit\s*note|debit\s*note)\s*(?:no|number|date)\.?$"
+    r"|^date$|^place\s+of\s+supply$|^gstin$", re.I)
+SUB_RATE = re.compile(r"^(?:rate(?:\s*%)?|%)$", re.I)
+SUB_AMOUNT = re.compile(r"^(?:amt|amount)\.?$", re.I)
+SUB_REACH = 40  # float-ok: points; a Rate or Amt cell farther than this from every tax heading is not under one
+TAX_COLUMNS = ("igst", "cgst", "sgst", "cess")
 
 
 def text_of(row: Row) -> str:
@@ -83,8 +92,46 @@ class PageFacts:
     has_title: bool = False
 
 
+def _overlap(a: Cell, b: Cell) -> float:  # float-ok: page geometry in points, never money
+    return min(a.x1, b.x1) - max(a.x0, b.x0)
+
+
+def join_stacked_labels(rows: list[Row]) -> list[Row]:
+    """A row of labels over a row of values becomes one row of "label: value" cells. Only when every cell of the
+    first row is a known label and each has its own value cell under it; otherwise both rows are left as they are."""
+    out: list[Row] = []
+    i = 0
+    while i < len(rows):
+        row = rows[i]
+        nxt = rows[i + 1] if i + 1 < len(rows) else None
+        if nxt is not None and all(LABEL_ONLY.match(c.text.strip()) for c in row):
+            used: set[int] = set()
+            joined: Row = []
+            for label in row:
+                best = max(((j, _overlap(label, v)) for j, v in enumerate(nxt) if j not in used),
+                           key=lambda t: t[1], default=(None, 0))
+                if best[0] is None or best[1] <= 0:
+                    joined = []
+                    break
+                used.add(best[0])
+                value = nxt[best[0]]
+                joined.append(Cell(f"{label.text.strip().rstrip(':')}: {value.text}", min(label.x0, value.x0),
+                                   max(label.x1, value.x1)))
+            if joined and len(used) == len(row) and len(nxt) == len(row):
+                out.append(joined)
+                i += 2
+                continue
+        if all(LABEL_ONLY.match(c.text.strip()) for c in row):
+            i += 1  # labels with no value under them carry no fact, and read as text they would invent one
+            continue
+        out.append(row)
+        i += 1
+    return out
+
+
 def read_page(page: int, rows: list[Row], hsn: re.Pattern) -> PageFacts:
     f = PageFacts(page)
+    rows = join_stacked_labels(rows)
     texts = [text_of(r) for r in rows]
     for t in texts[:TITLE_ROWS]:
         if ":" in t:
@@ -164,7 +211,10 @@ def _table(page: int, rows: list[Row], hsn: re.Pattern) -> tuple[list[ExtractedL
         if cols is None:
             continue
         lines = []
-        for data in rows[i + 1:]:
+        start = i + 1
+        if start < len(rows) and _split_tax_headings(cols, rows[start]):
+            start += 1
+        for data in rows[start:]:
             if TABLE_END.search(data[0].text):
                 break
             line = _line(page, data, cols, hsn)
@@ -172,6 +222,40 @@ def _table(page: int, rows: list[Row], hsn: re.Pattern) -> tuple[list[ExtractedL
                 lines.append(line)
         return lines, True
     return [], False
+
+
+def _parent(cell: Cell, cols: dict[str, Cell]) -> str | None:
+    """The tax heading a sub-heading sits under: the one it overlaps most, else the one whose centre is nearest."""
+    taxes = {n: cols[n] for n in TAX_COLUMNS if n in cols}
+    if not taxes:
+        return None
+    name, head = max(taxes.items(), key=lambda kv: _overlap(cell, kv[1]))
+    if _overlap(cell, head) > 0:
+        return name
+    centre = (cell.x0 + cell.x1) / 2
+    name, head = min(taxes.items(), key=lambda kv: abs((kv[1].x0 + kv[1].x1) / 2 - centre))
+    return name if abs((head.x0 + head.x1) / 2 - centre) < SUB_REACH else None
+
+
+def _split_tax_headings(cols: dict[str, Cell], sub: Row) -> bool:
+    """The row under the headings holds only "Rate" and "Amt" cells, each under a tax heading: use the amount cell as
+    that tax's column and keep the rate cell out of the way. Returns True when the row was such a sub-heading row."""
+    kinds = []
+    for cell in sub:
+        text = cell.text.strip()
+        kind = "rate" if SUB_RATE.match(text) else "amount" if SUB_AMOUNT.match(text) else None
+        parent = _parent(cell, cols)
+        if kind is None or parent is None:
+            return False
+        kinds.append((kind, parent, cell))
+    for kind, parent, cell in kinds:
+        if kind == "amount":
+            cols[parent] = cell
+        elif parent == "igst" and "gst_rate" not in cols:
+            cols["gst_rate"] = cell
+        else:
+            cols[f"{parent}_rate"] = cell
+    return bool(kinds)
 
 
 def _column_for(cell: Cell, cols: dict[str, Cell]) -> str | None:
