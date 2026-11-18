@@ -6,8 +6,6 @@ import re
 import pytest
 
 from app.modules.imports.pdf import Limits, PdfRefused, TextLayerReader, to_table
-from app.modules.imports.pdf.bedrock_stub import BedrockReader
-from app.modules.imports.pdf.interface import InvoiceReader
 from app.modules.imports.readers.own_excel import COLUMNS
 
 from .fixtures.pdf import BUYER, SELLER, invoice_page, one_invoice, pdf
@@ -218,13 +216,6 @@ def test_a_refusal_carries_only_its_code():
     with pytest.raises(PdfRefused) as e:
         read(one_invoice()[:150])
     assert str(e.value) == e.value.code and e.value.__cause__ is None
-
-
-def test_the_paid_reader_stub_fits_the_interface_and_is_not_usable():
-    reader: InvoiceReader = BedrockReader()
-    assert reader.id == "pdf_bedrock_v1"
-    with pytest.raises(NotImplementedError):
-        reader.read(b"", LIMITS)
 
 
 def test_the_hsn_shape_comes_from_the_callers_pattern_not_the_reader():

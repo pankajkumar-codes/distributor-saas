@@ -4,7 +4,8 @@ The interface is the plug-in point for the free readers (text layer now, OCR in 
 later (Bedrock, not built and not switched on: Pankaj's decision D2). A reader takes the bytes of one PDF
 and returns the invoices it found, as the same fields the Excel template has, so staging, hold rules, the
 review screen and the Excel cross-check need nothing of their own. A reader never touches the database or the
-object store, never calls the network or any paid service, and never logs a value it read.
+object store and never logs a value it read. The free readers never call the network or any paid service; the
+paid reader (Bedrock) does, only when switched on, and only through a client it is given.
 
 Principle: a field the reader is not sure of is left blank and named in `unclear`; it is never guessed. The
 seller types it in on the review screen.
