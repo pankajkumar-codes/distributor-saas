@@ -22,6 +22,28 @@ x-api: &api
 services:
   db:
     image: postgres:16
+    # Throwaway data, so the database never waits for a disk: nothing is flushed on commit, the data lives in memory
+    # (tmpfs), and checkpoints are rare. A slow Docker disk (Windows with WSL) once held a sign-in commit past the web
+    # app's 20 second limit. DEMO ONLY: never copy these settings to a real database. Slow statements and lock waits
+    # are logged so `docker compose -p gstdemo logs db` shows what was slow.
+    command:
+      - postgres
+      - -c
+      - fsync=off
+      - -c
+      - synchronous_commit=off
+      - -c
+      - full_page_writes=off
+      - -c
+      - checkpoint_timeout=30min
+      - -c
+      - max_wal_size=2GB
+      - -c
+      - log_min_duration_statement=500
+      - -c
+      - log_lock_waits=on
+    tmpfs:
+      - /var/lib/postgresql/data
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: local-only
@@ -42,7 +64,7 @@ services:
 
   api:
     <<: *api
-    command: ["python", "-m", "uvicorn", "app.api:app", "--app-dir", "app/src", "--host", "0.0.0.0", "--port", "8000"]
+    command: ["python", "-m", "uvicorn", "app.api:app", "--app-dir", "app/src", "--host", "0.0.0.0", "--port", "8000", "--log-level", "${UVICORN_LOG_LEVEL:-info}"]
     depends_on:
       migrate: { condition: service_completed_successfully }
     healthcheck:

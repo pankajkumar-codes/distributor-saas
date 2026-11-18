@@ -44,6 +44,7 @@ describe("errorText", () => {
     expect(errorText(err(400, { code: "code_not_accepted" }))).toMatch(/code didn't work/);
     expect(errorText(err(500))).toMatch(/our side/);
     expect(errorText(err(0))).toMatch(/couldn't reach/);
+    expect(errorText(err(0, { code: "timeout" }))).toBe("The server is taking too long to answer. Try again in a moment."); // gave up waiting
     expect(errorText(err(400, { code: "something_new" }))).toBe("That didn't work. Try again.");
   });
 });
