@@ -42,7 +42,7 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   await expect(page.getByRole("table").getByText("GSTR-1").first()).toBeVisible();
   await expect(page.getByText("Check on the GST portal").first()).toBeVisible();
   await noSeriousAxeFindings(page);
-  await page.getByRole("link", { name: "Home" }).first().click();
+  await page.getByRole("link", { name: "Home", exact: true }).first().click();
   await expect(page.getByRole("region", { name: "Set up your business" })).toBeVisible();
 
   // The customer step opens the (still empty) customers list; add one, find it, go back Home.
