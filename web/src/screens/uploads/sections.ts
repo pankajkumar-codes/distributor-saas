@@ -69,9 +69,10 @@ export function statusText(u: Upload): string {
 }
 
 /** The short chip beside a section's name (mock v13): the state of its latest upload, in the server's own status. */
-export function statusChip(u: Upload | undefined): { label: string; tone: string } {
-  if (!u) return { label: "Nothing uploaded yet", tone: "" };
+export function statusChip(u: Upload): { label: string; tone: string } {
   switch (u.status) {
+    case "pending":
+      return { label: "Waiting", tone: "chip-info" };
     case "parsed":
       return { label: "Read", tone: "chip-ok" };
     case "stored":
