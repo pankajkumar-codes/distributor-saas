@@ -329,6 +329,20 @@ Every row in `refdata/` is `provisional`. Before go-live:
 - **Download rule checked first (S2/S3).** The plan check runs before anything is built or stored, so a refusal leaves no objects behind.
 - **Excel text stays text (B1).** Every text cell is written as a string cell, so a supplier name or document number that starts with `=` is shown as text, never run as a formula.
 
+## R3-M1 and R3-M2 per-period gate and file button (2026-11-18)
+- **"The filing period has started" is taken as "the period has ended".** There is no separate portal date for when filing opens in refdata, and none is invented: the button opens the day after the month or quarter ends. If the GST portal calendar shows a different opening day, add a dated refdata key and the gate reads it. Needs the portal calendar (Pankaj's screenshot, already open).
+- **Due dates stay "Check on the GST portal"** until the refdata row in force is confirmed.
+- **Who may confirm.** Owner, admin and CA (`returns.prepare`) can confirm the two checks and press the button; billing cannot. Confirm with the EM whether the CA should be able to attest that all invoices are in the portal, or only the owner and admin.
+- **Staleness is strict.** Any change to the period's posted sales, purchases or practice rows after a confirmation makes it stale and the business confirms again. This may feel strict for a late purchase; it is the safe default until a CA says otherwise.
+- **Who is gated.** Only a business that has chosen a business type (distributor or retail) is gated on the GSTR-1 export; a seller with no type files as in R1. Revisit if marketplace sellers should confirm too.
+- **Not in this slice.** Platform files combined for sellers on both (R3-M4), GSTR-1 from finalized invoices (R3-M3) and return assignment, lock and mark filed for live invoices (R3-M5) are other slices.
+
+## R3-M4 platform files in the gate (2026-11-18)
+- **Rule built.** A business that sells on Amazon, Flipkart or Meesho (chosen in Business setup) also needs, for every month of the period, each platform's files (all report types its readers need) or a "none this month" note. It is read from uploads, not attested, and closes the button with `platform_files_missing`. A business that sells only here is not asked.
+- **Tested end to end.** `imports/tests/test_coverage_postgres.py` uploads a made-up Amazon zip through the real readers and shows the gate stop asking for it and the button open; the no-sales note path is in the filing gate tests.
+- **Combining.** The gate decides when the file may be made. How platform rows and our own invoices are merged into one GSTR-1 stays with the return build (R3-M3, Staff 2 (4)); nothing here merges data.
+- **Platform files the readers do not cover** (a platform not among the three) cannot be asked for; the gate says nothing about them.
+
 ## Release blockers (not R1 build blockers; Pankaj, 2026-11-17)
 These need Pankaj or his CA and do not stop building. Each must be done before production release.
 - **CA question sheet** (`team/program-lead/ca-question-sheet-v1.md`, CA-1 to CA-5 above and the platform treatment items): Pankaj takes it to his CA just before release.
@@ -340,3 +354,5 @@ These need Pankaj or his CA and do not stop building. Each must be done before p
 
 ## Decision handling
 For each answer, update `docs/DECISIONS.md` with the decision, rationale, trade-offs, and approval status. Do not silently turn assumptions into requirements.
+- **Turning live finalize on (CA, then CEO or Pankaj) (R3-M5, D-091):** a second refdata switch `sales.finalize.live` ships `"false"`; turn it on, after `sales.finalize.enabled`, only once the CA confirms the numbering scope (CA-1). Credit-note finalize is still not built (needs the credit-note treatment, CA).
+- **R3 remaining (open, no owner decision needed to build):** the period-files page (web/src/screens/periodfiles/FilePeriodPage.tsx) still says locking and marking filed from that page is "Upcoming"; the backend mark-filed, lock and unlock exist (R1-M8) and are used from each return screen, so wiring that page is a web-only follow-up. Live finalize (D-091) stays off; credit-note finalize is not built.

@@ -26,6 +26,17 @@
   status: provisional
   note: "While false, POST /drafts/{id}/finalize is a 404 and no number is issued. Turn on with a later row once D-010 is confirmed."
 
+- key: sales.finalize.live
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-09
+  source_url: team/docs/release-plan-v2.md
+  source_title: "Release plan v2, R3-M5: live finalize and return assignment stay off until the CA confirms the numbering scope (D-010, D-044)"
+  last_checked: 2026-11-18
+  status: provisional
+  note: "Second switch, read after sales.finalize.enabled. While false, a business set to live numbering is refused (live_numbering_unavailable) and no document is assigned to a return. Turn on with a later row only after the CA answers (CA-1)."
+
 - key: sales.numbering_scope
   value: "gstin_kind_fy"
   type: enum

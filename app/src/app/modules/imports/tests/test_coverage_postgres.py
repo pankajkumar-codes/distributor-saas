@@ -143,3 +143,38 @@ def test_cash_back_rows_with_no_date_take_the_months_of_the_sales_sheet_and_the_
     (month,) = get(pg, f"/api/v1/b/{biz}/marketplace-coverage").json()["months"]
     flipkart = next(p for p in month["marketplaces"] if p["marketplace"] == "flipkart")
     assert flipkart["received"] == ["cashback", "orders"]
+
+
+def test_the_filing_gate_asks_for_a_platforms_files_and_opens_once_they_are_uploaded(shop):  # noqa: F811
+    """R3-M4 end to end: a business that sells on Amazon uploads a (made-up) Amazon zip for July 2026 and the gate for July
+    stops asking for it. Drives the real readers, the upload and the gate route."""
+    import uuid
+
+    from .conftest import as_user
+
+    pg, biz, _ = shop
+    base = f"/api/v1/b/{biz}"
+    key = {"Idempotency-Key": uuid.uuid4().hex}
+    r = pg.client.post(f"{base}/filing-profile/frequency", json={"frequency": "monthly", "effective_from": "2026-04-01"},
+                       headers={**as_user("alice"), **key})
+    assert r.status_code in (200, 201), r.text
+    r = pg.client.put(f"{base}/channels", json={"amazon": True, "flipkart": False, "meesho": False, "own_invoices": True},
+                      headers=as_user("alice"))
+    assert r.status_code == 200, r.text
+
+    def gate():
+        return pg.client.get(f"{base}/period-gate?kind=month&start=2026-07-01", headers=as_user("alice")).json()
+
+    def confirm(item):
+        return pg.client.put(f"{base}/period-gate", json={"kind": "month", "start": "2026-07-01", "item": item, "confirmed": True},
+                             headers=as_user("alice"))
+
+    assert confirm("purchases_uploaded").status_code == 200 and confirm("invoices_in_portal").status_code == 200
+    before = gate()
+    assert before["can_file"] is False and before["platform_files"] == [{"platform": "amazon", "missing_months": ["2026-07"]}]
+    upload(shop, "amazon", "july.zip", amazon_zip(), "application/zip")
+    run_jobs(shop)
+    after = gate()
+    assert after["platform_files"] == [] and after["can_file"] is True
+    opened = pg.client.post(f"{base}/period-gate/file", json={"kind": "month", "start": "2026-07-01"}, headers=as_user("alice"))
+    assert opened.status_code == 200 and opened.json()["can_file"] is True

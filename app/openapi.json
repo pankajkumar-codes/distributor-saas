@@ -4232,6 +4232,164 @@
         "title": "FrequencyRowOut",
         "type": "object"
       },
+      "GateConfirmIn": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmed": {
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "item": {
+            "enum": [
+              "purchases_uploaded",
+              "invoices_in_portal"
+            ],
+            "title": "Item",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "month",
+              "quarter"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "start": {
+            "format": "date",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "start",
+          "item",
+          "confirmed"
+        ],
+        "title": "GateConfirmIn",
+        "type": "object"
+      },
+      "GateConfirmationOut": {
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At"
+          },
+          "confirmed": {
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "item": {
+            "enum": [
+              "purchases_uploaded",
+              "invoices_in_portal"
+            ],
+            "title": "Item",
+            "type": "string"
+          },
+          "stale": {
+            "title": "Stale",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "item",
+          "confirmed",
+          "stale",
+          "at"
+        ],
+        "title": "GateConfirmationOut",
+        "type": "object"
+      },
+      "GateOpenIn": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "month",
+              "quarter"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "start": {
+            "format": "date",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "start"
+        ],
+        "title": "GateOpenIn",
+        "type": "object"
+      },
+      "GatePlatformOut": {
+        "properties": {
+          "missing_months": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing Months",
+            "type": "array"
+          },
+          "platform": {
+            "enum": [
+              "amazon",
+              "flipkart",
+              "meesho"
+            ],
+            "title": "Platform",
+            "type": "string"
+          }
+        },
+        "required": [
+          "platform",
+          "missing_months"
+        ],
+        "title": "GatePlatformOut",
+        "type": "object"
+      },
+      "GateReturnOut": {
+        "properties": {
+          "form": {
+            "title": "Form",
+            "type": "string"
+          },
+          "instance_id": {
+            "title": "Instance Id",
+            "type": "string"
+          },
+          "period_end": {
+            "format": "date",
+            "title": "Period End",
+            "type": "string"
+          },
+          "period_start": {
+            "format": "date",
+            "title": "Period Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance_id",
+          "form",
+          "period_start",
+          "period_end"
+        ],
+        "title": "GateReturnOut",
+        "type": "object"
+      },
       "GrantIn": {
         "properties": {
           "reason": {
@@ -6522,6 +6680,101 @@
           "start"
         ],
         "title": "PeriodFilesIn",
+        "type": "object"
+      },
+      "PeriodGateOut": {
+        "properties": {
+          "can_file": {
+            "title": "Can File",
+            "type": "boolean"
+          },
+          "confirmations": {
+            "items": {
+              "$ref": "#/components/schemas/GateConfirmationOut"
+            },
+            "title": "Confirmations",
+            "type": "array"
+          },
+          "due_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due Date"
+          },
+          "due_dates": {
+            "default": "Check on the GST portal",
+            "title": "Due Dates",
+            "type": "string"
+          },
+          "ended": {
+            "title": "Ended",
+            "type": "boolean"
+          },
+          "gstr1_returns": {
+            "items": {
+              "$ref": "#/components/schemas/GateReturnOut"
+            },
+            "title": "Gstr1 Returns",
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "month",
+              "quarter"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "opens_on": {
+            "format": "date",
+            "title": "Opens On",
+            "type": "string"
+          },
+          "period_end": {
+            "format": "date",
+            "title": "Period End",
+            "type": "string"
+          },
+          "period_start": {
+            "format": "date",
+            "title": "Period Start",
+            "type": "string"
+          },
+          "platform_files": {
+            "items": {
+              "$ref": "#/components/schemas/GatePlatformOut"
+            },
+            "title": "Platform Files",
+            "type": "array"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "period_start",
+          "period_end",
+          "ended",
+          "opens_on",
+          "can_file",
+          "reasons",
+          "confirmations",
+          "platform_files",
+          "gstr1_returns",
+          "due_date"
+        ],
+        "title": "PeriodGateOut",
         "type": "object"
       },
       "PeriodReturnOut": {
@@ -13770,6 +14023,173 @@
           }
         },
         "summary": "Get Period Files",
+        "tags": [
+          "filing"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/period-gate": {
+      "get": {
+        "operationId": "get_gate_api_v1_b__business_id__period_gate_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "enum": [
+                "month",
+                "quarter"
+              ],
+              "title": "Kind",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "start",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Start",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeriodGateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Gate",
+        "tags": [
+          "filing"
+        ]
+      },
+      "put": {
+        "operationId": "put_confirmation_api_v1_b__business_id__period_gate_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GateConfirmIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeriodGateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Confirmation",
+        "tags": [
+          "filing"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/period-gate/file": {
+      "post": {
+        "operationId": "open_file_api_v1_b__business_id__period_gate_file_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GateOpenIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeriodGateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open File",
         "tags": [
           "filing"
         ]

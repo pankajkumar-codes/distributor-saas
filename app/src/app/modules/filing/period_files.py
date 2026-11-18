@@ -86,14 +86,14 @@ class PeriodExport:
     created: bool = False  # true when this call made it; false when it found the one already made
 
 
-def period_of(tx, kind: str, start: date, today: date) -> Period:
+def period_of(tx, kind: str, start: date, today: date, *, require_ended: bool = True) -> Period:
     """The period asked for, if it is a whole finished month, or a whole finished quarter of a quarterly filer."""
     if kind not in ("month", "quarter"):
         raise Invalid("period_kind_invalid", "Choose a month or a quarter", field="kind")
     if start.day != 1 or (kind == "quarter" and quarter_start(start) != start):
         raise Invalid("period_start_invalid", "Give the first day of the month, or of the quarter", field="start")
     end = month_end(start) if kind == "month" else month_end(quarter_months(start)[-1])
-    if end >= today:
+    if require_ended and end >= today:
         raise Conflict("period_not_ended", "That period has not ended yet. Come back after it has")
     if kind == "quarter":
         profile = get_profile(tx)
@@ -248,6 +248,15 @@ def build_register(gstin: str, period: Period, purchases) -> bytes:
     doc = {"format": "purchase_register_v1", "portal_file": False, "gstin": gstin,
            "period": {"from": period.start.isoformat(), "to": period.end.isoformat()}, "invoices": list(invoices.values())}
     return json.dumps(doc, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+
+
+def data_fingerprint(tx, period: Period, today: date) -> tuple[str, int, int]:
+    """A fingerprint of the sales, purchase and practice rows of a period (the one the files use), and the sales and purchase
+    line counts. A confirmation made against it goes stale when any of those rows changes."""
+    business = uuid.UUID(str(tx.execute(text("select nullif(current_setting('app.tenant_id', true), '')::uuid")).scalar_one()))
+    cap = int(value_on(tx, "filing.period_files.max_rows", today))
+    sales, purchases, practice = _gather(tx, business, period, cap)
+    return _fingerprint(_gstin(tx), period, sales, purchases, practice), len(sales), len(purchases)
 
 
 def generate(uow: UnitOfWork, kind: str, start: date, today: date) -> PeriodExport:

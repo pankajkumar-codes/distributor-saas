@@ -823,6 +823,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/period-gate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Gate */
+        get: operations["get_gate_api_v1_b__business_id__period_gate_get"];
+        /** Put Confirmation */
+        put: operations["put_confirmation_api_v1_b__business_id__period_gate_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/period-gate/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Open File */
+        post: operations["open_file_api_v1_b__business_id__period_gate_file_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/plan": {
         parameters: {
             query?: never;
@@ -3836,6 +3871,80 @@ export interface components {
             /** Warnings */
             warnings: string[];
         };
+        /** GateConfirmIn */
+        GateConfirmIn: {
+            /** Confirmed */
+            confirmed: boolean;
+            /**
+             * Item
+             * @enum {string}
+             */
+            item: "purchases_uploaded" | "invoices_in_portal";
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "month" | "quarter";
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+        };
+        /** GateConfirmationOut */
+        GateConfirmationOut: {
+            /** At */
+            at: string | null;
+            /** Confirmed */
+            confirmed: boolean;
+            /**
+             * Item
+             * @enum {string}
+             */
+            item: "purchases_uploaded" | "invoices_in_portal";
+            /** Stale */
+            stale: boolean;
+        };
+        /** GateOpenIn */
+        GateOpenIn: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "month" | "quarter";
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+        };
+        /** GatePlatformOut */
+        GatePlatformOut: {
+            /** Missing Months */
+            missing_months: string[];
+            /**
+             * Platform
+             * @enum {string}
+             */
+            platform: "amazon" | "flipkart" | "meesho";
+        };
+        /** GateReturnOut */
+        GateReturnOut: {
+            /** Form */
+            form: string;
+            /** Instance Id */
+            instance_id: string;
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+        };
         /** GrantIn */
         GrantIn: {
             /** Reason */
@@ -4606,6 +4715,48 @@ export interface components {
              * Format: date
              */
             start: string;
+        };
+        /** PeriodGateOut */
+        PeriodGateOut: {
+            /** Can File */
+            can_file: boolean;
+            /** Confirmations */
+            confirmations: components["schemas"]["GateConfirmationOut"][];
+            /** Due Date */
+            due_date: string | null;
+            /**
+             * Due Dates
+             * @default Check on the GST portal
+             */
+            due_dates: string;
+            /** Ended */
+            ended: boolean;
+            /** Gstr1 Returns */
+            gstr1_returns: components["schemas"]["GateReturnOut"][];
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "month" | "quarter";
+            /**
+             * Opens On
+             * Format: date
+             */
+            opens_on: string;
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+            /** Platform Files */
+            platform_files: components["schemas"]["GatePlatformOut"][];
+            /** Reasons */
+            reasons: string[];
         };
         /** PeriodReturnOut */
         PeriodReturnOut: {
@@ -7805,6 +7956,110 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PeriodExportOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_gate_api_v1_b__business_id__period_gate_get: {
+        parameters: {
+            query: {
+                kind: "month" | "quarter";
+                start: string;
+            };
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PeriodGateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_confirmation_api_v1_b__business_id__period_gate_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GateConfirmIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PeriodGateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    open_file_api_v1_b__business_id__period_gate_file_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GateOpenIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PeriodGateOut"];
                 };
             };
             /** @description Validation Error */
