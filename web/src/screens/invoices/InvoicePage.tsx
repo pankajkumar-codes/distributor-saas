@@ -45,6 +45,7 @@ export function InvoicePage() {
   const [stale, setStale] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [cashStateMissing, setCashStateMissing] = useState(false);
+  const cashStateRef = useRef<HTMLSelectElement>(null);
   const path = { business_id: businessId, draft_id: draftId ?? "" };
 
   const loaded = useQuery<Draft, ApiError>({
@@ -132,6 +133,7 @@ export function InvoicePage() {
     e.preventDefault();
     if (form.buyer === "cash" && !form.cash_state) {
       setCashStateMissing(true);
+      cashStateRef.current?.focus();
       return;
     }
     save.mutate(form);
@@ -192,6 +194,7 @@ export function InvoicePage() {
           ) : (
             <>
               <SelectField
+                ref={cashStateRef}
                 label="Buyer's state"
                 options={stateOptions}
                 value={form.cash_state}

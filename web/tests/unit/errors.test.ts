@@ -59,6 +59,18 @@ describe("plainValidation", () => {
     expect(plainValidation("that isn't a GST state code", "cash_buyer.state_code")).toBe("Choose a state from the list.");
   });
 
+  it("keeps the sentence of one of our own rules and only drops the framework's 'Value error' prefix", () => {
+    expect(plainValidation("Value error, Enter a name of up to 200 characters", "name")).toBe("Enter a name of up to 200 characters");
+  });
+
+  it("words number and date checks as such, even on a field that has its own wording", () => {
+    expect(plainValidation("Input should be greater than 0", "rate")).toBe("That number is outside the allowed range.");
+    expect(plainValidation("Input should be a valid decimal", "rate")).toBe("Enter a number, like 45 or 45.50.");
+    expect(plainValidation("Decimal input should have no more than 2 decimal places", "sale_rate")).toBe("Use at most 2 decimal places.");
+    expect(plainValidation("Input should be a valid date or datetime, invalid character in year", "valid_from")).toBe("Enter a valid date.");
+    expect(plainValidation("Input should be less than or equal to 100", "quantity")).toBe("That number is outside the allowed range.");
+  });
+
   it("falls back to a plain line for a field it has no wording for, and leaves plain messages alone", () => {
     expect(plainValidation("String should match pattern '^x$'", "other")).toBe("That isn't in the format we expect. Check it and try again.");
     expect(plainValidation("Another product already uses this code", "code")).toBe("Another product already uses this code");

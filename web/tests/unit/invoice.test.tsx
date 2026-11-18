@@ -56,6 +56,8 @@ describe("a cash sale without the buyer's state", () => {
     expect(await screen.findByText("Choose the buyer's state for a cash sale.")).toBeInTheDocument();
     expect(sent(DRAFTS, "POST")).toHaveLength(0);
     expect(screen.getByLabelText("Buyer's state")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByText("Choose the buyer's state for a cash sale.")).toHaveAttribute("role", "alert");
+    expect(document.activeElement).toBe(screen.getByLabelText("Buyer's state")); // focus goes to the field to fix
   });
 });
 
