@@ -56,7 +56,7 @@ These sharpen the priorities above for the approved design (docs/ARCHITECTURE.md
 | Code brute force | 5 tries, 10 minutes, per-email and per-IP limits | Sign-up and sign-in code tests |
 | Password rules, sign-up and reset | One refdata policy checked on the server in four places and aligned with the Cognito pool; a weak password is refused before any code is sent or try counted (the check is a pure function of the text, so it costs no database write); `GET /auth/password-policy` is public and cached for 60 s; the password is never logged, audited, stored in a code row or mailed | Password policy, alignment and never-logged tests |
 | Password guessing at sign-in | 10 tries per email per 15 minutes; only wrong guesses count (a right password gives its try back, D-060), the per-IP limit counts every request | Sign-in limit tests |
-| Second sign-in while a session is live | One active session per user: the sign-in opens nothing until the person says yes on the new browser; the other session then ends (D-092). A token that was never confirmed has no session row, so no route accepts it; a "no" is stored as an ended session so it cannot be turned into a yes | One-session tests |
+| Second sign-in while a session is live | One active session per user: the sign-in opens nothing until the person says yes on the new browser; the other session then ends (D-092). A token that was never confirmed has no session row, so no route accepts it; a "no" is stored as an ended session so it cannot be turned into a yes | One-session tests A session counts as live only if used in the last 30 minutes (D-093); older ones are ended when the new sign-in opens. |
 | Stolen access token after sign-out | 5-minute tokens + per-request session check | Session tests |
 | Sign-out the server never confirmed (offline, 2 s without an answer, a 5xx) | The tab is signed out at once and does not refresh with the old cookie until the next sign-in; the sign-in page says "We could not end your session on our server. If this computer is shared, close the browser."; the request is repeated once in the background after 5 s (cookie only), and the page then says the session has ended, or keeps the notice. The server session otherwise ends when it expires. Residual: on a shared computer the old refresh cookie can stay until then (D-073) | Session and sign-in tests |
 | CSRF on refresh | `SameSite=Strict`, path-scoped cookie, Origin check | Refresh from another origin is refused |
@@ -73,6 +73,9 @@ These sharpen the priorities above for the approved design (docs/ARCHITECTURE.md
 - Secrets Manager and IAM database auth.
 - Verification codes and share tokens are stored only as hashes.
 - Nothing secret is kept in the repo.
+
+## Data residency (D-094)
+Tenant data, files, backups and logs that hold them stay in AWS Mumbai (ap-south-1) and Hyderabad (ap-south-2). No replication, backup copy, multi-region key or global inference profile; no third-party service receives tenant data unless it processes it in India and the decision is recorded. The CI check `scripts/ci_checks/india_only.py` fails the build on any other region name or cross-region construct; the only exception is the CloudFront certificate in `us-east-1`. Real tenant data never goes to GitHub, CI, AI sessions or shared project files.
 
 ## Data handling
 Use synthetic data in development and tests. Do not upload production customer records to external AI tools unless the data-handling implications have been explicitly reviewed and approved.

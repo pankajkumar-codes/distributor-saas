@@ -19,6 +19,20 @@ export async function codeFor(email: string, template = "signup_code"): Promise<
   return code!;
 }
 
+/** The accept link in the newest invitation email to this address (the local demo prints the same link). */
+export async function inviteLinkFor(email: string): Promise<string> {
+  let link: string | undefined;
+  await expect
+    .poll(() => {
+      const lines = existsSync(OUTBOX) ? readFileSync(OUTBOX, "utf8").trim().split("\n") : [];
+      const mine = lines.map((l) => JSON.parse(l)).filter((m) => m.to === email && m.template === "invitation");
+      link = mine.at(-1)?.params.link;
+      return link;
+    })
+    .toBeTruthy();
+  return link!;
+}
+
 export async function noSeriousAxeFindings(page: Page) {
   const { violations } = await new AxeBuilder({ page }).analyze();
   const serious = violations.filter((v) => v.impact === "serious" || v.impact === "critical");
