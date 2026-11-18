@@ -30,6 +30,11 @@ jobs:
           python-version: "3.12"
       - name: Install
         run: pip install -e libs/platform_common -e "app[dev]"
+      - name: Install OCR programs for the scan-reader tests (local and CI only; not shipped)
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q tesseract-ocr poppler-utils
+          tesseract --version | head -1
+          pdftoppm -v 2>&1 | head -1
       - name: Test
         working-directory: app
         # Coverage is reported, not gated, until business slices exist.
