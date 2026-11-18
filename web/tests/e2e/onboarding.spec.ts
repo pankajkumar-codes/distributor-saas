@@ -57,11 +57,13 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   await page.getByLabel("Credit days").fill("15");
   await noSeriousAxeFindings(page);
   await page.getByRole("button", { name: "Add customer" }).click();
-  await expect(page.getByRole("heading", { name: "Asha Stores" })).toBeVisible();
-  await page.getByRole("link", { name: "Customers" }).click();
+  await expect(page.getByRole("heading", { name: "Customers" })).toBeVisible(); // adding lands on the list
+  await expect(page.getByText("Added Asha Stores.")).toBeVisible();
   const customer = page.getByRole("row").filter({ hasText: "Asha Stores" });
   await expect(customer.getByText("Unregistered")).toBeVisible();
   await expect(customer.getByText("Maharashtra")).toBeVisible();
+  await expect(customer.getByRole("button", { name: "Archive Asha Stores" })).toBeVisible();
+  await expect(customer.getByRole("button", { name: "Delete Asha Stores" })).toBeVisible();
   const overflowC = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflowC).toBeLessThanOrEqual(0);
   await page.goto(homeUrl);
@@ -83,6 +85,9 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   await page.getByLabel("GST rate", { exact: true }).selectOption("18");
   await noSeriousAxeFindings(page);
   await page.getByRole("button", { name: "Add product" }).click();
+  await expect(page.getByRole("heading", { name: "Products" })).toBeVisible(); // adding lands on the list
+  await expect(page.getByText("Added Neem soap.")).toBeVisible();
+  await page.getByRole("link", { name: "Edit Neem soap" }).click();
   await expect(page.getByRole("heading", { name: "Neem soap" })).toBeVisible();
 
   // The owner marks the first rate confirmed in the rate history; the list then has no chip.

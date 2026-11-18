@@ -26,7 +26,11 @@ export function RowActions({ name, editTo, archived, inUse, listKey, archive, re
     setAsking(null);
     queryClient.invalidateQueries({ queryKey: [...listKey] });
   };
-  const archiveM = useMutation<unknown, ApiError, boolean>({ mutationFn: archive, onSuccess: done });
+  const archiveM = useMutation<unknown, ApiError, boolean>({
+    mutationFn: archive,
+    onSuccess: done,
+    onError: () => setAsking(null), // back to the buttons, where the reason is shown
+  });
   const removeM = useMutation<unknown, ApiError>({
     mutationFn: remove,
     onSuccess: done,

@@ -195,6 +195,16 @@ describe("the customers list", () => {
       expect(await screen.findByText(/on invoices, so it can be archived but not deleted/)).toBeInTheDocument();
     });
 
+    it("shows the server's reason when an archive fails", async () => {
+      server.reply(`GET ${LIST}`, page([customer()]));
+      server.reply(`POST ${ONE}/archive`, { status: 409, body: { error: { code: "customer_in_use", message: "x" } } });
+      open();
+      fireEvent.click(await screen.findByRole("button", { name: "Archive Sharma Traders" }));
+      fireEvent.click(screen.getByRole("button", { name: "Yes, archive" }));
+      expect(await screen.findByRole("alert")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Archive Sharma Traders" })).toBeInTheDocument();
+    });
+
     it("offers no Delete for a customer on invoices", async () => {
       server.reply(`GET ${LIST}`, page([customer({ in_use: true })]));
       open();
