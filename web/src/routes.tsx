@@ -11,6 +11,7 @@ import { Portal3bGuidePage } from "./screens/filing/Portal3bGuidePage";
 import { WorksheetPage } from "./screens/filing/WorksheetPage";
 import { ReturnPage } from "./screens/filing/ReturnPage";
 import { UploadsPage } from "./screens/uploads/UploadsPage";
+import { CrosscheckPage } from "./screens/uploads/CrosscheckPage";
 import { HomePage } from "./screens/home/HomePage";
 import { BusinessPage } from "./screens/onboarding/BusinessPage";
 import { CustomerPage } from "./screens/customers/CustomerPage";
@@ -44,6 +45,7 @@ export const routes: RouteObject[] = [
   { path: "/b/:businessId/filing/:instanceId/worksheet", element: <PageTitle title="GSTR-3B worksheet"><RequireAuth><WorksheetPage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/filing/:instanceId", element: <PageTitle title="Your return"><RequireAuth><ReturnPage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/filing/:instanceId/portal-guide-3b", element: <PageTitle title="Enter GSTR-3B on the GST portal"><RequireAuth><Portal3bGuidePage /></RequireAuth></PageTitle> },
+  { path: "/b/:businessId/uploads/crosscheck", element: <PageTitle title="Cross-check"><RequireAuth><CrosscheckPage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/uploads", element: <PageTitle title="Upload your reports"><RequireAuth><UploadsPage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/customers", element: <PageTitle title="Customers"><RequireAuth><CustomersPage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/customers/new", element: <PageTitle title="New customer"><RequireAuth><CustomerPage /></RequireAuth></PageTitle> },
