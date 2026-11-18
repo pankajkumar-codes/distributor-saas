@@ -50,6 +50,8 @@ ignore_imports =
     app.modules.filing.** -> app.modules.business.interface
 ; a file export runs as the user who asked and re-checks their role when it runs, as the other jobs do (R1-M8).
     app.modules.filing.** -> app.modules.identity.interface
+; filing's gate asks imports which marketplace files a period lacks (R3-M4).
+    app.modules.filing.** -> app.modules.imports.interface
 ; Module tests drive the mounted app and may call other modules' interfaces, the
 ; same surface any module may use.
     app.modules.*.tests.** -> app.api

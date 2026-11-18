@@ -3918,6 +3918,16 @@ export interface components {
              */
             start: string;
         };
+        /** GatePlatformOut */
+        GatePlatformOut: {
+            /** Missing Months */
+            missing_months: string[];
+            /**
+             * Platform
+             * @enum {string}
+             */
+            platform: "amazon" | "flipkart" | "meesho";
+        };
         /** GateReturnOut */
         GateReturnOut: {
             /** Form */
@@ -4743,6 +4753,8 @@ export interface components {
              * Format: date
              */
             period_start: string;
+            /** Platform Files */
+            platform_files: components["schemas"]["GatePlatformOut"][];
             /** Reasons */
             reasons: string[];
         };

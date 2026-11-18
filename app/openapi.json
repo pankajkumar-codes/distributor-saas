@@ -4334,6 +4334,32 @@
         "title": "GateOpenIn",
         "type": "object"
       },
+      "GatePlatformOut": {
+        "properties": {
+          "missing_months": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing Months",
+            "type": "array"
+          },
+          "platform": {
+            "enum": [
+              "amazon",
+              "flipkart",
+              "meesho"
+            ],
+            "title": "Platform",
+            "type": "string"
+          }
+        },
+        "required": [
+          "platform",
+          "missing_months"
+        ],
+        "title": "GatePlatformOut",
+        "type": "object"
+      },
       "GateReturnOut": {
         "properties": {
           "form": {
@@ -6720,6 +6746,13 @@
             "title": "Period Start",
             "type": "string"
           },
+          "platform_files": {
+            "items": {
+              "$ref": "#/components/schemas/GatePlatformOut"
+            },
+            "title": "Platform Files",
+            "type": "array"
+          },
           "reasons": {
             "items": {
               "type": "string"
@@ -6737,6 +6770,7 @@
           "can_file",
           "reasons",
           "confirmations",
+          "platform_files",
           "gstr1_returns",
           "due_date"
         ],
