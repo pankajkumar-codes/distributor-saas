@@ -424,3 +424,32 @@ jobs:
             terraform -chdir=$d init -backend=false -input=false
             terraform -chdir=$d validate
           done
+
+  demo-smoke:
+    # The local demo, run as a person runs it (./demo.sh) on Docker: nginx in front, the demo account, an API
+    # restart that keeps sign-in, and a frozen database that must not stop /health. Not in the required checks
+    # yet: it is new, and builds three images. scripts/demo_smoke.sh has the steps.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run the demo and check it
+        run: ./scripts/demo_smoke.sh
+      - name: Save what every piece printed (on failure)
+        if: failure()
+        run: ./demo.sh logs || true
+      - name: Upload the logs (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-logs
+          path: |
+            demo-logs.txt
+            build/demo-start.log
+            build/demo-check.txt
+            build/stuck-me.txt
+          retention-days: 7
+          if-no-files-found: warn
+      - name: Stop the demo
+        if: always()
+        run: ./demo.sh stop || true
