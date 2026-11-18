@@ -276,3 +276,24 @@
 - path: app/src/app/modules/filing/api_worksheet.py
   value: "12"
   reason: "longest page marker accepted; an input limit, not a tax rule"
+- path: app/src/app/modules/imports/pdf/ocr_reader.py
+  value: "2400"
+  reason: "pixels on the longer side of a rasterised page, whatever its paper size; an input bound, not a tax rule"
+- path: app/src/app/modules/imports/pdf/ocr_reader.py
+  value: "60"
+  reason: "Tesseract word confidence (0 to 100) below which a word with a digit is dropped rather than guessed; an OCR setting, not a tax rule"
+- path: app/src/app/modules/imports/pdf/ocr_reader.py
+  value: "30"
+  reason: "Tesseract word confidence below which even a label word is dropped; an OCR setting, not a tax rule"
+- path: app/src/app/modules/imports/pdf/ocr_reader.py
+  value: "2000000"
+  reason: "bytes: the most OCR text one page may answer with; a backstop on program output, not a tax rule"
+- path: app/src/app/modules/imports/pdf/ocr_reader.py
+  value: "1.4"
+  reason: "ratio widening the cell-gap rule from font size to a word's pixel height; page geometry, not a tax rule"
+- path: app/src/app/modules/imports/pdf/ocr_reader.py
+  value: "5"
+  reason: "the length of the %PDF- file signature"
+- path: app/src/app/modules/imports/pdf/ocr_reader.py
+  value: "2"
+  reason: "halving a box to find its centre; page geometry, not a tax rule"

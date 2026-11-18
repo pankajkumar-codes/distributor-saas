@@ -444,6 +444,14 @@ PostgreSQL 16, Python 3.13, synthetic PDFs only; not in a Lambda.
 - **Size.** It loads every live own-invoice row of the business on each request: fine for the first customers. Add a month filter or a row cap before real history builds up (owner: R1-M6 follow-up, not yet done).
 - **Not claimed.** Nothing here was run on a real invoice pair. A PDF with an unreadable required field stages invalid rows, which cannot be confirmed (R1-M7 confirm check), so it is listed as `unplaced_rows` here and the way forward is the Excel.
 
+### Scans and photos: the OCR reader (R1-M6 slice 4b, D-078)
+
+`pdf/ocr_reader.py` (`OcrReader`, id `pdf_ocr_v1`) reads a PDF that is only a picture. It rasterises with poppler's `pdftoppm` (longer side 2400 pixels) and reads each page with Tesseract (`--psm 6`, TSV), both run as separate programs with an empty environment (only `PATH`, one OCR thread, `LC_ALL`), a scratch directory, the remaining `imports.pdf.max_seconds` as the time limit and a bounded answer. Words become cells on rows in the same shape the text-layer reader builds, so the same field rules, hold rules, review screen and cross-check apply. A word that contains a digit and has Tesseract confidence below 60 is dropped, never kept as a guess, so the field stays blank and is named in `unclear`; a label word is kept down to 30. A page with no word it is sure of is `unreadable_pages`.
+
+- **Not selected anywhere.** Nothing in `reading.read_pdf` or the worker uses it. In R1 a scan is held as `pdf_unclear` and the seller is asked for the Excel or a text PDF (CEO, 2026-11-18): Tesseract and poppler do not fit the Lambda package (about 7 MB of margin) and a container Lambda was not approved. It runs locally and in CI only.
+- **Dependencies.** The programs `tesseract-ocr` (Apache-2.0) and `poppler-utils` (GPL-2, run as a separate program, not linked) are installed on the CI `app` job for the tests; no new Python package. Tests skip where they are absent.
+- **Not claimed.** Tried only on synthetic pages drawn from our own fixture generator at 200 dpi. Nothing was run on a real scan, a phone photo, a skewed or low-resolution page, or a language other than English; accuracy on those is unknown. The confidence floors (60, 30) are first guesses, not tuned.
+
 ## Retention of uploads (R1-M3, TD-18)
 
 `retention.purge_uploads()` (the third rule of the retention Lambda, after `purge_drafts`) does two things in the
