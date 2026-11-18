@@ -71,11 +71,11 @@ describe("filing frequency", () => {
     });
     open();
     await screen.findByText("Every quarter (QRMP), from 01-Apr-2026.");
+    fireEvent.click(screen.getByRole("radio", { name: "Every month" }));
     const starts = screen.getByRole("group", { name: "Starting from the quarter that begins" });
     expect(within(starts).getAllByRole("radio").map((r) => (r as HTMLInputElement).value)).toEqual([quarterStartIst(), NEXT].sort());
     expect(within(starts).getByRole("radio", { name: "01-Apr-2099" })).toBeChecked();
 
-    fireEvent.click(screen.getByRole("radio", { name: "Every month" }));
     fireEvent.click(screen.getByRole("button", { name: "Save frequency" }));
     expect(await within(starts).findByText("choose a quarter starting 2027-01-01 or earlier")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Save frequency" }));
@@ -88,6 +88,28 @@ describe("filing frequency", () => {
     expect(second.headers.get("Idempotency-Key")).toBe(first.headers.get("Idempotency-Key")); // same choice, same key
   });
 
+  it("starts on the current frequency, with no start-quarter question or save button until another is picked", async () => {
+    server.reply(PROFILE, profile());
+    open();
+    await screen.findByText("Every quarter (QRMP), from 01-Apr-2026.");
+    expect(screen.getByRole("radio", { name: "Every quarter (QRMP)" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Every month" })).not.toBeChecked();
+    expect(screen.queryByRole("group", { name: "Starting from the quarter that begins" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Save frequency" })).toBeNull();
+    fireEvent.click(screen.getByRole("radio", { name: "Every month" }));
+    expect(screen.getByRole("group", { name: "Starting from the quarter that begins" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save frequency" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: "Every quarter (QRMP)" }));
+    expect(screen.queryByRole("button", { name: "Save frequency" })).toBeNull();
+  });
+
+  it("does not warn about the change period on the very first history row", async () => {
+    server.reply(PROFILE, profile({ history: [row({ id: "f-1", warnings: ["outside_window"] })] }));
+    open();
+    await screen.findByText("Every quarter (QRMP), from 01-Apr-2026.");
+    expect(screen.queryByText(/may fall outside the period/)).toBeNull();
+  });
+
   it("uses a new key for a new choice", async () => {
     server.reply(PROFILE, profile());
     server.reply(CHANGE, { status: 503 }, { status: 503 });
@@ -97,6 +119,7 @@ describe("filing frequency", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save frequency" }));
     expect(await screen.findByText(/Something went wrong on our side/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("radio", { name: "Every quarter (QRMP)" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Every month" }));
     fireEvent.click(screen.getByRole("button", { name: "Save frequency" }));
     await vi.waitFor(() => expect(sent()).toHaveLength(2));
     expect(sent()[1].headers.get("Idempotency-Key")).not.toBe(sent()[0].headers.get("Idempotency-Key"));

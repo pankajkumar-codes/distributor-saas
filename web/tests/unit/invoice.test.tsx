@@ -47,6 +47,44 @@ const open = (path: string) => {
 };
 const sent = (path: string, method: string) => server.sent.filter((s) => s.path === path && s.method === method);
 
+describe("a check that needs last year's turnover band", () => {
+  it("links to the band field on Business setup, remembering which invoice to come back to", async () => {
+    server.reply("/api/v1/b/b-1/products/p-1", { status: 200, body: product });
+    const block = { code: "hsn_needs_turnover_band", fix: "Tell us last year's turnover band (FY 2025-26) to use 4-digit HSN codes. Until then, HSN codes need at least 6 digits.", field: "business.turnover_band", line_no: 1 };
+    server.reply(ONE, { status: 200, body: draft({ computation: computation({ blocks: [block] }) }) });
+    open("/b/b-1/invoices/d-1");
+    const link = await screen.findByRole("link", { name: "Set last year's turnover band" });
+    expect(link).toHaveAttribute("href", "/b/b-1/settings#last-year-band");
+    fireEvent.click(link);
+    expect(window.location.pathname).toBe("/b/b-1/settings");
+    expect(window.history.state?.usr?.backTo).toBe("/b/b-1/invoices/d-1");
+  });
+
+  it("shows the server's fresh checks when the user comes back, so Finalize is no longer held", async () => {
+    server.reply("/api/v1/b/b-1/products/p-1", { status: 200, body: product });
+    const block = { code: "hsn_needs_turnover_band", fix: "Tell us last year's turnover band (FY 2025-26) to use 4-digit HSN codes.", field: "business.turnover_band", line_no: 1 };
+    server.reply(ONE, { status: 200, body: draft({ computation: computation({ blocks: [block] }) }) }, { status: 200, body: draft({ computation: computation() }) });
+    open("/b/b-1/invoices/d-1");
+    fireEvent.click(await screen.findByRole("link", { name: "Set last year's turnover band" }));
+    await waitFor(() => expect(window.location.pathname).toBe("/b/b-1/settings"));
+    window.history.back();
+    await waitFor(() => expect(window.location.pathname).toBe("/b/b-1/invoices/d-1"));
+    await waitFor(() => expect(screen.queryByText(/Tell us last year's turnover band/)).toBeNull());
+    expect(screen.getByRole("button", { name: "Finalize invoice" })).toBeEnabled();
+  });
+
+  it("does not offer to leave while there are unsaved edits", async () => {
+    server.reply("/api/v1/b/b-1/products/p-1", { status: 200, body: product });
+    const block = { code: "hsn_needs_turnover_band", fix: "Tell us last year's turnover band (FY 2025-26) to use 4-digit HSN codes.", field: "business.turnover_band", line_no: 1 };
+    server.reply(ONE, { status: 200, body: draft({ computation: computation({ blocks: [block] }) }) });
+    open("/b/b-1/invoices/d-1");
+    await screen.findByRole("link", { name: "Set last year's turnover band" });
+    fireEvent.change(screen.getByLabelText("Quantity"), { target: { value: "11" } });
+    expect(screen.queryByRole("link", { name: "Set last year's turnover band" })).toBeNull();
+    expect(screen.getByText(/Save your changes first/)).toBeInTheDocument();
+  });
+});
+
 describe("the draft invoice form", () => {
   it("creates a draft once, with the picked customer and product, and shows the server's totals and checks", async () => {
     server.reply("/api/v1/b/b-1/customers", { status: 200, body: { items: [customer], has_more: false } });
