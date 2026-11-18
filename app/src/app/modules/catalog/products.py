@@ -27,7 +27,7 @@ CONFIRMERS = ("owner", "admin")  # L3-3: a rule inside catalog.edit
 EDITABLE = ("code", "name", "hsn", "uqc", "sale_rate", "barcode", "tax_category", "has_cess")
 
 _FIELDS = ("id", "code", "name", "hsn", "uqc", "sale_rate", "barcode", "tax_category", "has_cess", "status",
-           "version")
+           "version", "price_needed")
 _COLUMNS = ", ".join(_FIELDS) + ", first_used_at is not null as in_use"
 
 
@@ -44,6 +44,7 @@ class Product:
     has_cess: bool
     status: str
     version: int
+    price_needed: bool  # R2-M3: made from a purchase line, selling price per 1 qty not set yet
     in_use: bool
 
 
@@ -273,6 +274,8 @@ def update(uow: UnitOfWork, product_id: uuid.UUID, changes: dict, if_match: int 
         # would have none; neither is guessed. The fix is a new product (or delete if unused).
         raise Invalid("tax_category_locked", "A product can't move between taxable and not taxable",
                       field="tax_category", fix="Create a new product with the right category")
+    if "sale_rate" in fields and p.price_needed:
+        fields["price_needed"] = False  # the business has now named the selling price (R2-M3)
     changed = {k: v for k, v in fields.items() if getattr(p, k) != v}
     if not changed:
         return

@@ -9,7 +9,7 @@ here reaches the catalog or stock. Refusals are 404 (LLD-0).
 from datetime import date, datetime
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Header, Request
+from fastapi import APIRouter, Depends, Header, Query, Request
 from fastapi import status as http
 from pydantic import BaseModel, ConfigDict, Field, StrictInt
 
@@ -20,6 +20,8 @@ from platform_common.idempotency import run_once
 from platform_common.paging import PageParams, page_params
 from platform_common.permissions import Permission, require
 from platform_common.uow import BusinessUoW, parse_id
+
+from app.modules.catalog.interface import code_in_use
 
 from . import jobs as import_jobs
 from . import purchases
@@ -175,10 +177,25 @@ def get_draft(draft_id: str, uow: BusinessUoW):
     return _draft_out(purchases.get_draft(uow, parse_id(draft_id)))
 
 
+class NewItemIn(BaseModel):
+    """A product to create from a line. The name and HSN are the line's own; the rate is the business's to confirm."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    code: Annotated[str, Field(max_length=40)]
+    uqc: Annotated[str, Field(max_length=8)]
+    tax_category: Literal["taxable", "exempt", "nil_rated", "non_gst"]
+    gst_rate: Annotated[str | None, Field(max_length=24)] = None  # required when taxable
+    rate_valid_from: date | None = None  # required with gst_rate
+    has_cess: bool = False
+
+
 class LineIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     draft_line_id: str | None = None  # the read line this one came from; null for a line typed in
+    product_id: str | None = None  # an existing catalog product, or `new_item`: exactly one of the two
+    new_item: NewItemIn | None = None
     product_name: Annotated[str, Field(max_length=120)]
     hsn: Annotated[str, Field(max_length=8)]
     quantity: Amount
@@ -202,6 +219,13 @@ class ConfirmIn(BaseModel):
     lines: list[LineIn]
 
 
+class ReceivedOut(BaseModel):
+    line_no: int
+    product_id: str
+    created_product: bool
+    price_needed: bool  # the selling price per 1 qty is still to be set (R2-M3)
+
+
 class ConfirmedOut(BaseModel):
     review_id: str
     draft_id: str
@@ -212,6 +236,7 @@ class ConfirmedOut(BaseModel):
     invoice_total: str | None
     line_count: int
     created_at: datetime
+    received: list[ReceivedOut] = []
 
 
 class ConfirmedListOut(BaseModel):
@@ -222,7 +247,10 @@ class ConfirmedListOut(BaseModel):
 def _confirmed_out(c: purchases.Confirmed) -> ConfirmedOut:
     return ConfirmedOut(review_id=str(c.review_id), draft_id=str(c.draft_id), supplier_gstin=c.supplier_gstin,
                         supplier_name=c.supplier_name, doc_number=c.doc_number, doc_date=c.doc_date,
-                        invoice_total=None if c.invoice_total is None else str(c.invoice_total), line_count=c.line_count, created_at=c.created_at)
+                        invoice_total=None if c.invoice_total is None else str(c.invoice_total), line_count=c.line_count,
+                        created_at=c.created_at,
+                        received=[ReceivedOut(line_no=n, product_id=str(p), created_product=cp, price_needed=pn)
+                                  for n, p, cp, pn in c.received])
 
 
 @router.post("/b/{business_id}/purchase-drafts/{draft_id}/confirm", status_code=http.HTTP_201_CREATED,
@@ -232,7 +260,9 @@ def confirm_draft(draft_id: str, body: ConfirmIn, uow: BusinessUoW, clock: Annot
     conflict, not a second invoice."""
     purchases.require_business_type(uow)
     lines = [purchases.LineIn(
-        draft_line_id=None if ln.draft_line_id is None else parse_id(ln.draft_line_id), product_name=ln.product_name,
+        draft_line_id=None if ln.draft_line_id is None else parse_id(ln.draft_line_id),
+        product_id=None if ln.product_id is None else parse_id(ln.product_id),
+        new_item=None if ln.new_item is None else purchases.ItemIn(**ln.new_item.model_dump()), product_name=ln.product_name,
         hsn=ln.hsn, quantity=to_decimal(ln.quantity, f"lines.{i}.quantity"),
         unit=ln.unit, taxable_value=to_decimal(ln.taxable_value, f"lines.{i}.taxable_value"),
         gst_rate=to_decimal(ln.gst_rate, f"lines.{i}.gst_rate"), igst=to_decimal(ln.igst, f"lines.{i}.igst"),
@@ -255,3 +285,14 @@ def discard_draft(draft_id: str, uow: BusinessUoW):
 def list_purchase_invoices(uow: BusinessUoW, page: Annotated[PageParams, Depends(page_params)]):
     found, more = purchases.list_confirmed(uow, page.limit, page.offset)
     return ConfirmedListOut(invoices=[_confirmed_out(c) for c in found], has_more=more)
+
+
+class CodeCheckOut(BaseModel):
+    code: str
+    available: bool
+
+
+@router.get("/b/{business_id}/purchase-code-check", response_model=CodeCheckOut, dependencies=VIEW)
+def check_item_code(code: Annotated[str, Query(max_length=40)], uow: BusinessUoW):
+    """For the review screen: is this product code free? The confirm still refuses a taken code."""
+    return CodeCheckOut(code=code.strip(), available=not code_in_use(uow.tx, code))

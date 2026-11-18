@@ -19,6 +19,7 @@ from decimal import Decimal
 
 from sqlalchemy import text
 
+from app.modules.catalog.interface import ConfirmedPurchaseLine, NewCatalogItem, receive_confirmed_purchase_line
 from app.modules.business.interface import check_gstin, fy_of, get_profile, gstin_message
 from app.modules.refdata import value_on
 from platform_common import audit, storage
@@ -109,10 +110,24 @@ class Draft:
 
 
 @dataclass(frozen=True)
+class ItemIn:
+    """What the business says about a new catalog item; the name and HSN are the line's own."""
+
+    code: str
+    uqc: str
+    tax_category: str
+    gst_rate: str | None = None
+    rate_valid_from: date | None = None
+    has_cess: bool = False
+
+
+@dataclass(frozen=True)
 class LineIn:
     """A line as the business confirms it. `draft_line_id` is None for a line it typed in."""
 
     draft_line_id: uuid.UUID | None
+    product_id: uuid.UUID | None  # an existing catalog product, or None with `new_item`
+    new_item: ItemIn | None  # a product to create from this line; exactly one of the two
     product_name: str
     hsn: str
     quantity: Decimal
@@ -136,10 +151,11 @@ class Confirmed:
     invoice_total: Decimal | None
     line_count: int
     created_at: datetime
+    received: tuple = ()  # per line: (line_no, product_id, created_product, price_needed), set at confirm
 
 
 def require_business_type(uow: UnitOfWork) -> None:
-    """R2 is for distributors and retailers (CEO, 2026-11-18): the business says which before it uses purchases. The
+    """R2 is for distributors and retailers: the business says which before it uses purchases. The
     type is optional at sign-up and in setup, so the server asks, and the screen turns this code into a prompt."""
     profile = get_profile(uow.tx)
     if profile is None or profile.business_type is None:
@@ -410,18 +426,43 @@ def confirm(uow: UnitOfWork, draft_id: uuid.UUID, *, supplier_gstin: str, suppli
              " values (:i, :b, :d, 'confirmed', :g, :sn, :n, :k, :fy, :dd, :t, :me)"),
         {"i": review_id, "b": _business(uow), "d": draft_id, "g": supplier_gstin, "sn": name, "n": number, "k": key,
          "fy": fy, "dd": doc_date, "t": invoice_total, "me": uow.principal.user_id})
+    received = []
     for no, ln in enumerate(lines, 1):
+        line_id = uuid7()
+        got = _receive(uow, review_id, line_id, ln, doc_date)
+        received.append((no, got.product_id, got.created_product, got.price_needed))
         tx.execute(
             text("insert into imports.purchase_review_lines (id, business_id, review_id, line_no, draft_line_id,"
-                 " product_name, hsn, unit, quantity, taxable_value, gst_rate, igst, cgst, sgst, cess)"
-                 " values (:i, :b, :r, :n, :dl, :pn, :h, :u, :q, :tv, :gr, :ig, :cg, :sg, :ce)"),
-            {"i": uuid7(), "b": _business(uow), "r": review_id, "n": no, "dl": ln.draft_line_id,
-             "pn": ln.product_name.strip(), "h": ln.hsn, "u": ln.unit, "q": ln.quantity, "tv": ln.taxable_value,
-             "gr": ln.gst_rate, "ig": ln.igst, "cg": ln.cgst, "sg": ln.sgst, "ce": ln.cess})
+                 " product_id, created_product, product_name, hsn, unit, quantity, taxable_value, gst_rate, igst, cgst,"
+                 " sgst, cess) values (:i, :b, :r, :n, :dl, :p, :cp, :pn, :h, :u, :q, :tv, :gr, :ig, :cg, :sg, :ce)"),
+            {"i": line_id, "b": _business(uow), "r": review_id, "n": no, "dl": ln.draft_line_id,
+             "p": got.product_id, "cp": got.created_product, "pn": ln.product_name.strip(), "h": ln.hsn,
+             "u": ln.unit, "q": ln.quantity, "tv": ln.taxable_value, "gr": ln.gst_rate, "ig": ln.igst,
+             "cg": ln.cgst, "sg": ln.sgst, "ce": ln.cess})
     audit.record(uow, "imports.purchase_confirmed", "purchase_review", review_id,
                  data={"review_id": str(review_id), "draft_id": str(draft_id), "lines": len(lines)})
     return Confirmed(review_id, draft_id, supplier_gstin, name, number, doc_date, invoice_total, len(lines),
-                     get_clock().now())
+                     get_clock().now(), tuple(received))
+
+
+def _unit_cost(ln: LineIn) -> Decimal | None:
+    """Per 1 quantity, excluding GST, kept only when it is exact to two places: nothing is rounded for the ledger."""
+    cost = ln.taxable_value / ln.quantity
+    return cost if cost == cost.quantize(Decimal("0.01")) else None
+
+
+def _receive(uow: UnitOfWork, review_id: uuid.UUID, line_id: uuid.UUID, ln: LineIn, received_on: date):
+    """One confirmed line becomes stock, in this transaction: a new catalog item (its code, UQC and tax category are the
+    business's, checked by the catalog) or an existing one, and a stock-in movement once per line."""
+    item = ln.new_item
+    if item is not None:  # the name and HSN are the ones confirmed on this line
+        item = NewCatalogItem(code=item.code, name=ln.product_name.strip(), uqc=item.uqc, hsn=ln.hsn,
+                              tax_category=item.tax_category, gst_rate=item.gst_rate,
+                              rate_valid_from=item.rate_valid_from, has_cess=item.has_cess)
+    return receive_confirmed_purchase_line(
+        uow, ConfirmedPurchaseLine(source_id=review_id, source_line_id=line_id, quantity=ln.quantity,
+                                   received_on=received_on, product_id=ln.product_id, new_item=item,
+                                   unit_cost=_unit_cost(ln)), today=get_clock().today())
 
 
 def _check_line(ln: LineIn, i: int, own: set, taken: set, hsn_ok) -> None:
@@ -441,6 +482,9 @@ def _check_line(ln: LineIn, i: int, own: set, taken: set, hsn_ok) -> None:
             raise Invalid(f"{field}_invalid", "Amounts can't be negative", field=f"{where}.{field}")
     if ln.igst and (ln.cgst or ln.sgst):
         raise Invalid("tax_split_invalid", "A line has IGST, or CGST and SGST, not both", field=f"{where}.igst")
+    if (ln.product_id is None) == (ln.new_item is None):
+        raise Invalid("product_or_new_item", "Choose an existing product or give the new product's details",
+                      field=f"{where}.product_id")
     if ln.draft_line_id is not None:
         if ln.draft_line_id not in own or ln.draft_line_id in taken:
             raise Invalid("draft_line_invalid", "That line is not on this invoice", field=f"{where}.draft_line_id")

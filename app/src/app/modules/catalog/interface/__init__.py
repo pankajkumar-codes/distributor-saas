@@ -16,13 +16,24 @@ from sqlalchemy.orm import Session
 from app.modules.refdata import value_on
 from platform_common.errors import Conflict, Deny
 
+from ..inventory import (
+    ConfirmedPurchaseLine,
+    NewCatalogItem,
+    ReceivedLine,
+    receive_confirmed_purchase_line,
+)
 from ..rates import RateRow, rate_on
 
 # Explicit as well as row-level security (#52 review): the bound business only.
 _MINE = "business_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
 
 __all__ = [
+    "code_in_use",
     "Address",
+    "ConfirmedPurchaseLine",
+    "NewCatalogItem",
+    "ReceivedLine",
+    "receive_confirmed_purchase_line",
     "CustomerSnapshot",
     "ProductForLine",
     "SetupCounts",
@@ -197,3 +208,11 @@ def setup_counts(tx: Session, on: date) -> SetupCounts:
         {"on": on},
     ).one()
     return SetupCounts(*row)
+
+
+def code_in_use(tx: Session, code: str) -> bool:
+    """Is this product code taken in the bound business (case folded, deleted products do not count)? For a screen
+    that asks before it submits; the create itself still refuses a taken code."""
+    return tx.execute(
+        text(f"select 1 from catalog.products where {_MINE} and lower(code) = lower(:c) and status <> 'deleted'"),
+        {"c": (code or "").strip()}).first() is not None

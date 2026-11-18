@@ -276,10 +276,21 @@ Every row in `refdata/` is `provisional`. Before go-live:
 - **Web review screen not built in this slice.** The routes and OpenAPI types are in; the screen follows mock v13 and is the next slice.
 ## R2-M1 (business type)
 
-- **Is business type required once R2 invoicing starts?** It is optional now (D-080), so every R1 business keeps working with no value. A filing-only marketplace seller has no distributor or retail answer to give. If a business must choose before it can upload purchase invoices or make sales invoices (R2-M2 on), the screens that start those need to ask for it first. Needs the EM or Pankaj; until then nothing in the product depends on the value.
+- **Business type before R2 invoicing: decided.** Optional at sign-up, required before invoicing (CEO, 2026-11-18, D-080); the server check is `require_business_type`. Still open: what the web shows a business that hits `business_type_required` (a link to Business setup is the plan; screens come with R2-M2 and later).
 - **Does a third choice or a rename belong on the list?** The list is exactly Distributor and Retail, the two words in Pankaj's R2 note. Anything else (wholesaler, manufacturer) is a new decision, not a wording change.
 - **Plan choice by type.** The price list differs by business type (filing-only against invoicing). R1-M9 is a placeholder with "free for now", so nothing maps type to plan yet; that mapping is for the payments milestone.
 - **Changing the type later.** Allowed at any time with an audit row. Whether a change after sales invoices exist should warn or be refused is not decided; it matters only once R2 invoicing exists.
+
+## R2-M3 (catalog and stock ledger)
+
+- **Negative stock (D-012) is only partly answered.** Pankaj's rule is that a sale at zero stock shows "no stock" and is never blocked, so the ledger lets the balance go below zero. Whether a stock adjustment, a marketplace deduction or a role-limited case should ever refuse is not decided; today nothing refuses.
+- **Who may correct stock.** Adjustments and reversals use catalog.edit, so owner, admin and billing can make them; the CA can only read. A stricter rule (owner and admin only, or a reason list) is a product decision, not built.
+- **Costing.** Each purchase line can store its price per 1 qty (`unit_cost`), but no average cost, margin or profit is computed. The costing policy is an approval gate (CLAUDE.md) and stays open.
+- **Locations.** One stock pool per business. Warehouses or shops (DOMAIN_MODEL's InventoryLocation) are not built; adding one later means a location column on the ledger.
+- **Returns and credit notes.** A sales return is not stock-in by itself (BUSINESS_RULES §4). Nothing posts it yet; R2 has no returns milestone.
+- **Archived products.** A product that is archived can still receive stock and be adjusted (stock arrives whatever the catalog says). Whether a purchase should offer to restore it is for the M2 review screen.
+- **A second purchase for the same line.** `(source_id, source_line_id)` is the once-only key. If M2 lets a business change a confirmed line, the change must be a reversal plus a new receipt, never an edit; M2 owns that flow.
+- **Web.** M3 ships the server and the interface. The stock screen, the "no stock" notice and the set-price step come with the web milestones on mock v13; the R1 product screens do not change yet.
 
 ## Release blockers (not R1 build blockers; Pankaj, 2026-11-17)
 These need Pankaj or his CA and do not stop building. Each must be done before production release.

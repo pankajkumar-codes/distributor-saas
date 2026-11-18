@@ -90,3 +90,10 @@ LLD-3 parts S3-a (products) and S3-b (customers). The code is in `app/src/app/mo
 - Lists use `limit` and `offset`, the platform's paging, rather than the cursor LLD-3 §6 mentions.
 - The product list computes `current_rates` for the whole business before paging, which is fine at R1 sizes; revisit with the NF-6 load check (S7).
 - A rate that has dropped off `gst.rate_values` by the date it is read for comes back unflagged; LLD-4 decides the flag (`OPEN_QUESTIONS.md`).
+
+## Stock (R2-M3)
+
+Stock is a ledger: `catalog.stock_movements`, one signed row per change, insert-only (the table refuses update and delete from every role). The balance is the sum of a product's rows and is never stored. A mistake is cancelled by a reversal row, never edited. Routes under `/api/v1/b/{business_id}`: `GET /stock` (list with `on_hand`, `no_stock`, `price_needed`; filters `only=no_stock|price_needed`), `GET /products/{id}/stock-movements`, `POST /products/{id}/stock-adjustments` (signed quantity, reason, date) and `POST /stock-movements/{id}/reversals`. Setting the selling price per 1 qty is the existing `PATCH /products/{id}` (`sale_rate`), which also clears `price_needed`. A business must have chosen its type first (409 `business_type_required`). "No stock" is information only: nothing here, and no invoice later, is refused for it. See D-081.
+
+Purchase review (R2-M2) calls `catalog.interface.receive_confirmed_purchase_line(uow, ConfirmedPurchaseLine, today=...)` at the confirm step: it creates the catalog item if the line is new, writes one stock-in movement, and is safe to retry (same ids back, `already_received`).
+

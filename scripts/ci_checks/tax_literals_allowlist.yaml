@@ -330,3 +330,19 @@
 - path: app/src/app/modules/imports/api_purchases.py
   value: "24"
   reason: "longest amount text accepted at the edge, before it is parsed as a Decimal"
+- path: app/src/app/modules/catalog/api_stock.py
+  value: "24"
+  reason: "max length of a signed decimal quantity string in a request body; input hygiene"
+- path: app/src/app/modules/catalog/api_stock.py
+  value: "300"
+  reason: "max length of a stock reason in a request body (the same cap inventory.py checks); input hygiene"
+- path: app/src/app/modules/catalog/inventory.py
+  value: "300"
+  reason: "max length of a stock adjustment or reversal reason; input hygiene, not a tax rule"
+- path: app/src/app/modules/catalog/inventory.py
+  value: "0.001"
+  reason: "stock quantities have 3 decimal places (the numeric(15,3) column); not a tax rule"
+- path: app/src/app/modules/catalog/inventory.py
+  value: "999999999999"
+  reason: "the largest quantity numeric(15,3) holds (12 digits before the point); a column limit"
+

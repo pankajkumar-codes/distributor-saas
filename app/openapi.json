@@ -363,6 +363,33 @@
         "title": "AddressOut",
         "type": "object"
       },
+      "AdjustmentIn": {
+        "additionalProperties": false,
+        "properties": {
+          "occurred_on": {
+            "format": "date",
+            "title": "Occurred On",
+            "type": "string"
+          },
+          "quantity": {
+            "maxLength": 24,
+            "title": "Quantity",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 300,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "quantity",
+          "reason",
+          "occurred_on"
+        ],
+        "title": "AdjustmentIn",
+        "type": "object"
+      },
       "AmountsOut": {
         "properties": {
           "cess": {
@@ -1788,6 +1815,24 @@
           "href"
         ],
         "title": "ChecklistItem",
+        "type": "object"
+      },
+      "CodeCheckOut": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "available"
+        ],
+        "title": "CodeCheckOut",
         "type": "object"
       },
       "CodeSent": {
@@ -5369,6 +5414,165 @@
         "title": "MonthCoverageOut",
         "type": "object"
       },
+      "MovementOut": {
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "title": "Created By",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "purchase_in",
+              "sale_out",
+              "adjustment",
+              "reversal"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "occurred_on": {
+            "format": "date",
+            "title": "Occurred On",
+            "type": "string"
+          },
+          "product_id": {
+            "title": "Product Id",
+            "type": "string"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "reversed_by_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reversed By Id"
+          },
+          "reverses_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reverses Id"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Id"
+          },
+          "source_line_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Line Id"
+          },
+          "source_type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "purchase_invoice",
+                  "sales_invoice"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Type"
+          },
+          "unit_cost": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit Cost"
+          }
+        },
+        "required": [
+          "id",
+          "product_id",
+          "kind",
+          "quantity",
+          "occurred_on",
+          "source_type",
+          "source_id",
+          "source_line_id",
+          "unit_cost",
+          "reverses_id",
+          "reversed_by_id",
+          "reason",
+          "created_at",
+          "created_by"
+        ],
+        "title": "MovementOut",
+        "type": "object"
+      },
+      "MovementPageOut": {
+        "properties": {
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MovementOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items",
+          "has_more"
+        ],
+        "title": "MovementPageOut",
+        "type": "object"
+      },
       "MyBusiness": {
         "properties": {
           "business_id": {
@@ -5552,6 +5756,68 @@
           "einvoice_history"
         ],
         "title": "NewBusinessProfile",
+        "type": "object"
+      },
+      "NewItemIn": {
+        "additionalProperties": false,
+        "description": "A product to create from a line. The name and HSN are the line's own; the rate is the business's to confirm.",
+        "properties": {
+          "code": {
+            "maxLength": 40,
+            "title": "Code",
+            "type": "string"
+          },
+          "gst_rate": {
+            "anyOf": [
+              {
+                "maxLength": 24,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gst Rate"
+          },
+          "has_cess": {
+            "default": false,
+            "title": "Has Cess",
+            "type": "boolean"
+          },
+          "rate_valid_from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate Valid From"
+          },
+          "tax_category": {
+            "enum": [
+              "taxable",
+              "exempt",
+              "nil_rated",
+              "non_gst"
+            ],
+            "title": "Tax Category",
+            "type": "string"
+          },
+          "uqc": {
+            "maxLength": 8,
+            "title": "Uqc",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "uqc",
+          "tax_category"
+        ],
+        "title": "NewItemIn",
         "type": "object"
       },
       "NoneIn": {
@@ -6103,6 +6369,10 @@
             "title": "Name",
             "type": "string"
           },
+          "price_needed": {
+            "title": "Price Needed",
+            "type": "boolean"
+          },
           "rate_changed_within_warning_window": {
             "title": "Rate Changed Within Warning Window",
             "type": "boolean"
@@ -6164,6 +6434,7 @@
           "has_cess",
           "status",
           "version",
+          "price_needed",
           "in_use",
           "rate_on",
           "warnings",
@@ -6300,6 +6571,10 @@
             "title": "Name",
             "type": "string"
           },
+          "price_needed": {
+            "title": "Price Needed",
+            "type": "boolean"
+          },
           "rate_on": {
             "anyOf": [
               {
@@ -6350,6 +6625,7 @@
           "has_cess",
           "status",
           "version",
+          "price_needed",
           "in_use",
           "rate_on",
           "warnings"
@@ -6876,6 +7152,34 @@
         "title": "ReasonOut",
         "type": "object"
       },
+      "ReceivedOut": {
+        "properties": {
+          "created_product": {
+            "title": "Created Product",
+            "type": "boolean"
+          },
+          "line_no": {
+            "title": "Line No",
+            "type": "integer"
+          },
+          "price_needed": {
+            "title": "Price Needed",
+            "type": "boolean"
+          },
+          "product_id": {
+            "title": "Product Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "line_no",
+          "product_id",
+          "created_product",
+          "price_needed"
+        ],
+        "title": "ReceivedOut",
+        "type": "object"
+      },
       "RecoveryBody": {
         "properties": {
           "email": {
@@ -7381,6 +7685,21 @@
           "returns"
         ],
         "title": "ReturnsOut",
+        "type": "object"
+      },
+      "ReversalIn": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 300,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "ReversalIn",
         "type": "object"
       },
       "Role": {
@@ -7930,6 +8249,80 @@
           "states"
         ],
         "title": "StateCodesOut",
+        "type": "object"
+      },
+      "StockItemOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "no_stock": {
+            "title": "No Stock",
+            "type": "boolean"
+          },
+          "on_hand": {
+            "title": "On Hand",
+            "type": "string"
+          },
+          "price_needed": {
+            "title": "Price Needed",
+            "type": "boolean"
+          },
+          "product_id": {
+            "title": "Product Id",
+            "type": "string"
+          },
+          "sale_rate": {
+            "title": "Sale Rate",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "uqc": {
+            "title": "Uqc",
+            "type": "string"
+          }
+        },
+        "required": [
+          "product_id",
+          "code",
+          "name",
+          "uqc",
+          "status",
+          "sale_rate",
+          "price_needed",
+          "on_hand",
+          "no_stock"
+        ],
+        "title": "StockItemOut",
+        "type": "object"
+      },
+      "StockPageOut": {
+        "properties": {
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/StockItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items",
+          "has_more"
+        ],
+        "title": "StockPageOut",
         "type": "object"
       },
       "SupportGrant": {
@@ -9103,6 +9496,14 @@
             "title": "Line Count",
             "type": "integer"
           },
+          "received": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ReceivedOut"
+            },
+            "title": "Received",
+            "type": "array"
+          },
           "review_id": {
             "title": "Review Id",
             "type": "string"
@@ -9311,6 +9712,27 @@
             "maxLength": 24,
             "title": "Igst",
             "type": "string"
+          },
+          "new_item": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NewItemIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "product_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Id"
           },
           "product_name": {
             "maxLength": 120,
@@ -13455,6 +13877,158 @@
         ]
       }
     },
+    "/api/v1/b/{business_id}/products/{product_id}/stock-adjustments": {
+      "post": {
+        "operationId": "adjust_stock_api_v1_b__business_id__products__product_id__stock_adjustments_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "title": "Product Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdjustmentIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MovementOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Adjust Stock",
+        "tags": [
+          "stock"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/products/{product_id}/stock-movements": {
+      "get": {
+        "operationId": "list_movements_api_v1_b__business_id__products__product_id__stock_movements_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "title": "Product Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 1000000,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MovementPageOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Movements",
+        "tags": [
+          "stock"
+        ]
+      }
+    },
     "/api/v1/b/{business_id}/products/{product_id}/unarchive": {
       "post": {
         "operationId": "unarchive_product_api_v1_b__business_id__products__product_id__unarchive_post",
@@ -13615,6 +14189,59 @@
         "summary": "Patch Profile",
         "tags": [
           "business"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/purchase-code-check": {
+      "get": {
+        "description": "For the review screen: is this product code free? The confirm still refuses a taken code.",
+        "operationId": "check_item_code_api_v1_b__business_id__purchase_code_check_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "maxLength": 40,
+              "title": "Code",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodeCheckOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Check Item Code",
+        "tags": [
+          "purchases"
         ]
       }
     },
@@ -15624,6 +16251,201 @@
         "summary": "List Rows",
         "tags": [
           "imports"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/stock": {
+      "get": {
+        "operationId": "list_stock_api_v1_b__business_id__stock_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 100,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "default": "active",
+              "enum": [
+                "active",
+                "archived",
+                "all"
+              ],
+              "title": "Status",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "only",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "no_stock",
+                    "price_needed"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Only"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 1000000,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockPageOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Stock",
+        "tags": [
+          "stock"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/stock-movements/{movement_id}/reversals": {
+      "post": {
+        "operationId": "reverse_movement_api_v1_b__business_id__stock_movements__movement_id__reversals_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "movement_id",
+            "required": true,
+            "schema": {
+              "title": "Movement Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReversalIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MovementOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reverse Movement",
+        "tags": [
+          "stock"
         ]
       }
     },

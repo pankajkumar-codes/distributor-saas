@@ -97,6 +97,8 @@ create table imports.purchase_review_lines (
     review_id uuid not null,
     line_no int not null check (line_no > 0),
     draft_line_id uuid,
+    product_id uuid not null,  -- the catalog product this line was received into (no foreign key across modules)
+    created_product boolean not null,
     product_name varchar(120) not null check (product_name <> ''),
     hsn varchar(8) not null,
     unit varchar(40),

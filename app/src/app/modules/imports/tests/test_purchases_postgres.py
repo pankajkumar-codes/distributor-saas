@@ -67,8 +67,12 @@ def invoice(number="SUP-1", lines=TWO_LINES, **kw):
     return pdf([invoice_page(number, seller=SUPPLIER, lines=lines, **kw)])
 
 
-def line(draft_line=None, **kw):
-    return {"draft_line_id": draft_line, "product_name": "Cotton tee", "hsn": "6109", "quantity": "2", "unit": "PCS",
+def item(code="TEE-1", **kw):
+    return {"code": code, "uqc": "PCS", "tax_category": "taxable", "gst_rate": "18", "rate_valid_from": "2026-04-01", **kw}
+
+
+def line(draft_line=None, code="TEE-1", **kw):
+    return {"draft_line_id": draft_line, "new_item": item(code), "product_name": "Cotton tee", "hsn": "6109", "quantity": "2", "unit": "PCS",
             "taxable_value": "200.00", "gst_rate": "18", "cgst": "18.00", "sgst": "18.00", **kw}
 
 
@@ -78,7 +82,7 @@ def confirm_body(draft, **kw):
     body.update(kw)
     if "lines" not in kw:
         body["lines"] = [line(draft["lines"][0]["id"]),
-                         line(draft["lines"][1]["id"], hsn="6110", quantity="1", taxable_value="100.00",
+                         line(draft["lines"][1]["id"], "TEE-2", hsn="6110", quantity="1", taxable_value="100.00",
                               cgst="9.00", sgst="9.00")]
     return body
 
@@ -99,8 +103,7 @@ def test_a_text_pdf_is_read_into_a_draft_the_business_reviews(shop):  # noqa: F8
     assert [(i["doc_number"], i["line_count"]) for i in listed] == [("SUP-1", 2)]
     back = scalar(pg.owner, "select count(*) from imports.purchase_review_lines where draft_line_id is not null")
     assert back == 2  # every confirmed line traces to the line that was read
-    # nothing reached the catalog
-    assert scalar(pg.owner, "select count(*) from catalog.products") == 0
+    assert scalar(pg.owner, "select count(*) from catalog.products") == 2  # received at confirm, not before
 
 
 def test_a_photo_is_kept_and_gets_a_blank_draft_the_business_types_in(shop):  # noqa: F811
@@ -264,3 +267,55 @@ def test_a_business_that_has_not_chosen_a_type_is_asked_to_first(plain_shop):  #
     with pg.owner.begin() as c:
         c.execute(text("update business.profiles set business_type = 'distributor' where business_id = :b"), {"b": biz})
     assert post(pg, f"{base}/purchase-files", {"file_name": "a.pdf", "size_bytes": 5}, key="k-type2").status_code == 201
+
+
+def test_confirming_creates_the_catalog_items_and_receives_the_stock_once(shop):  # noqa: F811
+    pg, biz, _ = shop
+    _, (d,) = read(shop, "bill.pdf", invoice())
+    done = post(pg, f"/api/v1/b/{biz}/purchase-drafts/{d['id']}/confirm", confirm_body(d))
+    assert done.status_code == 201, done.text
+    got = done.json()["received"]
+    assert [(r["line_no"], r["created_product"], r["price_needed"]) for r in got] == [(1, True, True), (2, True, True)]
+    moves = pg.owner.connect().execute(text(
+        "select p.code, m.quantity, m.kind, m.unit_cost from catalog.stock_movements m"
+        " join catalog.products p on p.id = m.product_id order by p.code")).all()
+    assert [(c, str(q), k, str(u)) for c, q, k, u in moves] == [
+        ("TEE-1", "2.000", "purchase_in", "100.00"), ("TEE-2", "1.000", "purchase_in", "100.00")]
+    ids = scalar(pg.owner, "select count(*) from imports.purchase_review_lines l join catalog.products p"
+                           " on p.id = l.product_id and l.created_product")
+    assert ids == 2
+
+
+def test_a_line_can_go_into_an_existing_product_and_a_taken_code_undoes_the_whole_confirm(shop):  # noqa: F811
+    pg, biz, _ = shop
+    _, (d,) = read(shop, "bill.pdf", invoice())
+    base = f"/api/v1/b/{biz}"
+    first = post(pg, f"{base}/purchase-drafts/{d['id']}/confirm", confirm_body(d))
+    assert first.status_code == 201
+    pid = first.json()["received"][0]["product_id"]
+    assert get(pg, f"{base}/purchase-code-check?code=tee-1").json() == {"code": "tee-1", "available": False}
+    assert get(pg, f"{base}/purchase-code-check?code=NEW-9").json()["available"] is True
+    _, (d2,) = read(shop, "second.pdf", invoice("SUP-2", lines=TWO_LINES[:1]))
+    # one line into the existing product, one new line whose code is taken: nothing is saved
+    bad = confirm_body(d2, doc_number="SUP-2", lines=[
+        {**line(d2["lines"][0]["id"]), "new_item": None, "product_id": pid}, line(None, "TEE-2")])
+    r = post(pg, f"{base}/purchase-drafts/{d2['id']}/confirm", bad)
+    assert (r.status_code, r.json()["error"]["code"]) == (422, "code_taken")
+    assert scalar(pg.owner, "select count(*) from imports.purchase_reviews where decision = 'confirmed'") == 1
+    assert scalar(pg.owner, "select count(*) from catalog.stock_movements") == 2
+    ok = confirm_body(d2, doc_number="SUP-2", lines=[{**line(d2["lines"][0]["id"]), "new_item": None, "product_id": pid}])
+    out = post(pg, f"{base}/purchase-drafts/{d2['id']}/confirm", ok)
+    assert out.status_code == 201 and out.json()["received"][0]["created_product"] is False
+    assert scalar(pg.owner, "select sum(quantity) from catalog.stock_movements where product_id = :p", p=pid) == 4
+
+
+def test_a_line_names_an_existing_product_or_a_new_one_never_both_or_neither(shop):  # noqa: F811
+    pg, biz, _ = shop
+    _, (d,) = read(shop, "bill.pdf", invoice())
+    url = f"/api/v1/b/{biz}/purchase-drafts/{d['id']}/confirm"
+    both = post(pg, url, confirm_body(d, lines=[{**line(), "product_id": str(uuid.uuid4())}]))
+    neither = post(pg, url, confirm_body(d, lines=[{**line(), "new_item": None}]))
+    assert {both.json()["error"]["code"], neither.json()["error"]["code"]} == {"product_or_new_item"}
+    unknown = post(pg, url, confirm_body(d, lines=[{**line(), "new_item": None, "product_id": str(uuid.uuid4())}]))
+    assert unknown.status_code == 404
+    assert scalar(pg.owner, "select count(*) from catalog.stock_movements") == 0
