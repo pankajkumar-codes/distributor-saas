@@ -18,6 +18,7 @@ from fastapi import status as http
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
 from app.modules.business.interface import require_business_type
+from app.modules.filing import interface as filing
 from platform_common.clock import Clock, get_clock
 from platform_common.etag import if_match_version, set_etag
 from platform_common.idempotency import run_once
@@ -449,3 +450,59 @@ def document_pdf_request(document_id: str, uow: BusinessUoW):
 @router.get("/b/{business_id}/documents/{document_id}/pdf/{job_id}", response_model=PreviewOut, dependencies=VIEW)
 def document_pdf_status(document_id: str, job_id: str, uow: BusinessUoW):
     return document_pdf.status(uow, parse_id(document_id), parse_id(job_id))
+
+
+class InvoicingPlanOut(BaseModel):
+    name: str
+    monthly_rupees: int
+    quarterly_rupees: int
+    gst_note: str
+    free_for_now: bool  # true while payments are a placeholder: nothing is charged
+    free_invoices: int
+    used: int  # finalized invoices, practice ones included (D-084), counted on the server
+    remaining_free: int
+    needs_plan: bool  # the next invoice would be refused (402 invoice_plan_required)
+
+
+@router.get("/b/{business_id}/invoicing-plan", response_model=InvoicingPlanOut, dependencies=VIEW)
+def get_invoicing_plan(uow: BusinessUoW):
+    """The invoicing plan, its prices, how many free invoices are used, and whether the next one needs the plan. Read-only."""
+    used = finalize.invoices_used(uow)
+    free = filing.FREE_INVOICES
+    return {
+        "name": "Invoicing and GST", "monthly_rupees": filing.INVOICING["monthly"],
+        "quarterly_rupees": filing.INVOICING["quarterly"], "gst_note": filing.GST_NOTE,
+        "free_for_now": filing.free_for_now(), "free_invoices": free, "used": used,
+        "remaining_free": max(free - used, 0),
+        "needs_plan": used >= free and not filing.invoicing_allowed(uow.tx, uow.principal.business_id),
+    }
+
+
+class PlanChangeOut(BaseModel):
+    current_price: str
+    unused_credit: str
+    new_price: str
+    amount_due: str  # rupees before GST on our fee; display only, nothing is charged
+    credit_left_over: str
+    gst_note: str
+    free_for_now: bool
+
+
+@router.get("/b/{business_id}/plan-change-preview", response_model=PlanChangeOut, dependencies=VIEW)
+def plan_change_preview(
+    uow: BusinessUoW,  # noqa: ARG001 (the tenant is checked by the route's dependencies; the figures are the price list)
+    from_plan: Literal["gst_filing", "invoicing"],
+    from_frequency: Literal["monthly", "quarterly"],
+    to_plan: Literal["gst_filing", "invoicing"],
+    to_frequency: Literal["monthly", "quarterly"],
+    days_left: int,
+    period_days: int,
+):
+    """What a plan change would show: the unused part of the current period credited, the new plan's full price from now.
+    Display only (D-084); the figures are the price list, never a charge."""
+    try:
+        out = filing.prorated_change(from_plan, from_frequency, to_plan, to_frequency,
+                                     days_left=days_left, period_days=period_days)
+    except ValueError as e:
+        raise Invalid("plan_change_invalid", "Check the days left in the current period.", field="days_left") from e
+    return {**out, "gst_note": filing.GST_NOTE, "free_for_now": filing.free_for_now()}

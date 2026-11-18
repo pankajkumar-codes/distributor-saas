@@ -578,6 +578,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/invoicing-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Invoicing Plan
+         * @description The invoicing plan, its prices, how many free invoices are used, and whether the next one needs the plan. Read-only.
+         */
+        get: operations["get_invoicing_plan_api_v1_b__business_id__invoicing_plan_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/jobs": {
         parameters: {
             query?: never;
@@ -739,6 +759,27 @@ export interface paths {
          * @description The GST-filing plan and its prices, and whether it is free for now (`plans.FREE_FOR_NOW`). Read-only; nothing is charged.
          */
         get: operations["get_plan_api_v1_b__business_id__plan_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/plan-change-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Plan Change Preview
+         * @description What a plan change would show: the unused part of the current period credited, the new plan's full price from now.
+         *     Display only (D-084); the figures are the price list, never a charge.
+         */
+        get: operations["plan_change_preview_api_v1_b__business_id__plan_change_preview_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3749,6 +3790,27 @@ export interface components {
             /** Role */
             role: string;
         };
+        /** InvoicingPlanOut */
+        InvoicingPlanOut: {
+            /** Free For Now */
+            free_for_now: boolean;
+            /** Free Invoices */
+            free_invoices: number;
+            /** Gst Note */
+            gst_note: string;
+            /** Monthly Rupees */
+            monthly_rupees: number;
+            /** Name */
+            name: string;
+            /** Needs Plan */
+            needs_plan: boolean;
+            /** Quarterly Rupees */
+            quarterly_rupees: number;
+            /** Remaining Free */
+            remaining_free: number;
+            /** Used */
+            used: number;
+        };
         /** IssueOut */
         IssueOut: {
             /** Code */
@@ -4159,6 +4221,23 @@ export interface components {
              * Format: uuid
              */
             user_id: string;
+        };
+        /** PlanChangeOut */
+        PlanChangeOut: {
+            /** Amount Due */
+            amount_due: string;
+            /** Credit Left Over */
+            credit_left_over: string;
+            /** Current Price */
+            current_price: string;
+            /** Free For Now */
+            free_for_now: boolean;
+            /** Gst Note */
+            gst_note: string;
+            /** New Price */
+            new_price: string;
+            /** Unused Credit */
+            unused_credit: string;
         };
         /** PlanOut */
         PlanOut: {
@@ -6569,6 +6648,37 @@ export interface operations {
             };
         };
     };
+    get_invoicing_plan_api_v1_b__business_id__invoicing_plan_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoicingPlanOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     recent_jobs_api_v1_b__business_id__jobs_get: {
         parameters: {
             query?: {
@@ -6859,6 +6969,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PlanOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_change_preview_api_v1_b__business_id__plan_change_preview_get: {
+        parameters: {
+            query: {
+                from_plan: "gst_filing" | "invoicing";
+                from_frequency: "monthly" | "quarterly";
+                to_plan: "gst_filing" | "invoicing";
+                to_frequency: "monthly" | "quarterly";
+                days_left: number;
+                period_days: number;
+            };
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanChangeOut"];
                 };
             };
             /** @description Validation Error */
