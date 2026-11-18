@@ -257,6 +257,13 @@ def test_a_live_month_is_exported_and_locked_without_staging_anything(real):
         json={"check_code": "C-16", "note": "CA rules still open; test"},
     )
     assert ok.status_code == 200, ok.text
+    for item in ("purchases_uploaded", "invoices_in_portal"):  # a business with own invoices files through the gate (D-095)
+        gate = pg.client.put(
+            f"/api/v1/b/{biz}/period-gate",
+            headers=as_user("alice"),
+            json={"kind": "month", "start": "2026-10-01", "item": item, "confirmed": True},
+        )
+        assert gate.status_code == 200, gate.text
     r = pg.client.post(f"/api/v1/b/{biz}/returns/{inst_id}/exports", headers=as_user("alice"))
     assert r.status_code == 202, r.text
     queue.drain(jobs.handle_message)

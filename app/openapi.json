@@ -6148,6 +6148,30 @@
             ],
             "title": "Business Type"
           },
+          "business_types": {
+            "anyOf": [
+              {
+                "items": {
+                  "enum": [
+                    "retailer",
+                    "wholesaler",
+                    "distributor",
+                    "manufacturer",
+                    "online_seller",
+                    "service_provider",
+                    "other"
+                  ],
+                  "type": "string"
+                },
+                "maxItems": 7,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Business Types"
+          },
           "einvoice_history": {
             "enum": [
               "no",
@@ -7492,6 +7516,22 @@
             ],
             "title": "Business Type"
           },
+          "business_types": {
+            "items": {
+              "enum": [
+                "retailer",
+                "wholesaler",
+                "distributor",
+                "manufacturer",
+                "online_seller",
+                "service_provider",
+                "other"
+              ],
+              "type": "string"
+            },
+            "title": "Business Types",
+            "type": "array"
+          },
           "einvoice_history": {
             "anyOf": [
               {
@@ -7568,6 +7608,7 @@
           "registration",
           "address",
           "einvoice_history",
+          "business_types",
           "business_type",
           "turnover_band",
           "previous_turnover_band",
@@ -7605,6 +7646,29 @@
               }
             ],
             "title": "Business Type"
+          },
+          "business_types": {
+            "anyOf": [
+              {
+                "items": {
+                  "enum": [
+                    "retailer",
+                    "wholesaler",
+                    "distributor",
+                    "manufacturer",
+                    "online_seller",
+                    "service_provider",
+                    "other"
+                  ],
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Business Types"
           },
           "einvoice_history": {
             "anyOf": [

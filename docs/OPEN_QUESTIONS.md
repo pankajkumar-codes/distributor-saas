@@ -276,8 +276,9 @@ Every row in `refdata/` is `provisional`. Before go-live:
 - **Web screens (R2-M2).** `/b/:id/purchases` (upload, business-type prompt, what waits) and `/b/:id/purchases/:draftId` (review) are built behind the invoicing flag, from the routes' own shape, not checked against mock v13 pixel by pixel. The new-item form has no cess switch yet (a new item is created with no cess), and the existing-product list shows the first 100 active products only.
 ## R2-M1 (business type)
 
-- **Business type before R2 invoicing: decided.** Optional at sign-up, required before invoicing (CEO, 2026-11-18, D-080); the server check is `require_business_type`. Still open: what the web shows a business that hits `business_type_required` (a link to Business setup is the plan; screens come with R2-M2 and later).
-- **Does a third choice or a rename belong on the list?** The list is exactly Distributor and Retail, the two words in Pankaj's R2 note. Anything else (wholesaler, manufacturer) is a new decision, not a wording change.
+- **Business type before R2 invoicing: decided, and reversed.** It is an optional multi-select that never blocks (CEO, 2026-11-18, D-095, which supersedes D-080). The web screens move to it in the follow-up web PR; until then the old prompts can still show, but the server no longer answers `business_type_required`.
+- **Free text for "Other".** Not built. Add a short text field only if the CA or Pankaj wants it.
+- **Dropping the old column and the one-word alias.** A later migration (destructive-migration approval from a named human needed), after the web app has moved.
 - **Plan choice by type.** The price list differs by business type (filing-only against invoicing). R1-M9 is a placeholder with "free for now", so nothing maps type to plan yet; that mapping is for the payments milestone.
 - **Changing the type later.** Allowed at any time with an audit row. Whether a change after sales invoices exist should warn or be refused is not decided; it matters only once R2 invoicing exists.
 
