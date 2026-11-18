@@ -117,7 +117,7 @@ export function FilingHomePage() {
             {rows.length === 0 ? (
               <p>No returns to show yet.</p>
             ) : (
-              <table className="products">
+              <table className="products deadlines">
                 <thead>
                   <tr>
                     <th scope="col">Period</th>
