@@ -196,3 +196,49 @@ def test_without_a_state_file_nothing_is_written(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     FakeAuthProvider().create_user("asha@example.com", "correct horse battery")
     assert list(tmp_path.iterdir()) == []
+
+
+def test_an_unreadable_state_file_is_set_aside_and_the_provider_starts_empty(tmp_path):
+    path = tmp_path / "auth.json"
+    FakeAuthProvider(state_path=path).create_user("asha@example.com", "correct horse battery")
+    path.write_text(path.read_text()[:40])  # cut off, as a stopped process could leave it
+
+    p = FakeAuthProvider(state_path=path)  # must not raise: a restart policy would loop the API
+    assert p.get_sub("asha@example.com") is None
+    assert (tmp_path / "auth.json.bad").exists()  # kept for a look
+    p.create_user("asha@example.com", "correct horse battery")  # and it saves normally again
+    assert FakeAuthProvider(state_path=path).get_sub("asha@example.com")
+
+
+def test_the_state_file_is_private_and_no_temp_file_is_left(tmp_path):
+    path = tmp_path / "auth.json"
+    FakeAuthProvider(state_path=path).create_user("asha@example.com", "correct horse battery")
+    assert path.stat().st_mode & 0o777 == 0o600  # it holds the signing key and the demo passwords
+    assert [f.name for f in tmp_path.iterdir()] == ["auth.json"]
+
+
+def test_many_threads_signing_in_and_out_leave_a_readable_state_file(tmp_path):
+    import threading
+
+    path = tmp_path / "auth.json"
+    p = FakeAuthProvider(state_path=path)
+    p.create_user("asha@example.com", "correct horse battery")
+    errors: list[BaseException] = []
+
+    def work():
+        try:
+            for _ in range(15):
+                r = p.initiate_auth("asha@example.com", "correct horse battery")
+                p.revoke_refresh(r.refresh_token)
+        except BaseException as e:  # noqa: BLE001
+            errors.append(e)
+
+    threads = [threading.Thread(target=work) for _ in range(8)]
+    for th in threads:
+        th.start()
+    for th in threads:
+        th.join()
+    assert errors == []
+    again = FakeAuthProvider(state_path=path)
+    assert again.get_sub("asha@example.com") == p.get_sub("asha@example.com")
+    assert len(again._refresh) == len(p._refresh) == 8 * 15
