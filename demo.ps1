@@ -107,6 +107,9 @@ switch ($Command.ToLower()) {
                 Say ("page and API through it: HTTP {0} in {1} ms" -f $r.StatusCode, $sw.ElapsedMilliseconds) Green
             } catch { Say "page did not answer within 5 s" Red }
         }
+        # The same question from inside the web container, which skips Docker's port forwarding.
+        Dc exec -T web wget -q -T 5 -O /dev/null http://127.0.0.1:5173/api/v1/health
+        if ($LASTEXITCODE -eq 0) { Say "inside the web container, page and API through it: OK" Green } else { Say "inside the web container: no answer within 5 s" Red }
     }
     "logs" {
         Test-Docker
