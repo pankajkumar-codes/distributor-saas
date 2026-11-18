@@ -4,7 +4,7 @@ import { Link, useLocation, useParams } from "react-router-dom";
 import { api, call } from "../../api/client";
 import { errorText, type ApiError } from "../../api/errors";
 import type { components } from "../../api/schema";
-import { canCreateDocuments, canPrepareReturns, canViewUploads } from "../../auth/roles";
+import { canCreateDocuments, canPrepareReturns, canViewReturns, canViewUploads } from "../../auth/roles";
 import { FEATURES } from "../../features";
 import { TOTP_PROMPTED, useMe } from "../../auth/useMe";
 import { SUPPORT_ROLE, useMyBusinesses } from "../../auth/useMyBusinesses";
@@ -63,7 +63,7 @@ export function HomePage() {
     enabled: Boolean(business),
   });
   // The GST card shows the server's current periods (the same call as Filing home; only for roles that may prepare returns, the others would get a 403); if it fails the card just has the button.
-  const returns = useReturns(businessId, undefined, Boolean(business) && canPrepareReturns(business?.role ?? ""));
+  const returns = useReturns(businessId, undefined, Boolean(business) && canViewReturns(business?.role ?? ""));
   // Owners and CAs are asked to turn on two-step sign-in (H-1 item 3); nobody else is asked.
   const me = useMe({ enabled: Boolean(business && TOTP_PROMPTED.has(business.role)) });
   // Warnings from creating the business, handed over by /onboarding/business; gone on reload.
@@ -208,33 +208,35 @@ export function HomePage() {
           </div>
 
           <div className="home-col">
-            <nav className="card" aria-labelledby="filing">
-              <div className="between">
-                <h2 id="filing">GST filing</h2>
-                {returns.data?.filing_frequency && (
-                  <span className="chip chip-info">{returns.data.filing_frequency === "quarterly" ? "Quarterly" : "Monthly"}</span>
-                )}
-              </div>
-              {filingRows.map((r) => (
-                <div className="kv" key={r.instance_id}>
-                  <span>
-                    {FORMS[r.form]} · {r.period_label}
-                  </span>
-                  <span className="hint">
-                    {r.due_date && r.due_date_confirmed ? `Due ${formatDate(r.due_date)}` : "Due date: check Filing home"}
-                  </span>
+            {canViewReturns(business.role) && ( // billing is turned away from the filing pages
+              <nav className="card" aria-labelledby="filing">
+                <div className="between">
+                  <h2 id="filing">GST filing</h2>
+                  {returns.data?.filing_frequency && (
+                    <span className="chip chip-info">{returns.data.filing_frequency === "quarterly" ? "Quarterly" : "Monthly"}</span>
+                  )}
                 </div>
-              ))}
-              <div className="home-actions">
-                <Link className="btn btn-primary" to={`/b/${businessId}/filing`}>
-                  Open Filing home
-                </Link>
-                {FEATURES.invoicing && canPrepareReturns(business.role) && (
-                  <Link to={`/b/${businessId}/file-period`}>File from your own invoices</Link>
-                )}
-                {canViewUploads(business.role) && <Link to={`/b/${businessId}/uploads`}>Upload your reports</Link>}
-              </div>
-            </nav>
+                {filingRows.map((r) => (
+                  <div className="kv" key={r.instance_id}>
+                    <span>
+                      {FORMS[r.form]} · {r.period_label}
+                    </span>
+                    <span className="hint">
+                      {r.due_date && r.due_date_confirmed ? `Due ${formatDate(r.due_date)}` : "Due date: check Filing home"}
+                    </span>
+                  </div>
+                ))}
+                <div className="home-actions">
+                  <Link className="btn btn-primary" to={`/b/${businessId}/filing`}>
+                    Open Filing home
+                  </Link>
+                  {FEATURES.invoicing && canPrepareReturns(business.role) && (
+                    <Link to={`/b/${businessId}/file-period`}>File from your own invoices</Link>
+                  )}
+                  {canViewUploads(business.role) && <Link to={`/b/${businessId}/uploads`}>Upload your reports</Link>}
+                </div>
+              </nav>
+            )}
             {me.data && !me.data.user.totp_enabled && (
               <section className="card" aria-labelledby="totp-prompt">
                 <h2 id="totp-prompt">Protect your account</h2>

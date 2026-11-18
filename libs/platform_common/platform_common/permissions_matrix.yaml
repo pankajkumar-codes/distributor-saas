@@ -37,6 +37,9 @@ permissions:
   uploads.view:
     row: See uploaded files and what was read from them
     roles: [owner, admin, ca]
+  returns.view:
+    row: See the list of returns and their status
+    roles: [owner, admin, ca]
   returns.prepare:
     row: Prepare and export returns, TCS check
     roles: [owner, admin, ca]

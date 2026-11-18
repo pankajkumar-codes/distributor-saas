@@ -95,8 +95,8 @@ describe("Home", () => {
     server.reply(ME, { status: 200, body: { businesses: [{ business_id: "b-1", display_name: "Vashi Essentials", gstin: null, role: "billing" }] } });
     server.reply(HOME, home());
     open();
-    const card = await screen.findByRole("navigation", { name: "GST filing" });
-    expect(within(card).getByRole("link", { name: "Open Filing home" })).toBeInTheDocument();
+    await screen.findByRole("navigation", { name: "Business setup" });
+    expect(screen.queryByRole("navigation", { name: "GST filing" })).toBeNull(); // billing is turned away from filing
     expect(server.paths()).not.toContain("/api/v1/b/b-1/returns");
   });
 

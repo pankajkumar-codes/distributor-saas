@@ -40,6 +40,7 @@ EXPECTED: dict[Permission, str] = {
     P.DOCUMENTS_MARK_PAID:  "xxx.",
     P.UPLOADS_CREATE:       "xx..",
     P.UPLOADS_VIEW:         "xx.x",
+    P.RETURNS_VIEW:         "xx.x",
     P.RETURNS_PREPARE:      "xx.x",
     P.RETURNS_LOCK:         "xx.x",
     P.RETURNS_UNLOCK:       "x...",
@@ -142,3 +143,16 @@ def test_permissions_doc_is_generated_from_the_matrix():
         [sys.executable, str(REPO / "scripts" / "gen_permissions_doc.py"), "--check"], capture_output=True, text=True
     )
     assert result.returncode == 0, result.stdout
+
+
+def test_a_support_principal_with_no_role_passes_only_where_the_route_allows_a_read():
+    plain = require(Permission.RETURNS_VIEW)
+    with pytest.raises(Deny) as exc:
+        plain(_uow(None, grant="g"))  # a real support principal has no membership, so no role
+    assert exc.value.reason == "role_denied"
+    assert require(Permission.RETURNS_VIEW, support_may_read=True)(_uow(None, grant="g")) is None
+    with pytest.raises(Deny) as exc:  # the option never lets support past a write permission
+        require(Permission.RETURNS_PREPARE, support_may_read=True)(_uow(None, grant="g"))
+    assert exc.value.reason == "support_no_grant"
+    with pytest.raises(Deny):  # ... nor a signed-in user with no role and no grant
+        require(Permission.RETURNS_VIEW, support_may_read=True)(_uow(None))

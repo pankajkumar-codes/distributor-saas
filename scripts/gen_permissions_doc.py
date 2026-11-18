@@ -34,6 +34,7 @@ FOOTER = """
   as for a business that doesn't exist or a malformed ID.
 - A support user under an owner's grant may only read (`*.view`); any other permission
   is refused (`support_no_grant`).
+- A support principal has no membership and so no role; a route that support may read under a grant (the returns list) opts in with `require(..., support_may_read=True)`, and only a `.view` permission then passes.
 - An unknown role string gets no permissions.
 - Identity's member, invitation and audit routes use this table too (`members.manage`,
   `audit.view`); the database allows only these four roles since the LLD-1 reshape.
