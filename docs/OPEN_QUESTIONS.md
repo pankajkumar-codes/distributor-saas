@@ -269,7 +269,7 @@ Every row in `refdata/` is `provisional`. Before go-live:
 
 ## R2-M1 (business type)
 
-- **Is business type required once R2 invoicing starts?** It is optional now (D-080), so every R1 business keeps working with no value. A filing-only marketplace seller has no distributor or retail answer to give. If a business must choose before it can upload purchase invoices or make sales invoices (R2-M2 on), the screens that start those need to ask for it first. Needs the EM or Pankaj; until then nothing in the product depends on the value.
+- **Business type before R2 invoicing: decided.** Optional at sign-up, required before invoicing (CEO, 2026-11-18, D-080); the server check is `require_business_type`. Still open: what the web shows a business that hits `business_type_required` (a link to Business setup is the plan; screens come with R2-M2 and later).
 - **Does a third choice or a rename belong on the list?** The list is exactly Distributor and Retail, the two words in Pankaj's R2 note. Anything else (wholesaler, manufacturer) is a new decision, not a wording change.
 - **Plan choice by type.** The price list differs by business type (filing-only against invoicing). R1-M9 is a placeholder with "free for now", so nothing maps type to plan yet; that mapping is for the payments milestone.
 - **Changing the type later.** Allowed at any time with an audit row. Whether a change after sales invoices exist should warn or be refused is not decided; it matters only once R2 invoicing exists.
