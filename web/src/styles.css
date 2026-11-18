@@ -280,3 +280,7 @@ ol.steps > li::before { content: counter(s); position: absolute; left: 0; top: 1
 .manage-row p { margin: 0; }
 .row-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .row-actions p { flex-basis: 100%; margin: 0; }
+
+/* A member card inside a .list keeps the card's own padding (the plain list-row padding made it flush to the edge). */
+.list li.card { padding: 14px 18px; border-bottom: 1px solid var(--line); }
+.list li.card li { padding: 2px 0; border-bottom: 0; }
