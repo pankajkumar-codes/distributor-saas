@@ -35,7 +35,9 @@ def auth_provider() -> AuthProvider:
     # The API verifies the bearer tokens this provider issues against its keys, as the
     # API Gateway authorizer does with Cognito's in AWS. Without this, every signed-in
     # route refuses a locally issued token.
-    provider = FakeAuthProvider()
+    # DEMO_AUTH_STATE_FILE: the local demo keeps its accounts and signing key in a file, so restarting just the API
+    # does not forget them. Unset (tests, `make run-api`), everything stays in memory as before.
+    provider = FakeAuthProvider(state_path=os.environ.get("DEMO_AUTH_STATE_FILE") or None)
     issuer, client_id = token_issuer_and_client()
     set_local_verifier(provider.jwks(), issuer=issuer, client_id=client_id)
     return provider

@@ -235,13 +235,13 @@ def test_no_caller_is_401(t):
 
 def test_commits_before_the_response_and_once_per_request(t, monkeypatch):
     calls, opened = [], []
-    real = uow_mod.unit_of_work
+    real = uow_mod._transaction  # every unit of work, sync or from the async dependencies, opens its transaction here
 
     def counting(*args, **kwargs):
         opened.append(1)
         return real(*args, **kwargs)
 
-    monkeypatch.setattr(uow_mod, "unit_of_work", counting)
+    monkeypatch.setattr(uow_mod, "_transaction", counting)
     client = _app(calls)
     r = client.post(f"/b/{t['a']}/notes", params={"body": "n1"}, headers={"x-debug-user": t["alice"]})
     assert r.status_code == 200
@@ -380,3 +380,44 @@ def test_become_read_only_switches_to_app_ro_for_the_rest_of_the_transaction(t):
         assert uow.tx.execute(text("select current_user")).scalar() == "app_ro"
     with unit_of_work(Principal(user_sub=None, request_id="r")) as uow:
         assert uow.tx.execute(text("select current_user")).scalar() == before  # transaction-local
+
+
+def test_a_stuck_database_step_does_not_stop_other_requests(t, monkeypatch):
+    """The dependencies' database work runs in the threadpool, not on the event loop: while one signed-in
+    request waits on a database that does not answer, an async route (the API's /health is one) still
+    answers at once. Before, that request held the whole event loop and nothing else was served."""
+    import asyncio
+    import time
+
+    import httpx
+
+    real_resolver = uow_mod._resolver
+
+    def stuck(*args, **kwargs):
+        time.sleep(1.5)  # a blocking call, like a database that has stopped answering
+        return real_resolver(*args, **kwargs)
+
+    monkeypatch.setattr(uow_mod, "_resolver", stuck)
+    app = _app().app
+
+    @app.get("/ping")
+    async def ping():
+        return {"status": "ok"}
+
+    async def scenario():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t") as c:
+            t0 = time.monotonic()
+
+            async def timed(coro):
+                r = await coro
+                return r.status_code, time.monotonic() - t0
+
+            slow = asyncio.create_task(timed(c.get("/me", headers={"x-debug-user": t["alice"]})))
+            await asyncio.sleep(0)  # let the slow request start first, so it is inside the stuck step
+            quick = asyncio.create_task(timed(c.get("/ping")))
+            return await asyncio.gather(quick, slow)
+
+    (quick_status, quick_took), (slow_status, slow_took) = asyncio.run(scenario())
+    assert quick_status == 200 and slow_status == 200
+    assert slow_took >= 1.5  # the stuck step really was in the way
+    assert quick_took < 0.5, f"/ping finished after {quick_took:.2f}s: it waited behind a stuck database step"

@@ -34,7 +34,7 @@ export function UploadsPage() {
   }
   if (businesses.error) {
     return (
-      <main className="page">
+      <main className="page page-wide">
         <Banner tone="error">{errorText(businesses.error)}</Banner>
       </main>
     );
@@ -55,7 +55,7 @@ export function UploadsPage() {
   return (
     <>
       <TopBar title={business.display_name} gstin={business.gstin} />
-      <main className="page">
+      <main className="page page-wide">
         <p className="step">
           <Link to={`/b/${businessId}/filing`}>GST filing</Link>
         </p>
@@ -72,7 +72,7 @@ export function UploadsPage() {
         )}
         {channels.data && shown.length === 0 && (
           <Banner>
-            You haven't said where you sell yet. <Link to={`/b/${businessId}/settings/company`}>Choose it in Business details</Link>, then come back to add your files.
+            You haven't said where you sell yet. <Link to={`/b/${businessId}/settings`}>Choose it in Business details</Link>, then come back to add your files.
           </Banner>
         )}
         {shown.length > 0 && canUpload(business.role) && <BundleCard businessId={businessId} bundleId={params.get("bundle")} onBundle={(id) => follow("bundle", id)} />}
