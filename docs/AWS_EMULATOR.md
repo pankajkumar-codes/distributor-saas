@@ -21,3 +21,27 @@ Decision (Pankaj, 2026-11-17): test AWS-facing code against the emulator first. 
 
 ## What stays on real AWS (release or staging checks)
 The things listed under "Facts not verified yet" in OPEN_QUESTIONS (Cognito endpoint and tokens, RDS grants, KMS behavior, WeasyPrint arm64 timing) need the real service. They wait for Pankaj's approval of staging spend.
+
+## Update 2026-11-18: cloned and read, still not run
+What was done on 2026-11-18 (still no test has run against the emulator):
+- The repository was cloned read-only (1.6 GB, shallow). It has about 438 service crates. Crates exist for everything our code and Terraform use: S3, SQS, SSM, SES v2, Cognito user pools, Lambda, KMS, IAM, STS, CloudWatch Logs, EventBridge, SNS, API Gateway v2, Secrets Manager. Not looked for or not confirmed: RDS behavior, CloudFront, Budgets, VPC and EC2 networking, CloudWatch alarms. A crate existing does not mean our calls work (see "Not checked yet" above).
+- It cannot be run on the build machine used here, for three reasons: no Docker daemon, no prebuilt package we could find, and a full source build wants about 100 GB of free disk (the README's figure) while the machine had about 27 GB and 4 cores.
+- The planned workaround is a **throwaway scratch build** of the router crate trimmed to the 14 services above, in a clone outside our repository, never pushed. The edit of the scratch clone worked; the `cargo build` of it was refused by the session's permission check, twice, so it was not run. It needs the session owner's approval. Nothing was worked around.
+- Terraform: the CLI and the AWS provider zip can be downloaded from releases.hashicorp.com, but registry.terraform.io is blocked from here. Installing the provider from a local mirror to get around that block was also refused, so no `terraform init`, `validate`, `plan` or `apply` has run either. CI's `terraform` job already runs `fmt -check` and `init -backend=false` plus `validate` on bootstrap, staging and prod, so the files are syntax-checked there; a `plan` or `apply` has never run.
+
+## What the emulator is expected to cover, and what it is not (a plan, not a result)
+| Area | Plan with the emulator | Stays on real AWS |
+|---|---|---|
+| S3 adapter, presigned links, exports area | `make emulator-smoke` | Presigned POST limits, KMS default encryption, lifecycle rules |
+| SQS (render queue, jobs) with a dead-letter queue | `make emulator-smoke` | Lambda event source mapping timing and batching |
+| SES v2 sender | `make emulator-smoke` | Domain verification, sandbox exit, deliverability |
+| Parameter Store (SSM) reads | smoke script, to be added | Parameter policies, SecureString KMS behavior |
+| Terraform plan/apply against the emulator endpoint | Needs the provider installed and the emulator running | Everything that depends on VPC, RDS, CloudFront, Budgets |
+| Lambda packages and the PDF renderer container | Run the zip locally (`make renderer-zip` and the local runner) | Memory, timeout, arm64 and WeasyPrint timing |
+| Cognito sign-in and tokens | Only if the user pool crate returns the claims we read | `origin_jti`, hosted behavior, email delivery |
+| Postgres (RDS) | Local Postgres, as CI does | RDS grants, parameter groups, backups and the restore test |
+
+A pass on any row is a pass against the emulator only.
+
+## If the emulator stays blocked: the nearest fallback
+The Python library `moto` mocks S3, SQS, SES v2, SSM, KMS and Secrets Manager and installs from PyPI. It would cover the adapter smoke tests only. It does not run Terraform, Lambda containers or Cognito token behavior, and its behavior is a community approximation. It is a fallback, not a decision; nothing has been installed.
