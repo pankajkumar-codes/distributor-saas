@@ -55,14 +55,14 @@ class FinalizeBlocked(Invalid):
 
 
 class InvoicePlanRequired(AppError):
-    """402: the business has used its free invoices and has no invoicing plan (R2-M7, D-084)."""
+    """402: the business has used its free invoices and has no invoicing plan (R2-M7, D-086)."""
 
     status = 402
     code = "invoice_plan_required"
 
 
 def invoices_used(uow: UnitOfWork) -> int:
-    """Finalized invoices of this business, practice or not (D-084), counted on the server."""
+    """Finalized invoices of this business, practice or not (D-086), counted on the server."""
     return uow.tx.execute(
         text("select count(*) from sales.documents where business_id = :b and kind = 'invoice'"),
         {"b": _business(uow)},

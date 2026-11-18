@@ -460,7 +460,7 @@ class InvoicingPlanOut(BaseModel):
     gst_note: str
     free_for_now: bool  # true while payments are a placeholder: nothing is charged
     free_invoices: int
-    used: int  # finalized invoices, practice ones included (D-084), counted on the server
+    used: int  # finalized invoices, practice ones included (D-086), counted on the server
     remaining_free: int
     needs_plan: bool  # the next invoice would be refused (402 invoice_plan_required)
 
@@ -500,7 +500,7 @@ def plan_change_preview(
     period_days: int,
 ):
     """What a plan change would show: the unused part of the current period credited, the new plan's full price from now.
-    Display only (D-084); the figures are the price list, never a charge."""
+    Display only (D-086); the figures are the price list, never a charge."""
     try:
         out = filing.prorated_change(from_plan, from_frequency, to_plan, to_frequency,
                                      days_left=days_left, period_days=period_days)

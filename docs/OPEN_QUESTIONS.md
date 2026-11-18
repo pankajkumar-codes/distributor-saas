@@ -305,7 +305,7 @@ Every row in `refdata/` is `provisional`. Before go-live:
 
 ## R2-M7 (invoicing plan)
 
-- **Do practice invoices count toward the 10 free ones?** Built as yes (D-084): with live numbering off every invoice is practice, so otherwise the limit could never apply. The cost is that a business that tries the product with practice invoices uses its free ones. The alternative (count only live invoices) makes the plan inert until the CA confirms numbering. Pankaj or the CEO to confirm.
+- **Do practice invoices count toward the 10 free ones?** Built as yes (D-086): with live numbering off every invoice is practice, so otherwise the limit could never apply. The cost is that a business that tries the product with practice invoices uses its free ones. The alternative (count only live invoices) makes the plan inert until the CA confirms numbering. Pankaj or the CEO to confirm.
 - **Wording for the 11th invoice.** The BRD says only "first 10 invoices free". The refusal text and the "Choose an invoicing plan" prompt are ours and need Pankaj's wording, plus the web screen (not built).
 - **Proration formula.** The preview credits the unused part of the current period and starts the new plan's full price now. A provider may prorate differently (Razorpay's proration support is unknown); confirm with the provider (D3) before the figures are shown as a charge.
 - **Which plan is the business on?** Nothing stores a purchased plan yet (no payments). The check hook `entitlement.set_invoice_check` is where the provider integration will say so; until then the preview takes the current plan and days left as inputs.
