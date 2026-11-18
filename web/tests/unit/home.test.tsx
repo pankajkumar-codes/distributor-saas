@@ -100,6 +100,24 @@ describe("Home", () => {
     expect(server.paths()).not.toContain("/api/v1/b/b-1/returns");
   });
 
+  it("leaves the Purchase invoices link out of the Sell card for billing, which would be refused", async () => {
+    server = fakeApi();
+    server.reply(REFRESH, { status: 200, body: { access_token: "t", expires_in: 3600 } });
+    server.reply(ME, { status: 200, body: { businesses: [{ business_id: "b-1", display_name: "Vashi Essentials", gstin: null, role: "billing" }] } });
+    server.reply(HOME, home());
+    open();
+    const sell = await screen.findByRole("navigation", { name: "Sell" });
+    expect(within(sell).getByRole("link", { name: "New invoice" })).toBeInTheDocument();
+    expect(within(sell).queryByRole("link", { name: "Purchase invoices" })).toBeNull();
+  });
+
+  it("shows the Purchase invoices link in the Sell card to the owner", async () => {
+    server.reply(HOME, home());
+    open();
+    const sell = await screen.findByRole("navigation", { name: "Sell" });
+    expect(within(sell).getByRole("link", { name: "Purchase invoices" })).toHaveAttribute("href", "/b/b-1/purchases");
+  });
+
   it("still shows the GST filing card with its button when the periods can't be loaded", async () => {
     server.reply(HOME, home());
     server.reply("/api/v1/b/b-1/returns", { status: 500, body: { detail: "x" } });
