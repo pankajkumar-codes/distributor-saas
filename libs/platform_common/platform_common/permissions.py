@@ -95,9 +95,12 @@ def require(permission: Permission, *, support_may_read: bool = False) -> Callab
     """FastAPI dependency: refuse the request unless the caller's role has `permission`.
 
     A support user under a grant may only read, so anything but a `.view` permission is
-    `support_no_grant`. A support principal has no membership, so no role: a route that support may read under a grant (the
-    returns list) says so with `support_may_read=True`, and then a `.view` permission passes for it. The function carries `.permission` so the route-coverage check
-    (LLD-0 §7) can find each route's permission.
+    `support_no_grant`. A support principal has no membership, so no role. A route that
+    support may read under a grant (the returns list) says so with `support_may_read=True`,
+    and then a `.view` permission passes for it.
+
+    The function carries `.permission` so the route-coverage check (LLD-0 §7) can find each
+    route's permission.
     """
     permission = Permission(permission)
 

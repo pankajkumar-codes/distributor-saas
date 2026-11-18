@@ -2,7 +2,7 @@ import { Link, useParams } from "react-router-dom";
 
 import { errorText } from "../../api/errors";
 import { formatDate, previousFy } from "../../format/dates";
-import { canPrepareReturns, canViewUploads } from "../../auth/roles";
+import { canPrepareReturns, canViewReturns, canViewUploads } from "../../auth/roles";
 import { useMyBusinesses } from "../../auth/useMyBusinesses";
 import { Banner } from "../../kit/Banner";
 import { NotFound } from "../../kit/NotFound";
@@ -64,7 +64,7 @@ export function FilingHomePage() {
   const businesses = useMyBusinesses();
   const business = businesses.data?.find((b) => b.business_id === businessId);
   // No `fy`: the server picks the current year, so "today" comes from it alone. Last year's is named from the one it answers with.
-  const may = Boolean(business && canPrepareReturns(business.role)); // the list needs returns.view; same roles
+  const may = Boolean(business && canViewReturns(business.role)); // the list needs returns.view
   const now = useReturns(businessId, undefined, may);
   const before = useReturns(
     businessId,
