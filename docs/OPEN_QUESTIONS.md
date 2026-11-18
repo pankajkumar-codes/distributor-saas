@@ -337,6 +337,12 @@ Every row in `refdata/` is `provisional`. Before go-live:
 - **Who is gated.** Only a business that has chosen a business type (distributor or retail) is gated on the GSTR-1 export; a seller with no type files as in R1. Revisit if marketplace sellers should confirm too.
 - **Not in this slice.** Platform files combined for sellers on both (R3-M4), GSTR-1 from finalized invoices (R3-M3) and return assignment, lock and mark filed for live invoices (R3-M5) are other slices.
 
+## R3-M4 platform files in the gate (2026-11-18)
+- **Rule built.** A business that sells on Amazon, Flipkart or Meesho (chosen in Business setup) also needs, for every month of the period, each platform's files (all report types its readers need) or a "none this month" note. It is read from uploads, not attested, and closes the button with `platform_files_missing`. A business that sells only here is not asked.
+- **Not tested here.** The "files fully received" path is covered by the existing coverage tests of imports and by the no-sales note in the gate tests; there is no gate test that uploads a real platform file.
+- **Combining.** The gate decides when the file may be made. How platform rows and our own invoices are merged into one GSTR-1 stays with the return build (R3-M3, Staff 2 (4)); nothing here merges data.
+- **Platform files the readers do not cover** (a platform not among the three) cannot be asked for; the gate says nothing about them.
+
 ## Release blockers (not R1 build blockers; Pankaj, 2026-11-17)
 These need Pankaj or his CA and do not stop building. Each must be done before production release.
 - **CA question sheet** (`team/program-lead/ca-question-sheet-v1.md`, CA-1 to CA-5 above and the platform treatment items): Pankaj takes it to his CA just before release.

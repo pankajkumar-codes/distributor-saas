@@ -36,6 +36,11 @@ class GateReturnOut(BaseModel):
     period_end: date
 
 
+class GatePlatformOut(BaseModel):
+    platform: Literal["amazon", "flipkart", "meesho"]
+    missing_months: list[str]  # 'YYYY-MM': files not uploaded and not marked as no sales
+
+
 class PeriodGateOut(BaseModel):
     kind: Literal["month", "quarter"]
     period_start: date
@@ -45,6 +50,7 @@ class PeriodGateOut(BaseModel):
     can_file: bool
     reasons: list[str]
     confirmations: list[GateConfirmationOut]
+    platform_files: list[GatePlatformOut]
     gstr1_returns: list[GateReturnOut]
     due_date: date | None  # only when confirmed; otherwise the screen says "Check on the GST portal"
     due_dates: str = "Check on the GST portal"
@@ -71,6 +77,7 @@ def _out(g: period_gate.Gate) -> PeriodGateOut:
         kind=g.kind, period_start=g.period_start, period_end=g.period_end, ended=g.ended, opens_on=g.opens_on,
         can_file=g.can_file, reasons=list(g.reasons),
         confirmations=[GateConfirmationOut(item=c.item, confirmed=c.confirmed, stale=c.stale, at=c.at) for c in g.confirmations],
+        platform_files=[GatePlatformOut(platform=p, missing_months=m) for p, m in g.platform_files],
         gstr1_returns=[GateReturnOut(instance_id=str(i.id), form=i.form, period_start=i.period_start, period_end=i.period_end)
                        for i in g.gstr1_returns],
         due_date=g.due_date)

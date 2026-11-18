@@ -16,7 +16,8 @@ from typing import NamedTuple
 
 from sqlalchemy import text
 
-from app.modules.business.interface import get_profile
+from app.modules.business.interface import channels, get_profile, quarter_months
+from app.modules.imports.interface import missing_platform_months
 from platform_common import audit
 from platform_common.errors import Conflict
 from platform_common.ids import uuid7
@@ -45,6 +46,7 @@ class Gate:
     opens_on: date  # the filing period starts the day after the period ends
     confirmations: tuple[Confirmation, ...]
     reasons: tuple[str, ...]  # codes, empty when the button is open
+    platform_files: tuple  # (platform, months missing) for each marketplace the business sells on and lacks files for
     gstr1_returns: tuple  # return instances (GSTR-1, IFF) of the period, when they exist
     due_date: date | None  # only a confirmed date; None means "check on the GST portal"
 
@@ -89,6 +91,9 @@ def status(uow: UnitOfWork, kind: str, start: date, today: date) -> Gate:
             reasons.append(f"{c.item}_missing")
         elif c.stale:
             reasons.append(f"{c.item}_stale")
+    missing = _platform_gaps(uow, period)
+    if missing:
+        reasons.append("platform_files_missing")
     profile = get_profile(tx)
     found = periods.instances_between(tx, profile.gstin if profile else None, period.start, period.end)
     mine = tuple(i for i in found if i.form in ("GSTR1", "IFF") and i.period_end <= period.end)
@@ -97,7 +102,16 @@ def status(uow: UnitOfWork, kind: str, start: date, today: date) -> Gate:
         d = periods.due_now(tx, next((i for i in mine if i.form == "GSTR1"), mine[0]))
         due = d.date if d.confirmed else None
     return Gate(kind, period.start, period.end, ended, period.end + timedelta(days=1), confirmations,
-                tuple(reasons), mine, due)
+                tuple(reasons), tuple(sorted(missing.items())), mine, due)
+
+
+def _platform_gaps(uow: UnitOfWork, period) -> dict[str, list[str]]:
+    """R3-M4: a business that also sells on Amazon, Flipkart or Meesho (chosen in Business setup) needs each platform's files
+    for every month of the period, or a note that the platform had no sales that month. Read from uploads, not attested."""
+    chosen = channels(uow.tx)
+    platforms = [p for p in ("amazon", "flipkart", "meesho") if getattr(chosen, p)]
+    months = list(quarter_months(period.start)) if period.kind == "quarter" else [period.start]
+    return missing_platform_months(uow, platforms, months)
 
 
 def confirm(uow: UnitOfWork, kind: str, start: date, item: str, confirmed: bool, today: date) -> Gate:

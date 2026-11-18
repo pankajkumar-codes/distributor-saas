@@ -22,7 +22,7 @@ const gate = (over: Record<string, unknown> = {}) => ({
     { item: "purchases_uploaded", confirmed: false, stale: false, at: null },
     { item: "invoices_in_portal", confirmed: false, stale: false, at: null },
   ],
-  gstr1_returns: [], due_date: null, due_dates: "Check on the GST portal", ...over,
+  platform_files: [], gstr1_returns: [], due_date: null, due_dates: "Check on the GST portal", ...over,
 });
 
 let server: ReturnType<typeof fakeApi>;
@@ -97,6 +97,20 @@ describe("file from your own invoices", () => {
     choose(finished.start);
     expect(await screen.findByText(/changed after you confirmed/)).toBeInTheDocument();
     expect(screen.getByLabelText(/uploaded all my purchase invoices/)).not.toBeChecked();
+  });
+
+  it("lists the marketplace files still missing and links to the uploads page", async () => {
+    open();
+    await screen.findByLabelText("Month");
+    server.reply(`GET ${B}/period-gate`, {
+      status: 200,
+      body: gate({ reasons: ["platform_files_missing"], platform_files: [{ platform: "amazon", missing_months: [finished.start.slice(0, 7)] }] }),
+    });
+    choose(finished.start);
+    expect(await screen.findByText(new RegExp(`Amazon: files missing for ${finished.start.slice(0, 7)}`))).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Add your marketplace files" })).toHaveAttribute("href", "/b/b-1/uploads");
+    expect(screen.getByText("Add the files of the marketplaces you sell on, or say there were no sales.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Get my GSTR-1 file" })).toBeDisabled();
   });
 
   it("is not there for a role that cannot prepare returns", async () => {

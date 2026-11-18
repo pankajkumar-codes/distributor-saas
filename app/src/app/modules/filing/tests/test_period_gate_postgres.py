@@ -148,3 +148,58 @@ def press_instances(pg, biz) -> uuid.UUID:
     inst = next(r["instance_id"] for r in opened["gstr1_returns"] if r["form"] == "GSTR1")
     confirm(pg, biz, "purchases_uploaded", yes=False)  # close the gate again
     return inst
+
+
+# ---- R3-M4: platform files for a business that sells on both ----
+
+def sells_on(pg, biz, **on):
+    body = {"amazon": False, "flipkart": False, "meesho": False, "own_invoices": True, **on}
+    r = pg.client.put(f"/api/v1/b/{biz}/channels", json=body, headers=as_user("alice"))
+    assert r.status_code == 200, r.text
+
+
+def no_sales(pg, biz, section, month="2026-11"):
+    r = pg.client.post(f"/api/v1/b/{biz}/uploads/none-this-month", json={"section": section, "month": month},
+                       headers={**as_user("alice")})
+    assert r.status_code in (200, 201), r.text
+
+
+def test_a_seller_on_a_platform_needs_that_platforms_files_or_a_no_sales_note(shop):  # noqa: F811
+    pg, biz = shop
+    choose(pg, biz, "monthly")
+    sells_on(pg, biz, amazon=True, meesho=True)
+    both(pg, biz)
+    g = gate(pg, biz).json()
+    assert g["can_file"] is False and g["reasons"] == ["platform_files_missing"]
+    assert g["platform_files"] == [{"platform": "amazon", "missing_months": ["2026-11"]},
+                                   {"platform": "meesho", "missing_months": ["2026-11"]}]
+    assert press(pg, biz).json()["error"]["code"] == "period_gate_closed"
+    no_sales(pg, biz, "amazon")
+    assert gate(pg, biz).json()["platform_files"] == [{"platform": "meesho", "missing_months": ["2026-11"]}]
+    no_sales(pg, biz, "meesho")
+    g = gate(pg, biz).json()
+    assert (g["can_file"], g["platform_files"]) == (True, [])
+    assert press(pg, biz).status_code == 200
+    # another month is its own question
+    assert gate(pg, biz, start="2026-12-01").json()["platform_files"][0]["missing_months"] == ["2026-12"]
+
+
+def test_a_business_that_sells_only_here_is_not_asked_for_platform_files(shop):  # noqa: F811
+    pg, biz = shop
+    choose(pg, biz, "monthly")
+    both(pg, biz)
+    g = gate(pg, biz).json()
+    assert g["platform_files"] == [] and g["can_file"] is True
+
+
+def test_a_quarter_needs_every_month_of_it_for_each_platform(shop):  # noqa: F811
+    pg, biz = shop
+    choose(pg, biz, "quarterly")
+    sells_on(pg, biz, flipkart=True)
+    both(pg, biz, kind="quarter", start="2026-10-01")
+    no_sales(pg, biz, "flipkart", "2026-10")
+    g = gate(pg, biz, kind="quarter", start="2026-10-01").json()
+    assert g["platform_files"] == [{"platform": "flipkart", "missing_months": ["2026-11", "2026-12"]}]
+    no_sales(pg, biz, "flipkart", "2026-11")
+    no_sales(pg, biz, "flipkart", "2026-12")
+    assert gate(pg, biz, kind="quarter", start="2026-10-01").json()["can_file"] is True

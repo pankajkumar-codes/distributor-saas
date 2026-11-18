@@ -24,8 +24,11 @@ const REASON_TEXT: Record<string, string> = {
   purchases_uploaded_missing: "Confirm that all your purchase invoices are uploaded.",
   invoices_in_portal_missing: "Confirm that every invoice is in the portal.",
   purchases_uploaded_stale: "Your purchase invoices or sales changed after you confirmed. Confirm again.",
+  platform_files_missing: "Add the files of the marketplaces you sell on, or say there were no sales.",
   invoices_in_portal_stale: "Your invoices changed after you confirmed. Confirm again.",
 };
+
+const PLATFORM_NAME = { amazon: "Amazon", flipkart: "Flipkart", meesho: "Meesho" } as const;
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -112,6 +115,21 @@ export function FilePeriodPage() {
         {g && (
           <>
             <Checks gate={g} businessId={businessId} kind={kind} start={start} />
+            {g.platform_files.length > 0 && (
+              <div className="stack">
+                <h2>Marketplace files</h2>
+                <ul>
+                  {g.platform_files.map((p) => (
+                    <li key={p.platform}>
+                      {PLATFORM_NAME[p.platform]}: files missing for {p.missing_months.join(", ")}.
+                    </li>
+                  ))}
+                </ul>
+                <p>
+                  <Link to={`/b/${businessId}/uploads`}>Add your marketplace files</Link>, or mark a month as having no sales there.
+                </p>
+              </div>
+            )}
             <p className="hint">Due date: {g.due_date ?? g.due_dates}.</p>
             {!g.ended && <p className="hint">Filing for this period opens on {g.opens_on}.</p>}
             <Button type="button" disabled={!g.can_file || open.isPending} onClick={() => open.mutate()}>
