@@ -1,5 +1,4 @@
 import uuid
-from typing import Annotated
 from collections.abc import Iterator
 from functools import lru_cache
 from types import SimpleNamespace
@@ -14,7 +13,6 @@ from platform_common.auth import Caller, current_caller, debug_env
 from platform_common.db import engine, session_factory
 from platform_common.errors import Deny, request_id
 from platform_common.permissions import Permission, Role, has_permission
-from platform_common.textcheck import NoNul
 from platform_common.uow import Principal, parse_id
 
 from .interface import resolve_principal
@@ -128,7 +126,7 @@ def require_permission(membership: Membership, permission: Permission) -> None:
 
 
 class TenantIn(BaseModel):
-    name: Annotated[str, NoNul, Field(min_length=1, max_length=200)]
+    name: str = Field(min_length=1, max_length=200)
 
 
 UNNAMED = "Unnamed business"  # a business row may have no name yet (#280)

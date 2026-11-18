@@ -26,7 +26,6 @@ from platform_common.idempotency import run_once
 from platform_common.errors import Deny, Invalid
 from platform_common.paging import DEFAULT_LIMIT, MAX_LIMIT, PageParams, page_params
 from platform_common.permissions import Permission, require
-from platform_common.textcheck import NoNul
 from platform_common.uow import BusinessUoW, parse_id
 
 from . import document_pdf, drafts, finalize, preview
@@ -297,7 +296,7 @@ def _etag(response: Response, d: dict) -> dict:
 def list_drafts(
     uow: BusinessUoW,
     kind: Literal["invoice", "credit_note"] | None = None,
-    q: Annotated[str | None, NoNul, Query(max_length=100)] = None,
+    q: Annotated[str | None, Query(max_length=100)] = None,
     ready: bool | None = None,
     limit: Annotated[int, Query(ge=1, le=MAX_LIMIT)] = DEFAULT_LIMIT,
     cursor: Annotated[str | None, Query(max_length=200)] = None,

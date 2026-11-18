@@ -2349,7 +2349,7 @@
             "title": "Gstin"
           },
           "name": {
-            "maxLength": 300,
+            "maxLength": 1000,
             "title": "Name",
             "type": "string"
           }
@@ -2531,7 +2531,7 @@
           "name": {
             "anyOf": [
               {
-                "maxLength": 300,
+                "maxLength": 1000,
                 "type": "string"
               },
               {
@@ -7189,7 +7189,7 @@
             "title": "Hsn"
           },
           "name": {
-            "maxLength": 300,
+            "maxLength": 1000,
             "title": "Name",
             "type": "string"
           },
@@ -7414,7 +7414,7 @@
           "name": {
             "anyOf": [
               {
-                "maxLength": 300,
+                "maxLength": 1000,
                 "type": "string"
               },
               {
@@ -11882,13 +11882,13 @@
             "schema": {
               "anyOf": [
                 {
+                  "maxLength": 100,
                   "type": "string"
                 },
                 {
                   "type": "null"
                 }
               ],
-              "maxLength": 100,
               "title": "Q"
             }
           },
@@ -12584,13 +12584,13 @@
             "schema": {
               "anyOf": [
                 {
+                  "maxLength": 100,
                   "type": "string"
                 },
                 {
                   "type": "null"
                 }
               ],
-              "maxLength": 100,
               "title": "Q"
             }
           },
@@ -14797,13 +14797,13 @@
             "schema": {
               "anyOf": [
                 {
+                  "maxLength": 100,
                   "type": "string"
                 },
                 {
                   "type": "null"
                 }
               ],
-              "maxLength": 100,
               "title": "Q"
             }
           },
@@ -18001,13 +18001,13 @@
             "schema": {
               "anyOf": [
                 {
+                  "maxLength": 100,
                   "type": "string"
                 },
                 {
                   "type": "null"
                 }
               ],
-              "maxLength": 100,
               "title": "Q"
             }
           },

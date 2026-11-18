@@ -14,11 +14,10 @@ from pydantic import BaseModel, ConfigDict, StrictInt
 from platform_common.clock import Clock, get_clock
 from platform_common.etag import if_match_version, set_etag
 from platform_common.paging import PageParams, page_params
-from platform_common.textcheck import NoNul
 from platform_common.uow import BusinessUoW, parse_id
 
 from . import customers
-from .api_products import EDIT, VIEW, Text, Warning, _once
+from .api_products import EDIT, VIEW, Name, Text, Warning, _once
 
 router = APIRouter(tags=["catalog"])
 
@@ -36,7 +35,7 @@ class AddressIn(BaseModel):
 class CustomerIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    name: Text
+    name: Name
     gstin: Text | None = None
     billing: AddressIn = AddressIn()
     delivery_same_as_billing: bool = True
@@ -47,7 +46,7 @@ class CustomerIn(BaseModel):
 class CustomerPatch(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    name: Text | None = None
+    name: Name | None = None
     gstin: Text | None = None
     billing: AddressIn | None = None
     delivery_same_as_billing: bool | None = None
@@ -104,7 +103,7 @@ def _out(c: customers.Customer) -> dict:
 def list_customers(
     uow: BusinessUoW,
     page: Annotated[PageParams, Depends(page_params)],
-    q: Annotated[str | None, NoNul, Query(max_length=100)] = None,
+    q: Annotated[str | None, Query(max_length=100)] = None,
     status: Literal["active", "archived", "all"] = "active",
 ):
     items, more = customers.search(uow, q=q, status=status, limit=page.limit, offset=page.offset)

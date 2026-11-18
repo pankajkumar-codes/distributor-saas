@@ -18,7 +18,6 @@ from platform_common.etag import if_match_version, set_etag
 from platform_common.idempotency import run_once
 from platform_common.paging import PageParams, page_params
 from platform_common.permissions import Permission, require
-from platform_common.textcheck import NoNul
 from platform_common.uow import BusinessUoW, parse_id
 
 from . import products
@@ -29,6 +28,9 @@ VIEW = [Depends(require(Permission.CATALOG_VIEW))]
 EDIT = [Depends(require(Permission.CATALOG_EDIT))]
 
 Text = Annotated[str, Field(max_length=300)]
+# A name: the limit is checks.name's 200, which answers in plain words. This one only stops absurd input, so a name of
+# 201 to 1000 characters gets that message instead of a framework one.
+Name = Annotated[str, Field(max_length=1000)]
 Decimalish = Annotated[str, Field(max_length=24, pattern=r"^\s*[0-9]+(\.[0-9]+)?\s*$")]
 # A string only (a JSON number is refused); checks.sale_rate gives the field its own error.
 Money = Annotated[str, Field(max_length=24)]
@@ -45,7 +47,7 @@ class ProductIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     code: Text
-    name: Text
+    name: Name
     hsn: Text | None = None
     uqc: Text
     sale_rate: Money
@@ -59,7 +61,7 @@ class ProductPatch(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     code: Text | None = None
-    name: Text | None = None
+    name: Name | None = None
     hsn: Text | None = None
     uqc: Text | None = None
     sale_rate: Money | None = None
@@ -213,7 +215,7 @@ def list_products(
     uow: BusinessUoW,
     clock: Annotated[Clock, Depends(get_clock)],
     page: Annotated[PageParams, Depends(page_params)],
-    q: Annotated[str | None, NoNul, Query(max_length=100)] = None,
+    q: Annotated[str | None, Query(max_length=100)] = None,
     status: Literal["active", "archived", "all"] = "active",
     filter: Literal["no_hsn", "rate_unconfirmed"] | None = None,  # noqa: A002 (the API's name)
     on: date | None = None,

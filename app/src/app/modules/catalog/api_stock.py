@@ -20,7 +20,6 @@ from platform_common.clock import Clock, get_clock
 from platform_common.idempotency import run_once
 from platform_common.paging import PageParams, page_params
 from platform_common.permissions import Permission, require
-from platform_common.textcheck import NoNul
 from platform_common.uow import BusinessUoW, parse_id
 
 from . import inventory
@@ -112,7 +111,7 @@ def _once(request: Request, uow, key: str | None, payload: dict, operation):
 def list_stock(
     uow: BusinessUoW,
     page: Annotated[PageParams, Depends(page_params)],
-    q: Annotated[str | None, NoNul, Query(max_length=100)] = None,
+    q: Annotated[str | None, Query(max_length=100)] = None,
     status: Literal["active", "archived", "all"] = "active",
     only: Literal["no_stock", "price_needed"] | None = None,
 ):

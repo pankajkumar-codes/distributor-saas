@@ -19,7 +19,6 @@ from platform_common.errors import Conflict
 from platform_common.idempotency import run_once
 from platform_common.paging import PageParams, page_params
 from platform_common.permissions import Permission, require
-from platform_common.textcheck import NoNul
 from platform_common.uow import BusinessUoW, parse_id
 
 from app.modules.catalog.interface import code_in_use
@@ -316,6 +315,6 @@ class PurchaseCodeCheckOut(BaseModel):
 
 
 @router.get("/b/{business_id}/purchase-code-check", response_model=PurchaseCodeCheckOut, dependencies=VIEW)
-def check_item_code(code: Annotated[str, NoNul, Query(max_length=40)], uow: BusinessUoW):
+def check_item_code(code: Annotated[str, Query(max_length=40)], uow: BusinessUoW):
     """For the review screen: is this product code free? The confirm still refuses a taken code."""
     return PurchaseCodeCheckOut(code=code.strip(), available=not code_in_use(uow.tx, code))
