@@ -42,7 +42,7 @@ export function SettingsPage() {
   return (
     <>
       <TopBar title={business.display_name} gstin={business.gstin} />
-      <main className="page">
+      <main className="page page-wide">
         <p className="step">
           <Link to={`/b/${businessId}/home`}>Home</Link>
         </p>
@@ -50,10 +50,10 @@ export function SettingsPage() {
         <p className="hint">Change how you file or where you sell at any time. Deadlines update straight away.</p>
 
         {member && (
-          <>
+          <div className="grid2 setup-cols">
             <CompanyPage embedded />
             <FilingPage embedded />
-          </>
+          </div>
         )}
 
         <nav className="card" aria-labelledby="set-more">
