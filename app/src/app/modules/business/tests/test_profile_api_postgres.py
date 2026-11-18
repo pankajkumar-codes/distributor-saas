@@ -117,6 +117,73 @@ def test_patch_changes_only_the_fields_sent_and_audits_their_names(biz):
                            ).status_code == 422
 
 
+def test_business_type_starts_unchosen_and_is_set_and_cleared_through_patch(biz):  # R2-M1
+    pg, bid = biz
+    assert pg.client.get(url(bid, "/profile"), headers=as_user("alice")).json()["business_type"] is None
+    r = patch_profile(pg, bid, json={"business_type": "distributor"})
+    assert r.status_code == 200, r.text
+    assert r.json()["profile"]["business_type"] == "distributor"
+    with pg.owner.connect() as c:
+        data = c.execute(text("select data from platform.audit_log where action = 'business.profile_update'"
+                              " order by id desc limit 1")).scalar()
+    assert data == {"fields": ["business_type"]}
+    # Sending the same value again changes nothing: no second audit row, same version.
+    assert patch_profile(pg, bid, json={"business_type": "distributor"}).status_code == 200
+    assert actions(pg, bid).count("business.profile_update") == 1
+    assert patch_profile(pg, bid, json={"business_type": "retail"}).json()["profile"]["business_type"] == "retail"
+    # A patch that leaves it out keeps it; null clears it; any other word is refused.
+    assert patch_profile(pg, bid, json={"trade_name": "X"}).json()["profile"]["business_type"] == "retail"
+    assert patch_profile(pg, bid, json={"business_type": None}).json()["profile"]["business_type"] is None
+    assert patch_profile(pg, bid, json={"business_type": "wholesaler"}).status_code == 422
+
+
+def test_require_business_type_refuses_until_it_is_chosen_and_reads_only_the_bound_business(biz):  # R2
+    from sqlalchemy.orm import Session
+
+    from app.modules.business.interface import require_business_type
+    from platform_common.errors import Conflict
+
+    pg, bid = biz
+
+    def check(business_id):
+        with pg.app_rw.begin() as c:
+            c.execute(text("select set_config('app.tenant_id', :b, true)"), {"b": business_id})
+            return require_business_type(Session(bind=c))
+
+    with pytest.raises(Conflict) as refused:
+        check(bid)
+    assert refused.value.code == "business_type_required" and refused.value.status == 409
+    assert patch_profile(pg, bid, json={"business_type": "retail"}).status_code == 200
+    assert check(bid) == "retail"
+    # Another business that has not chosen is still refused: the value is not shared.
+    other = create(pg.client, sub="mallory", body={**BODY, "registration": {"kind": "gstin", "gstin": "27AAPFU0939F1ZV"}})
+    assert other.status_code == 201, other.text
+    with pytest.raises(Conflict):
+        check(other.json()["business_id"])
+
+
+def test_the_table_refuses_a_business_type_other_than_distributor_or_retail(biz):  # R2-M1
+    pg, bid = biz
+    with pytest.raises(DBAPIError), pg.owner.begin() as c:
+        c.execute(text("update business.profiles set business_type = 'salon' where business_id = :b"), {"b": bid})
+
+
+def test_business_type_is_one_business_s_own_and_a_stranger_cannot_read_or_change_it(biz):  # R2-M1
+    pg, bid = biz
+    assert patch_profile(pg, bid, json={"business_type": "retail"}).status_code == 200
+    other = create(pg.client, sub="mallory", body={**BODY, "registration": {"kind": "gstin", "gstin": "27AAPFU0939F1ZV"},
+                                                   "business_type": "distributor"})
+    assert other.status_code == 201, other.text
+    # Mallory's own profile has her value; hers never shows in alice's, and she can't reach alice's.
+    mine = pg.client.get(url(other.json()["business_id"], "/profile"), headers=as_user("mallory")).json()
+    assert mine["business_type"] == "distributor"
+    assert pg.client.get(url(bid, "/profile"), headers=as_user("mallory")).status_code == 404
+    r = pg.client.patch(url(bid, "/profile"), headers={**as_user("mallory"), "If-Match": version(pg, bid)},
+                        json={"business_type": "distributor"})
+    assert r.status_code == 404
+    assert pg.client.get(url(bid, "/profile"), headers=as_user("alice")).json()["business_type"] == "retail"
+
+
 def test_a_registration_change_recomputes_the_state_from_the_gstin(biz):
     from app.modules.business.gstin import check_character
 

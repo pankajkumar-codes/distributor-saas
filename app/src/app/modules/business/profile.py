@@ -45,6 +45,7 @@ class Profile:
     pin: str | None
     address_state_code: str | None
     einvoice_history: str | None
+    business_type: str | None  # R2-M1: distributor, retail, or None (not chosen)
     marketplaces_answered_at: datetime | None
     version: int  # bumped by every change the company form can see (If-Match)
 
@@ -82,7 +83,7 @@ class BusinessSetup:
 _PROFILE = text(
     "select business_id, legal_name, trade_name, registration_kind, gstin, enrolment_number, state_code,"
     " gstin_locked_at is not null as gstin_locked, address_line1, address_line2, city, pin, address_state_code,"
-    " einvoice_history, marketplaces_answered_at, version from business.profiles"
+    " einvoice_history, business_type, marketplaces_answered_at, version from business.profiles"
     " where business_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
 )
 
@@ -119,6 +120,7 @@ class ProfilePatch(BaseModel):
     trade_name: str | None = Field(default=None, max_length=200)
     address: Address | None = None
     einvoice_history: Literal["no", "yes", "not_sure"] | None = None
+    business_type: Literal["distributor", "retail"] | None = None  # null clears it
 
 
 _UPDATE = text(
@@ -126,6 +128,7 @@ _UPDATE = text(
     " registration_kind = :registration_kind, gstin = :gstin, enrolment_number = :enrolment_number,"
     " state_code = :state_code, address_line1 = :address_line1, address_line2 = :address_line2, city = :city,"
     " pin = :pin, address_state_code = :address_state_code, einvoice_history = :einvoice_history,"
+    " business_type = :business_type,"
     " version = version + 1, updated_at = now(), updated_by = :by where business_id = :b"
 )
 _ADDRESS = {"line1": "address_line1", "line2": "address_line2", "city": "city", "pin": "pin",
@@ -168,6 +171,8 @@ def update_profile(uow: UnitOfWork, patch: ProfilePatch, *, today: date, if_matc
             new[name] = blank_to_none(getattr(patch, name))
     if "einvoice_history" in sent:
         new["einvoice_history"] = patch.einvoice_history
+    if "business_type" in sent:
+        new["business_type"] = patch.business_type
     if "address" in sent:
         # null clears the whole address; an object changes only the fields it carries.
         fields = _ADDRESS if patch.address is None else patch.address.model_fields_set

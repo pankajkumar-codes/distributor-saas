@@ -81,19 +81,32 @@ const pickPlatform = (name: string) => fireEvent.click(screen.getByRole("checkbo
 
 const sentTo = (path: string) => server.sent.filter((s) => s.path === path);
 
-describe("the business-type field (ON-7)", () => {
-  it("is shown disabled with an Upcoming tag, and nothing is sent for it", async () => {
+describe("the business-type field (ON-7, on in R2-M1)", () => {
+  it("is optional: left alone, nothing is sent for it", async () => {
     await open();
     const select = screen.getByLabelText(/Business type/);
-    expect(select).toBeDisabled();
-    expect(screen.getByText("Upcoming")).toBeInTheDocument();
+    expect(select).toBeEnabled();
+    expect(select).toHaveValue("");
+    expect(screen.queryByText("Upcoming")).not.toBeInTheDocument();
     server.reply(CREATE, created());
     server.reply(FREQUENCY, chosen([]));
     server.reply(ME, me);
     fillGstinBusiness();
     submitAll();
     expect(await screen.findByRole("heading", { name: HOME })).toBeInTheDocument();
-    expect(JSON.stringify(sentTo(CREATE)[0].body)).not.toMatch(/business_type|distributor|retail/i);
+    expect(sentTo(CREATE)[0].body).not.toHaveProperty("business_type");
+  });
+
+  it("is sent as chosen", async () => {
+    await open();
+    fireEvent.change(screen.getByLabelText(/Business type/), { target: { value: "distributor" } });
+    server.reply(CREATE, created());
+    server.reply(FREQUENCY, chosen([]));
+    server.reply(ME, me);
+    fillGstinBusiness();
+    submitAll();
+    expect(await screen.findByRole("heading", { name: HOME })).toBeInTheDocument();
+    expect(sentTo(CREATE)[0].body).toMatchObject({ business_type: "distributor" });
   });
 });
 
