@@ -68,7 +68,7 @@ export function Portal3bGuidePage() {
         </Banner>
         <section className="card" aria-labelledby="steps-3b">
           <h2 id="steps-3b">Steps</h2>
-          <ol>
+          <ol className="steps">
             {GUIDE_3B_STEPS(row.period_label).map((text) => (
               <li key={text}>
                 {text}{" "}
