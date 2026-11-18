@@ -280,3 +280,13 @@ ol.steps > li::before { content: counter(s); position: absolute; left: 0; top: 1
 .manage-row p { margin: 0; }
 .row-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .row-actions p { flex-basis: 100%; margin: 0; }
+
+/* File pickers: the browser's grey "Choose File" button takes the app's secondary button look. The input itself stays native, so keyboard, screen readers and dropping a file onto it keep working. */
+input[type="file"] { font: inherit; color: var(--muted, var(--ink)); max-width: 100%; }
+input[type="file"]::file-selector-button {
+  margin-right: 12px; min-height: 40px; padding: 0 14px; border-radius: 10px; border: 1.5px solid var(--control);
+  background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+}
+input[type="file"]:hover::file-selector-button { border-color: var(--accent); }
+input[type="file"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+input[type="file"]:disabled::file-selector-button { opacity: 0.45; cursor: not-allowed; }
