@@ -39,6 +39,7 @@ __all__ = [
     "ProductForLine",
     "SetupCounts",
     "customer_snapshot",
+    "movements_for_document",
     "mark_used",
     "product_for_line",
     "products_for_lines",
@@ -221,3 +222,10 @@ def setup_counts(tx: Session, on: date) -> SetupCounts:
         {"on": on},
     ).one()
     return SetupCounts(*row)
+
+
+def movements_for_document(tx: Session, document_id: uuid.UUID) -> int:
+    """How many stock movements an invoice wrote (its `sale_out` rows), in the bound business. Read-only."""
+    return tx.execute(
+        text(f"select count(*) from catalog.stock_movements where {_MINE} and source_type = 'sales_invoice'"
+             " and source_id = :d"), {"d": document_id}).scalar_one()

@@ -104,6 +104,35 @@ def document_for_draft(uow: UnitOfWork, draft_id: uuid.UUID) -> dict | None:
     return None if row is None else dict(row)
 
 
+def get_document(uow: UnitOfWork, document_id: uuid.UUID) -> dict:
+    """One finalized document of this business; another business's, or an unknown one, is a 404."""
+    row = (
+        uow.tx.execute(
+            text(f"select {_DOCUMENT_COLUMNS} from sales.documents where id = :i and business_id = :b"),
+            {"i": document_id, "b": _business(uow)},
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if row is None:
+        raise Deny("not_found")
+    return dict(row)
+
+
+def list_documents(uow: UnitOfWork, limit: int, offset: int) -> tuple[list[dict], bool]:
+    """This business's finalized documents, newest first."""
+    rows = (
+        uow.tx.execute(
+            text(f"select {_DOCUMENT_COLUMNS} from sales.documents where business_id = :b"
+                 " order by finalized_at desc, id desc limit :n offset :o"),
+            {"b": _business(uow), "n": limit + 1, "o": offset},
+        )
+        .mappings()
+        .all()
+    )
+    return [dict(r) for r in rows[:limit]], len(rows) > limit
+
+
 def finalize(uow: UnitOfWork, draft_id: uuid.UUID, if_match: int | None, today: date) -> dict:
     """The draft's document. A draft finalized already (a retry, a second tab) gives the
     same document back, whatever the key (BH-5, AC4-3)."""
