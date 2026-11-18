@@ -53,6 +53,7 @@ if (process.argv.includes("--check")) {
   const all = html + readFileSync(join(out, "styles.css"), "utf8");
   if (/<script\b/i.test(html)) problems.push("a script tag");
   if (/https?:\/\/(?!www\.w3\.org\/2000\/svg)/i.test(all)) problems.push("an absolute http(s) URL (third-party fonts, scripts or links)");
+  if (/<style\b|\sstyle\s*=|\son[a-z]+\s*=/i.test(html)) problems.push("inline style or event-handler code (the production Content-Security-Policy blocks it)");
   if (/\{\{/.test(html)) problems.push("an unfilled placeholder");
   if (problems.length) {
     console.error("landing check failed: " + problems.join("; "));
