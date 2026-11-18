@@ -38,8 +38,9 @@ def signin(client, email):
 
 def account(client, mail, idp, email, *, totp=True):
     """A signed-up account, its bearer header, and TOTP on if asked."""
-    assert verify(client, sign_up(client, mail, email).params["code"], email=email).status_code == 200
-    me = {"authorization": f"Bearer {signin(client, email).json()['access_token']}"}
+    done = verify(client, sign_up(client, mail, email).params["code"], email=email)
+    assert done.status_code == 200
+    me = {"authorization": f"Bearer {done.json()['access_token']}"}  # the sign-up session is the one active session
     if totp:
         secret = client.post("/api/v1/me/totp/setup", headers=me).json()["secret"]
         assert (

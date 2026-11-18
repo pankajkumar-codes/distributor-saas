@@ -12,10 +12,12 @@ import { AuthPage } from "../../kit/AuthPage";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { Field } from "../../kit/Field";
+import { SessionActiveStep } from "./SessionActiveStep";
 import { TotpStep } from "./TotpStep";
 
 export type SignedIn = components["schemas"]["SignedInOut"];
-type SigninReply = SignedIn | components["schemas"]["TotpStepOut"];
+type SessionActive = components["schemas"]["SessionActiveOut"];
+export type SigninReply = SignedIn | SessionActive | components["schemas"]["TotpStepOut"];
 
 /**
  * /signin, then the authenticator-app step on the same URL. The TOTP challenge and the
@@ -31,6 +33,8 @@ export function SigninPage() {
   const [password, setPassword] = useState("");
   const [challenge, setChallenge] = useState<string | null>(null);
   const [expired, setExpired] = useState(false);
+  const [pending, setPending] = useState<string | null>(null); // the token of a sign-in waiting for the one-session answer
+  const [kept, setKept] = useState(false);
   const [missing, setMissing] = useState<{ email?: string; password?: string }>({});
 
   const done = (reply: SignedIn) => {
@@ -38,18 +42,50 @@ export function SigninPage() {
     navigate(safeNext(params.get("next")) ?? landingPath(reply.memberships, reply.user.is_support), { replace: true });
   };
 
+  // The answer to a sign-in or its code: the next step, or the session.
+  const handle = (reply: SigninReply) => {
+    if (!("step" in reply)) done(reply);
+    else if (reply.step === "totp") setChallenge(reply.challenge);
+    else {
+      setChallenge(null);
+      setPending(reply.access_token);
+    }
+  };
+
   const signin = useMutation<SigninReply, ApiError>({
     mutationFn: () =>
       call(() => api.POST("/api/v1/auth/signin", { body: { email: email.trim(), password } }), {
         refresh: false,
       }),
-    onMutate: () => setExpired(false),
+    onMutate: () => {
+      setExpired(false);
+      setKept(false);
+    },
     onSuccess: (reply) => {
       setPassword(""); // not needed past this point
-      if ("step" in reply) setChallenge(reply.challenge);
-      else done(reply);
+      handle(reply);
     },
   });
+
+  if (pending) {
+    return (
+      <SessionActiveStep
+        token={pending}
+        onContinue={(reply) => {
+          setPending(null);
+          done(reply);
+        }}
+        onKeepOther={() => {
+          setPending(null);
+          setKept(true);
+        }}
+        onExpired={() => {
+          setPending(null);
+          setExpired(true);
+        }}
+      />
+    );
+  }
 
   if (challenge) {
     return (
@@ -57,7 +93,7 @@ export function SigninPage() {
         email={email.trim()}
         challenge={challenge}
         onChallenge={setChallenge}
-        onDone={done}
+        onDone={handle}
         onExpired={() => {
           setChallenge(null);
           setExpired(true);
@@ -91,6 +127,7 @@ export function SigninPage() {
         {notice === "ended_later" && <Banner>We have now cleared your sign-in on this computer.</Banner>}
         {passwordReset && !error && <Banner>Your password is changed, and you're signed out everywhere. Sign in with the new password.</Banner>}
         {expired && <Banner tone="error">That took too long. Sign in again.</Banner>}
+        {kept && <Banner>You are still signed in on the other browser. This sign-in was cancelled.</Banner>}
         {error && !error.field && <Banner tone="error">{errorText(error)}</Banner>}
         <Field
           label="Email"

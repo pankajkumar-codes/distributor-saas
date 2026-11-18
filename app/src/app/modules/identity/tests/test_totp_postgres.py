@@ -13,7 +13,7 @@ from platform_common.auth import set_local_verifier
 from platform_common.clock import FrozenClock, get_clock
 from platform_common.fake_auth import CLIENT_ID, ISSUER
 
-from .auth_env import EMAIL, ORIGIN, PASSWORD, auth_env, last, one, sign_up, verify
+from .auth_env import EMAIL, ORIGIN, PASSWORD, auth_env, end_sessions, last, one, sign_up, verify
 from .conftest import PG_ADMIN_URL
 
 pytestmark = pytest.mark.skipif(not PG_ADMIN_URL, reason="PG_ADMIN_URL not set")
@@ -22,8 +22,9 @@ pytestmark = pytest.mark.skipif(not PG_ADMIN_URL, reason="PG_ADMIN_URL not set")
 @pytest.fixture()
 def env():
     with auth_env() as e:
-        client, idp, mail, _ = e
+        client, idp, mail, admin = e
         assert verify(client, sign_up(client, mail).params["code"]).status_code == 200
+        end_sessions(admin)  # one active session per user: sign-up opened one
         set_local_verifier(idp.jwks(), issuer=ISSUER, client_id=CLIENT_ID)
         yield e
         set_local_verifier(None)

@@ -8,20 +8,20 @@ import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { DemoTwoStepNote } from "../../kit/DemoNote";
 import { OtpInput } from "../../kit/OtpInput";
-import type { SignedIn } from "./SigninPage";
+import type { SigninReply } from "./SigninPage";
 
 type Props = {
   email: string;
   challenge: string;
   onChallenge: (challenge: string) => void;
-  onDone: (reply: SignedIn) => void;
+  onDone: (reply: SigninReply) => void;
   onExpired: () => void;
 };
 
 export function TotpStep({ email, challenge, onChallenge, onDone, onExpired }: Props) {
   const [code, setCode] = useState("");
   const [incomplete, setIncomplete] = useState<string>();
-  const totp = useMutation<SignedIn, ApiError>({
+  const totp = useMutation<SigninReply, ApiError>({
     mutationFn: () =>
       call(() => api.POST("/api/v1/auth/signin/totp", { body: { email, challenge, code } }), {
         refresh: false,

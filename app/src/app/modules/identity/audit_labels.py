@@ -20,6 +20,8 @@ ACTIONS: dict[str, tuple[str, str]] = {
     "auth.totp_off": ("Turned off two-step sign-in", "team_settings"),
     "auth.totp_removed_by_support": ("Support turned off two-step sign-in", "support"),
     "auth.signout_all": ("Signed out everywhere", "team_settings"),
+    "auth.session_replaced": ("Signed in here and ended the other session", "team_settings"),
+    "auth.signin_declined": ("Kept the other session and did not sign in", "team_settings"),
     "business.create": ("Created the business", "team_settings"),
     "business.profile_update": ("Changed the business details", "team_settings"),
     "business.turnover_band_set": ("Set the turnover band", "team_settings"),

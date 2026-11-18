@@ -125,6 +125,61 @@ describe("sign-in", () => {
     ]);
   });
 
+  const ACTIVE = { status: 200, body: { step: "session_active", access_token: "pending-tok", expires_in: 300 } };
+  const REPLACE = "/api/v1/auth/session/replace";
+  const CANCEL = "/api/v1/auth/session/cancel";
+
+  it("asks before ending the other session, and yes ends it and continues here", async () => {
+    open("/signin");
+    server.reply(SIGNIN, ACTIVE);
+    server.reply(REPLACE, signedIn([A]));
+    server.reply(ME, { status: 200, body: { businesses: [A] } });
+    await signIn();
+    await screen.findByText("One session is already active. Sign out there and continue here?");
+    expect(tokenStore.get()).toBeNull(); // nothing is signed in yet
+    fireEvent.click(screen.getByRole("button", { name: /^Yes/ }));
+    expect(await screen.findByRole("heading", { name: HOME })).toBeInTheDocument();
+    expect(server.sent.find((s) => s.path === REPLACE)?.headers.get("Authorization")).toBe("Bearer pending-tok");
+    expect(tokenStore.get()).toBe("tok");
+  });
+
+  it("no keeps the other session: the sign-in is cancelled and the form comes back", async () => {
+    open("/signin");
+    server.reply(SIGNIN, ACTIVE);
+    server.reply(CANCEL, { status: 204 });
+    await signIn();
+    await screen.findByText("One session is already active. Sign out there and continue here?");
+    fireEvent.click(screen.getByRole("button", { name: /^No/ }));
+    expect(await screen.findByText("You are still signed in on the other browser. This sign-in was cancelled.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Sign in" })).toBeInTheDocument();
+    expect(server.sent.find((s) => s.path === CANCEL)?.headers.get("Authorization")).toBe("Bearer pending-tok");
+    expect(tokenStore.get()).toBeNull();
+    expect(server.paths()).not.toContain(REPLACE);
+  });
+
+  it("starts again when the yes comes too late", async () => {
+    open("/signin");
+    server.reply(SIGNIN, ACTIVE);
+    server.reply(REPLACE, { status: 401, body: { error: { code: "session_invalid", message: "" } } });
+    await signIn();
+    await screen.findByText("One session is already active. Sign out there and continue here?");
+    fireEvent.click(screen.getByRole("button", { name: /^Yes/ }));
+    expect(await screen.findByText("That took too long. Sign in again.")).toBeInTheDocument();
+    expect(tokenStore.get()).toBeNull();
+  });
+
+  it("asks after the authenticator code too", async () => {
+    open("/signin");
+    server.reply(SIGNIN, { status: 200, body: { step: "totp", challenge: "ch-1" } });
+    await signIn();
+    await screen.findByRole("heading", { name: "Two-step sign-in" });
+    server.reply(TOTP, ACTIVE);
+    fireEvent.paste(screen.getByLabelText("Digit 1 of 6"), { clipboardData: { getData: () => "111111" } });
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    expect(await screen.findByText("One session is already active. Sign out there and continue here?")).toBeInTheDocument();
+    expect(tokenStore.get()).toBeNull();
+  });
+
   it("starts again when the TOTP step expires", async () => {
     open("/signin");
     server.reply(SIGNIN, { status: 200, body: { step: "totp", challenge: "ch-1" } });

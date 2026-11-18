@@ -28,6 +28,9 @@ ALLOWED_DATA: dict[str, frozenset[str]] = {
     "auth.totp_removed_by_support": frozenset({"support_user_id"}),
     "auth.signout": frozenset(),
     "auth.signout_all": frozenset({"sessions"}),
+    # One active session per user: the person said yes to ending the other one (sessions = how many ended), or no.
+    "auth.session_replaced": frozenset({"sessions"}),
+    "auth.signin_declined": frozenset(),
     "business.create": frozenset({"registration_kind"}),
     # Business profile (LLD-1 §8.2, L1-13, L1-14).
     "business.profile_update": frozenset({"fields"}),

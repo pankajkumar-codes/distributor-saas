@@ -343,6 +343,13 @@ Every row in `refdata/` is `provisional`. Before go-live:
 - **Combining.** The gate decides when the file may be made. How platform rows and our own invoices are merged into one GSTR-1 stays with the return build (R3-M3, Staff 2 (4)); nothing here merges data.
 - **Platform files the readers do not cover** (a platform not among the three) cannot be asked for; the gate says nothing about them.
 
+## One active session per user (2026-11-19)
+
+- Confirmation window: the "Yes" must come within 10 minutes of the sign-in (`auth.session_confirm_minutes`, provisional). Owner may want it shorter or longer.
+- Support accounts follow the same rule as everyone. A support person signed in on two machines is asked the same question.
+- The ended browser is not told at once: its access token (up to 5 minutes) is refused at its next call, and it then shows the session-timed-out screen. Instant sign-out would need a push channel, which is not built.
+- Sessions that already exist before this release are left alone; a person with two old sessions is asked on their next sign-in only if one of them is still live.
+
 ## Release blockers (not R1 build blockers; Pankaj, 2026-11-17)
 These need Pankaj or his CA and do not stop building. Each must be done before production release.
 - **CA question sheet** (`team/program-lead/ca-question-sheet-v1.md`, CA-1 to CA-5 above and the platform treatment items): Pankaj takes it to his CA just before release.

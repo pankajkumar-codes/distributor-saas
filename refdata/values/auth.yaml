@@ -212,3 +212,14 @@
   last_checked: 2026-11-16
   status: provisional
   note: "The special characters that count. A space is allowed inside a password but is not a special character."
+
+- key: auth.session_confirm_minutes
+  value: "10"
+  type: integer
+  kind: product
+  valid_from: 2026-11-19
+  source_url: https://claude.ai/artifact/F48P7oLdrB1cNp6WqZbQcA
+  source_title: "BRD v1.3, owner decision 2026-11-18 (one active session per user)"
+  last_checked: 2026-11-19
+  status: provisional
+  note: "After a second sign-in is asked 'end the other session?', the answer must come within 10 minutes of that sign-in."
