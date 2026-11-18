@@ -10,6 +10,7 @@ import { useMyBusinesses } from "../../auth/useMyBusinesses";
 import { canEditCatalog } from "../../auth/roles";
 import { AddressFields, NO_ADDRESS, addressIn, addressLine, addressOf, sameAddress, type Address } from "../../kit/AddressFields";
 import { Banner } from "../../kit/Banner";
+import { ManageRecord } from "../../kit/ManageRecord";
 import { Button } from "../../kit/Button";
 import { Field } from "../../kit/Field";
 import { NotFound } from "../../kit/NotFound";
@@ -84,7 +85,6 @@ export function CustomerPage() {
   const [theirs, setTheirs] = useState<Key[]>([]);
   const [stale, setStale] = useState(false);
   const [daysError, setDaysError] = useState<string | undefined>();
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const latest = customer.data ?? null;
 
   useEffect(() => {
@@ -133,7 +133,7 @@ export function CustomerPage() {
     },
     onSuccess: (c) => {
       saved(c);
-      if (isNew) navigate(`/b/${businessId}/customers/${c.id}`, { replace: true });
+      if (isNew) navigate(`/b/${businessId}/customers`, { replace: true, state: { added: c.name } });
     },
     onError: refetchIfStale,
   });
@@ -279,30 +279,17 @@ export function CustomerPage() {
         </form>
 
         {canEdit && !isNew && opened && (
-          <section className="card" aria-labelledby="manage">
-            <h2 id="manage">Archive or delete</h2>
-            <Button type="button" variant="link" busy={archive.isPending} disabled={dirty} onClick={() => archive.mutate(opened.status !== "archived")}>
-              {opened.status === "archived" ? "Unarchive" : "Archive"}
-            </Button>
-            {dirty && <p className="hint">Save or undo your changes first.</p>}
-            {!opened.in_use &&
-              (confirmDelete ? (
-                <p>
-                  Delete {opened.name} for good?{" "}
-                  <Button type="button" variant="link" busy={remove.isPending} onClick={() => remove.mutate()}>
-                    Yes, delete
-                  </Button>{" "}
-                  <Button type="button" variant="link" onClick={() => setConfirmDelete(false)}>
-                    Keep it
-                  </Button>
-                </p>
-              ) : (
-                <Button type="button" variant="link" onClick={() => setConfirmDelete(true)}>
-                  Delete
-                </Button>
-              ))}
-            {opened.in_use && <p className="hint">This customer is on invoices, so they can be archived but not deleted.</p>}
-          </section>
+          <ManageRecord
+            noun="customer"
+            name={opened.name}
+            archived={opened.status === "archived"}
+            inUse={opened.in_use}
+            dirty={dirty}
+            archiveBusy={archive.isPending}
+            deleteBusy={remove.isPending}
+            onArchive={(a) => archive.mutate(a)}
+            onDelete={() => remove.mutate()}
+          />
         )}
       </main>
     </>

@@ -38,7 +38,7 @@ test("R2: purchase, stock, price, practice invoice, PDF request", async ({ page 
   await page.getByLabel("Name", { exact: true }).fill("Asha Stores");
   await page.getByRole("group", { name: "Billing address" }).getByLabel("State", { exact: true }).selectOption("27");
   await page.getByRole("button", { name: "Add customer" }).click();
-  await expect(page.getByRole("heading", { name: "Asha Stores" })).toBeVisible();
+  await expect(page.getByText("Added Asha Stores.")).toBeVisible(); // adding lands on the Customers list
 
   // Upload a photo of a supplier invoice: it is kept and the business types it in.
   await page.goto(`/b/${businessId}/purchases`);

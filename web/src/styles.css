@@ -1,5 +1,5 @@
-/* Design tokens from the mocks (v13). Light ships first; the dark values are the mocks'
-   and are switched on only with data-theme="dark" until a theme switch is decided. */
+/* Design tokens from the mocks (v13). The mocks follow the device setting: dark values apply
+   under prefers-color-scheme: dark, unless data-theme="light" is set; data-theme="dark" forces dark. */
 :root {
   color-scheme: light;
   --bg: #f4f4f0;
@@ -27,6 +27,29 @@
   color: var(--ink);
   background: var(--bg);
   line-height: 1.45;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #141716;
+    --surface: #1c201f;
+    --sunk: #232826;
+    --line: #323836;
+    --control: #7c8480;
+    --ink: #eceeeb;
+    --muted: #a3aaa6;
+    --accent: #5fb8ac;
+    --accent-ink: #0e1513;
+    --accent-soft: #1e3330;
+    --gst: #93aee6;
+    --gst-soft: #1f2638;
+    --ok: #7ccb95;
+    --ok-soft: #1c2e22;
+    --warn: #e8b467;
+    --warn-soft: #33281a;
+    --bad: #f09a90;
+    --bad-soft: #3a201d;
+  }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
@@ -248,3 +271,12 @@ ol.steps > li::before { content: counter(s); position: absolute; left: 0; top: 1
 .home-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 .home-links { display: flex; gap: 14px; flex-wrap: wrap; font-size: 14px; }
 @media (max-width: 760px) { .home-cols { grid-template-columns: minmax(0, 1fr); } }
+
+/* Archive / delete on customer and product pages: two separate actions, each explained */
+.btn-danger { background: var(--surface); color: var(--bad); border: 1.5px solid var(--bad); min-height: 40px; padding: 0 14px; font-size: 14px; }
+.manage-row { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 14px 0; border-top: 1px solid var(--line); }
+.manage-row:first-of-type { border-top: 0; }
+.manage-row h3 { font-size: 15px; margin: 0; }
+.manage-row p { margin: 0; }
+.row-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.row-actions p { flex-basis: 100%; margin: 0; }
