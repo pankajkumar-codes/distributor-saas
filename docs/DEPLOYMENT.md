@@ -86,7 +86,11 @@ a month at Lambda list prices (not verified against an AWS bill).
   ap-south-1 for the API's `api.<domain>`, D-095), and SES production access for that
   domain (tech plan §0, §4.5). Both names must be on the same registrable domain: the
   refresh cookie is SameSite=Strict. After the apply, point `api.<domain>` at the
-  `api_regional_domain_name` output.
+  `api_regional_domain_name` output. Nothing enforces the sibling name: if `api_domain` is
+  not on the same site as the web name, sign-in silently fails. At the first staging deploy,
+  check sign-in, refresh and sign-out from the real app origin, and that an expired-token
+  401 from API Gateway's JWT authorizer still carries the CORS headers (the web's refresh
+  and retry reads that status).
 
 ## How a staging deploy runs (`.github/workflows/deploy-staging.yml`)
 Started by hand from `main` only. Two jobs, both in the `staging` environment, so each

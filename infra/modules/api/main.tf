@@ -21,8 +21,8 @@ variable "certificate_arn" {
   type        = string
   default     = ""
   validation {
-    condition     = var.certificate_arn == "" || can(regex("^arn:aws:acm:ap-south-[12]:", var.certificate_arn))
-    error_message = "certificate_arn must be an ACM certificate in ap-south-1 or ap-south-2."
+    condition     = var.certificate_arn == "" || can(regex("^arn:aws:acm:ap-south-1:", var.certificate_arn))
+    error_message = "certificate_arn must be an ACM certificate in ap-south-1, the stack's region."
   }
 }
 variable "throttling_burst_limit" {
