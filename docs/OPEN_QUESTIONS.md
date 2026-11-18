@@ -349,6 +349,12 @@ Every row in `refdata/` is `provisional`. Before go-live:
 - **`GET /b/{id}/returns` now needs `returns.view` (CEO, 2026-11-18)** (owner, admin, CA, like the other returns routes); billing no longer reads the list, and the web hides the filing page and home link for billing. The route-permission test allowlist no longer has it.
 - **Other no-permission reads.** `home`, `profile`, `filing-profile` and `channels` are readable by every active member by design; each is still refused to a non-member.
 
+### R4 end-of-release batch for Pankaj (2026-11-18)
+Three things only Pankaj can settle; none stops the build.
+1. **Invite emails need SES, which is real-AWS gated.** Invite links are mailed (CEO: no copy-link). Locally and in tests the mail is recorded, not sent. Production sending needs SES production access, a verified sending domain and the product name/support contact (all release blockers already listed below). Until then a team member cannot actually receive an invite. Recommendation: do this with the go-live prep, not before.
+2. **Token lifetime and limits.** A link lasts 7 days (`INVITE_EXPIRY_DAYS`), is single use, and a resend kills the old link; 20 invite mails per business per day. Both are product values, not tax rules. Recommendation: keep 7 days and 20 a day for launch; change only if real owners ask.
+3. **Role change rules as built.** Owner or admin changes a member's role between owner, admin and billing; only an owner may touch an owner; the last owner cannot be demoted; a CA's role changes only through a new invite (Product Owner rule RM-4.2); deactivate and reactivate need a reason; a deactivated person rejoins by reactivation or by accepting a new invite, which restores them with the invited role. Question: is it right that an admin may promote someone to admin? Recommendation: yes, keep.
+
 ## Release blockers (not R1 build blockers; Pankaj, 2026-11-17)
 These need Pankaj or his CA and do not stop building. Each must be done before production release.
 - **CA question sheet** (`team/program-lead/ca-question-sheet-v1.md`, CA-1 to CA-5 above and the platform treatment items): Pankaj takes it to his CA just before release.
