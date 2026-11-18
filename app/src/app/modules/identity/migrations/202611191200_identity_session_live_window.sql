@@ -8,6 +8,9 @@
 -- ended (reason 'replaced') in the same transaction, so there is never a second usable session
 -- behind the new one.
 
+-- The function is owned by identity_auth; the RDS master replaces it as that role (as in 202610271500).
+grant create on schema identity to identity_auth;
+set role identity_auth;
 create or replace function identity.auth_open_session_once(
     p_id uuid, p_user_id uuid, p_key_kind text, p_key_value text, p_auth_time timestamptz, p_max_days int
 ) returns boolean
@@ -28,4 +31,6 @@ begin
     values (p_id, p_user_id, p_key_kind, p_key_value, p_auth_time, now() + make_interval(days => p_max_days));
     return true;
 end $$;
+reset role;
+revoke create on schema identity from identity_auth;
 -- Owner, grants and the signature are unchanged from 202611190900.
