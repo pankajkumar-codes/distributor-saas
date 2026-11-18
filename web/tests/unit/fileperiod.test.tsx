@@ -53,7 +53,7 @@ describe("file from your own invoices", () => {
     expect(await screen.findByText("This period has not ended yet.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Get my GSTR-1 file" })).toBeDisabled();
     expect(screen.getByLabelText(/uploaded all my purchase invoices/)).toBeDisabled();
-    expect(screen.getByText(/Filing for this period opens on 2099-01-01/)).toBeInTheDocument();
+    expect(screen.getByText(/Filing for this period opens on 01-Jan-2099/)).toBeInTheDocument();
     expect(screen.getByText(/Due date: Check on the GST portal/)).toBeInTheDocument();
   });
 
@@ -72,7 +72,7 @@ describe("file from your own invoices", () => {
     await screen.findByText("Confirm that every invoice is in the portal.");
     server.reply(`PUT ${B}/period-gate`, {
       status: 200,
-      body: gate({ can_file: true, reasons: [], confirmations: [{ item: "purchases_uploaded", confirmed: true, stale: false, at: "x" }, { item: "invoices_in_portal", confirmed: true, stale: false, at: "x" }] }),
+      body: gate({ can_file: true, reasons: [], confirmations: [{ item: "purchases_uploaded", confirmed: true, stale: false, at: "2026-11-18T10:00:00Z" }, { item: "invoices_in_portal", confirmed: true, stale: false, at: "2026-11-18T10:00:00Z" }] }),
     });
     fireEvent.click(screen.getByLabelText(/Every invoice for this period is in the portal/));
     const button = screen.getByRole("button", { name: "Get my GSTR-1 file" });
@@ -92,7 +92,7 @@ describe("file from your own invoices", () => {
     await screen.findByLabelText("Month");
     server.reply(`GET ${B}/period-gate`, {
       status: 200,
-      body: gate({ reasons: ["purchases_uploaded_stale", "invoices_in_portal_missing"], confirmations: [{ item: "purchases_uploaded", confirmed: true, stale: true, at: "x" }, { item: "invoices_in_portal", confirmed: false, stale: false, at: null }] }),
+      body: gate({ reasons: ["purchases_uploaded_stale", "invoices_in_portal_missing"], confirmations: [{ item: "purchases_uploaded", confirmed: true, stale: true, at: "2026-11-18T10:00:00Z" }, { item: "invoices_in_portal", confirmed: false, stale: false, at: null }] }),
     });
     choose(finished.start);
     expect(await screen.findByText(/changed after you confirmed/)).toBeInTheDocument();
@@ -107,10 +107,26 @@ describe("file from your own invoices", () => {
       body: gate({ reasons: ["platform_files_missing"], platform_files: [{ platform: "amazon", missing_months: [finished.start.slice(0, 7)] }] }),
     });
     choose(finished.start);
-    expect(await screen.findByText(new RegExp(`Amazon: files missing for ${finished.start.slice(0, 7)}`))).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Add your marketplace files" })).toHaveAttribute("href", "/b/b-1/uploads");
+    expect(await screen.findByText(/Amazon, [A-Z][a-z]{2} \d{4}: no file yet/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Upload it" })).toHaveAttribute("href", "/b/b-1/uploads");
     expect(screen.getByText("Add the files of the marketplaces you sell on, or say there were no sales.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Get my GSTR-1 file" })).toBeDisabled();
+    // saying there were no sales posts that month for that platform, then the gate is read again
+    server.reply(`POST ${B}/uploads/none-this-month`, { status: 200, body: { section: "amazon", month: finished.start.slice(0, 7) } });
+    server.reply(`GET ${B}/period-gate`, { status: 200, body: gate({ can_file: true, reasons: [], platform_files: [] }) });
+    fireEvent.click(screen.getByRole("button", { name: /No Amazon sales in/ }));
+    await vi.waitFor(() => expect(screen.getByRole("button", { name: "Get my GSTR-1 file" })).toBeEnabled());
+    expect(server.sent.find((x) => x.path === `${B}/uploads/none-this-month`)!.body).toEqual({ section: "amazon", month: finished.start.slice(0, 7) });
+    expect(screen.queryByText("Marketplace files")).toBeNull();
+  });
+
+  it("shows the due date only when the server confirms it, and says what is upcoming", async () => {
+    open();
+    await screen.findByLabelText("Month");
+    server.reply(`GET ${B}/period-gate`, { status: 200, body: gate({ due_date: "2026-11-11", due_dates: "11 Nov" }) });
+    choose(finished.start);
+    expect(await screen.findByText(/Due date: 11-Nov-2026/)).toBeInTheDocument();
+    expect(screen.getByText("Upcoming")).toBeInTheDocument();
   });
 
   it("is not there for a role that cannot prepare returns", async () => {
