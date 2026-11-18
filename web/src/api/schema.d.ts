@@ -4057,6 +4057,8 @@ export interface components {
             created_by: string;
             /** Id */
             id: string;
+            /** Is Practice */
+            is_practice: boolean;
             /**
              * Kind
              * @enum {string}
@@ -7819,6 +7821,7 @@ export interface operations {
     list_movements_api_v1_b__business_id__products__product_id__stock_movements_get: {
         parameters: {
             query?: {
+                practice?: boolean | null;
                 limit?: number;
                 offset?: number;
             };

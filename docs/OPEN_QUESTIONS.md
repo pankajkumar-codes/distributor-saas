@@ -292,6 +292,15 @@ Every row in `refdata/` is `provisional`. Before go-live:
 - **A second purchase for the same line.** `(source_id, source_line_id)` is the once-only key. If M2 lets a business change a confirmed line, the change must be a reversal plus a new receipt, never an edit; M2 owns that flow.
 - **Web.** M3 ships the server and the interface. The stock screen, the "no stock" notice and the set-price step come with the web milestones on mock v13; the R1 product screens do not change yet.
 
+## R2-M4 (sales from the catalog, with stock)
+
+- **Practice invoices and stock: decided.** They take stock out like any other (CEO, 2026-11-18) and their movements are tagged `is_practice`, so a trial can be filtered or reversed (D-082). Still open: whether a business needs a one-step "undo all practice sales" action; today each is reversed by hand.
+- **Returns and cancellations.** Nothing cancels or credits an invoice yet (no credit notes). A stock reversal puts the goods back in the ledger and leaves the invoice as it was; a credit note flow with its own stock rule is not built.
+- **Services and non-stock items.** Every catalog product is treated as stock-tracked, so a service line shows "no stock". A "does not hold stock" flag on a product is not built; it would also need a rule on what finalize does for it.
+- **Stock check at finalize time.** `no_stock` and `low_stock` are computed from the ledger when the draft is saved or previewed and again at finalize; two invoices drafted before either is finalized can together sell more than is held. That is allowed by design (never block) and the balance simply goes negative.
+- **Quantity range.** Sales quantities are numeric(18,3) and the ledger numeric(15,3); a quantity above the ledger's range fails finalize with `quantity_invalid` instead of a database error. No real invoice reaches it.
+- **Zero price.** A catalog product can have a 0.00 selling price (R1 allowed it). It warns `price_zero`; refusing it is not decided.
+
 ## Release blockers (not R1 build blockers; Pankaj, 2026-11-17)
 These need Pankaj or his CA and do not stop building. Each must be done before production release.
 - **CA question sheet** (`team/program-lead/ca-question-sheet-v1.md`, CA-1 to CA-5 above and the platform treatment items): Pankaj takes it to his CA just before release.
