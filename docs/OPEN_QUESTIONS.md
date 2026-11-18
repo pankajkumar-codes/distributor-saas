@@ -274,6 +274,12 @@ Every row in `refdata/` is `provisional`. Before go-live:
 - **Product names.** The reader returns no item description, so names are typed on the review. Reading the description column is a later reader change.
 - **Files expire, records do not.** The raw purchase file follows the `uploads` area's expiry; once purged, a confirmed purchase still shows its values and the draft it came from, but not the paper. Whether purchase papers must be kept longer is a CA and retention question.
 - **Web review screen not built in this slice.** The routes and OpenAPI types are in; the screen follows mock v13 and is the next slice.
+## R2-M1 (business type)
+
+- **Is business type required once R2 invoicing starts?** It is optional now (D-080), so every R1 business keeps working with no value. A filing-only marketplace seller has no distributor or retail answer to give. If a business must choose before it can upload purchase invoices or make sales invoices (R2-M2 on), the screens that start those need to ask for it first. Needs the EM or Pankaj; until then nothing in the product depends on the value.
+- **Does a third choice or a rename belong on the list?** The list is exactly Distributor and Retail, the two words in Pankaj's R2 note. Anything else (wholesaler, manufacturer) is a new decision, not a wording change.
+- **Plan choice by type.** The price list differs by business type (filing-only against invoicing). R1-M9 is a placeholder with "free for now", so nothing maps type to plan yet; that mapping is for the payments milestone.
+- **Changing the type later.** Allowed at any time with an audit row. Whether a change after sales invoices exist should warn or be refused is not decided; it matters only once R2 invoicing exists.
 
 ## Release blockers (not R1 build blockers; Pankaj, 2026-11-17)
 These need Pankaj or his CA and do not stop building. Each must be done before production release.

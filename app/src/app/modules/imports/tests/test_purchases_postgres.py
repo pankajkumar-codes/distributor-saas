@@ -8,7 +8,8 @@ from sqlalchemy import text
 
 from .conftest import PG_ADMIN_URL, new_business, scalar
 from .fixtures.pdf import invoice_page, pdf
-from .test_uploads_postgres import get, post, run_jobs, shop  # noqa: F401  (the shop fixture)
+from .test_uploads_postgres import get, post, run_jobs
+from .test_uploads_postgres import shop as plain_shop  # noqa: F401  (a fixture)
 
 pytestmark = pytest.mark.skipif(not PG_ADMIN_URL, reason="PG_ADMIN_URL not set")
 
@@ -19,6 +20,15 @@ ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 def check_character(first14):  # the GSTIN check character, worked out here so the test stands on its own
     total = sum((v := ALPHABET.index(ch) * (2 if i % 2 else 1)) // 36 + v % 36 for i, ch in enumerate(first14))
     return ALPHABET[(36 - total % 36) % 36]
+
+
+@pytest.fixture()
+def shop(plain_shop):  # noqa: F811
+    """The business has chosen a type, as R2 needs; one test leaves it unset."""
+    pg, biz, _ = plain_shop
+    with pg.owner.begin() as c:
+        c.execute(text("update business.profiles set business_type = 'retail' where business_id = :b"), {"b": biz})
+    return plain_shop
 
 
 def gstin(core="19ABCDE1234F1Z"):
@@ -207,6 +217,8 @@ def test_another_business_cannot_see_or_decide_them(shop):  # noqa: F811
     run_jobs(shop)
     d = get(pg, f"/api/v1/b/{biz}/purchase-drafts?file_id={file_id}").json()["drafts"][0]
     other = new_business(pg, "bob")
+    with pg.owner.begin() as c:
+        c.execute(text("update business.profiles set business_type = 'retail' where business_id = :b"), {"b": other})
     assert get(pg, f"/api/v1/b/{other}/purchase-files/{file_id}", sub="bob").status_code == 404
     assert get(pg, f"/api/v1/b/{other}/purchase-drafts/{d['id']}", sub="bob").status_code == 404
     assert post(pg, f"/api/v1/b/{other}/purchase-drafts/{d['id']}/confirm", confirm_body(d), sub="bob").status_code == 404
@@ -237,3 +249,18 @@ def test_no_value_reaches_the_audit_log(shop):  # noqa: F811
     assert "imports.purchase_confirmed" in rows
     for secret in (SUPPLIER, "SUP-1", "Cotton tee", "Demo Seller", "200.00"):
         assert secret not in rows
+
+
+def test_a_business_that_has_not_chosen_a_type_is_asked_to_first(plain_shop):  # noqa: F811
+    pg, biz, _ = plain_shop
+    base = f"/api/v1/b/{biz}"
+    r = post(pg, f"{base}/purchase-files", {"file_name": "a.pdf", "size_bytes": 5}, key="k-type")
+    assert (r.status_code, r.json()["error"]["code"]) == (409, "business_type_required")
+    assert post(pg, f"{base}/purchase-files/{uuid.uuid4()}/complete").json()["error"]["code"] == "business_type_required"
+    d = uuid.uuid4()
+    assert post(pg, f"{base}/purchase-drafts/{d}/confirm", {}).status_code in (409, 422)
+    assert post(pg, f"{base}/purchase-drafts/{d}/discard").json()["error"]["code"] == "business_type_required"
+    assert get(pg, f"{base}/purchase-drafts").status_code == 200  # reading stays open
+    with pg.owner.begin() as c:
+        c.execute(text("update business.profiles set business_type = 'distributor' where business_id = :b"), {"b": biz})
+    assert post(pg, f"{base}/purchase-files", {"file_name": "a.pdf", "size_bytes": 5}, key="k-type2").status_code == 201

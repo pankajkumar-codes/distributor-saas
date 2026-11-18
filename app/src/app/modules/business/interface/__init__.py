@@ -93,6 +93,7 @@ class NewBusinessProfile(BaseModel):
     address: Address | None = None
     turnover_band: Literal["up_to_threshold", "above_threshold"]
     einvoice_history: Literal["no", "yes", "not_sure"]
+    business_type: Literal["distributor", "retail"] | None = None  # R2-M1; optional
 
 
 @dataclass(frozen=True)
@@ -106,9 +107,9 @@ class BusinessCard:
 _INSERT_PROFILE = text(
     "insert into business.profiles (business_id, legal_name, trade_name, registration_kind, gstin,"
     " enrolment_number, state_code, address_line1, address_line2, city, pin, address_state_code,"
-    " einvoice_history, updated_by)"
+    " einvoice_history, business_type, updated_by)"
     " values (:b, :legal_name, :trade_name, :kind, :gstin, :enrolment_number, :state_code, :line1, :line2,"
-    " :city, :pin, :address_state_code, :einvoice_history, :by)"
+    " :city, :pin, :address_state_code, :einvoice_history, :business_type, :by)"
 )
 _INSERT_BAND = text(
     "insert into business.turnover_bands (business_id, fy, band, set_by) values (:b, :fy, :band, :by)"
@@ -142,6 +143,7 @@ def create_profile(tx: Session, business_id: uuid.UUID, profile_in: NewBusinessP
             "pin": address.pin,
             "address_state_code": address.state_code,
             "einvoice_history": profile_in.einvoice_history,
+            "business_type": profile_in.business_type,
             "by": by,
         },
     )

@@ -79,6 +79,7 @@ def _file_out(f: purchases.PurchaseFile) -> FileOut:
 def start_file(body: FileStartIn, request: Request, uow: BusinessUoW, clock: Annotated[Clock, Depends(get_clock)],
                idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None):
     """A purchase file and a presigned POST for exactly its key, type and declared size."""
+    purchases.require_business_type(uow)
     today = clock.today()
 
     def start():
@@ -99,6 +100,7 @@ def start_file(body: FileStartIn, request: Request, uow: BusinessUoW, clock: Ann
              response_model=JobRef, dependencies=CREATE)
 def complete_file(file_id: str, uow: BusinessUoW, clock: Annotated[Clock, Depends(get_clock)]):
     """The upload finished: check it is there, then queue the read. Calling it again returns the same job."""
+    purchases.require_business_type(uow)
     f = purchases.received(uow, parse_id(file_id), clock.today())
     return JobRef(job_id=str(jobs.create(uow, import_jobs.PURCHASE_PARSE, natural_key=str(f.id))))
 
@@ -228,6 +230,7 @@ def _confirmed_out(c: purchases.Confirmed) -> ConfirmedOut:
 def confirm_draft(draft_id: str, body: ConfirmIn, uow: BusinessUoW, clock: Annotated[Clock, Depends(get_clock)]):
     """The business confirms the invoice with the values it checked on the review screen. Once; a second call is a
     conflict, not a second invoice."""
+    purchases.require_business_type(uow)
     lines = [purchases.LineIn(
         draft_line_id=None if ln.draft_line_id is None else parse_id(ln.draft_line_id), product_name=ln.product_name,
         hsn=ln.hsn, quantity=to_decimal(ln.quantity, f"lines.{i}.quantity"),
@@ -244,6 +247,7 @@ def confirm_draft(draft_id: str, body: ConfirmIn, uow: BusinessUoW, clock: Annot
 
 @router.post("/b/{business_id}/purchase-drafts/{draft_id}/discard", response_model=DraftOut, dependencies=CREATE)
 def discard_draft(draft_id: str, uow: BusinessUoW):
+    purchases.require_business_type(uow)
     return _draft_out(purchases.discard(uow, parse_id(draft_id)))
 
 

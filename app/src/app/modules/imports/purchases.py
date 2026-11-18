@@ -19,7 +19,7 @@ from decimal import Decimal
 
 from sqlalchemy import text
 
-from app.modules.business.interface import check_gstin, fy_of, gstin_message
+from app.modules.business.interface import check_gstin, fy_of, get_profile, gstin_message
 from app.modules.refdata import value_on
 from platform_common import audit, storage
 from platform_common.clock import get_clock
@@ -136,6 +136,14 @@ class Confirmed:
     invoice_total: Decimal | None
     line_count: int
     created_at: datetime
+
+
+def require_business_type(uow: UnitOfWork) -> None:
+    """R2 is for distributors and retailers (CEO, 2026-11-18): the business says which before it uses purchases. The
+    type is optional at sign-up and in setup, so the server asks, and the screen turns this code into a prompt."""
+    profile = get_profile(uow.tx)
+    if profile is None or profile.business_type is None:
+        raise Conflict("business_type_required", "Choose whether you are a distributor or a retailer first")
 
 
 def _business(uow: UnitOfWork) -> uuid.UUID:

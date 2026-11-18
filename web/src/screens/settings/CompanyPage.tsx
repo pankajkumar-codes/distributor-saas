@@ -9,7 +9,7 @@ import { useStateCodes } from "../../api/useStateCodes";
 import { useMyBusinesses } from "../../auth/useMyBusinesses";
 import { fyIst, previousFy } from "../../format/dates";
 import { AddressFields, addressIn, addressLine, addressOf, sameAddress, type Address } from "../../kit/AddressFields";
-import { BusinessTypeUpcoming } from "../../kit/BusinessTypeUpcoming";
+import { BusinessTypeField, type BusinessType } from "../../kit/BusinessTypeField";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { Field } from "../../kit/Field";
@@ -30,6 +30,7 @@ export type Values = {
   trade_name: string;
   address: Address;
   einvoice_history: Einvoice | "";
+  business_type: BusinessType | "";
   this_band: Band | "";
   last_band: Band | "";
 };
@@ -50,6 +51,7 @@ export const valuesOf = (p: Profile): Values => ({
   trade_name: p.trade_name ?? "",
   address: addressOf(p.address),
   einvoice_history: p.einvoice_history ?? "",
+  business_type: p.business_type ?? "",
   this_band: p.turnover_band?.band ?? "",
   last_band: p.previous_turnover_band?.band ?? "",
 });
@@ -70,6 +72,7 @@ export function patchBody(from: Values, to: Values): components["schemas"]["Prof
     if (k === "this_band" || k === "last_band") continue;
     if (k === "address") out.address = addressIn(to.address);
     else if (k === "einvoice_history") out.einvoice_history = to.einvoice_history || null;
+    else if (k === "business_type") out.business_type = to.business_type || null;
     else out[k] = to[k].trim() || null;
   }
   return out;
@@ -225,7 +228,7 @@ export function CompanyPage() {
   const error = save.error && !["stale_record", "if_match_required"].includes(save.error.code ?? "") ? save.error : null;
   const words = (e: ApiError) => e.fix ?? (e.message || errorText(e));
   const errorFor = (field: string) => (error && error.field === field ? words(error) : undefined);
-  const onField = error && /^(legal_name|trade_name|einvoice_history|address(\..+)?)$/.test(error.field ?? "");
+  const onField = error && /^(legal_name|trade_name|einvoice_history|business_type|address(\..+)?)$/.test(error.field ?? "");
   const theirHint = (k: Key) => {
     if (!stale || !theirs.includes(k)) return undefined;
     const now = valuesOf(opened)[k];
@@ -308,7 +311,11 @@ export function CompanyPage() {
               hint={theirHint("trade_name")}
               error={errorFor("trade_name")}
             />
-            <BusinessTypeUpcoming />
+            <BusinessTypeField
+              value={values.business_type}
+              onChange={(v) => edit({ ...values, business_type: v })}
+              error={errorFor("business_type")}
+            />
             <AddressFields
               legend="Principal place of business"
               value={values.address}

@@ -4000,6 +4000,8 @@ export interface components {
          */
         NewBusinessProfile: {
             address?: components["schemas"]["Address"] | null;
+            /** Business Type */
+            business_type?: ("distributor" | "retail") | null;
             /**
              * Einvoice History
              * @enum {string}
@@ -4325,6 +4327,8 @@ export interface components {
             address: components["schemas"]["AddressOut"];
             /** Business Id */
             business_id: string;
+            /** Business Type */
+            business_type: ("distributor" | "retail") | null;
             /** Einvoice History */
             einvoice_history: ("no" | "yes" | "not_sure") | null;
             /** Legal Name */
@@ -4345,6 +4349,8 @@ export interface components {
          */
         ProfilePatch: {
             address?: components["schemas"]["Address"] | null;
+            /** Business Type */
+            business_type?: ("distributor" | "retail") | null;
             /** Einvoice History */
             einvoice_history?: ("no" | "yes" | "not_sure") | null;
             /** Legal Name */
