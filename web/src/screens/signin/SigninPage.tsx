@@ -81,6 +81,7 @@ export function SigninPage() {
     <AuthPage>
       <h1>Sign in</h1>
       <form onSubmit={submit} noValidate className="card stack">
+        {notice === "timed_out" && <Banner>Your session timed out. Please sign in again.</Banner>}
         {notice === "not_ended" && (
           <Banner>
             We could not end your session on our server. If this computer is shared, close the browser. We will try once more in the background.

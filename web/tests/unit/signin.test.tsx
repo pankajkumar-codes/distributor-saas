@@ -170,6 +170,41 @@ describe("a reload", () => {
     expect(window.location.search).toBe("?next=%2Fb%2Fb-1%2Fhome");
   });
 
+  it("says the session timed out, and keeps the page to return to, when a signed-in session is refused", async () => {
+    server.reply(REFRESH, { status: 200, body: { access_token: "t-r", expires_in: 3600 } }, { status: 401 });
+    server.reply(ME, { status: 401, body: { error: { code: "session_invalid", message: "" } } });
+    open("/b/b-1/home");
+    await screen.findByRole("heading", { name: "Sign in" });
+    expect(await screen.findByText("Your session timed out. Please sign in again.")).toBeInTheDocument();
+    expect(window.location.search).toBe("?next=%2Fb%2Fb-1%2Fhome");
+    expect(screen.queryByRole("heading", { name: "We couldn't find that page" })).toBeNull();
+  });
+
+  it("treats a 401 without the usual code the same way: refresh once, then sign-in with the timeout message", async () => {
+    server.reply(REFRESH, { status: 200, body: { access_token: "t-r", expires_in: 3600 } }, { status: 401 });
+    server.reply(ME, { status: 401, body: { error: { code: "unauthorized", message: "" } } }, { status: 401 });
+    open("/b/b-1/settings");
+    await screen.findByRole("heading", { name: "Sign in" });
+    expect(await screen.findByText("Your session timed out. Please sign in again.")).toBeInTheDocument();
+    expect(window.location.search).toBe("?next=%2Fb%2Fb-1%2Fsettings");
+  });
+
+  it("says nothing about a timeout to a visitor who never had a session", async () => {
+    server.reply(REFRESH, { status: 401 });
+    open("/b/b-1/home");
+    await screen.findByRole("heading", { name: "Sign in" });
+    expect(screen.queryByText("Your session timed out. Please sign in again.")).toBeNull();
+  });
+
+  it("still shows NotFound for a real 404 on a business page, and no timeout message", async () => {
+    server.reply(REFRESH, { status: 200, body: { access_token: "t-r", expires_in: 3600 } });
+    server.reply(ME, { status: 200, body: { businesses: [A] } });
+    server.reply("/api/v1/b/b-1/profile", { status: 404, body: { error: { code: "not_found", message: "" } } });
+    open("/b/b-1/settings/company");
+    expect(await screen.findByRole("heading", { name: "We couldn't find that page" })).toBeInTheDocument();
+    expect(screen.queryByText("Your session timed out. Please sign in again.")).toBeNull();
+  });
+
   it("shows NotFound for a business that isn't in the user's list", async () => {
     server.reply(REFRESH, { status: 200, body: { access_token: "t-r", expires_in: 3600 } });
     server.reply(ME, { status: 200, body: { businesses: [A] } });
