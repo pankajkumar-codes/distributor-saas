@@ -26,7 +26,7 @@ from platform_common.paging import DEFAULT_LIMIT, MAX_LIMIT
 from platform_common.permissions import Permission, require
 from platform_common.uow import BusinessUoW, parse_id
 
-from . import drafts, finalize, preview
+from . import document_pdf, drafts, finalize, preview
 from .compute import Computation
 
 router = APIRouter(tags=["sales"])
@@ -39,6 +39,7 @@ def _business_type_chosen(uow: BusinessUoW) -> None:
 
 # The permission check runs first, so a role without it still gets the plain 404.
 EDIT = [Depends(require(Permission.DOCUMENTS_CREATE)), Depends(_business_type_chosen)]
+VIEW = [Depends(require(Permission.DOCUMENTS_VIEW))]
 
 Text = Annotated[str, Field(max_length=300)]
 # A string only: a JSON number is refused by the type, so a float never reaches money().
@@ -428,3 +429,23 @@ def finalize_draft(
     return run_once(uow.tx, uow.principal.business_id, idempotency_key, method=request.method,
                     route=request.scope["route"].path, payload={"draft_id": str(did), "if_match": version},
                     operation=lambda: _document(finalize.finalize(uow, did, version, clock.today())))
+
+
+class DocumentPdfRef(BaseModel):
+    job_id: str
+    attempt: int  # 1, or higher after an earlier attempt failed
+
+
+@router.post("/b/{business_id}/documents/{document_id}/pdf", status_code=http.HTTP_202_ACCEPTED,
+             response_model=DocumentPdfRef, dependencies=VIEW)
+def document_pdf_request(document_id: str, uow: BusinessUoW):
+    """Queues the PDF of a finalized document, made from what was stored at finalize. While live
+    numbering is off every document is a practice one and the PDF says it is not a tax invoice.
+    Asking again gives the same job unless the last attempt failed; poll GET .../pdf/{job_id}."""
+    job_id, attempt = document_pdf.queue(uow, parse_id(document_id))
+    return {"job_id": str(job_id), "attempt": attempt}
+
+
+@router.get("/b/{business_id}/documents/{document_id}/pdf/{job_id}", response_model=PreviewOut, dependencies=VIEW)
+def document_pdf_status(document_id: str, job_id: str, uow: BusinessUoW):
+    return document_pdf.status(uow, parse_id(document_id), parse_id(job_id))

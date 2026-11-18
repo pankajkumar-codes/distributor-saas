@@ -301,6 +301,15 @@ Every row in `refdata/` is `provisional`. Before go-live:
 - **Quantity range.** Sales quantities are numeric(18,3) and the ledger numeric(15,3); a quantity above the ledger's range fails finalize with `quantity_invalid` instead of a database error. No real invoice reaches it.
 - **Zero price.** A catalog product can have a 0.00 selling price (R1 allowed it). It warns `price_zero`; refusing it is not decided.
 
+## R2-M5 (finalize and invoice PDF)
+
+- **Live invoice template.** The `invoice-document` template prints the Rule 46 fields from `team/gst/document-fields.md` so far as the stored document has them, but only as a practice page. A live "Tax Invoice" template needs the CA's approval of the fields and wording (D-010) and is refused until then. Fields the document does not carry yet (for example a signature block, "E&OE", e-invoice IRN/QR, bank details, terms) are not printed; whether they are required or wanted is open.
+- **Charges on the page.** The document stores the charges total and the charge labels, not each charge's amount, so the PDF shows one row with the labels and the total. Per-charge amounts would need a stored breakdown.
+- **Download screen.** There is no web screen yet for "Download PDF" on a finalized invoice; the API is built and tested (D-083). Which screen carries it is for the web milestone.
+- **Auto-queue at finalize.** The PDF is generated when asked, not at finalize. Queueing it at finalize would give the user a ready file sooner at the cost of a render per invoice; not decided.
+- **Reprints.** Every reprint reads the stored document, so it matches the first one. Whether to keep each generated PDF as a dated record is not decided.
+- **Renderer tests need the built task.** They skip unless `RENDERER_TASK` points at an unpacked renderer zip. The new template's tests, which need no native libraries, were run with `RENDERER_TASK` set to the source folder; WeasyPrint rendering of the new template runs only in CI's `renderer` job and has not been run locally.
+
 ## Release blockers (not R1 build blockers; Pankaj, 2026-11-17)
 These need Pankaj or his CA and do not stop building. Each must be done before production release.
 - **CA question sheet** (`team/program-lead/ca-question-sheet-v1.md`, CA-1 to CA-5 above and the platform treatment items): Pankaj takes it to his CA just before release.

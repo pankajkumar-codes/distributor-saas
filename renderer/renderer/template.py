@@ -117,6 +117,10 @@ def render_html(doc: dict) -> str:
         from .worksheet_template import render_html as render_worksheet  # imports this module's helpers
 
         return render_worksheet(doc)
+    if isinstance(doc, dict) and doc.get("template") == "invoice-document":
+        from .document_template import render_html as render_document  # imports this module's helpers
+
+        return render_document(doc)
     if _obj(doc) is None or doc.get("v") != 1 or doc.get("template") != "invoice-draft":
         raise ValueError("not an invoice-draft render input v1")
     totals = _obj(doc.get("totals"))
