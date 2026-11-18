@@ -54,7 +54,7 @@ export function PortalGuide({ periodLabel, readyToUpload }: { periodLabel: strin
       {!readyToUpload && (
         <Banner tone="error">This file has not been through the GST portal yet, so the portal may refuse it. Check what the portal says before you rely on it.</Banner>
       )}
-      <ol>
+      <ol className="steps">
         {steps.map((s) => (
           <li key={s.text}>
             {s.text}
