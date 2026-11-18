@@ -17,3 +17,4 @@ web/test-results/
 web/playwright-report/
 web/*.tsbuildinfo
 demo-logs.txt
+landing/dist/
