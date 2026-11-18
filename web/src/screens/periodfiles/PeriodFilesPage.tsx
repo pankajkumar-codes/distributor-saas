@@ -98,6 +98,9 @@ export function PeriodFilesPage() {
       <TopBar title={business.display_name} gstin={business.gstin} />
       <main className="page">
         <h1>Monthly and quarterly files</h1>
+        <p>
+          <Link to={`/b/${businessId}/file-period`}>File from your own invoices</Link>
+        </p>
         <p className="hint">
           After a month ends, get an Excel workbook of your sales and purchases and a purchase register. They are working files from your own records, not
           a return, and nothing in them is filed.
