@@ -17,6 +17,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
+from app.modules.business.interface import display_name
 from app.modules.refdata import value_on
 from platform_common import audit
 from platform_common.errors import Conflict, Deny
@@ -134,10 +135,12 @@ def give_grant(body: GrantIn, uow: BusinessUoW):
     grant_id = uuid7()
     expires_at = uow.tx.execute(
         text(
-            "insert into identity.support_grants (id, business_id, granted_by, expires_at, reason)"
-            " values (:id, :b, :me, now() + make_interval(hours => :h), :reason) returning expires_at"
+            "insert into identity.support_grants (id, business_id, granted_by, expires_at, reason, business_name)"
+            " values (:id, :b, :me, now() + make_interval(hours => :h), :reason, :name) returning expires_at"
         ),
-        {"id": grant_id, "b": bid, "me": uow.principal.user_id, "h": hours, "reason": reason},
+        # The name as the owner sees it, kept for support's list (which can't read other businesses' profiles).
+        {"id": grant_id, "b": bid, "me": uow.principal.user_id, "h": hours, "reason": reason,
+         "name": display_name(uow.tx)},
     ).scalar_one()
     data = {"expires_at": expires_at.isoformat()}
     if replaced is not None:

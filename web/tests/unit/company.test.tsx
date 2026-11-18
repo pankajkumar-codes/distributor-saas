@@ -261,7 +261,7 @@ describe("business details", () => {
     open();
     expect(await screen.findByText(/We couldn't load your business details/, {}, { timeout: 8000 })).toBeInTheDocument();
     expect(screen.queryByLabelText("Legal name")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Try again" })[0]); // the details part comes first; the filing part on the same page has its own
     expect(await screen.findByLabelText("Legal name")).toBeInTheDocument();
   }, 12000);
 

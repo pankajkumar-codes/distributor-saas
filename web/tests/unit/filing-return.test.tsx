@@ -139,7 +139,7 @@ describe("A return (read-only)", () => {
       const view = render(<App />);
       if (linked) {
         await screen.findByText("October 2026");
-        expect(screen.queryByRole("link", { name: "Review the draft" })).not.toBeNull();
+        expect(screen.queryAllByRole("link", { name: "Review the draft" }).length).toBeGreaterThan(0); // the fixture answers both years with one row
       } else {
         await screen.findByText(/couldn't find that page/); // returns.view: billing is turned away, and nothing was fetched
         expect(server.sent.some((s) => s.path.endsWith("/returns"))).toBe(false);

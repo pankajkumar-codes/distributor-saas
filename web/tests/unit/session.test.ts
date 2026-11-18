@@ -27,7 +27,7 @@ afterEach(() => {
 });
 
 describe("refreshSession", () => {
-  it("gives up on a refresh that gets no answer and reports unavailable instead of waiting forever", async () => {
+  it("gives up on a refresh that gets no answer and reports slow (it gave up waiting) instead of waiting forever", async () => {
     const real = AbortSignal.timeout.bind(AbortSignal);
     const spy = vi.spyOn(AbortSignal, "timeout").mockImplementation(() => real(30));
     vi.stubGlobal(
@@ -38,7 +38,7 @@ describe("refreshSession", () => {
       ),
     );
     try {
-      expect(await refreshSession()).toBe("unavailable");
+      expect(await refreshSession()).toBe("slow");
     } finally {
       spy.mockRestore();
     }

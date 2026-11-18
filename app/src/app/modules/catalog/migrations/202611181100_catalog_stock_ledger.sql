@@ -66,6 +66,8 @@ $$;
 revoke all on function catalog.stock_movements_insert_only() from public;
 create trigger stock_movements_no_change before update or delete on catalog.stock_movements
     for each row execute function catalog.stock_movements_insert_only();
+create trigger stock_movements_no_truncate before truncate on catalog.stock_movements
+    for each statement execute function catalog.stock_movements_insert_only();
 
 alter table catalog.stock_movements enable row level security;
 alter table catalog.stock_movements force row level security;

@@ -120,6 +120,7 @@ export function SupportPage() {
     revoke.mutate(grantId);
   };
   const failed = give.error ?? revoke.error;
+  const auditLink = <Link to={`/b/${businessId}/settings/audit?kind=support`}>See it in the audit log</Link>;
 
   return (
     <>
@@ -134,7 +135,11 @@ export function SupportPage() {
           they open goes into your audit log.
         </p>
         {!isOwner && <p className="hint">Only an owner can give or end support access.</p>}
-        {said && <Banner>{said}</Banner>}
+        {said && (
+          <Banner>
+            {said} {auditLink}
+          </Banner>
+        )}
         {failed && <Banner tone="error">{failed.message || errorText(failed)}</Banner>}
         {grants.error && (
           <Banner tone="error">
@@ -154,6 +159,7 @@ export function SupportPage() {
               Given by {active.given_by.name} on {formatDateTimeIst(active.given_at)}
               {active.reason ? ` · “${active.reason}”` : ""} · {pages(active.pages_viewed)} so far
             </p>
+            <p>{auditLink}</p>
             {isOwner && (
               <Button type="button" busy={revoke.isPending} onClick={() => endNow(active.id)}>
                 End access now
@@ -190,6 +196,7 @@ export function SupportPage() {
         {grants.data && past.length > 0 && (
           <section aria-labelledby="support-past">
             <h2 id="support-past">Past access</h2>
+            <p>{auditLink}</p>
             <table className="products">
               <thead>
                 <tr>

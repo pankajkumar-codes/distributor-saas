@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 
 import { api, call } from "../../api/client";
 import { errorText, type ApiError } from "../../api/errors";
@@ -73,7 +73,9 @@ export function AuditPage() {
   const businesses = useMyBusinesses();
   const business = businesses.data?.find((b) => b.business_id === businessId);
   const canView = Boolean(business && AUDIT_VIEWERS.has(business.role));
-  const [kind, setKind] = useState("");
+  // A link may open the log already narrowed to one kind (?kind=support); anything else is ignored.
+  const asked = useSearchParams()[0].get("kind") ?? "";
+  const [kind, setKind] = useState(KINDS.some((k) => k.value === asked) ? asked : "");
   const [actor, setActor] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");

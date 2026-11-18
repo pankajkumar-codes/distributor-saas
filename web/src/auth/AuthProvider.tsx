@@ -1,17 +1,18 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 
+import { SLOW_SERVER } from "../api/errors";
 import { Banner } from "../kit/Banner";
 import { Button } from "../kit/Button";
 
 import { onSessionChange, refreshSession, signedOutOnPurpose, type RefreshResult } from "./session";
 import { tokenStore } from "./tokenStore";
 
-type Status = "checking" | "signed_in" | "signed_out" | "unavailable";
+type Status = "checking" | "signed_in" | "signed_out" | "unavailable" | "slow";
 
 const AuthContext = createContext<{ status: Status; retry: () => void }>({ status: "checking", retry: () => {} });
 
-const STATUS: Record<RefreshResult, Status> = { ok: "signed_in", signed_out: "signed_out", unavailable: "unavailable" };
+const STATUS: Record<RefreshResult, Status> = { ok: "signed_in", signed_out: "signed_out", unavailable: "unavailable", slow: "slow" };
 
 /** On load, asks /auth/refresh whether the cookie still names a session (LLD-1 §11.3). */
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -39,11 +40,11 @@ export function useAuthStatus(): Status {
 export function RequireAuth({ children }: { children: ReactNode }) {
   const { status, retry } = useContext(AuthContext);
   const location = useLocation();
-  if (status === "unavailable") {
+  if (status === "unavailable" || status === "slow") {
     // Offline or the server is struggling: the session may be fine, so don't sign out.
     return (
       <main className="page">
-        <Banner tone="error">We couldn't reach the server. Check your connection and try again.</Banner>
+        <Banner tone="error">{status === "slow" ? SLOW_SERVER : "We couldn't reach the server. Check your connection and try again."}</Banner>
         <Button type="button" onClick={retry}>
           Try again
         </Button>

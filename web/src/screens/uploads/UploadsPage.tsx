@@ -12,6 +12,7 @@ import { BundleCard } from "./BundleCard";
 import { OwnInvoicesCard } from "./OwnInvoicesCard";
 import { UploadCard } from "./UploadCard";
 import { useChannels } from "./useChannels";
+import { useCrosscheck } from "./useCrosscheck";
 
 /**
  * Upload your reports (R1-M3, BRD GF-13). Every section is optional. Uploads belong to the
@@ -25,6 +26,9 @@ export function UploadsPage() {
   const business = businesses.data?.find((b) => b.business_id === businessId);
   const channels = useChannels(businessId, Boolean(business && canViewUploads(business.role)));
 
+  const hasOwn = (channels.data?.own_invoices ?? false) && Boolean(business && canViewUploads(business.role));
+  const cross = useCrosscheck(businessId, hasOwn);
+
   if (businesses.isPending) {
     return (
       <main className="page" aria-busy="true">
@@ -34,7 +38,7 @@ export function UploadsPage() {
   }
   if (businesses.error) {
     return (
-      <main className="page">
+      <main className="page page-wide">
         <Banner tone="error">{errorText(businesses.error)}</Banner>
       </main>
     );
@@ -55,7 +59,7 @@ export function UploadsPage() {
   return (
     <>
       <TopBar title={business.display_name} gstin={business.gstin} />
-      <main className="page">
+      <main className="page page-wide">
         <p className="step">
           <Link to={`/b/${businessId}/filing`}>GST filing</Link>
         </p>
@@ -72,13 +76,33 @@ export function UploadsPage() {
         )}
         {channels.data && shown.length === 0 && (
           <Banner>
-            You haven't said where you sell yet. <Link to={`/b/${businessId}/settings/company`}>Choose it in Business details</Link>, then come back to add your files.
+            You haven't said where you sell yet. <Link to={`/b/${businessId}/settings`}>Choose it in Business details</Link>, then come back to add your files.
+          </Banner>
+        )}
+        {hasOwn && cross.data && cross.data.show_validate_note && (
+          <Banner>
+            <b>Upload your invoices as PDFs and we can validate.</b> With your PDF invoices we check every row of your Excel sheet against the invoice itself.
+          </Banner>
+        )}
+        {hasOwn && cross.data && cross.data.compared && (
+          <Banner tone={cross.data.mismatches.length + cross.data.only_in_excel.length + cross.data.only_in_pdf.length > 0 ? "error" : "info"}>
+            {cross.data.mismatches.length + cross.data.only_in_excel.length + cross.data.only_in_pdf.length > 0 ? (
+              <>
+                {cross.data.mismatches.length + cross.data.only_in_excel.length + cross.data.only_in_pdf.length} invoices differ between your PDFs and your Excel sheet.{" "}
+                <Link to={`/b/${businessId}/uploads/crosscheck`}>Review the differences</Link>
+              </>
+            ) : (
+              <>Your PDFs and your Excel sheet match. <Link to={`/b/${businessId}/uploads/crosscheck`}>See the cross-check</Link></>
+            )}
           </Banner>
         )}
         {shown.length > 0 && canUpload(business.role) && <BundleCard businessId={businessId} bundleId={params.get("bundle")} onBundle={(id) => follow("bundle", id)} />}
+        <div className="uploads-grid">
         {shown.map((s) =>
           s.id === "own_invoices_excel" ? (
-            <OwnInvoicesCard key={s.id} businessId={businessId} label={s.label} hint={s.hint} canUpload={canUpload(business.role)} />
+            <div key={s.id} className="span-all">
+              <OwnInvoicesCard businessId={businessId} label={s.label} hint={s.hint} canUpload={canUpload(business.role)} />
+            </div>
           ) : (
           <UploadCard
             key={s.id}
@@ -92,6 +116,7 @@ export function UploadsPage() {
           />
           ),
         )}
+        </div>
       </main>
     </>
   );

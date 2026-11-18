@@ -15,7 +15,7 @@ import { Button } from "../../kit/Button";
 import { Field } from "../../kit/Field";
 import { NotFound } from "../../kit/NotFound";
 import { RadioGroup } from "../../kit/RadioGroup";
-import { TopBar } from "../../kit/TopBar";
+import { SetupFrame, SetupTitle } from "./SetupFrame";
 import { PlatformsSection } from "./PlatformsSection";
 import { BAND_OPTIONS } from "../onboarding/BusinessPage";
 import { warningText } from "../onboarding/warnings";
@@ -91,7 +91,7 @@ export function rebase(opened: Values, latest: Values, values: Values): Values {
  * Edits follow the product and customer forms: If-Match is the version the edits are
  * against, and it moves only with a save or with the "someone changed this" banner.
  */
-export function CompanyPage() {
+export function CompanyPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { businessId = "" } = useParams();
   const queryClient = useQueryClient();
   const businesses = useMyBusinesses();
@@ -194,33 +194,30 @@ export function CompanyPage() {
 
   if (businesses.isPending || (business && profile.isPending)) {
     return (
-      <main className="page" aria-busy="true">
+      <SetupFrame embedded={embedded} busy>
         <p>Loading…</p>
-      </main>
+      </SetupFrame>
     );
   }
   if (businesses.error) {
     return (
-      <main className="page">
+      <SetupFrame embedded={embedded}>
         <Banner tone="error">{errorText(businesses.error)}</Banner>
-      </main>
+      </SetupFrame>
     );
   }
   if (!business || profile.error?.status === 404) return <NotFound />;
   if (!opened || !values) {
     // A failed load is not an empty form: saving one would have nothing to edit against.
     return (
-      <>
-        <TopBar title={business.display_name} gstin={business.gstin} />
-        <main className="page">
-          <Banner tone="error">
-            We couldn't load your business details. {profile.error ? errorText(profile.error) : ""}{" "}
-            <Button type="button" variant="link" onClick={() => profile.refetch()}>
-              Try again
-            </Button>
-          </Banner>
-        </main>
-      </>
+      <SetupFrame embedded={embedded} business={business}>
+        <Banner tone="error">
+          We couldn't load your business details. {profile.error ? errorText(profile.error) : ""}{" "}
+          <Button type="button" variant="link" onClick={() => profile.refetch()}>
+            Try again
+          </Button>
+        </Banner>
+      </SetupFrame>
     );
   }
 
@@ -251,13 +248,8 @@ export function CompanyPage() {
   };
 
   return (
-    <>
-      <TopBar title={business.display_name} gstin={business.gstin} />
-      <main className="page">
-        <p className="step">
-          <Link to={`/b/${businessId}/home`}>Home</Link>
-        </p>
-        <h1>Business details</h1>
+    <SetupFrame embedded={embedded} business={business}>
+        <SetupTitle embedded={embedded} businessId={businessId} title="Business details" />
         {!opened.ready_for_documents.ok && opened.ready_for_documents.missing.length > 0 && (
           <Banner>
             Needed before your first invoice: {opened.ready_for_documents.missing.map((m) => MISSING[m] ?? m).join(", ")}.
@@ -362,10 +354,11 @@ export function CompanyPage() {
           )}
         </form>
         <PlatformsSection businessId={businessId} canEdit={canEdit} />
-        <p>
-          <Link to={`/b/${businessId}/settings/filing`}>Filing frequency</Link>
-        </p>
-      </main>
-    </>
+        {!embedded && (
+          <p>
+            <Link to={`/b/${businessId}/settings`}>Filing frequency</Link>
+          </p>
+        )}
+    </SetupFrame>
   );
 }
