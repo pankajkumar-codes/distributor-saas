@@ -24,7 +24,9 @@ RUN npx vite build
 # The Kartaa landing page (landing/, a separate static site), shown at "/" for visitors without a session (demo/nginx.conf).
 # Its build takes the two fonts from /srv/web/node_modules, so it sits next to web/ the way it does in the repository.
 COPY landing /srv/landing
-RUN node /srv/landing/build.mjs --check
+# Plain build, no --check: the landing's own rules (no absolute http(s) URLs) are enforced in CI, and must not stop the
+# demo image when a privacy or terms link becomes a real https address.
+RUN node /srv/landing/build.mjs
 
 # The built app behind nginx, which passes /api through to the API (demo/nginx.conf).
 FROM nginx:1.27-alpine AS web
