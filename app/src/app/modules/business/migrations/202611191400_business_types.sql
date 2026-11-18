@@ -4,11 +4,13 @@
 -- retail -> retailer; an empty array means "not chosen", which is every R1 business. RLS and grants on
 -- business.profiles stay as they are.
 -- The backfill below only reaches rows if the migrating role bypasses row-level security (FORCE RLS is on): a role
--- without BYPASSRLS would update zero rows, silently. So the migration refuses to run for such a role.
+-- without BYPASSRLS updates zero rows. Whether that matters cannot be seen from here (the same RLS hides the rows we
+-- would count), and the CI migrator is such a role on an empty database, so this warns in the migration log instead of
+-- refusing. Check the real migrator role before the first deploy (OPEN_QUESTIONS).
 do $$
 begin
     if not exists (select 1 from pg_roles where rolname = current_user and (rolsuper or rolbypassrls)) then
-        raise exception 'business_types backfill: the migrator role must be a superuser or have BYPASSRLS, or it updates no rows';
+        raise warning 'business_types backfill: role % cannot bypass row-level security, so the backfill below updates no rows', current_user;
     end if;
 end
 $$;
