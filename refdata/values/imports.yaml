@@ -692,6 +692,16 @@
   last_checked: 2026-11-14
   status: provisional
 
+- key: imports.pdf.bedrock_enabled
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-18
+  source_url: team/engineering/r1-m6-scope-note.md
+  source_title: "R1-M6 S4: the paid Bedrock invoice reader stays off until Pankaj approves it and the model profile ID and price are read from the AWS console (decision D2)"
+  last_checked: 2026-11-18
+  status: provisional
+
 - key: imports.pdf.max_memory_mb
   value: "512"
   type: integer

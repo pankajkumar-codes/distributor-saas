@@ -276,3 +276,12 @@
 - path: app/src/app/modules/filing/api_worksheet.py
   value: "12"
   reason: "longest page marker accepted; an input limit, not a tax rule"
+- path: app/src/app/modules/imports/pdf/bedrock_reader.py
+  value: "4500000"
+  reason: "bytes: believed (unverified until the console and docs are checked) size limit for one PDF sent to the model; an input guard, not a tax rule"
+- path: app/src/app/modules/imports/pdf/bedrock_reader.py
+  value: "500"
+  reason: "most lines accepted for one invoice from the model's reply; a backstop on untrusted output, not a tax rule"
+- path: app/src/app/modules/imports/pdf/bedrock_reader.py
+  value: "8000"
+  reason: "most tokens asked of the model in one reply; a cost and size backstop, not a tax rule"
