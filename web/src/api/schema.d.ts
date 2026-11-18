@@ -332,6 +332,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Documents
+         * @description The business's finalized documents, newest first (practice ones included, each says `is_practice`). Read-only.
+         */
+        get: operations["list_documents_api_v1_b__business_id__documents_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/documents/{document_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Document
+         * @description One finalized document as stored, where its PDF stands and how many stock movements it wrote. Read-only: nothing
+         *     is queued; ask for the PDF with POST .../pdf.
+         */
+        get: operations["get_document_api_v1_b__business_id__documents__document_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/documents/{document_id}/pdf": {
         parameters: {
             query?: never;
@@ -578,6 +619,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/invoicing-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Invoicing Plan
+         * @description The invoicing plan, its prices, how many free invoices are used, and whether the next one needs the plan. Read-only.
+         */
+        get: operations["get_invoicing_plan_api_v1_b__business_id__invoicing_plan_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/jobs": {
         parameters: {
             query?: never;
@@ -739,6 +800,27 @@ export interface paths {
          * @description The GST-filing plan and its prices, and whether it is free for now (`plans.FREE_FOR_NOW`). Read-only; nothing is charged.
          */
         get: operations["get_plan_api_v1_b__business_id__plan_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/plan-change-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Plan Change Preview
+         * @description What a plan change would show: the unused part of the current period credited, the new plan's full price from now.
+         *     Display only (D-086); the figures are the price list, never a charge.
+         */
+        get: operations["plan_change_preview_api_v1_b__business_id__plan_change_preview_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3161,6 +3243,59 @@ export interface components {
             /** Seller Gstin */
             seller_gstin: string;
         };
+        /** DocumentDetailOut */
+        DocumentDetailOut: {
+            /** Cgst Total */
+            cgst_total: string;
+            /** Counterparty Name */
+            counterparty_name: string | null;
+            /** Customer Id */
+            customer_id: string | null;
+            /**
+             * Doc Date
+             * Format: date
+             */
+            doc_date: string;
+            /** Doc Number */
+            doc_number: string;
+            /** Doc Total */
+            doc_total: string;
+            /** Draft Id */
+            draft_id: string;
+            /** Due Date */
+            due_date: string | null;
+            /** Finalized At */
+            finalized_at: string;
+            /** Fy */
+            fy: string;
+            /** Gstin */
+            gstin: string;
+            /** Id */
+            id: string;
+            /** Igst Total */
+            igst_total: string;
+            /** Is Inter State */
+            is_inter_state: boolean;
+            /** Is Practice */
+            is_practice: boolean;
+            /** Kind */
+            kind: string;
+            pdf: components["schemas"]["DocumentPdfState"];
+            /** Pos State Code */
+            pos_state_code: string;
+            /** Round Off */
+            round_off: string;
+            /** Sgst Total */
+            sgst_total: string;
+            /** Stock Movements */
+            stock_movements: number;
+            /** Supply Class */
+            supply_class: string;
+            /** Taxable Total */
+            taxable_total: string;
+            /** Utgst */
+            utgst: boolean;
+        };
         /**
          * DocumentOut
          * @description The finalized document (LLD-4 §2.3), as stored: it never changes after this.
@@ -3221,12 +3356,35 @@ export interface components {
             /** Job Id */
             job_id: string;
         };
+        /** DocumentPdfState */
+        DocumentPdfState: {
+            /** Attempt */
+            attempt?: number | null;
+            /** Error Code */
+            error_code?: string | null;
+            /** Job Id */
+            job_id?: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "none" | "queued" | "rendering" | "ready" | "failed";
+            /** Url */
+            url?: string | null;
+        };
         /** DocumentRef */
         DocumentRef: {
             /** Number */
             number: string;
             /** Section */
             section: string;
+        };
+        /** DocumentsOut */
+        DocumentsOut: {
+            /** Documents */
+            documents: components["schemas"]["DocumentOut"][];
+            /** Has More */
+            has_more: boolean;
         };
         /** DraftIn */
         DraftIn: {
@@ -3916,6 +4074,27 @@ export interface components {
             /** Role */
             role: string;
         };
+        /** InvoicingPlanOut */
+        InvoicingPlanOut: {
+            /** Free For Now */
+            free_for_now: boolean;
+            /** Free Invoices */
+            free_invoices: number;
+            /** Gst Note */
+            gst_note: string;
+            /** Monthly Rupees */
+            monthly_rupees: number;
+            /** Name */
+            name: string;
+            /** Needs Plan */
+            needs_plan: boolean;
+            /** Quarterly Rupees */
+            quarterly_rupees: number;
+            /** Remaining Free */
+            remaining_free: number;
+            /** Used */
+            used: number;
+        };
         /** IssueOut */
         IssueOut: {
             /** Code */
@@ -4326,6 +4505,23 @@ export interface components {
              * Format: uuid
              */
             user_id: string;
+        };
+        /** PlanChangeOut */
+        PlanChangeOut: {
+            /** Amount Due */
+            amount_due: string;
+            /** Credit Left Over */
+            credit_left_over: string;
+            /** Current Price */
+            current_price: string;
+            /** Free For Now */
+            free_for_now: boolean;
+            /** Gst Note */
+            gst_note: string;
+            /** New Price */
+            new_price: string;
+            /** Unused Credit */
+            unused_credit: string;
         };
         /** PlanOut */
         PlanOut: {
@@ -6483,6 +6679,72 @@ export interface operations {
             };
         };
     };
+    list_documents_api_v1_b__business_id__documents_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_document_api_v1_b__business_id__documents__document_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     document_pdf_request_api_v1_b__business_id__documents__document_id__pdf_post: {
         parameters: {
             query?: never;
@@ -7024,6 +7286,37 @@ export interface operations {
             };
         };
     };
+    get_invoicing_plan_api_v1_b__business_id__invoicing_plan_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoicingPlanOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     recent_jobs_api_v1_b__business_id__jobs_get: {
         parameters: {
             query?: {
@@ -7314,6 +7607,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PlanOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_change_preview_api_v1_b__business_id__plan_change_preview_get: {
+        parameters: {
+            query: {
+                from_plan: "gst_filing" | "invoicing";
+                from_frequency: "monthly" | "quarterly";
+                to_plan: "gst_filing" | "invoicing";
+                to_frequency: "monthly" | "quarterly";
+                days_left: number;
+                period_days: number;
+            };
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanChangeOut"];
                 };
             };
             /** @description Validation Error */

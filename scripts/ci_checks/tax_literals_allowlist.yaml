@@ -345,4 +345,18 @@
 - path: app/src/app/modules/catalog/inventory.py
   value: "999999999999"
   reason: "the largest quantity numeric(15,3) holds (12 digits before the point); a column limit"
-
+- path: app/src/app/modules/sales/finalize.py
+  value: "402"
+  reason: "HTTP status code Payment Required for invoice_plan_required; not a tax number"
+- path: app/src/app/modules/filing/plans.py
+  value: "999"
+  reason: "our own monthly fee for the invoicing plan in rupees (release-plan-v2 section 6, Pankaj); a price list, not a tax rate or threshold. Moves to a billing table when payments are real"
+- path: app/src/app/modules/filing/plans.py
+  value: "2499"
+  reason: "our own quarterly fee for the invoicing plan in rupees (release-plan-v2 section 6, Pankaj); a price list, not a tax rate or threshold. Moves to a billing table when payments are real"
+- path: app/src/app/modules/filing/plans.py
+  value: "10"
+  reason: "how many invoices are free before the invoicing plan applies (release-plan-v2 section 6, Pankaj); a commercial rule of ours, not a tax threshold"
+- path: app/src/app/modules/filing/plans.py
+  value: "366"
+  reason: "the longest plan period in days (a leap year), to refuse a nonsense days_left in a plan change preview; not a tax number"
