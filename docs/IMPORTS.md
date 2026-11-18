@@ -450,6 +450,7 @@ PostgreSQL 16, Python 3.13, synthetic PDFs only; not in a Lambda.
 - **Dependencies.** The programs `tesseract-ocr` (Apache-2.0) and `poppler-utils` (GPL-2, run as a separate program, not linked) are installed on the CI `app` job for the tests; no new Python package. Tests skip where they are absent.
 - **Before any deployment.** poppler parses untrusted PDFs, so the rasterising must run inside a sandbox like the text reader's (D-055) and the container must be proved first. The Tesseract version is not pinned: CI installs the distribution's current package (5.5.0 on the run checked) and a developer machine may have another (5.3.4 here); both passed the tests.
 - **Where the tests run.** The OCR tests need `pdftoppm` and `tesseract`. They run in the CI `app` job (which installs both, prints their versions and fails the tests if either is missing) and on a developer machine that has them; on any other machine they are skipped.
+- **Cross-check coverage.** A test shows an OCR-read synthetic scan gives the same table rows (`to_table`) as its text-layer original, and the cross-check reads those staged rows. The cross-check itself (Postgres) was not run on an OCR-read upload.
 - **Not claimed.** Tried only on synthetic pages drawn from our own fixture generator at 200 dpi. Nothing was run on a real scan, a phone photo, a skewed or low-resolution page, or a language other than English; accuracy on those is unknown. The confidence floors (60, 30) are first guesses, not tuned.
 
 ## Retention of uploads (R1-M3, TD-18)
