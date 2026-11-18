@@ -93,3 +93,19 @@ def test_a_return_that_is_not_built_from_supply_lines_is_404(shop):  # noqa: F81
     forms = instances(shop)
     assert "GSTR3B" in forms
     assert get(pg, f"/api/v1/b/{biz}/returns/{forms['GSTR3B']}").status_code == 404
+
+
+def test_a_row_the_offline_tool_would_work_out_differently_is_a_c17_warning_for_that_business_only(shop):  # noqa: F811
+    """C-17 through the real route: the finding names the row and both figures, and another business never sees it."""
+    pg, biz, _ = shop
+    monthly(shop)
+    rows = [*month(shop), line("INV-9", buyer="29DEMOC9999C1Z1", taxable="1339.39", cgst="120.54", sgst="120.54", total="1580.47")]
+    assert confirm(shop, stage(shop, rows)).status_code == 200
+    inst = instances(shop)["GSTR1"]
+    d = get(pg, f"/api/v1/b/{biz}/returns/{inst}").json()
+    groups = {g["code"]: g for g in d["finding_groups"]}
+    assert groups["C-17"]["count"] == 1 and groups["C-17"]["level"] == "warn"
+    mine = [f for f in d["findings"] if f["code"] == "C-17"]
+    assert len(mine) == 1 and "the tool will work out 120.55" in mine[0]["message"] and "a.xlsx row" in mine[0]["message"]
+    other = new_business(pg, "mallory")
+    assert get(pg, f"/api/v1/b/{other}/returns/{inst}", sub="mallory").status_code == 404

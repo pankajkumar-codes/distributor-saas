@@ -54,3 +54,18 @@ def test_an_hsn_below_the_minimum_digits_is_reported_and_marked_for_the_ca_while
     assert found and all(f.code == "C-10" and f.level == "block" for f in found)
     assert "f.xlsx row 1" in {r for f in found for r in f.source_refs}
     assert len({f.needs_ca_check for f in found}) == 1
+
+
+def test_a_return_with_more_rows_than_one_file_holds_is_a_warning_that_names_the_split(pg):
+    biz = new_business(pg, "alice")
+    on = SimpleNamespace(period_end=date(2026, 10, 31))
+    with pg.app_rw.begin() as c:
+        ctx(c, user_id(pg.owner, "alice"), biz)
+        tx = Session(bind=c)
+        limit = int(checks.value_on(tx, "gstr1.offline_tool.max_lines", on.period_end))
+        at = checks.c13_line_items(tx, SimpleNamespace(instance=on, line_items=limit))
+        over = checks.c13_line_items(tx, SimpleNamespace(instance=on, line_items=limit + 1))
+    assert at == []
+    (f,) = over
+    assert f.code == "C-13" and f.level == "warn" and f.needs_ca_check
+    assert str(limit + 1) in f.message and "several files" in f.message and "5 MB" in f.message
