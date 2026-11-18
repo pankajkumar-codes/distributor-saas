@@ -92,6 +92,15 @@ def status(uow: UnitOfWork, document_id: uuid.UUID, job_id: uuid.UUID) -> dict:
     return {"status": "ready", "url": url}
 
 
+def current(uow: UnitOfWork, document_id: uuid.UUID) -> dict:
+    """Where the PDF stands, without asking for one: `none` before any request, else the newest attempt's status
+    (queued, rendering, ready with a link, failed) and its job id, so a reload can pick the poll up again."""
+    last = jobs.latest(uow, JOB, f"{document_id}:")
+    if last is None:
+        return {"status": "none", "job_id": None, "attempt": None}
+    return {**status(uow, document_id, last.id), "job_id": str(last.id), "attempt": _attempt(last)}
+
+
 # -- the job ------------------------------------------------------------------------------
 
 def _money(value) -> str | None:

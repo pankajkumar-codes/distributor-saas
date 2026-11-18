@@ -332,6 +332,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Documents
+         * @description The business's finalized documents, newest first (practice ones included, each says `is_practice`). Read-only.
+         */
+        get: operations["list_documents_api_v1_b__business_id__documents_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/documents/{document_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Document
+         * @description One finalized document as stored, where its PDF stands and how many stock movements it wrote. Read-only: nothing
+         *     is queued; ask for the PDF with POST .../pdf.
+         */
+        get: operations["get_document_api_v1_b__business_id__documents__document_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/documents/{document_id}/pdf": {
         parameters: {
             query?: never;
@@ -3202,6 +3243,59 @@ export interface components {
             /** Seller Gstin */
             seller_gstin: string;
         };
+        /** DocumentDetailOut */
+        DocumentDetailOut: {
+            /** Cgst Total */
+            cgst_total: string;
+            /** Counterparty Name */
+            counterparty_name: string | null;
+            /** Customer Id */
+            customer_id: string | null;
+            /**
+             * Doc Date
+             * Format: date
+             */
+            doc_date: string;
+            /** Doc Number */
+            doc_number: string;
+            /** Doc Total */
+            doc_total: string;
+            /** Draft Id */
+            draft_id: string;
+            /** Due Date */
+            due_date: string | null;
+            /** Finalized At */
+            finalized_at: string;
+            /** Fy */
+            fy: string;
+            /** Gstin */
+            gstin: string;
+            /** Id */
+            id: string;
+            /** Igst Total */
+            igst_total: string;
+            /** Is Inter State */
+            is_inter_state: boolean;
+            /** Is Practice */
+            is_practice: boolean;
+            /** Kind */
+            kind: string;
+            pdf: components["schemas"]["DocumentPdfState"];
+            /** Pos State Code */
+            pos_state_code: string;
+            /** Round Off */
+            round_off: string;
+            /** Sgst Total */
+            sgst_total: string;
+            /** Stock Movements */
+            stock_movements: number;
+            /** Supply Class */
+            supply_class: string;
+            /** Taxable Total */
+            taxable_total: string;
+            /** Utgst */
+            utgst: boolean;
+        };
         /**
          * DocumentOut
          * @description The finalized document (LLD-4 §2.3), as stored: it never changes after this.
@@ -3262,12 +3356,35 @@ export interface components {
             /** Job Id */
             job_id: string;
         };
+        /** DocumentPdfState */
+        DocumentPdfState: {
+            /** Attempt */
+            attempt?: number | null;
+            /** Error Code */
+            error_code?: string | null;
+            /** Job Id */
+            job_id?: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "none" | "queued" | "rendering" | "ready" | "failed";
+            /** Url */
+            url?: string | null;
+        };
         /** DocumentRef */
         DocumentRef: {
             /** Number */
             number: string;
             /** Section */
             section: string;
+        };
+        /** DocumentsOut */
+        DocumentsOut: {
+            /** Documents */
+            documents: components["schemas"]["DocumentOut"][];
+            /** Has More */
+            has_more: boolean;
         };
         /** DraftIn */
         DraftIn: {
@@ -6534,6 +6651,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CustomerOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_documents_api_v1_b__business_id__documents_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_document_api_v1_b__business_id__documents__document_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentDetailOut"];
                 };
             };
             /** @description Validation Error */

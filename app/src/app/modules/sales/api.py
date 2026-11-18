@@ -18,12 +18,13 @@ from fastapi import status as http
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
 from app.modules.business.interface import require_business_type
+from app.modules.catalog.interface import movements_for_document
 from app.modules.filing import interface as filing
 from platform_common.clock import Clock, get_clock
 from platform_common.etag import if_match_version, set_etag
 from platform_common.idempotency import run_once
 from platform_common.errors import Deny, Invalid
-from platform_common.paging import DEFAULT_LIMIT, MAX_LIMIT
+from platform_common.paging import DEFAULT_LIMIT, MAX_LIMIT, PageParams, page_params
 from platform_common.permissions import Permission, require
 from platform_common.uow import BusinessUoW, parse_id
 
@@ -506,3 +507,37 @@ def plan_change_preview(
     except ValueError as e:
         raise Invalid("plan_change_invalid", "Check the days left in the current period.", field="days_left") from e
     return {**out, "gst_note": filing.GST_NOTE, "free_for_now": filing.free_for_now()}
+
+
+class DocumentPdfState(BaseModel):
+    status: Literal["none", "queued", "rendering", "ready", "failed"]  # none: no PDF has been asked for yet
+    job_id: str | None = None
+    attempt: int | None = None
+    url: str | None = None  # when ready: a link good for 60 seconds
+    error_code: str | None = None
+
+
+class DocumentDetailOut(DocumentOut):
+    pdf: DocumentPdfState
+    stock_movements: int  # the stock-out rows this invoice wrote, one per line; 0 if it wrote none
+
+
+class DocumentsOut(BaseModel):
+    documents: list[DocumentOut]
+    has_more: bool
+
+
+@router.get("/b/{business_id}/documents", response_model=DocumentsOut, dependencies=VIEW)
+def list_documents(uow: BusinessUoW, page: Annotated[PageParams, Depends(page_params)]):
+    """The business's finalized documents, newest first (practice ones included, each says `is_practice`). Read-only."""
+    found, more = finalize.list_documents(uow, page.limit, page.offset)
+    return {"documents": [_document(d) for d in found], "has_more": more}
+
+
+@router.get("/b/{business_id}/documents/{document_id}", response_model=DocumentDetailOut, dependencies=VIEW)
+def get_document(document_id: str, uow: BusinessUoW):
+    """One finalized document as stored, where its PDF stands and how many stock movements it wrote. Read-only: nothing
+    is queued; ask for the PDF with POST .../pdf."""
+    did = parse_id(document_id)
+    doc = finalize.get_document(uow, did)
+    return {**_document(doc), "pdf": document_pdf.current(uow, did), "stock_movements": movements_for_document(uow.tx, did)}
