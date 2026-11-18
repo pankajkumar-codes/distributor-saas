@@ -229,6 +229,9 @@ export function HomePage() {
                 <Link className="btn btn-primary" to={`/b/${businessId}/filing`}>
                   Open Filing home
                 </Link>
+                {FEATURES.invoicing && canPrepareReturns(business.role) && (
+                  <Link to={`/b/${businessId}/file-period`}>File from your own invoices</Link>
+                )}
                 {canViewUploads(business.role) && <Link to={`/b/${businessId}/uploads`}>Upload your reports</Link>}
               </div>
             </nav>
