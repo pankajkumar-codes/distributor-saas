@@ -43,6 +43,15 @@ services:
       - log_min_duration_statement=500
       - -c
       - log_lock_waits=on
+      # The API runs some database statements on its event loop, so one stuck statement freezes every request,
+      # health checks included. These make the database give up instead of waiting: it never holds a statement
+      # past 20 s, a lock past 5 s, or a transaction left open and idle past 30 s.
+      - -c
+      - statement_timeout=20000
+      - -c
+      - lock_timeout=5000
+      - -c
+      - idle_in_transaction_session_timeout=30000
     tmpfs:
       - /var/lib/postgresql/data
     environment:
@@ -65,6 +74,7 @@ services:
 
   api:
     <<: *api
+    restart: unless-stopped
     command: ["python", "-m", "uvicorn", "app.api:app", "--app-dir", "app/src", "--host", "0.0.0.0", "--port", "8000", "--log-level", "${UVICORN_LOG_LEVEL:-info}"]
     depends_on:
       migrate: { condition: service_completed_successfully }
@@ -77,14 +87,14 @@ services:
   web:
     build: { context: ., dockerfile: demo/Dockerfile, target: web }
     image: gstdemo-web
-    environment:
-      API_URL: http://api:8000
+    restart: unless-stopped
     ports:
       - "127.0.0.1:5173:5173"  # this computer only, so Windows has no firewall question to ask
     depends_on:
       api: { condition: service_healthy }
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://localhost:5173/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      # Through the /api pass-through, the same path the browser uses, not just "nginx is up".
+      test: ["CMD", "wget", "-q", "-T", "3", "-O", "/dev/null", "http://127.0.0.1:5173/api/v1/health"]
       interval: 2s
       timeout: 4s
       retries: 60
