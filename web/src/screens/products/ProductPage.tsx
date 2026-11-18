@@ -18,7 +18,7 @@ import { RadioGroup } from "../../kit/RadioGroup";
 import { SelectField } from "../../kit/SelectField";
 import { TopBar } from "../../kit/TopBar";
 import { RateHistory } from "./RateHistory";
-import { saleRateText } from "./saleRate";
+import { saleRateProblem } from "./saleRate";
 import { useGstRates } from "./useGstRates";
 
 type Detail = components["schemas"]["ProductDetailOut"];
@@ -129,6 +129,7 @@ export function ProductPage() {
   const [stale, setStale] = useState(false);
   const [advanced, setAdvanced] = useState(false);
   const [rateMissing, setRateMissing] = useState(false);
+  const [saleRateChecked, setSaleRateChecked] = useState(false); // a save was tried: a half-typed "10." is now a problem
   const rates = useGstRates(validFrom, isNew && values.tax_category === "taxable");
   const latest = product.data ?? null;
 
@@ -263,6 +264,10 @@ export function ProductPage() {
 
   const error = save.error && save.error.code !== "stale_record" ? save.error : null;
   const errorFor = (field: string) => {
+    if (field === "sale_rate") {
+      const problem = saleRateProblem(values.sale_rate, saleRateChecked);
+      if (problem) return problem;
+    }
     if (field === "rate" && rateMissing && !chosenRate) return "Choose a GST rate.";
     if (!error || formField(error.field) !== field) return undefined;
     // A server check on the rate can come back as pattern text; the owner only needs to know to choose one.
@@ -283,6 +288,10 @@ export function ProductPage() {
   const set = (field: keyof Values) => (e: { target: { value: string } }) => setValues({ ...values, [field]: e.target.value });
   const submit = (e: FormEvent) => {
     e.preventDefault();
+    if (saleRateProblem(values.sale_rate, true)) {
+      setSaleRateChecked(true);
+      return;
+    }
     if (isNew && values.tax_category === "taxable" && !chosenRate) {
       setRateMissing(true);
       return;
@@ -342,7 +351,7 @@ export function ProductPage() {
             label="Sale rate per unit, excluding GST (₹)"
             inputMode="decimal"
             value={values.sale_rate}
-            onChange={(e) => setValues({ ...values, sale_rate: saleRateText(e.target.value) })}
+            onChange={(e) => setValues({ ...values, sale_rate: e.target.value })}
             hint={hint("sale_rate")}
             error={errorFor("sale_rate")}
           />
