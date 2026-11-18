@@ -268,7 +268,7 @@ def test_two_sign_ins_at_once_open_exactly_one_session(env):
             with c.begin():
                 results.append(
                     c.execute(
-                        text("select identity.auth_open_session_once(:i, :u, 'sid', :k, now(), 30)"),
+                        text("select identity.auth_open_session_once(:i, :u, 'sid', :k, now(), 30, 30)"),
                         {"i": uuid.uuid4(), "u": uid, "k": uuid.uuid4().hex},
                     ).scalar()
                 )
@@ -294,3 +294,31 @@ def test_two_yeses_at_once_leave_one_live_session(env):
     [t.start() for t in threads]
     [t.join() for t in threads]
     assert codes == [200, 200] and live(admin) == 1
+
+
+def set_idle(admin, minutes):
+    with admin.begin() as c:
+        c.execute(
+            text(f"update identity.sessions set last_activity_at = now() - interval '{minutes} minutes' where revoked_at is null")
+        )
+
+
+def test_a_session_used_within_the_window_still_asks(env):
+    client, _, _, admin = env
+    a = signin(client)
+    set_idle(admin, 25)
+    assert signin(client).json()["step"] == "session_active"
+    assert me(client, a) == 200
+
+
+def test_a_session_idle_past_the_window_is_ended_and_does_not_ask(env):
+    """The owner's stale session (seed, closed browser) must not block their own sign-in, and must not
+    stay usable behind the new one."""
+    client, _, _, admin = env
+    a = signin(client)
+    set_idle(admin, 40)  # still inside the 24 h idle rule, but past the 30 min window
+    b = signin(client)
+    assert "step" not in b.json()
+    assert me(client, a) == 401 and me(client, b) == 200
+    assert live(admin) == 1
+    assert one(admin, "select count(*) from identity.sessions where revoke_reason = 'replaced'") == 1

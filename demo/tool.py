@@ -12,10 +12,9 @@ decision buttons come in later web slices, so this is how to see them today.
 Signs in as the demo user. Local demo only; standard library only; made-up data only.
 """
 
+import atexit
 import json
-import os
 import sys
-import time
 import uuid
 from pathlib import Path
 
@@ -30,31 +29,23 @@ def api(method, path, body=None, token=None):
     return status, out
 
 
-CACHE = Path(os.environ.get("DEMO_TOKEN_FILE", "/tmp/demo-token.json"))  # sign-in is rate limited; a token lasts 5 minutes
-
-
 def login():
-    try:
-        saved = json.loads(CACHE.read_text())
-        if time.time() - saved["at"] < 240 and saved["base"] == BASE:  # noqa: TID251 (a demo script, not business code)
-            return saved["token"], saved["business"]
-    except (OSError, ValueError, KeyError):
-        pass
+    """Signs in as the demo user and signs out again when the script ends, so the person's own browser
+    sign-in is not asked "One session is already active" afterwards. If the demo user is signed in somewhere
+    else this stops rather than ending that session."""
     status, body = api("POST", "/auth/signin", {"email": seed.EMAIL, "password": seed.PASSWORD})
+    if status == 200 and body.get("step") == "session_active":
+        raise SystemExit("The demo user is signed in in your browser. Sign out there first (or use another "
+                         "account), then run this again.")
     if status != 200:
         raise SystemExit("Could not sign in as the demo user (%s). Wait a minute, and if it keeps failing "
                          "the demo may still be starting or needs a reset." % status)
     token = body["access_token"]
+    atexit.register(lambda: api("POST", "/auth/signout", None, token))
     _, mine = api("GET", "/me/businesses", None, token)
     if not mine["businesses"]:
         raise SystemExit("The demo business is missing. Run the demo's seed step again.")
-    business = mine["businesses"][0]["business_id"]
-    try:
-        now = time.time()  # noqa: TID251 (a demo script, not business code)
-        CACHE.write_text(json.dumps({"at": now, "base": BASE, "token": token, "business": business}))
-    except OSError:
-        pass
-    return token, business
+    return token, mine["businesses"][0]["business_id"]
 
 
 def multipart(fields, name, content):
