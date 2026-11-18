@@ -83,7 +83,6 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="gst-app", root_path_in_servers=False, lifespan=lifespan)
-app.add_middleware(SecurityHeaders)
 install_error_handlers(app)  # Deny -> 404, AppError -> its status, anything else -> 500 (LLD-0 §3.2)
 app.include_router(identity_router, prefix=API_PREFIX)
 app.include_router(auth_router, prefix=API_PREFIX)
@@ -125,4 +124,8 @@ async def health():  # async: answered on the event loop, so it never waits for 
     return {"status": "ok"}
 
 
-handler = Mangum(app, lifespan="off")
+# The whole app is wrapped, not added with add_middleware: Starlette answers an unhandled exception (the 500) in
+# a layer outside every added middleware, which would leave that response without the headers. Lambda and
+# uvicorn run `asgi`; `app` stays for the OpenAPI export and the tests of single routes.
+asgi = SecurityHeaders(app)
+handler = Mangum(asgi, lifespan="off")
