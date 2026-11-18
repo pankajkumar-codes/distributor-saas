@@ -146,6 +146,11 @@ jobs:
         run: npm test
       - name: Build
         run: npx vite build
+      - name: Landing page (no scripts, inline styles or third-party URLs) and the CloudFront routing function
+        working-directory: .
+        run: |
+          node landing/build.mjs --check
+          node infra/modules/cdn/routing.test.mjs
 
   web-e2e:
     # The sign-up flow in a real browser at 360 px and 1280 px, against the API on real
