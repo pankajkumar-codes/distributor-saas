@@ -27,6 +27,12 @@ let inFlight: Promise<RefreshResult> | null = null;
 let leftOnPurpose = false;
 export const signedOutOnPurpose = () => leftOnPurpose;
 
+// True when this tab held a session and the server then refused it (401 on a call and on the refresh): the
+// session timed out or was ended elsewhere. The sign-in page says so. A visitor who never had a session in this
+// tab (a fresh load with no cookie) is just signed out, and is told nothing.
+let hadSession = false;
+let timedOut = false;
+
 function emit(signedIn: boolean, change: Change = "new") {
   if (signedIn) leftOnPurpose = false;
   listeners.forEach((listener) => listener(signedIn, change));
@@ -61,6 +67,8 @@ export function onSessionChange(listener: Listener): () => void {
 
 /** Keep a token from sign-up, sign-in or a refresh, and hand it to the other tabs. */
 export function startSession(accessToken: string, expiresIn: number, change: Change = "new") {
+  hadSession = true;
+  timedOut = false;
   signOutUnconfirmed = false;
   signOutEnded = false;
   if (retryTimer) clearTimeout(retryTimer);
@@ -146,8 +154,11 @@ export function refreshSession({
 
 /** This tab's session is over (the server refused it): clear it and tell the listeners. */
 export function endSession() {
+  if (hadSession && !leftOnPurpose) timedOut = true;
+  hadSession = false;
   tokenStore.clear();
   emit(false);
+  noticeChanged();
 }
 
 // A sign-out that waits on a stalled server must still sign the user out of this tab, and quickly: the person
@@ -166,9 +177,9 @@ const noticeListeners = new Set<() => void>();
 const noticeChanged = () => noticeListeners.forEach((l) => l());
 
 /** What the sign-in page says about the last sign-out: nothing, "we could not end it", or "it has now ended". */
-export type SignOutNotice = "none" | "not_ended" | "still_not_ended" | "ended_later";
+export type SignOutNotice = "none" | "timed_out" | "not_ended" | "still_not_ended" | "ended_later";
 export const signOutNotice = (): SignOutNotice =>
-  signOutUnconfirmed ? (retried ? "still_not_ended" : "not_ended") : signOutEnded ? "ended_later" : "none";
+  timedOut ? "timed_out" : signOutUnconfirmed ? (retried ? "still_not_ended" : "not_ended") : signOutEnded ? "ended_later" : "none";
 export function onSignOutNotice(listener: () => void): () => void {
   noticeListeners.add(listener);
   return () => noticeListeners.delete(listener);
@@ -203,6 +214,8 @@ async function askSignOut(token: string | null): Promise<boolean> {
  */
 export async function signOut({ rememberPage = true }: { rememberPage?: boolean } = {}) {
   leftOnPurpose = !rememberPage;
+  hadSession = false;
+  timedOut = false;
   const token = tokenStore.get();
   const confirmed = await askSignOut(token);
   signOutEnded = false;
@@ -238,6 +251,8 @@ export function resetSessionForTests() {
   receivedAt = 0;
   inFlight = null;
   leftOnPurpose = false;
+  hadSession = false;
+  timedOut = false;
   signOutUnconfirmed = false;
   signOutEnded = false;
   if (retryTimer) clearTimeout(retryTimer);

@@ -76,6 +76,7 @@ export async function call<T>(request: () => Promise<Result<T>>, { refresh = tru
 }
 
 function sessionInvalid(e: unknown): boolean {
-  const error = e as ApiError;
-  return error.status === 401 && error.code === "session_invalid";
+  // Any 401 from a call that sends the session: the access token is gone or refused, whatever code a proxy or the
+  // server put on it. A refresh then settles whether the session itself is over.
+  return (e as ApiError).status === 401;
 }
