@@ -54,6 +54,17 @@ def open_session(uow, user_id: uuid.UUID, key: tuple[str, str], auth_time: int, 
     return session_id
 
 
+def open_session_once(uow, user_id: uuid.UUID, key: tuple[str, str], auth_time: int, max_days: int) -> uuid.UUID | None:
+    """One active session per user: opens the session only if the user has no live one, else None
+    (nothing written). The decision and the insert run under a lock on the user's row."""
+    session_id = uuid7()
+    opened = uow.tx.execute(
+        text("select identity.auth_open_session_once(:i, :u, :kind, :k, :t, :d)"),
+        {"i": session_id, "u": user_id, "kind": key[0], "k": key[1], "t": datetime.fromtimestamp(auth_time, UTC), "d": max_days},
+    ).scalar()
+    return session_id if opened else None
+
+
 def verified_claims(token: str, idp: AuthProvider, *, allow_expired: bool = False) -> dict:
     issuer, client_id = token_issuer_and_client()
     return verify_access_token(token, idp.jwks(), issuer=issuer, client_id=client_id, allow_expired=allow_expired)

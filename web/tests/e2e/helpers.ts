@@ -51,3 +51,14 @@ export async function createBusiness(page: Page, legalName = "E2E Traders Privat
   await page.getByRole("button", { name: "Finish and see my filing home" }).click();
   await expect(page).toHaveURL(/\/b\/[0-9a-f-]{36}\/home$/);
 }
+
+/**
+ * Clicks Sign in on a filled form and, if the account is already signed in elsewhere (one active session per user),
+ * answers yes, as a person continuing here would.
+ */
+export async function signInContinuingHere(page: Page) {
+  await page.getByRole("button", { name: "Sign in" }).click();
+  const yes = page.getByRole("button", { name: /^Yes, sign out there/ });
+  await expect(yes.or(page.getByRole("button", { name: "Sign out" })).first()).toBeVisible();
+  if (await yes.isVisible()) await yes.click();
+}

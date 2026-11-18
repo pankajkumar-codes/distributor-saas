@@ -1,9 +1,9 @@
 import { expect, test, type Route } from "@playwright/test";
 
-import { createBusiness, signUp } from "./helpers";
+import { createBusiness, signInContinuingHere, signUp } from "./helpers";
 
 // The real button against the real API: no mocked fetch, no mocked session.
-test("Sign out ends the session: protected pages go to sign-in, and a reload stays signed out", async ({ page }, info) => {
+test("Sign out ends the session: protected pages go to sign-in, and a reload stays signed out", async ({ page, browser }, info) => {
   const email = `e2e-signout-${info.project.name}-${Date.now()}@example.com`;
   const password = "Seven-Lamps-42!";
   await signUp(page, email, password);
@@ -45,7 +45,7 @@ test("Sign out ends the session: protected pages go to sign-in, and a reload sta
       await page.goto("/signin");
       await page.getByLabel("Email").fill(email);
       await page.getByLabel("Password").fill(password);
-      await page.getByRole("button", { name: "Sign in" }).click();
+      await signInContinuingHere(page); // a sign-out the server never got leaves its session live: the next sign-in asks
       await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
       await page.route("**/api/v1/auth/signout", fulfil);
       await page.getByRole("button", { name: "Sign out" }).click();
@@ -55,5 +55,26 @@ test("Sign out ends the session: protected pages go to sign-in, and a reload sta
       await page.unroute("**/api/v1/auth/signout");
     });
   }
+
+  // One active session per user, against the real API. The last case above left its session live on the server
+  // (the sign-out never got there), so a second browser signing in is asked first: no changes nothing, yes ends it.
+  const other = await browser.newContext();
+  const b = await other.newPage();
+  const ask = async () => {
+    await b.goto("/signin");
+    await b.getByLabel("Email").fill(email);
+    await b.getByLabel("Password").fill(password);
+    await b.getByRole("button", { name: "Sign in" }).click();
+    await expect(b.getByText("One session is already active. Sign out there and continue here?")).toBeVisible();
+  };
+  await ask();
+  await b.getByRole("button", { name: /^No/ }).click();
+  await expect(b.getByText(/You are still signed in on the other browser/)).toBeVisible();
+  await ask();
+  await b.getByRole("button", { name: /^Yes/ }).click();
+  await expect(b).toHaveURL(/\/b\/[0-9a-f-]{36}\/home$/); // the account has its business by now: it lands on Home
+  await expect(b.getByRole("button", { name: "Sign out" })).toBeVisible();
+  await other.close();
 });
+
 

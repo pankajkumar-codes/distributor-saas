@@ -12,7 +12,7 @@ from platform_common.auth import set_local_verifier
 from platform_common.fake_auth import CLIENT_ID, ISSUER
 from platform_common.permissions import Permission
 
-from .auth_env import EMAIL, ORIGIN, PASSWORD, auth_env, last, one, sign_up, verify
+from .auth_env import EMAIL, ORIGIN, PASSWORD, add_live_session, auth_env, end_sessions, last, one, sign_up, verify
 from .conftest import PG_ADMIN_URL
 
 pytestmark = pytest.mark.skipif(not PG_ADMIN_URL, reason="PG_ADMIN_URL not set")
@@ -32,8 +32,9 @@ BUSINESS = {
 @pytest.fixture()
 def env():
     with auth_env() as e:
-        client, idp, mail, _ = e
+        client, idp, mail, admin = e
         assert verify(client, sign_up(client, mail).params["code"]).status_code == 200
+        end_sessions(admin)  # one active session per user: sign-up opened one
         set_local_verifier(idp.jwks(), issuer=ISSUER, client_id=CLIENT_ID)
         yield e
         set_local_verifier(None)
@@ -93,6 +94,7 @@ def test_patch_me_sets_only_the_callers_name(env):
 def test_changing_the_password_ends_every_session(env):
     client, idp, mail, admin = env
     me = bearer(client)
+    add_live_session(admin)  # two live sessions, which the change must end together
     assert live(admin) == 2
     r = change(client, me)
     assert r.status_code == 204, r.text
@@ -117,6 +119,7 @@ def test_changing_the_password_ends_every_session(env):
 def test_a_wrong_current_or_weak_new_password_changes_nothing(env):
     client, idp, mail, admin = env
     me, sent = bearer(client), len(mail.sent)
+    add_live_session(admin)
     r = change(client, me, current=WRONG)
     assert (r.status_code, r.json()["error"]["code"]) == (422, "current_password_wrong")
     r = change(client, me, new="password")
@@ -163,6 +166,7 @@ def test_each_provider_refusal_gets_its_own_reply(env, monkeypatch, refusal, sta
 
     client, idp, _, admin = env
     me = bearer(client)
+    add_live_session(admin)
 
     def refuse(*_):
         raise AuthRefused(refusal)
@@ -178,6 +182,7 @@ def test_a_failed_tx_b_still_signs_out_at_the_provider(env, monkeypatch, caplog)
 
     client, idp, mail, admin = env
     me, sent = bearer(client), len(mail.sent)
+    add_live_session(admin)
 
     def broken(*_, **__):
         raise RuntimeError("audit write failed")

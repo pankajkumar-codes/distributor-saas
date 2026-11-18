@@ -9566,6 +9566,31 @@
         "title": "SectionsOut",
         "type": "object"
       },
+      "SessionActiveOut": {
+        "description": "The sign-in was right but this user already has a live session. Nothing is open yet: ask the person, then call\nPOST /auth/session/replace (yes) or /auth/session/cancel (no) with this token as the Bearer.",
+        "properties": {
+          "access_token": {
+            "title": "Access Token",
+            "type": "string"
+          },
+          "expires_in": {
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "step": {
+            "const": "session_active",
+            "default": "session_active",
+            "title": "Step",
+            "type": "string"
+          }
+        },
+        "required": [
+          "access_token",
+          "expires_in"
+        ],
+        "title": "SessionActiveOut",
+        "type": "object"
+      },
       "ShipToIn": {
         "additionalProperties": false,
         "description": "Where the goods go, when it isn't the customer's own delivery address (LLD-4 \u00a73.1).",
@@ -11099,6 +11124,63 @@
         ]
       }
     },
+    "/api/v1/auth/session/cancel": {
+      "post": {
+        "description": "No: the new sign-in does not complete and the other session keeps running. Always 204.",
+        "operationId": "session_cancel_api_v1_auth_session_cancel_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Session Cancel",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/session/replace": {
+      "post": {
+        "description": "Yes to \"One session is already active. Sign out there and continue here?\": ends the other session and opens\nthis one. The Bearer is the access token /signin answered with (step \"session_active\").",
+        "operationId": "session_replace_api_v1_auth_session_replace_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignedInOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "summary": "Session Replace",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/auth/signin": {
       "post": {
         "operationId": "signin_password_api_v1_auth_signin_post",
@@ -11123,6 +11205,9 @@
                     },
                     {
                       "$ref": "#/components/schemas/TotpStepOut"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SessionActiveOut"
                     }
                   ],
                   "title": "Response Signin Password Api V1 Auth Signin Post"
@@ -11186,7 +11271,15 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SignedInOut"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/SignedInOut"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SessionActiveOut"
+                    }
+                  ],
+                  "title": "Response Signin Totp Api V1 Auth Signin Totp Post"
                 }
               }
             },

@@ -83,6 +83,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/session/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Session Cancel
+         * @description No: the new sign-in does not complete and the other session keeps running. Always 204.
+         */
+        post: operations["session_cancel_api_v1_auth_session_cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/session/replace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Session Replace
+         * @description Yes to "One session is already active. Sign out there and continue here?": ends the other session and opens
+         *     this one. The Bearer is the access token /signin answered with (step "session_active").
+         */
+        post: operations["session_replace_api_v1_auth_session_replace_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/signin": {
         parameters: {
             query?: never;
@@ -5643,6 +5684,23 @@ export interface components {
             sections: components["schemas"]["app__modules__imports__api__SectionOut"][];
         };
         /**
+         * SessionActiveOut
+         * @description The sign-in was right but this user already has a live session. Nothing is open yet: ask the person, then call
+         *     POST /auth/session/replace (yes) or /auth/session/cancel (no) with this token as the Bearer.
+         */
+        SessionActiveOut: {
+            /** Access Token */
+            access_token: string;
+            /** Expires In */
+            expires_in: number;
+            /**
+             * Step
+             * @default session_active
+             * @constant
+             */
+            step: "session_active";
+        };
+        /**
          * ShipToIn
          * @description Where the goods go, when it isn't the customer's own delivery address (LLD-4 §3.1).
          */
@@ -6290,6 +6348,62 @@ export interface operations {
             };
         };
     };
+    session_cancel_api_v1_auth_session_cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    session_replace_api_v1_auth_session_replace_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignedInOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
     signin_password_api_v1_auth_signin_post: {
         parameters: {
             query?: never;
@@ -6309,7 +6423,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SignedInOut"] | components["schemas"]["TotpStepOut"];
+                    "application/json": components["schemas"]["SignedInOut"] | components["schemas"]["TotpStepOut"] | components["schemas"]["SessionActiveOut"];
                 };
             };
             /** @description Unauthorized */
@@ -6360,7 +6474,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SignedInOut"];
+                    "application/json": components["schemas"]["SignedInOut"] | components["schemas"]["SessionActiveOut"];
                 };
             };
             /** @description Unauthorized */

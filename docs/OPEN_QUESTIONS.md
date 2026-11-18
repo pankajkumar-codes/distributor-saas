@@ -355,6 +355,13 @@ Three things only Pankaj can settle; none stops the build.
 2. **Token lifetime and limits.** A link lasts 7 days (`INVITE_EXPIRY_DAYS`), is single use, and a resend kills the old link; 20 invite mails per business per day. Both are product values, not tax rules. Recommendation: keep 7 days and 20 a day for launch; change only if real owners ask.
 3. **Role change rules as built.** Owner or admin changes a member's role between owner, admin and billing; only an owner may touch an owner; the last owner cannot be demoted; a CA's role changes only through a new invite (Product Owner rule RM-4.2); deactivate and reactivate need a reason; a deactivated person rejoins by reactivation or by accepting a new invite, which restores them with the invited role. Question: is it right that an admin may promote someone to admin? Recommendation: yes, keep.
 
+## One active session per user (2026-11-19)
+
+- Confirmation window: the "Yes" must come within 10 minutes of the sign-in (`auth.session_confirm_minutes`, provisional). Owner may want it shorter or longer.
+- Support accounts follow the same rule as everyone. A support person signed in on two machines is asked the same question.
+- The ended browser is not told at once: its access token (up to 5 minutes) is refused at its next call, and it then shows the session-timed-out screen. Instant sign-out would need a push channel, which is not built.
+- Sessions that already exist before this release are left alone; a person with two old sessions is asked on their next sign-in only if one of them is still live.
+
 ## Release blockers (not R1 build blockers; Pankaj, 2026-11-17)
 These need Pankaj or his CA and do not stop building. Each must be done before production release.
 - **CA question sheet** (`team/program-lead/ca-question-sheet-v1.md`, CA-1 to CA-5 above and the platform treatment items): Pankaj takes it to his CA just before release.

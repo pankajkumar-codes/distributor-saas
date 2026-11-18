@@ -10,7 +10,7 @@ from sqlalchemy import text
 from platform_common.auth import set_local_verifier
 from platform_common.fake_auth import CLIENT_ID, ISSUER
 
-from .auth_env import EMAIL, ORIGIN, PASSWORD, auth_env, last, one, sign_up, verify
+from .auth_env import EMAIL, ORIGIN, PASSWORD, add_live_session, auth_env, end_sessions, last, one, sign_up, verify
 from .conftest import PG_ADMIN_URL
 
 pytestmark = pytest.mark.skipif(not PG_ADMIN_URL, reason="PG_ADMIN_URL not set")
@@ -21,8 +21,9 @@ NEW = "Brand-New-Pass-7!"
 @pytest.fixture()
 def env():
     with auth_env() as e:
-        client, idp, mail, _ = e
+        client, idp, mail, admin = e
         assert verify(client, sign_up(client, mail).params["code"]).status_code == 200
+        end_sessions(admin)  # one active session per user: sign-up opened one
         set_local_verifier(idp.jwks(), issuer=ISSUER, client_id=CLIENT_ID)
         yield e
         set_local_verifier(None)
@@ -47,6 +48,7 @@ def live(admin):
 def test_reset_sets_the_password_and_ends_every_session(env):  # AC-6
     client, idp, mail, admin = env
     old = signin(client, PASSWORD).json()["access_token"]
+    add_live_session(admin)
     assert live(admin) == 2
     r = ask(client)
     assert (r.status_code, r.json()) == (202, {"status": "code_sent", "code_ttl_minutes": 10, "code_max_tries": 5})
@@ -111,7 +113,7 @@ def test_a_wrong_or_signup_code_is_not_accepted_and_changes_nothing(env):
     sign_up(client, mail, email="new@example.com")  # a sign-up code can't reset anything
     r = reset(client, last(mail).params["code"], email="new@example.com")
     assert (r.status_code, r.json()["error"]["code"]) == (400, "code_not_accepted")
-    assert idp.user(EMAIL).password == PASSWORD and live(admin) == 1
+    assert idp.user(EMAIL).password == PASSWORD and live(admin) == 0  # the fixture ended the sign-up session
 
 
 def test_a_weak_password_spends_no_try(env):
@@ -134,7 +136,8 @@ def test_reset_shares_the_per_email_bucket_with_sign_up(env):  # §5.8
 def test_revoke_all_ends_every_session_of_the_caller_only(env):  # §5.7
     client, idp, mail, admin = env
     a1 = signin(client, PASSWORD).json()["access_token"]
-    signin(client, PASSWORD)
+    add_live_session(admin)
+    add_live_session(admin)
     ravi = verify(client, sign_up(client, mail, email="ravi@example.com").params["code"], email="ravi@example.com")
     assert ravi.status_code == 200
     r = client.post("/api/v1/me/sessions/revoke-all", headers={"authorization": f"Bearer {a1}"})
@@ -151,6 +154,7 @@ def test_revoke_my_sessions_only_acts_for_the_bound_caller(env):  # Staff, #48
     from platform_common.uow import Principal, unit_of_work
 
     client, idp, _, admin = env
+    add_live_session(admin)
     with unit_of_work(Principal(user_sub=None, request_id="t")) as uow:  # nobody bound
         assert uow.tx.execute(text("select * from identity.auth_revoke_my_sessions('signout_all')")).all() == []
     sub = idp.user(EMAIL).sub

@@ -20,7 +20,7 @@ from platform_common.mailer import Mailer
 
 from . import demo_hint
 from .providers import auth_provider, mailer
-from .service import passwords, reset, sessions, signin, signup
+from .service import passwords, replace, reset, sessions, signin, signup
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -122,6 +122,15 @@ class SignedInOut(SignedUpOut):
 class TotpStepOut(BaseModel):
     step: Literal["totp"] = "totp"
     challenge: str  # the provider's opaque session string (L1-7); send it back with the code
+
+
+class SessionActiveOut(BaseModel):
+    """The sign-in was right but this user already has a live session. Nothing is open yet: ask the person, then call
+    POST /auth/session/replace (yes) or /auth/session/cancel (no) with this token as the Bearer."""
+
+    step: Literal["session_active"] = "session_active"
+    access_token: str
+    expires_in: int
 
 
 class AccessTokenOut(BaseModel):
@@ -249,7 +258,7 @@ def reset_verify(
     return PasswordSetOut()
 
 
-@router.post("/signin", response_model=SignedInOut | TotpStepOut, responses=error_responses(401, 422, 429))
+@router.post("/signin", response_model=SignedInOut | TotpStepOut | SessionActiveOut, responses=error_responses(401, 422, 429))
 def signin_password(
     body: SigninBody,
     request: Request,
@@ -268,7 +277,7 @@ def signin_password(
     return _signed_in(response, done)
 
 
-@router.post("/signin/totp", response_model=SignedInOut, responses=error_responses(401, 422, 429))
+@router.post("/signin/totp", response_model=SignedInOut | SessionActiveOut, responses=error_responses(401, 422, 429))
 def signin_totp(
     body: TotpBody,
     request: Request,
@@ -283,8 +292,10 @@ def signin_totp(
     return _signed_in(response, done)
 
 
-def _signed_in(response: Response, done: signin.SignedIn) -> SignedInOut:
+def _signed_in(response: Response, done: signin.SignedIn | signin.SessionActive) -> SignedInOut | SessionActiveOut:
     _set_cookie(response, done.refresh_token)
+    if isinstance(done, signin.SessionActive):
+        return SessionActiveOut(access_token=done.access_token, expires_in=done.expires_in)
     return SignedInOut(
         access_token=done.access_token,
         expires_in=done.expires_in,
@@ -294,6 +305,55 @@ def _signed_in(response: Response, done: signin.SignedIn) -> SignedInOut:
             for m in done.memberships
         ],
     )
+
+
+def _bearer(request: Request) -> str | None:
+    auth = request.headers.get("authorization", "")
+    return auth[7:] if auth.lower().startswith("bearer ") else None
+
+
+@router.post("/session/replace", response_model=SignedInOut, responses=error_responses(401, 429))
+def session_replace(
+    request: Request,
+    idp: Annotated[AuthProvider, Depends(auth_provider)],
+    clock: Annotated[Clock, Depends(get_clock)],
+):
+    """Yes to "One session is already active. Sign out there and continue here?": ends the other session and opens
+    this one. The Bearer is the access token /signin answered with (step "session_active")."""
+    try:
+        _check_origin(request)
+        done = replace.replace(_bearer(request), _client_ip(request), request_id(request), idp, clock)
+    except Deny as e:
+        failed = deny_response(request, e)
+        clear_refresh_cookie(failed)
+        return failed
+    return SignedInOut(
+        access_token=done.access_token,
+        expires_in=done.expires_in,
+        user=UserOut(id=str(done.user_id), email=done.email, is_support=done.is_support),
+        memberships=[
+            MembershipOut(business_id=str(m.business_id), display_name=m.display_name, gstin=m.gstin, role=m.role)
+            for m in done.memberships
+        ],
+    )
+
+
+@router.post("/session/cancel", status_code=204)
+def session_cancel(
+    request: Request,
+    idp: Annotated[AuthProvider, Depends(auth_provider)],
+    clock: Annotated[Clock, Depends(get_clock)],
+):
+    """No: the new sign-in does not complete and the other session keeps running. Always 204."""
+    try:
+        _check_origin(request)
+    except Deny:
+        pass  # nothing to protect: the answer is the same, and the cookie is cleared either way
+    else:
+        replace.cancel(_bearer(request), request.cookies.get(REFRESH_COOKIE), request_id(request), idp, clock)
+    done = Response(status_code=204)
+    clear_refresh_cookie(done)
+    return done
 
 
 def _set_cookie(response: Response, refresh_token: str) -> None:
