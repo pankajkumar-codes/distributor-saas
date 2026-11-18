@@ -16,6 +16,12 @@ from sqlalchemy.orm import Session
 from app.modules.refdata import value_on
 from platform_common.errors import Conflict, Deny
 
+from ..inventory import (
+    ConfirmedPurchaseLine,
+    NewCatalogItem,
+    ReceivedLine,
+    receive_confirmed_purchase_line,
+)
 from ..rates import RateRow, rate_on
 
 # Explicit as well as row-level security (#52 review): the bound business only.
@@ -23,6 +29,10 @@ _MINE = "business_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
 
 __all__ = [
     "Address",
+    "ConfirmedPurchaseLine",
+    "NewCatalogItem",
+    "ReceivedLine",
+    "receive_confirmed_purchase_line",
     "CustomerSnapshot",
     "ProductForLine",
     "SetupCounts",
