@@ -69,8 +69,19 @@ def quarter_start(today):
 
 
 def main(base):
+    token = None
+    try:
+        token = _seed(base)
+    finally:
+        # One active session per user: a seed that stayed signed in would make the owner's own first sign-in
+        # ask "One session is already active". Sign out whatever was opened (sign-out never refuses).
+        if token:
+            call(base, "POST", "/auth/signout", None, token)
+
+
+def _seed(base):
     status, body = call(base, "POST", "/auth/signin", {"email": EMAIL, "password": PASSWORD})
-    if status == 200:
+    if status == 200 and "step" not in body:
         token = body["access_token"]
     else:
         need(*call(base, "POST", "/auth/signup", {"email": EMAIL, "password": PASSWORD}), (202,), "sign-up")
@@ -79,7 +90,7 @@ def main(base):
         token = need(status, body, (200,), "verify")["access_token"]
     if need(*call(base, "GET", "/me/businesses", None, token), (200,), "list businesses")["businesses"]:
         print("demo business already exists")
-        return
+        return token
     business = need(
         *call(base, "POST", "/b", {
             "registration": {"kind": "gstin", "gstin": DEMO_GSTIN},
@@ -97,6 +108,7 @@ def main(base):
                {"frequency": "monthly", "effective_from": quarter_start(today_ist()).isoformat()}, token),
          (200, 201), "filing frequency")
     print("demo business created")
+    return token
 
 
 if __name__ == "__main__":
