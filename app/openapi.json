@@ -7069,6 +7069,14 @@
               }
             ],
             "title": "Supplier Name"
+          },
+          "warnings": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PurchaseWarningOut"
+            },
+            "title": "Warnings",
+            "type": "array"
           }
         },
         "required": [
@@ -7744,6 +7752,28 @@
           "price_needed"
         ],
         "title": "PurchaseReceivedOut",
+        "type": "object"
+      },
+      "PurchaseWarningOut": {
+        "properties": {
+          "code": {
+            "enum": [
+              "tax_differs_from_rate",
+              "unit_differs_from_product"
+            ],
+            "title": "Code",
+            "type": "string"
+          },
+          "line_no": {
+            "title": "Line No",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "line_no",
+          "code"
+        ],
+        "title": "PurchaseWarningOut",
         "type": "object"
       },
       "RateIn": {
@@ -14430,7 +14460,7 @@
     },
     "/api/v1/b/{business_id}/purchase-drafts/{draft_id}/confirm": {
       "post": {
-        "description": "The business confirms the invoice with the values it checked on the review screen. Once; a second call is a\nconflict, not a second invoice.",
+        "description": "The business confirms the invoice with the values it checked on the review screen. Once; a second call is a\nconflict, not a second invoice. With an Idempotency-Key, a retry of the same request returns the first answer.",
         "operationId": "confirm_draft_api_v1_b__business_id__purchase_drafts__draft_id__confirm_post",
         "parameters": [
           {
@@ -14449,6 +14479,22 @@
             "schema": {
               "title": "Business Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
             }
           }
         ],
@@ -14510,6 +14556,22 @@
             "schema": {
               "title": "Business Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
             }
           }
         ],

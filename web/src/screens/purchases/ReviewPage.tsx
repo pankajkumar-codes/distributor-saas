@@ -43,6 +43,11 @@ type LineState = {
 type Head = { gstin: string; supplierName: string; number: string; date: string; total: string };
 
 /** The reader writes DD-MM-YYYY; the date input wants YYYY-MM-DD. Anything else is left blank to type. */
+const WARNING_TEXT = {
+  tax_differs_from_rate: "the tax shown doesn't match the taxable value and rate",
+  unit_differs_from_product: "the unit differs from the one on your product",
+} as const;
+
 export const isoDate = (read: string | null): string => {
   const m = /^(\d{2})-(\d{2})-(\d{4})$/.exec(read ?? "");
   return m ? `${m[3]}-${m[2]}-${m[1]}` : "";
@@ -175,6 +180,12 @@ function Review({ businessId, draft, mayEdit }: { businessId: string; draft: Dra
           Confirmed. {done.line_count} line{done.line_count === 1 ? "" : "s"} added to your products and stock.
           {needPrice > 0 && ` ${needPrice} still need${needPrice === 1 ? "s" : ""} a selling price per 1 qty.`}
         </Banner>
+        {done.warnings.length > 0 && (
+          <Banner>
+            Saved, but worth a look:
+            {done.warnings.map((w) => ` line ${w.line_no}: ${WARNING_TEXT[w.code]}.`)}
+          </Banner>
+        )}
         <p>
           <Link to={`/b/${businessId}/products`}>See your products</Link> · <Link to={`/b/${businessId}/purchases`}>More purchase invoices</Link>
         </p>

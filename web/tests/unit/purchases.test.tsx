@@ -78,10 +78,12 @@ describe("purchase invoices", () => {
     fireEvent.change(screen.getByLabelText("Unit code (UQC), line 1"), { target: { value: "pcs" } });
     server.reply(`POST ${B}/purchase-drafts/d-1/confirm`, {
       status: 201,
-      body: { review_id: "r-1", draft_id: "d-1", supplier_gstin: "19ABCDE1234F1ZX", supplier_name: null, doc_number: "SUP-1", doc_date: "2026-07-03", invoice_total: "236.00", line_count: 1, created_at: "2026-11-18T10:00:00Z", received: [{ line_no: 1, product_id: "p-1", created_product: true, price_needed: true }] },
+      body: { review_id: "r-1", draft_id: "d-1", supplier_gstin: "19ABCDE1234F1ZX", supplier_name: null, doc_number: "SUP-1", doc_date: "2026-07-03", invoice_total: "236.00", line_count: 1, created_at: "2026-11-18T10:00:00Z", received: [{ line_no: 1, product_id: "p-1", created_product: true, price_needed: true }], warnings: [{ line_no: 1, code: "unit_differs_from_product" }] },
     });
     fireEvent.click(screen.getByRole("button", { name: "Confirm and add to my products" }));
     expect(await screen.findByText(/1 line added to your products and stock\. 1 still needs a selling price per 1 qty\./)).toBeInTheDocument();
+    expect(server.sent.find((s) => s.path.endsWith("/confirm"))!.headers.get("Idempotency-Key")).toBeTruthy();
+    expect(screen.getByText(/line 1: the unit differs from the one on your product/)).toBeInTheDocument();
     const sent = server.sent.find((s) => s.method === "POST" && s.path.endsWith("/confirm"))!.body as Record<string, unknown>;
     expect(sent).toMatchObject({ supplier_gstin: "19ABCDE1234F1ZX", doc_number: "SUP-1", doc_date: "2026-07-03", invoice_total: "236.00" });
     expect((sent.lines as Record<string, unknown>[])[0]).toMatchObject({

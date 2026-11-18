@@ -1087,7 +1087,7 @@ export interface paths {
         /**
          * Confirm Draft
          * @description The business confirms the invoice with the values it checked on the review screen. Once; a second call is a
-         *     conflict, not a second invoice.
+         *     conflict, not a second invoice. With an Idempotency-Key, a retry of the same request returns the first answer.
          */
         post: operations["confirm_draft_api_v1_b__business_id__purchase_drafts__draft_id__confirm_post"];
         delete?: never;
@@ -4574,6 +4574,11 @@ export interface components {
             supplier_gstin: string;
             /** Supplier Name */
             supplier_name: string | null;
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: components["schemas"]["PurchaseWarningOut"][];
         };
         /** PurchaseDraftLineOut */
         PurchaseDraftLineOut: {
@@ -4783,6 +4788,16 @@ export interface components {
             price_needed: boolean;
             /** Product Id */
             product_id: string;
+        };
+        /** PurchaseWarningOut */
+        PurchaseWarningOut: {
+            /**
+             * Code
+             * @enum {string}
+             */
+            code: "tax_differs_from_rate" | "unit_differs_from_product";
+            /** Line No */
+            line_no: number;
         };
         /** RateIn */
         RateIn: {
@@ -8047,7 +8062,9 @@ export interface operations {
     confirm_draft_api_v1_b__business_id__purchase_drafts__draft_id__confirm_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
             path: {
                 draft_id: string;
                 business_id: string;
@@ -8083,7 +8100,9 @@ export interface operations {
     discard_draft_api_v1_b__business_id__purchase_drafts__draft_id__discard_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
             path: {
                 draft_id: string;
                 business_id: string;
