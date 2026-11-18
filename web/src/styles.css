@@ -181,3 +181,7 @@ input:-webkit-autofill, input:-webkit-autofill:focus {
 .field .tag { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; background: var(--sunk); color: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 2px 7px; margin-left: 6px; }
 .field select:disabled { cursor: not-allowed; }
 .tablewrap { overflow-x: auto; }
+.card-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.card-head h2 { margin-bottom: 4px; }
+/* File choosers inside upload cards: a dashed drop area (mock v13 .drop) */
+.card .field input[type="file"] { width: 100%; height: auto; padding: 18px; border: 2px dashed var(--line); border-radius: 10px; background: var(--bg); }
