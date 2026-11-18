@@ -289,6 +289,7 @@ ol.steps > li::before { content: counter(s); position: absolute; left: 0; top: 1
   .topbar .brand strong { overflow-wrap: anywhere; }
   .topbar .nav { grid-column: 1 / -1; order: 3; flex-wrap: nowrap; overflow-x: auto; margin: 0 -8px; padding-bottom: 2px; }
   .topbar .nav a { white-space: nowrap; flex: none; }
+  .topbar .nav a:focus-visible { outline-offset: -2px; } /* the scrolling row would clip an outside focus ring */
   .topbar-in > .btn-link { min-height: 36px; justify-self: end; }
 
   /* Filing deadlines on a phone: period and status, then form and due date, then the action; no label on every line. */
