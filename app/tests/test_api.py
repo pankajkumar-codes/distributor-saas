@@ -17,3 +17,15 @@ def test_refusals_and_errors_use_the_platform_handlers():
 
     assert Deny in app.exception_handlers and AppError in app.exception_handlers
     assert Exception in app.exception_handlers
+
+
+def test_every_response_carries_the_security_headers():
+    client = TestClient(app, raise_server_exceptions=False)
+    # an answer, a refusal for a missing token, and a path that does not exist
+    for path in ("/api/v1/health", "/api/v1/me", "/api/v1/nothing-here"):
+        h = client.get(path).headers
+        assert h["x-content-type-options"] == "nosniff", path
+        assert h["strict-transport-security"].startswith("max-age="), path
+        assert h["x-frame-options"] == "DENY", path
+        assert h["referrer-policy"] == "no-referrer", path
+        assert "frame-ancestors 'none'" in h["content-security-policy"], path

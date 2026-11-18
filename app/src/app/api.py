@@ -36,6 +36,41 @@ from platform_common.uow import set_principal_resolver
 
 API_PREFIX = "/api/v1"
 
+# Set on every response by the app itself, so they hold on the API Gateway endpoint (the API is not behind
+# CloudFront, D-094) and locally. An answer that already carries one keeps it. HSTS is harmless over plain
+# http (browsers ignore it there). The API returns JSON and files, never a page, so the CSP forbids everything.
+SECURITY_HEADERS = (
+    (b"x-content-type-options", b"nosniff"),
+    (b"strict-transport-security", b"max-age=31536000"),
+    (b"x-frame-options", b"DENY"),
+    (b"referrer-policy", b"no-referrer"),
+)
+API_CSP = (b"content-security-policy", b"default-src 'none'; frame-ancestors 'none'; base-uri 'none'")
+
+
+class SecurityHeaders:
+    """Pure ASGI middleware: add the headers above to every HTTP response, even an error or a 404."""
+
+    def __init__(self, inner):
+        self.inner = inner
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return await self.inner(scope, receive, send)
+        csp = scope.get("path", "").startswith(API_PREFIX)  # the dev-only /docs page needs its own scripts
+
+        async def send_with_headers(message):
+            if message["type"] == "http.response.start":
+                headers = list(message.get("headers", []))
+                have = {name.lower() for name, _ in headers}
+                for pair in (*SECURITY_HEADERS, *((API_CSP,) if csp else ())):
+                    if pair[0] not in have:
+                        headers.append(pair)
+                message = {**message, "headers": headers}
+            await send(message)
+
+        await self.inner(scope, receive, send_with_headers)
+
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -48,6 +83,7 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="gst-app", root_path_in_servers=False, lifespan=lifespan)
+app.add_middleware(SecurityHeaders)
 install_error_handlers(app)  # Deny -> 404, AppError -> its status, anything else -> 500 (LLD-0 §3.2)
 app.include_router(identity_router, prefix=API_PREFIX)
 app.include_router(auth_router, prefix=API_PREFIX)
