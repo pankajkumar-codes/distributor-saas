@@ -818,7 +818,7 @@ export interface paths {
         /**
          * Plan Change Preview
          * @description What a plan change would show: the unused part of the current period credited, the new plan's full price from now.
-         *     Display only (D-084); the figures are the price list, never a charge.
+         *     Display only (D-086); the figures are the price list, never a charge.
          */
         get: operations["plan_change_preview_api_v1_b__business_id__plan_change_preview_get"];
         put?: never;

@@ -1,4 +1,4 @@
-"""The invoicing plan (R2-M7, D-084): the first 10 finalized invoices are free, the 11th needs the plan unless payments
+"""The invoicing plan (R2-M7, D-086): the first 10 finalized invoices are free, the 11th needs the plan unless payments
 are still a placeholder; the count is the server's own; a plan change shows prorated figures.
 
 Made-up data. Skipped unless PG_ADMIN_URL points at a disposable server.

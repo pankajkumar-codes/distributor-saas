@@ -13435,7 +13435,7 @@
     },
     "/api/v1/b/{business_id}/plan-change-preview": {
       "get": {
-        "description": "What a plan change would show: the unused part of the current period credited, the new plan's full price from now.\nDisplay only (D-084); the figures are the price list, never a charge.",
+        "description": "What a plan change would show: the unused part of the current period credited, the new plan's full price from now.\nDisplay only (D-086); the figures are the price list, never a charge.",
         "operationId": "plan_change_preview_api_v1_b__business_id__plan_change_preview_get",
         "parameters": [
           {
