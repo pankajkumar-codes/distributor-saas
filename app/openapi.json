@@ -6366,6 +6366,194 @@
         "title": "PdfStatusOut",
         "type": "object"
       },
+      "PeriodExportOut": {
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "due_dates": {
+            "default": "Check on the GST portal",
+            "title": "Due Dates",
+            "type": "string"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/PeriodFileOut"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "gstr1_returns": {
+            "items": {
+              "$ref": "#/components/schemas/PeriodReturnOut"
+            },
+            "title": "Gstr1 Returns",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "month",
+              "quarter"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "period_end": {
+            "format": "date",
+            "title": "Period End",
+            "type": "string"
+          },
+          "period_start": {
+            "format": "date",
+            "title": "Period Start",
+            "type": "string"
+          },
+          "practice_documents": {
+            "title": "Practice Documents",
+            "type": "integer"
+          },
+          "purchase_lines": {
+            "title": "Purchase Lines",
+            "type": "integer"
+          },
+          "sales_lines": {
+            "title": "Sales Lines",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "period_start",
+          "period_end",
+          "sales_lines",
+          "purchase_lines",
+          "practice_documents",
+          "created_at",
+          "created",
+          "gstr1_returns",
+          "files"
+        ],
+        "title": "PeriodExportOut",
+        "type": "object"
+      },
+      "PeriodExportsOut": {
+        "properties": {
+          "exports": {
+            "items": {
+              "$ref": "#/components/schemas/PeriodExportOut"
+            },
+            "title": "Exports",
+            "type": "array"
+          },
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "exports",
+          "has_more"
+        ],
+        "title": "PeriodExportsOut",
+        "type": "object"
+      },
+      "PeriodFileOut": {
+        "properties": {
+          "name": {
+            "enum": [
+              "workbook",
+              "purchase_register"
+            ],
+            "title": "Name",
+            "type": "string"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "sha256",
+          "size_bytes",
+          "url"
+        ],
+        "title": "PeriodFileOut",
+        "type": "object"
+      },
+      "PeriodFilesIn": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "month",
+              "quarter"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "start": {
+            "format": "date",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "start"
+        ],
+        "title": "PeriodFilesIn",
+        "type": "object"
+      },
+      "PeriodReturnOut": {
+        "properties": {
+          "form": {
+            "title": "Form",
+            "type": "string"
+          },
+          "instance_id": {
+            "title": "Instance Id",
+            "type": "string"
+          },
+          "period_end": {
+            "format": "date",
+            "title": "Period End",
+            "type": "string"
+          },
+          "period_start": {
+            "format": "date",
+            "title": "Period Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance_id",
+          "form",
+          "period_start",
+          "period_end"
+        ],
+        "title": "PeriodReturnOut",
+        "type": "object"
+      },
       "Person": {
         "properties": {
           "name": {
@@ -13417,6 +13605,173 @@
         "summary": "Own Invoices Crosscheck",
         "tags": [
           "imports"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/period-files": {
+      "get": {
+        "operationId": "list_period_files_api_v1_b__business_id__period_files_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 1000000,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeriodExportsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Period Files",
+        "tags": [
+          "filing"
+        ]
+      },
+      "post": {
+        "operationId": "make_period_files_api_v1_b__business_id__period_files_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PeriodFilesIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeriodExportOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Make Period Files",
+        "tags": [
+          "filing"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/period-files/{export_id}": {
+      "get": {
+        "operationId": "get_period_files_api_v1_b__business_id__period_files__export_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "export_id",
+            "required": true,
+            "schema": {
+              "title": "Export Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeriodExportOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Period Files",
+        "tags": [
+          "filing"
         ]
       }
     },

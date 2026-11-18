@@ -317,6 +317,17 @@ Every row in `refdata/` is `provisional`. Before go-live:
 - **Proration formula.** The preview credits the unused part of the current period and starts the new plan's full price now. A provider may prorate differently (Razorpay's proration support is unknown); confirm with the provider (D3) before the figures are shown as a charge.
 - **Which plan is the business on?** Nothing stores a purchased plan yet (no payments). The check hook `entitlement.set_invoice_check` is where the provider integration will say so; until then the preview takes the current plan and days left as inputs.
 - **GST on our fee** is not computed anywhere (D6).
+## R2-M6 monthly and quarterly files (2026-11-18)
+- **Purchase register is our own format.** It is not a GST portal file and no portal sample exists for purchases; it says `portal_file: false`. If Pankaj or the CA wants a specific layout (for example the GSTR-2B reconciliation or a books import), that is a change to `build_register`.
+- **Input tax credit.** Purchases are listed as the business confirmed them. Eligibility of credit, reverse charge on purchases, and a purchase from an unregistered supplier are not decided here (CA question, with CA-5).
+- **GSTR-1 JSON for sales is the return's own export.** The monthly files do not remake it. A business sees the two together only through the response's list of return instances; a one-button bundle that triggers the GSTR-1 export too is a screen decision.
+- **Web screen (built).** `/b/:id/period-files` (owner, admin, CA; behind the invoicing flag): choose a finished month (a quarter too, for a quarterly filer), make the files, Download on each; earlier files get fresh links on request. The "button enabled only once the period has ended" rule is the server's; the screen offers only finished periods.
+- **Large periods.** (cap now 10,000, see below) A period with more than `filing.period_files.max_rows` rows of any kind is refused with `period_too_large`; the files are made inside the request, not a job. A job would be needed for bigger businesses.
+- **Workbook bytes.** The workbook is not byte-for-byte reproducible (the zip carries its own write times), so repeat requests return the stored file by fingerprint rather than rebuilding it.
+- **Purchases are placed in a period by invoice date (CA question).** Whether input tax credit follows the invoice date, the date received or the date the business confirmed it is for the CA sheet; the workbook says it does not decide ITC. A purchase confirmed late for an exported month makes a new export (the old stays, insert-only); the screen shows the newest first.
+- **Cap lowered to 10,000 rows per kind (Staff review of M6, S1).** Files are still built inside the request; 50,000 was never measured. `filing.period_files.max_rows` is now 10,000 until someone measures the API Lambda's time and memory on a real large month, or generation moves to a job. A month above the cap is refused with `period_too_large`.
+- **Download rule checked first (S2/S3).** The plan check runs before anything is built or stored, so a refusal leaves no objects behind.
+- **Excel text stays text (B1).** Every text cell is written as a string cell, so a supplier name or document number that starts with `=` is shown as text, never run as a formula.
 
 ## Release blockers (not R1 build blockers; Pankaj, 2026-11-17)
 These need Pankaj or his CA and do not stop building. Each must be done before production release.

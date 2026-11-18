@@ -38,6 +38,7 @@ ACTIONS: dict[str, tuple[str, str]] = {
     "documents.s34_override": ("Overrode the credit-note time limit", "invoices"),
     "filing.accept_warning": ("Accepted a filing warning", "gst_filing"),
     "filing.exported": ("Prepared a GSTR-1 file", "gst_filing"),
+    "filing.period_files_made": ("Prepared a sales and purchases file for a period", "gst_filing"),
     "worksheet.built": ("Prepared a GSTR-3B worksheet", "gst_filing"),
     "worksheet.entered": ("Entered figures on a GSTR-3B worksheet", "gst_filing"),
     "imports.changed_line_choice": ("Chose how to treat a changed line", "gst_filing"),
