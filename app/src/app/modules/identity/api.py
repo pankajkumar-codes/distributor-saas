@@ -1,4 +1,5 @@
 import uuid
+from typing import Annotated
 from collections.abc import Iterator
 from functools import lru_cache
 from types import SimpleNamespace
@@ -13,6 +14,7 @@ from platform_common.auth import Caller, current_caller, debug_env
 from platform_common.db import engine, session_factory
 from platform_common.errors import Deny, request_id
 from platform_common.permissions import Permission, Role, has_permission
+from platform_common.textcheck import NoNul
 from platform_common.uow import Principal, parse_id
 
 from .interface import resolve_principal
@@ -126,7 +128,10 @@ def require_permission(membership: Membership, permission: Permission) -> None:
 
 
 class TenantIn(BaseModel):
-    name: str = Field(min_length=1, max_length=200)
+    name: Annotated[str, NoNul, Field(min_length=1, max_length=200)]
+
+
+UNNAMED = "Unnamed business"  # a business row may have no name yet (#280)
 
 
 class TenantOut(BaseModel):
@@ -181,7 +186,7 @@ def my_tenants(
         .where(Membership.user_id == me(session), Membership.status == MembershipStatus.active)
         .order_by(Business.name)
     ).all()
-    return [TenantOut(id=t.id, name=t.name, role=role) for t, role in rows]
+    return [TenantOut(id=t.id, name=t.name or UNNAMED, role=role) for t, role in rows]
 
 
 @router.get("/tenants/{tenant_id}", response_model=TenantOut)
@@ -193,4 +198,4 @@ def get_tenant(
     tid = parse_id(tenant_id)
     membership = active_membership(session, tid)
     tenant = session.get(Business, tid)
-    return TenantOut(id=tenant.id, name=tenant.name, role=membership.role)
+    return TenantOut(id=tenant.id, name=tenant.name or UNNAMED, role=membership.role)

@@ -18,6 +18,7 @@ from platform_common.etag import if_match_version, set_etag
 from platform_common.idempotency import run_once
 from platform_common.paging import PageParams, page_params
 from platform_common.permissions import Permission, require
+from platform_common.textcheck import NoNul
 from platform_common.uow import BusinessUoW, parse_id
 
 from . import products
@@ -212,7 +213,7 @@ def list_products(
     uow: BusinessUoW,
     clock: Annotated[Clock, Depends(get_clock)],
     page: Annotated[PageParams, Depends(page_params)],
-    q: Annotated[str | None, Query(max_length=100)] = None,
+    q: Annotated[str | None, NoNul, Query(max_length=100)] = None,
     status: Literal["active", "archived", "all"] = "active",
     filter: Literal["no_hsn", "rate_unconfirmed"] | None = None,  # noqa: A002 (the API's name)
     on: date | None = None,

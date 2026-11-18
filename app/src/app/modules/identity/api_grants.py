@@ -13,6 +13,8 @@ another business, or an unknown one, is the same 404 as an unknown business.
 
 import uuid
 from datetime import datetime
+from typing import Annotated
+
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy import text
@@ -23,6 +25,7 @@ from platform_common import audit
 from platform_common.errors import Conflict, Deny
 from platform_common.ids import uuid7
 from platform_common.permissions import Permission, require
+from platform_common.textcheck import NoNul
 from platform_common.uow import BusinessUoW, UnitOfWork, parse_id
 
 router = APIRouter(tags=["support"])
@@ -32,7 +35,7 @@ PAGE = 50  # grants shown; at most one a day in practice
 
 
 class GrantIn(BaseModel):
-    reason: str | None = Field(None, max_length=500)
+    reason: Annotated[str | None, NoNul] = Field(None, max_length=500)
 
 
 class Person(BaseModel):
