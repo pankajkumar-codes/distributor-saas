@@ -18,7 +18,7 @@ from sqlalchemy import bindparam, text
 from sqlalchemy.types import JSON
 
 from app.modules.business.interface import Profile, SeriesSetting, fy_of, get_profile, series_setting
-from app.modules.filing.interface import FREE_INVOICES, invoicing_allowed
+from app.modules.filing.interface import FREE_INVOICES, invoicing_allowed, target_return_instance
 from app.modules.catalog.interface import customer_snapshot, mark_used, record_sale_out
 from app.modules.refdata import RefdataMissing, value_on
 from platform_common import audit
@@ -84,6 +84,14 @@ def enabled(uow: UnitOfWork, today: date) -> bool:
     """The switch. No row on `today` counts as off."""
     try:
         return value_on(uow.tx, "sales.finalize.enabled", today) is True
+    except RefdataMissing:
+        return False
+
+
+def live_enabled(uow: UnitOfWork, today: date) -> bool:
+    """The second switch, for live numbers and return assignment. No row counts as off."""
+    try:
+        return value_on(uow.tx, "sales.finalize.live", today) is True
     except RefdataMissing:
         return False
 
@@ -158,7 +166,7 @@ def finalize(uow: UnitOfWork, draft_id: uuid.UUID, if_match: int | None, today: 
         raise FinalizeBlocked(c.blocks)
     setting = series_setting(uow.tx, d["kind"])
     practice = setting is None or setting.practice_mode
-    if not practice:
+    if not practice and not live_enabled(uow, today):
         raise Invalid(
             "live_numbering_unavailable",
             "Live invoice numbers aren't available yet; this business can issue practice invoices only.",
@@ -169,13 +177,19 @@ def finalize(uow: UnitOfWork, draft_id: uuid.UUID, if_match: int | None, today: 
         raise Invalid("business_profile_missing", "Add your business details first.", field="business")
     doc_date = d["doc_date"] or today
     fy = fy_of(doc_date)
+    assigned = None  # a practice document is in no return; a live one is assigned once, here (LLD-5 §4)
+    if not practice:
+        assigned = target_return_instance(
+            uow.tx, profile.gstin, "invoice", doc_date, c.supply_class, taxable_value=c.taxable_total, today=today
+        )
     series_id, number = allocate(
         uow, gstin=profile.gstin, kind=d["kind"], fy=fy, practice=practice, setting=setting, on=doc_date
     )
     check_plan(uow)
     mark_used(uow.tx, [ln.product.product_id for ln in c.lines], d["customer_id"])
     document_id = _insert(
-        uow, d, c, profile, series_id=series_id, number=number, doc_date=doc_date, fy=fy, practice=practice
+        uow, d, c, profile, series_id=series_id, number=number, doc_date=doc_date, fy=fy, practice=practice,
+        assigned=assigned,
     )
     uow.tx.execute(
         text("update sales.drafts set status = 'finalized' where id = :d and business_id = :b"),
@@ -186,7 +200,8 @@ def finalize(uow: UnitOfWork, draft_id: uuid.UUID, if_match: int | None, today: 
         "document.finalized",
         "document",
         document_id,
-        data={"number": number, "kind": d["kind"], "practice": practice, "draft_id": str(draft_id)},
+        data={"number": number, "kind": d["kind"], "practice": practice, "draft_id": str(draft_id)}
+        | ({} if assigned is None else {"return_period": assigned.period, "form": assigned.form}),
     )
     if d["pos_override"] is not None:
         audit.record(
@@ -259,6 +274,7 @@ def _insert(
     doc_date: date,
     fy: str,
     practice: bool,
+    assigned=None,
 ) -> uuid.UUID:
     tx, b = uow.tx, _business(uow)
     document_id = uuid7()
@@ -268,11 +284,11 @@ def _insert(
         text(
             "insert into sales.documents (id, business_id, draft_id, kind, is_practice, series_id, doc_number,"
             " doc_date, fy, gstin, supplier_state_code, customer_id, counterparty_gstin, counterparty_name,"
-            " pos_state_code, is_inter_state, supply_class, credit_days, due_date, gross_total, line_discount_total,"
+            " pos_state_code, is_inter_state, supply_class, return_instance_id, return_period, credit_days, due_date, gross_total, line_discount_total,"
             " invoice_discount, charges_total, taxable_total, cgst_total, sgst_total, utgst, igst_total, round_off,"
             " doc_total, amount_in_words, print, rounding_mode, method_version, finalized_by) values (:id, :b, :draft,"
             " :kind, :practice, :series, :number, :doc_date, :fy, :gstin, :supplier_state, :customer, :cp_gstin,"
-            " :cp_name, :pos, :inter, :class, :credit_days, :due, :gross, :line_disc, :inv_disc, :charges, :taxable,"
+            " :cp_name, :pos, :inter, :class, :instance, :period, :credit_days, :due, :gross, :line_disc, :inv_disc, :charges, :taxable,"
             " :cgst, :sgst, :utgst, :igst, :round_off, :total, :words, :print, :rounding, :method, :me)"
         ).bindparams(bindparam("print", type_=JSON)),
         {
@@ -293,6 +309,8 @@ def _insert(
             "pos": c.pos_state_code,
             "inter": c.is_inter_state,
             "class": c.supply_class,
+            "instance": None if assigned is None else assigned.id,
+            "period": None if assigned is None else assigned.period,
             "credit_days": credit_days,
             "due": doc_date + timedelta(days=credit_days),
             "gross": c.gross_total,
