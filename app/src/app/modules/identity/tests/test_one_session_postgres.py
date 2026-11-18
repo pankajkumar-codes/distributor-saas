@@ -268,7 +268,7 @@ def test_two_sign_ins_at_once_open_exactly_one_session(env):
             with c.begin():
                 results.append(
                     c.execute(
-                        text("select identity.auth_open_session_once(:i, :u, 'sid', :k, now(), 30, 30)"),
+                        text("select identity.auth_open_session_once(:i, :u, 'sid', :k, now(), 30)"),
                         {"i": uuid.uuid4(), "u": uid, "k": uuid.uuid4().hex},
                     ).scalar()
                 )

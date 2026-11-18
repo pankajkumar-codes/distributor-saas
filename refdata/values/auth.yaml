@@ -233,4 +233,4 @@
   source_title: "BRD v1.3, owner retest item 6 (a stale session must not block the owner's own sign-in)"
   last_checked: 2026-11-19
   status: provisional
-  note: "A session counts as the user's active one for the one-session question only if it was used in the last 30 minutes. The 24-hour idle rule still decides whether the session works."
+  note: "A session counts as the user's active one for the one-session question only if it was used in the last 30 minutes. The 24-hour idle rule still decides whether the session works. Mirrored as a literal in identity.auth_open_session_once, as auth.idle_hours is in auth_resolve."

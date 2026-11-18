@@ -98,7 +98,7 @@ def sign_in(
 ) -> SignedIn | TotpStep | SessionActive:
     """§5.3. Raises SigninNotAccepted or RateLimited."""
     lim = limits.read(
-        ("auth.signin_per_email_per_15min", "auth.signin_per_ip_per_hour", "auth.session_max_days", "auth.session_live_minutes"), today, request_id
+        ("auth.signin_per_email_per_15min", "auth.signin_per_ip_per_hour", "auth.session_max_days"), today, request_id
     )
     email_bucket = rate.bucket("signin:email", email)
     window = rate.hit(email_bucket, lim["auth.signin_per_email_per_15min"], QUARTER_HOUR)
@@ -115,7 +115,7 @@ def sign_in(
         log.warning("sign-in: could not give a try back", extra={"request_id": request_id})
     if tokens.needs_totp:
         return TotpStep(tokens.challenge)
-    return _finish(email, tokens, request_id, idp, lim["auth.session_max_days"], lim["auth.session_live_minutes"], totp=False)
+    return _finish(email, tokens, request_id, idp, lim["auth.session_max_days"], totp=False)
 
 
 def sign_in_totp(
@@ -123,7 +123,7 @@ def sign_in_totp(
 ) -> SignedIn | SessionActive:
     """§5.4. Raises TotpNotAccepted, SigninExpired, SigninNotAccepted or RateLimited."""
     lim = limits.read(
-        ("auth.totp_tries_per_email_per_15min", "auth.signin_per_ip_per_hour", "auth.session_max_days", "auth.session_live_minutes"),
+        ("auth.totp_tries_per_email_per_15min", "auth.signin_per_ip_per_hour", "auth.session_max_days"),
         today,
         request_id,
     )
@@ -135,11 +135,11 @@ def sign_in_totp(
         if e.code == "totp_not_accepted":
             raise TotpNotAccepted(e.challenge or challenge) from None
         raise SigninExpired() from None
-    return _finish(email, tokens, request_id, idp, lim["auth.session_max_days"], lim["auth.session_live_minutes"], totp=True)
+    return _finish(email, tokens, request_id, idp, lim["auth.session_max_days"], totp=True)
 
 
 def _finish(
-    email: str, tokens: AuthResult, request_id: str, idp: AuthProvider, max_days: int, live_minutes: int, *, totp: bool
+    email: str, tokens: AuthResult, request_id: str, idp: AuthProvider, max_days: int, *, totp: bool
 ) -> SignedIn | SessionActive:
     try:
         claims = verified_claims(tokens.access_token, idp)
@@ -160,7 +160,7 @@ def _finish(
                     text("select is_support from identity.users where id = :me"), {"me": user.user_id}
                 ).scalar()
             )
-            session_id = open_session_once(uow, user.user_id, key, auth_time, max_days, live_minutes)
+            session_id = open_session_once(uow, user.user_id, key, auth_time, max_days)
             if session_id is None:
                 taken = True  # one active session per user: the person is asked before the other one ends
             else:

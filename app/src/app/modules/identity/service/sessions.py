@@ -54,15 +54,13 @@ def open_session(uow, user_id: uuid.UUID, key: tuple[str, str], auth_time: int, 
     return session_id
 
 
-def open_session_once(
-    uow, user_id: uuid.UUID, key: tuple[str, str], auth_time: int, max_days: int, live_minutes: int
-) -> uuid.UUID | None:
+def open_session_once(uow, user_id: uuid.UUID, key: tuple[str, str], auth_time: int, max_days: int) -> uuid.UUID | None:
     """One active session per user: opens the session only if the user has no live one, else None
-    (nothing written). Live means used in the last `live_minutes`; older unrevoked sessions are ended. The decision and the insert run under a lock on the user's row."""
+    (nothing written). The decision and the insert run under a lock on the user's row."""
     session_id = uuid7()
     opened = uow.tx.execute(
-        text("select identity.auth_open_session_once(:i, :u, :kind, :k, :t, :d, :m)"),
-        {"i": session_id, "u": user_id, "kind": key[0], "k": key[1], "t": datetime.fromtimestamp(auth_time, UTC), "d": max_days, "m": live_minutes},
+        text("select identity.auth_open_session_once(:i, :u, :kind, :k, :t, :d)"),
+        {"i": session_id, "u": user_id, "kind": key[0], "k": key[1], "t": datetime.fromtimestamp(auth_time, UTC), "d": max_days},
     ).scalar()
     return session_id if opened else None
 
