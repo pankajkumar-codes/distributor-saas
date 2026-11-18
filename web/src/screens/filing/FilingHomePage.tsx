@@ -55,11 +55,12 @@ export function FilingHomePage() {
   const businesses = useMyBusinesses();
   const business = businesses.data?.find((b) => b.business_id === businessId);
   // No `fy`: the server picks the current year, so "today" comes from it alone. Last year's is named from the one it answers with.
-  const now = useReturns(businessId, undefined, Boolean(business));
+  const may = Boolean(business && canPrepareReturns(business.role)); // the list needs returns.view; same roles
+  const now = useReturns(businessId, undefined, may);
   const before = useReturns(
     businessId,
     now.data ? previousFy(now.data.fy) : undefined,
-    Boolean(business) && now.isSuccess && now.data.filing_frequency !== null,
+    may && now.isSuccess && now.data.filing_frequency !== null,
   );
 
   if (businesses.isPending) {
@@ -69,7 +70,7 @@ export function FilingHomePage() {
       </main>
     );
   }
-  if (!business) return <NotFound />;
+  if (!business || !may) return <NotFound />;
 
   const notSet = now.isSuccess && now.data.filing_frequency === null; // the server sends an empty list, not an error
   // Last year's rows only while something is still open there (a late March or Q4 return).

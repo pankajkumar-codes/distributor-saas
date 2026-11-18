@@ -25,8 +25,6 @@ NO_PERMISSION: dict[tuple[str, str], str] = {
     ("GET", "/b/{business_id}/profile"): ANY_MEMBER,
     ("GET", "/b/{business_id}/filing-profile"): ANY_MEMBER,
     ("GET", "/b/{business_id}/channels"): ANY_MEMBER,
-    # Open question for the EM: every other returns route needs returns.prepare; the list is readable by billing too.
-    ("GET", "/b/{business_id}/returns"): "readable by every active member today (open question: returns.prepare?)",
 }
 ROLES = ("owner", "admin", "billing", "ca")
 

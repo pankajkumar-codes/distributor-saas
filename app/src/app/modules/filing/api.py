@@ -86,7 +86,7 @@ class ReturnsOut(BaseModel):
     returns: list[ReturnOut]
 
 
-@router.get("/returns")
+@router.get("/returns", dependencies=[Depends(require(Permission.RETURNS_VIEW, support_may_read=True))])
 def list_returns(uow: BusinessUoW, clock: Today, fy: Annotated[str | None, Query(pattern=FY)] = None) -> ReturnsOut:
     today = clock.today()
     fy = fy or fy_of(today)

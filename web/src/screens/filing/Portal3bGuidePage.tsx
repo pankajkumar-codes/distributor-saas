@@ -29,10 +29,11 @@ export function Portal3bGuidePage() {
   const { businessId = "", instanceId = "" } = useParams();
   const businesses = useMyBusinesses();
   const business = businesses.data?.find((b) => b.business_id === businessId);
-  const now = useReturns(businessId, undefined, Boolean(business));
+  const may = Boolean(business && canPrepareReturns(business.role));
+  const now = useReturns(businessId, undefined, may);
   const found = now.data?.returns.find((r) => r.instance_id === instanceId);
   // A late return of last year is not in the current year's list: look there too, but only when it is not found yet.
-  const before = useReturns(businessId, now.data ? previousFy(now.data.fy) : undefined, Boolean(business) && now.isSuccess && !found);
+  const before = useReturns(businessId, now.data ? previousFy(now.data.fy) : undefined, may && now.isSuccess && !found);
   const row = found ?? before.data?.returns.find((r) => r.instance_id === instanceId);
 
   if (businesses.isPending) {
