@@ -24,8 +24,15 @@ secs() { echo "${1##* }"; }
 under() { python3 -c "import sys; sys.exit(0 if float('$1') < float('$2') else 1)"; }
 json() { python3 -c "import json,sys; print(json.load(open('$BODY'))$1)"; }
 signin() {
-  req -c "$JAR" -b "$JAR" -X POST "$URL/api/v1/auth/signin" -H 'Content-Type: application/json' -H "Origin: $URL" \
-    -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}"
+  local r
+  r=$(req -c "$JAR" -b "$JAR" -X POST "$URL/api/v1/auth/signin" -H 'Content-Type: application/json' -H "Origin: $URL" \
+    -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}")
+  # One active session per user: a sign-in while the earlier one is live is asked first. Answer yes, as the page does.
+  if [ "$(status "$r")" = 200 ] && grep -q '"session_active"' "$BODY"; then
+    req -c "$JAR" -b "$JAR" -X POST "$URL/api/v1/auth/session/replace" -H "Origin: $URL" -H "Authorization: Bearer $(json "['access_token']")"
+  else
+    echo "$r"
+  fi
 }
 
 cleanup() { kill "${START_PID:-0}" 2>/dev/null; $DC unpause db >/dev/null 2>&1; }
