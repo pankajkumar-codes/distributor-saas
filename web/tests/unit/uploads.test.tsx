@@ -73,7 +73,7 @@ describe("upload page", () => {
   it("sends the person to Business details when nothing is chosen yet", async () => {
     open("owner", "/b/b-1/uploads", { amazon: false, flipkart: false, meesho: false, own_invoices: false, answered: false });
     expect(await screen.findByText(/You haven't said where you sell yet/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Choose it in Business details" })).toHaveAttribute("href", "/b/b-1/settings/company");
+    expect(screen.getByRole("link", { name: "Choose it in Business details" })).toHaveAttribute("href", "/b/b-1/settings");
     expect(screen.queryAllByRole("region")).toHaveLength(0);
   });
 

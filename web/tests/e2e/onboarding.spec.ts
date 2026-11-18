@@ -42,7 +42,7 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   await expect(page.getByRole("table").getByText("GSTR-1").first()).toBeVisible();
   await expect(page.getByText("Check on the GST portal").first()).toBeVisible();
   await noSeriousAxeFindings(page);
-  await page.getByRole("link", { name: "Home" }).first().click();
+  await page.getByRole("link", { name: "Home", exact: true }).first().click();
   await expect(page.getByRole("region", { name: "Set up your business" })).toBeVisible();
 
   // The customer step opens the (still empty) customers list; add one, find it, go back Home.
@@ -143,7 +143,8 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   await noSeriousAxeFindings(page);
   const overflow5 = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow5).toBeLessThanOrEqual(0);
-  await page.getByRole("link", { name: "Filing frequency" }).click();
+  // Business setup is one page: the filing frequency is on it already.
+  await expect(page.getByRole("heading", { level: 2, name: "Filing frequency" })).toBeVisible();
   await expect(page.getByText(/^Every quarter \(QRMP\), from \d{2}-[A-Z][a-z]{2}-\d{4}\.$/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Save frequency" })).toBeVisible();
   await noSeriousAxeFindings(page);
