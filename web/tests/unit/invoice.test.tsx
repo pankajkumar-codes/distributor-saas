@@ -69,6 +69,9 @@ describe("the draft invoice form", () => {
     expect(second.headers.get("Idempotency-Key")).toBe(first.headers.get("Idempotency-Key"));
     expect(second.body).toMatchObject({ kind: "invoice", customer_id: "c-1", cash_buyer: null, ship_to: null, lines: [{ product_id: "p-1", quantity: "10", unit_price: null, discount_kind: null }] });
     expect(await screen.findByRole("heading", { name: "Draft invoice" })).toBeInTheDocument();
+    // The blank rate came back filled in by the server; the form shows it, so it is not "changed" and Finalize can be used.
+    expect(screen.getByLabelText("Rate (excl. GST)")).toHaveValue("100.00");
+    expect(screen.getByRole("button", { name: "Save draft" })).toBeDisabled();
   });
 
   it("saves a change with the version it opened, and offers their version on a stale save", async () => {

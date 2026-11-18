@@ -39,6 +39,9 @@ export function toApiError(response: Response | undefined, body: unknown, detail
 }
 
 const BY_CODE: Record<string, string> = {
+  // Invoicing (R2)
+  invoice_plan_required: "You have used your free invoices. Choose the invoicing plan to keep creating invoices.",
+  business_type_required: "Choose Distributor or Retail in Business setup first.",
   code_not_accepted: "That code didn't work. Check it, or send a new code.",
   email_invalid: "Enter a valid email address, like name@business.in.",
   password_weak: "Choose a stronger password.",

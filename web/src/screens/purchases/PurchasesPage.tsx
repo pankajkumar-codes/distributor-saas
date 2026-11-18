@@ -108,7 +108,7 @@ export function PurchasesPage() {
 }
 
 /** A small blocking prompt: choose the business type once, saved with PATCH /profile. */
-function TypePrompt({ businessId, version }: { businessId: string; version: number }) {
+export function TypePrompt({ businessId, version }: { businessId: string; version: number }) {
   const [choice, setChoice] = useState<BusinessType | "">("");
   const save = useChooseBusinessType(businessId);
   return (
