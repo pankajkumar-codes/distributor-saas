@@ -67,3 +67,21 @@ export function statusText(u: Upload): string {
       return "";
   }
 }
+
+/** The short chip beside a section's name (mock v13): the state of its latest upload, in the server's own status. */
+export function statusChip(u: Upload): { label: string; tone: string } {
+  switch (u.status) {
+    case "pending":
+      return { label: "Waiting", tone: "chip-info" };
+    case "parsed":
+      return { label: "Read", tone: "chip-ok" };
+    case "stored":
+      return { label: "Saved", tone: "chip-info" };
+    case "rejected":
+      return { label: "Not read", tone: "chip-bad" };
+    case "expired":
+      return { label: "Expired", tone: "chip-warn" };
+    default:
+      return { label: "Reading", tone: "chip-info" };
+  }
+}
