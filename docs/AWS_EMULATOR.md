@@ -33,11 +33,11 @@ What was done on 2026-11-18 (still no test has run against the emulator):
 | Area | Plan with the emulator | Stays on real AWS |
 |---|---|---|
 | S3 adapter, presigned links, exports area | `make emulator-smoke` | Presigned POST limits, KMS default encryption, lifecycle rules |
-| SQS (render queue, jobs) with a dead-letter queue | `make emulator-smoke` | Lambda event source mapping timing and batching |
+| SQS: one plain queue, send and receive one message | `make emulator-smoke` does this today. A dead-letter queue, the redrive after repeated failures and the render queue's message shape are not tested yet and would be added to the smoke script | Lambda event source mapping timing and batching, DLQ alarm behavior |
 | SES v2 sender | `make emulator-smoke` | Domain verification, sandbox exit, deliverability |
 | Parameter Store (SSM) reads | smoke script, to be added | Parameter policies, SecureString KMS behavior |
 | Terraform plan/apply against the emulator endpoint | Needs the provider installed and the emulator running | Everything that depends on VPC, RDS, CloudFront, Budgets |
-| Lambda packages and the PDF renderer container | Run the zip locally (`make renderer-zip` and the local runner) | Memory, timeout, arm64 and WeasyPrint timing |
+| Lambda packages and the PDF renderer | The renderer zip is built and checked by `make renderer-zip` and `scripts/check_renderer_zip.py` (size, architecture, libraries, optional `--smoke`). There is no script that runs a Lambda function against the emulator's Lambda crate; one would have to be written | Memory, timeout, arm64 and WeasyPrint timing |
 | Cognito sign-in and tokens | Only if the user pool crate returns the claims we read | `origin_jti`, hosted behavior, email delivery |
 | Postgres (RDS) | Local Postgres, as CI does | RDS grants, parameter groups, backups and the restore test |
 
