@@ -8,6 +8,7 @@ import { TopBar } from "../../kit/TopBar";
 import { AUDIT_VIEWERS } from "./AuditPage";
 import { CompanyPage } from "./CompanyPage";
 import { FilingPage } from "./FilingPage";
+import { TEAM_MANAGERS } from "../team/TeamPage";
 import { SUPPORT_VIEWERS } from "./SupportPage";
 
 /**
@@ -59,6 +60,11 @@ export function SettingsPage() {
         <nav className="card" aria-labelledby="set-more">
           <h2 id="set-more">Access and security</h2>
           <ul className="list">
+            {TEAM_MANAGERS.has(business.role) && (
+              <li>
+                <Link to={`${base}/team`}>Your team</Link>
+              </li>
+            )}
             {SUPPORT_VIEWERS.has(business.role) && (
               <li>
                 <Link to={`${base}/support`}>Support access</Link>

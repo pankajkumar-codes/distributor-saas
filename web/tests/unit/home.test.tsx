@@ -53,7 +53,7 @@ function open(path = "/b/b-1/home") {
 }
 
 describe("Home", () => {
-  it("greets by name and lists the setup steps, with Upcoming for screens not built yet", async () => {
+  it("greets by name and lists the setup steps, with a link for each step that has a screen", async () => {
     server.reply(HOME, home());
     open();
     expect(await screen.findByRole("heading", { level: 1, name: /, Asha$/ })).toBeInTheDocument();
@@ -63,8 +63,9 @@ describe("Home", () => {
     expect(within(setup).getByRole("link", { name: "Add your first product" })).toHaveAttribute("href", "/b/b-1/products");
     expect(within(setup).getByRole("link", { name: "Add your first customer" })).toHaveAttribute("href", "/b/b-1/customers");
     expect(within(setup).getByRole("link", { name: "Marketplaces you sell on" })).toHaveAttribute("href", "/b/b-1/onboarding/marketplaces");
-    expect(within(setup).getAllByText("Upcoming")).toHaveLength(1); // the team screen
-    expect(within(setup).getAllByRole("link")).toHaveLength(3); // no dead links
+    expect(within(setup).getByRole("link", { name: "Invite your CA or a teammate" })).toHaveAttribute("href", "/b/b-1/settings/team");
+    expect(within(setup).queryByText("Upcoming")).toBeNull(); // every step has a screen now
+    expect(within(setup).getAllByRole("link")).toHaveLength(4); // no dead links
     const settings = screen.getByRole("navigation", { name: "Business setup" });
     expect(within(settings).getByRole("link", { name: "Open Business setup" })).toHaveAttribute("href", "/b/b-1/settings");
     expect(within(settings).getByRole("link", { name: "Support access" })).toHaveAttribute("href", "/b/b-1/settings/support");
