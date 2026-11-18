@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { errorText } from "../../api/errors";
-import { canUpload, canViewUploads } from "../../auth/roles";
+import { canPrepareReturns, canUpload, canViewUploads } from "../../auth/roles";
 import { useMyBusinesses } from "../../auth/useMyBusinesses";
 import { Banner } from "../../kit/Banner";
 import { BUSINESS_TYPES, type BusinessType } from "../../kit/BusinessTypeField";
@@ -49,6 +49,11 @@ export function PurchasesPage() {
       <TopBar title={business.display_name} gstin={business.gstin} />
       <main className="page">
         <h1>Purchase invoices</h1>
+        {canPrepareReturns(business.role) && (
+          <p>
+            <Link to={`/b/${businessId}/period-files`}>Monthly and quarterly files</Link>
+          </p>
+        )}
         {profile.error && <Banner tone="error">{errorText(profile.error)}</Banner>}
         {profile.data && !typed && mayUpload && <TypePrompt businessId={businessId} version={profile.data.version} />}
         {profile.data && !typed && !mayUpload && <Banner>The business owner needs to choose distributor or retail before purchase invoices can be added.</Banner>}

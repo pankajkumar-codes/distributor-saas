@@ -12,6 +12,7 @@ import { WorksheetPage } from "./screens/filing/WorksheetPage";
 import { ReturnPage } from "./screens/filing/ReturnPage";
 import { PurchasesPage } from "./screens/purchases/PurchasesPage";
 import { ReviewPage } from "./screens/purchases/ReviewPage";
+import { PeriodFilesPage } from "./screens/periodfiles/PeriodFilesPage";
 import { UploadsPage } from "./screens/uploads/UploadsPage";
 import { HomePage } from "./screens/home/HomePage";
 import { BusinessPage } from "./screens/onboarding/BusinessPage";
@@ -61,6 +62,7 @@ export const routes: RouteObject[] = [
         { path: "/b/:businessId/invoices/new", element: <PageTitle title="New invoice"><RequireAuth><InvoicePage /></RequireAuth></PageTitle> },
         { path: "/b/:businessId/invoices/:draftId", element: <PageTitle title="Invoice"><RequireAuth><InvoicePage /></RequireAuth></PageTitle> },
         { path: "/b/:businessId/purchases", element: <PageTitle title="Purchase invoices"><RequireAuth><PurchasesPage /></RequireAuth></PageTitle> },
+        { path: "/b/:businessId/period-files", element: <PageTitle title="Monthly and quarterly files"><RequireAuth><PeriodFilesPage /></RequireAuth></PageTitle> },
         { path: "/b/:businessId/purchases/:draftId", element: <PageTitle title="Check a purchase invoice"><RequireAuth><ReviewPage /></RequireAuth></PageTitle> },
       ]
     : []),

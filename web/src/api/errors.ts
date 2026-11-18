@@ -48,6 +48,10 @@ const BY_CODE: Record<string, string> = {
   // Preparing and filing a GST return (R1-M8)
   not_ready: "This return is not ready yet. Look at the items above and try again.",
   download_not_available: "Downloading the file is not available on your plan yet.",
+  period_not_ended: "That period has not ended yet. Come back after it has.",
+  period_too_large: "This period has more rows than one file can hold. Choose a shorter one, or contact support.",
+  quarter_not_for_monthly_filer: "Quarter files are for businesses that file quarterly.",
+  gstin_required: "Add your GSTIN in your business details first.",
   nothing_to_file: "There is nothing in this return to put in a file.",
   not_renderable: "We can't make a file for this kind of return yet.",
   file_too_large: "The file came out too large for the portal. Contact support.",
