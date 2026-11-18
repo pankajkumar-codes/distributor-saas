@@ -70,6 +70,19 @@ describe("Filing home", () => {
     expect(within(table).getAllByText("Confirmed on GST portal")).toHaveLength(2);
   });
 
+  it("offers the draft and the worksheet as row buttons, and a What you can add card with the sales channels", async () => {
+    server.reply("/api/v1/b/b-1/channels", { status: 200, body: { amazon: true, flipkart: true, meesho: false, own_invoices: true, answered: true } });
+    server.reply(NOW, ok([row({ form: "GSTR1" }), row({ form: "GSTR3B" })]), ok([]));
+    open();
+    await screen.findByRole("table");
+    expect(screen.getByRole("link", { name: "Review the draft" })).toHaveClass("btn");
+    expect(screen.getByRole("link", { name: "Open the worksheet" })).toHaveClass("btn");
+    const add = await screen.findByRole("region", { name: "What you can add" });
+    expect(await within(add).findByText("Amazon, Flipkart")).toBeInTheDocument();
+    expect(within(add).getByText("PDF and/or Excel")).toBeInTheDocument();
+    expect(within(add).getByRole("link", { name: "Continue to uploads" })).toHaveAttribute("href", "/b/b-1/uploads");
+  });
+
   it("shows no date at all when the server hasn't confirmed it, with the source link only when it is https", async () => {
     server.reply(
       NOW,
