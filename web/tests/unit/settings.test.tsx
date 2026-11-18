@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../../src/App";
@@ -30,35 +30,37 @@ function open(role = "owner") {
   render(<App />);
 }
 
-describe("business setup front page", () => {
-  it("shows what is set now and links to the page where each is changed", async () => {
+describe("business setup page", () => {
+  it("holds the filing frequency on this one page, and sends the old addresses here", async () => {
     server.reply(CHANNELS, channels);
     server.reply(FILING, filing({ frequency: "monthly", effective_from: "2026-04-01" }));
-    open();
+    window.history.replaceState(null, "", "/b/b-1/settings/filing"); // the old address
+    server.reply(ME, me("owner"));
+    render(<App />);
     expect(await screen.findByRole("heading", { level: 1, name: "Business setup" })).toBeInTheDocument();
-    expect(await screen.findByText("Amazon, Meesho, Your own sales invoices")).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/b/b-1/settings");
+    expect(await screen.findByRole("heading", { level: 2, name: "Filing frequency" })).toBeInTheDocument();
     expect(await screen.findByText(/Every month, from/)).toBeInTheDocument();
-    expect(within(screen.getByRole("region", { name: "Business details" })).getByText(/GSTIN 19ABCDE1234F1Z5/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Change how often you file" })).toHaveAttribute("href", "/b/b-1/settings/filing");
-    expect(screen.getByRole("link", { name: "Change where you sell" })).toHaveAttribute("href", "/b/b-1/settings/company");
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1); // one page, one main heading
     expect(screen.getByRole("link", { name: "Audit log" })).toHaveAttribute("href", "/b/b-1/settings/audit");
     expect(screen.getByRole("link", { name: "Support access" })).toBeInTheDocument();
   });
 
-  it("says so when nothing is chosen yet, and when a value could not be loaded, and still links", async () => {
-    server.reply(CHANNELS, { status: 200, body: { amazon: false, flipkart: false, meesho: false, own_invoices: false, answered: false } });
-    server.reply(FILING, { status: 500, body: { error: { code: "internal", message: "" } } });
-    open();
-    expect(await screen.findByText("You haven't said where you sell yet.")).toBeInTheDocument();
-    expect(await screen.findByText(/We couldn't load this/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Change how often you file" })).toBeInTheDocument();
+  it("sends the old business details address here too", async () => {
+    server.reply(CHANNELS, channels);
+    server.reply(FILING, filing(null));
+    window.history.replaceState(null, "", "/b/b-1/settings/company");
+    server.reply(ME, me("owner"));
+    render(<App />);
+    expect(await screen.findByRole("heading", { level: 1, name: "Business setup" })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/b/b-1/settings");
   });
 
   it("leaves out the audit log and support access for a role that cannot open them", async () => {
     server.reply(CHANNELS, channels);
     server.reply(FILING, filing(null));
     open("staff");
-    expect(await screen.findByText("You haven't chosen how often you file yet.")).toBeInTheDocument();
+    expect(await screen.findByText("You haven't chosen a filing frequency yet.")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Audit log" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Support access" })).toBeNull();
     expect(screen.getByRole("link", { name: "Two-step sign-in" })).toBeInTheDocument();
