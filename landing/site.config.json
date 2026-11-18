@@ -1,0 +1,10 @@
+{
+  "_note": "Every placeholder for the landing page lives here. A value that starts with TODO shows on the page as a visible TODO marker. Replace it with the real text or link; nothing else needs to change.",
+  "signup_url": "/signup",
+  "signin_url": "/signin",
+  "support_contact": "TODO: support address to confirm",
+  "legal_entity": "TODO: legal entity name to confirm",
+  "privacy_url": "TODO: link to the privacy policy once it exists",
+  "terms_url": "TODO: link to the terms of use once they exist",
+  "hosting_line": "TODO: hosting location wording to be confirmed before launch."
+}

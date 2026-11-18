@@ -19,6 +19,7 @@ import { TopBar } from "../../kit/TopBar";
 import { blankForm, draftIn, formOf, newLine, sameForm, type Draft, type Form } from "./draftForm";
 import { useStockFlags } from "../stock/useStock";
 import { CustomerPicker, ProductPicker } from "./Pickers";
+import { BusinessTypePrompt } from "./BusinessTypePrompt";
 import { Totals } from "./Totals";
 import { useFinalize } from "./useFinalize";
 import { usePreview } from "./usePreview";
@@ -140,6 +141,9 @@ export function InvoicePage() {
         <h1>{draftId ? "Draft invoice" : "New invoice"}</h1>
         <>
         <p className="hint">Draft · gets its number when you finalize</p>
+        <Banner tone="info">
+          <strong>Practice mode.</strong> Invoice numbering isn't approved by your CA yet, so every invoice you finalize is a practice invoice: a PR- number, not for your customers, and never in GST Filing.
+        </Banner>
         {stale && (
           <Banner tone="error">
             Someone saved this draft after you opened it.{" "}
@@ -149,17 +153,17 @@ export function InvoicePage() {
             (your unsaved changes here are replaced).
           </Banner>
         )}
-        {error && !stale && (
-          <Banner tone="error">
-            {error.fix ?? (error.message || errorText(error))}
-            {error.code === "business_type_required" && (
-              <>
-                {" "}
-                <Link to={`/b/${businessId}/settings/company`}>Open Business setup</Link>
-              </>
-            )}
-          </Banner>
-        )}
+        {error && !stale && error.code !== "business_type_required" && <Banner tone="error">{error.fix ?? (error.message || errorText(error))}</Banner>}
+        <BusinessTypePrompt
+          businessId={businessId}
+          role={business.role}
+          refused={error?.code === "business_type_required"}
+          onChosen={() => {
+            const retry = save.error?.code === "business_type_required";
+            save.reset();
+            if (retry) save.mutate(form); // carry on with the draft as typed
+          }}
+        />
         <form onSubmit={submit} noValidate>
           <RadioGroup<"customer" | "cash">
             legend="Bill to"
@@ -279,13 +283,13 @@ export function InvoicePage() {
           </section>
         )}
 
-        {saved && (
-          <section aria-label="Finalize">
-            <Button type="button" busy={finalize.isPending} disabled={dirty || saved.ready === false} onClick={() => finalize.mutate()}>
+        <section aria-label="Finalize">
+            <Button type="button" busy={finalize.isPending} disabled={!saved || dirty || saved.ready === false} onClick={() => finalize.mutate()}>
               Finalize invoice
             </Button>
-            {dirty && <p className="hint">Save first: the invoice is made from the saved draft.</p>}
-            {!dirty && saved.ready === false && <p className="hint">Fix the checks above, then save, before you finalize.</p>}
+            <p className="hint">After Save draft: Finalize gives the invoice its number and locks it; changes after that need a credit note.</p>
+            {dirty && <p className="hint">Save the draft first: the invoice is made from the saved draft.</p>}
+            {!dirty && saved && saved.ready === false && <p className="hint">Fix the checks above, then save, before you finalize.</p>}
             {finalizeWords && (
               <Banner tone="error">
                 {finalizeWords}
@@ -297,8 +301,7 @@ export function InvoicePage() {
                 )}
               </Banner>
             )}
-          </section>
-        )}
+        </section>
 
         {saved && (
           <div className="actions">
