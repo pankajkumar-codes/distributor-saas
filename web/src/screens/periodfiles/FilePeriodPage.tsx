@@ -10,6 +10,9 @@ import { Button } from "../../kit/Button";
 import { NotFound } from "../../kit/NotFound";
 import { SelectField } from "../../kit/SelectField";
 import { TopBar } from "../../kit/TopBar";
+import { ExportPanel } from "../filing/ExportPanel";
+import { FiledPanel } from "../filing/FiledPanel";
+import { useReturnDetail } from "../filing/returns";
 import { finishedPeriods, type PeriodKind } from "./periods";
 import { useConfirm, useGate, useNoSales, useOpenFile, type Gate, type GateItem } from "./useGate";
 import { useFilingProfile } from "./usePeriodFiles";
@@ -53,6 +56,29 @@ function Checks({ gate, businessId, kind, start }: { gate: Gate; businessId: str
       ))}
       {confirm.error && <Banner tone="error">{errorText(confirm.error)}</Banner>}
     </fieldset>
+  );
+}
+
+/**
+ * The return the button opened, with its file and its lock right here: take the GSTR-1 file, file it on the GST portal, then say
+ * when you filed it and the ARN, and the return is locked as it is. The same panels as the return screen, so the rules are the same.
+ */
+function ReturnControls({ businessId, instanceId, role }: { businessId: string; instanceId: string; role: string }) {
+  const detail = useReturnDetail(businessId, instanceId);
+  if (detail.isPending) return <p aria-busy="true">Loading the return…</p>;
+  if (detail.isError) return <Banner tone="error">{errorText(detail.error)}</Banner>;
+  const d = detail.data;
+  return (
+    <div className="stack">
+      <h3>
+        {d.instance.form} return, {d.instance.period_label}
+      </h3>
+      {d.export && d.instance.status !== "filed_locked" && <ExportPanel businessId={businessId} instanceId={instanceId} gate={d.export} fingerprint={d.fingerprint} periodLabel={d.instance.period_label} />}
+      <FiledPanel businessId={businessId} instance={d.instance} role={role} />
+      <p>
+        <Link to={`/b/${businessId}/filing/${instanceId}`}>Open the full return</Link>
+      </p>
+    </div>
   );
 }
 
@@ -118,7 +144,7 @@ export function FilePeriodPage() {
   if (!business || !allowed) return <NotFound />;
   const g = gate.data;
   const reasons = (g?.reasons ?? []).map((r) => REASON_TEXT[r] ?? "Not ready yet.");
-  const opened = open.data?.gstr1_returns ?? [];
+  const opened = g?.gstr1_returns ?? [];
 
   return (
     <>
@@ -165,22 +191,14 @@ export function FilePeriodPage() {
             )}
             {open.error && <Banner tone="error">{errorText(open.error)}</Banner>}
             {opened.length > 0 && (
-              <div className="stack">
-                <Banner>Your period is ready. Open the return to download the file.</Banner>
-                <ul>
-                  {opened.map((r) => (
-                    <li key={r.instance_id}>
-                      <Link to={`/b/${businessId}/filing/${r.instance_id}`}>
-                        Open the {r.form} return, {r.period_start} to {r.period_end}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              <section aria-labelledby="returns-h">
+                <h2 id="returns-h">Your return</h2>
+                <Banner>Your period is ready. Take the file, file it on the GST portal, then lock it here.</Banner>
+                {opened.map((r) => (
+                  <ReturnControls key={r.instance_id} businessId={businessId} instanceId={r.instance_id} role={business.role} />
+                ))}
+              </section>
             )}
-            <p className="hint">
-              Locking this period and marking it filed from here: <span className="tag">Upcoming</span>. For now, lock and mark each return as filed on its own return screen.
-            </p>
           </>
         )}
       </main>

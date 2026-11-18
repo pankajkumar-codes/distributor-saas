@@ -83,8 +83,15 @@ describe("file from your own invoices", () => {
       status: 200,
       body: gate({ can_file: true, reasons: [], gstr1_returns: [{ instance_id: "i-1", form: "GSTR1", period_start: finished.start, period_end: "2026-10-31" }] }),
     });
+    server.reply(`GET ${B}/returns/i-1`, {
+      status: 200,
+      body: { instance: { instance_id: "i-1", form: "GSTR1", period: "2026-10", period_label: "October 2026", period_start: finished.start, period_end: "2026-10-31", due_date: null, due_date_confirmed: false, due_date_source_url: null, status: "open" }, export: null, fingerprint: "fp-1" },
+    });
     fireEvent.click(button);
-    expect(await screen.findByRole("link", { name: /Open the GSTR1 return/ })).toHaveAttribute("href", "/b/b-1/filing/i-1");
+    // the return opens right here, with the lock (mark filed) form, and a link to the full return
+    expect(await screen.findByRole("heading", { name: "GSTR1 return, October 2026" })).toBeInTheDocument();
+    expect(screen.getByLabelText("ARN from the portal")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open the full return" })).toHaveAttribute("href", "/b/b-1/filing/i-1");
   });
 
   it("says to confirm again when the records changed after a confirmation", async () => {
@@ -126,7 +133,7 @@ describe("file from your own invoices", () => {
     server.reply(`GET ${B}/period-gate`, { status: 200, body: gate({ due_date: "2026-11-11", due_dates: "11 Nov" }) });
     choose(finished.start);
     expect(await screen.findByText(/Due date: 11-Nov-2026/)).toBeInTheDocument();
-    expect(screen.getByText("Upcoming")).toBeInTheDocument();
+    expect(screen.queryByText("Upcoming")).toBeNull(); // locking and marking filed are on this page now
   });
 
   it("is not there for a role that cannot prepare returns", async () => {
