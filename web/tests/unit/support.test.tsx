@@ -67,6 +67,14 @@ describe("support access", () => {
     expect(screen.getByText(/Given by Pankaj Kumar on 24-Oct-2026, 14:20 · “Ticket 1042” · 3 pages viewed so far/)).toBeInTheDocument();
   });
 
+  it("links the page to the audit log narrowed to Support access, wherever the grant shows", async () => {
+    server.reply(GRANTS, list(grant(), past));
+    open();
+    const links = await screen.findAllByRole("link", { name: "See it in the audit log" });
+    expect(links.length).toBeGreaterThanOrEqual(2); // the active card and Past access
+    for (const l of links) expect(l).toHaveAttribute("href", "/b/b-1/settings/audit?kind=support");
+  });
+
   it("ends access now, and a grant that already ended shows the list as it is", async () => {
     server.reply(GRANTS, list(grant()), list(grant({ status: "expired", ended_at: grant().expires_at })));
     server.reply(`${GRANTS}/g-1/revoke`, {
