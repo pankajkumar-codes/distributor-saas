@@ -190,13 +190,44 @@ Work down this list.
    no email: the 6-digit code appears in the terminal window where you started the demo (`./demo.sh codes`
    shows it again), and the sign-up screens in the demo say so. If the request itself keeps failing, run
    `docker compose -f docker-compose.demo.yml logs api` and send the last 30 lines.
-9. **Still stuck?** Save the logs and send them with a screenshot of the PowerShell window:
+9. **Sign-in or the page says "The server is taking too long to answer".** The browser gave up waiting after 20 seconds. The
+   server is running but one request is slow; it is not "unreachable". Run `./demo.sh check` (or `.\demo.ps1 check`): every
+   line should say `HTTP 200` in well under a second. If it does, press **Try again**. If it does not, or it keeps
+   happening, go to "If something fails, send this" below. Known causes: a slow Docker disk (the project folder on the
+   Windows disk, `/mnt/c`, with WSL), and a database connection that went dead while the computer slept (guarded against in the code from this change on:
+   the API now notices a dead database connection within seconds; start the demo again after pulling).
+10. **Where to look.** The page is `http://localhost:5173`. The API has no address of its own on your computer: it runs
+    inside Docker and is reached through the page, so `http://127.0.0.1:8000` will never open and that is correct. To test
+    the API, use `http://localhost:5173/api/v1/health` (it should print `{"status":"ok"}`).
+11. **After every `git pull`, run `./demo.sh` (or `.\demo.ps1`) again.** It rebuilds from the files you now have and starts
+    clean (it stops and forgets the old one first). Opening the page without doing this shows the old version.
 
-```powershell
-docker compose -f docker-compose.demo.yml logs --no-color > demo-logs.txt
+### WSL (Windows): keep the project inside Ubuntu
+
+Docker Desktop with WSL is slow when the project folder is on the Windows disk (`/mnt/c/...`): every build copies the folder
+across, and a start can take many minutes. Keep it in the Ubuntu home folder instead:
+
+```bash
+cd ~
+git clone https://github.com/pankajkumar-codes/distributor-saas.git   # or: cp -r /mnt/c/Users/<you>/distributor-saas ~/distributor-saas
+cd ~/distributor-saas
+./demo.sh stop        # only if an older demo is still running from the old folder
+./demo.sh
 ```
 
-The logs contain only made-up data and the sign-up codes shown on screen.
+From then on work only in `~/distributor-saas`. (The Windows folder keeps working, just slower. The demo's database keeps
+its data in memory, not on any disk, so it never waits for the disk.)
+
+### If something fails, send this
+
+1. In the project folder run `./demo.sh logs` (PowerShell: `.\demo.ps1 logs`). It writes **`demo-logs.txt`** holding the
+   container list and the logs of every piece (web, API, database, migrations, codes) with times. Made-up data only.
+2. Send that file and a screenshot of the browser error, with the time it happened. Also run `./demo.sh check` and paste
+   its output.
+3. Live view while you reproduce it: `docker compose -p gstdemo logs -f api web db` (Ctrl+C to stop watching).
+   `docker compose -p gstdemo ps` lists the pieces. The project name is `gstdemo`.
+4. More detail from the API: `UVICORN_LOG_LEVEL=debug ./demo.sh` (the database already logs any statement slower than
+   half a second, and lock waits).
 
 ## 6. How it is built (for the team)
 

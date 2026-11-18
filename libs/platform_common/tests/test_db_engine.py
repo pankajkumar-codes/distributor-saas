@@ -21,8 +21,13 @@ def test_iam_login_is_refused_off_lambda(monkeypatch):
         db.engine.cache_clear()
 
 
-def test_only_postgresql_urls_get_a_connect_timeout():
-    assert db.engine_options("postgresql+psycopg://app_rw@localhost/saas") == {"connect_args": {"connect_timeout": 5}}
+def test_only_postgresql_urls_get_the_dead_connection_guards():
+    """A pooled connection that went dead silently (a sleeping laptop, a paused Docker network) must fail within seconds
+    and be replaced, not hang a request until the operating system gives up."""
+    opts = db.engine_options("postgresql+psycopg://app_rw@localhost/saas")
+    assert opts["connect_args"]["connect_timeout"] == 5
+    assert opts["connect_args"]["tcp_user_timeout"] == 5000 and opts["connect_args"]["keepalives"] == 1
+    assert opts["pool_pre_ping"] is True and opts["pool_recycle"] == 300
     assert db.engine_options("sqlite+pysqlite:///:memory:") == {}
 
 
@@ -56,5 +61,6 @@ def test_the_url_branch_passes_connect_timeout_and_the_iam_branch_does_not(monke
     finally:
         db.engine.cache_clear()
     (_, url_kwargs), (_, iam_kwargs) = seen
-    assert url_kwargs["connect_args"] == {"connect_timeout": 5}
-    assert "connect_timeout" not in iam_kwargs["connect_args"]
+    assert url_kwargs["connect_args"]["connect_timeout"] == 5 and url_kwargs["connect_args"]["tcp_user_timeout"] == 5000
+    assert "connect_timeout" not in iam_kwargs["connect_args"] and "tcp_user_timeout" not in iam_kwargs["connect_args"]
+    assert iam_kwargs["pool_size"] == 1 and iam_kwargs["pool_pre_ping"] is True  # the Lambda engine is left as it was

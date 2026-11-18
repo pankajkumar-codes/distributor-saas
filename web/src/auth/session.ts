@@ -76,7 +76,7 @@ export function startSession(accessToken: string, expiresIn: number, change: Cha
  * gone and every listener hears it. "unavailable": offline, 429 or 5xx; the session may
  * still be fine, so nothing is cleared and the caller can try again.
  */
-export type RefreshResult = "ok" | "signed_out" | "unavailable";
+export type RefreshResult = "ok" | "signed_out" | "unavailable" | "slow";
 
 // How long a refresh waits for another tab that holds the refresh lock before giving up (the refresh itself has its own 20 s).
 const LOCK_WAIT_MS = 25_000;
@@ -98,8 +98,9 @@ async function refreshNow(background: boolean, rejected: string | null): Promise
       // again, which is safe. A timeout reads as "unavailable": a plain message and a manual Try again, no retry loop.
       signal: withAuthTimeout(),
     });
-  } catch {
-    return "unavailable";
+  } catch (e) {
+    // Gave up waiting (the server may only be slow) reads differently from no connection at all.
+    return (e as Error | undefined)?.name === "TimeoutError" ? "slow" : "unavailable";
   }
   if (response.status === 401) {
     endSession();

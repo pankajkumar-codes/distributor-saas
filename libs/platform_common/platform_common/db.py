@@ -52,9 +52,27 @@ def engine() -> Engine:
 def engine_options(url: str) -> dict:
     """Local and test use only: DATABASE_URL is never set in AWS, where the IAM engine above is used and is left
     as it is. A PostgreSQL server that cannot be reached fails in seconds, not after the operating system's own long
-    wait. Only PostgreSQL drivers know `connect_timeout`; the in-memory SQLite some tests use does not."""
+    wait. Only PostgreSQL drivers know `connect_timeout`; the in-memory SQLite some tests use does not.
+
+    A connection kept in the pool can go dead without either side being told (a laptop that slept, Docker Desktop or WSL
+    pausing its network). Without these settings the next request that draws it waits for the operating system's own
+    retransmit limit, many minutes, while the pages that need no database (/health) still answer: sign-in and refresh
+    then stall until the web app gives up at 20 seconds. So a dead connection is noticed within seconds (keepalives and
+    `tcp_user_timeout`, in milliseconds, so an unanswered packet fails the call), checked before each use (pre-ping), and
+    replaced rather than reused (recycle)."""
     if make_url(url).get_backend_name() == "postgresql":
-        return {"connect_args": {"connect_timeout": 5}}
+        return {
+            "connect_args": {
+                "connect_timeout": 5,
+                "keepalives": 1,
+                "keepalives_idle": 15,
+                "keepalives_interval": 5,
+                "keepalives_count": 3,
+                "tcp_user_timeout": 5000,
+            },
+            "pool_pre_ping": True,
+            "pool_recycle": 300,
+        }
     return {}
 
 
