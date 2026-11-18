@@ -456,7 +456,7 @@ def test_home_checklist_follows_setup(biz):
     add_member(pg, bid, "carol", "ca")
     done = {i["key"]: i["done"] for i in checklist()["items"]}
     assert done == {"business_profile": True, "filing_frequency": True, "marketplaces": True,
-                    "first_product": False, "first_customer": False, "invite_ca_or_teammate": True}
+                    "first_product": False, "first_customer": False, "invite_ca_or_teammate": True}  # no catalog rows here
 
 
 def test_home_counts_a_pending_invite(biz):
