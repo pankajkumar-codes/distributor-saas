@@ -33,7 +33,22 @@ export const signedOutOnPurpose = () => leftOnPurpose;
 let hadSession = false;
 let timedOut = false;
 
+/**
+ * A plain cookie that says only "a session may exist here", no identity and no token. The refresh cookie is HttpOnly and
+ * scoped to /api/v1/auth, so the web server cannot see it; this hint lets it show the landing page at "/" to visitors and
+ * the app to people who are signed in. A stale hint costs one redirect to sign-in, which then clears it.
+ */
+function setSignedInHint(signedIn: boolean) {
+  try {
+    const secure = typeof location !== "undefined" && location.protocol === "https:" ? "; Secure" : "";
+    document.cookie = signedIn ? `kartaa_in=1; Path=/; Max-Age=${30 * 24 * 3600}; SameSite=Lax${secure}` : `kartaa_in=; Path=/; Max-Age=0; SameSite=Lax${secure}`;
+  } catch {
+    // no document (a test without one) or cookies blocked: the landing page is then shown at "/", which is harmless
+  }
+}
+
 function emit(signedIn: boolean, change: Change = "new") {
+  setSignedInHint(signedIn);
   if (signedIn) leftOnPurpose = false;
   listeners.forEach((listener) => listener(signedIn, change));
 }

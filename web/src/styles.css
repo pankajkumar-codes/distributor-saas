@@ -280,3 +280,5 @@ ol.steps > li::before { content: counter(s); position: absolute; left: 0; top: 1
 .manage-row p { margin: 0; }
 .row-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .row-actions p { flex-basis: 100%; margin: 0; }
+.kartaa-mark { display: block; flex: none; }
+.brand .wordmark { font-family: var(--display); font-weight: 600; font-size: 22px; letter-spacing: -0.01em; line-height: 1; }
