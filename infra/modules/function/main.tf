@@ -114,8 +114,8 @@ resource "aws_iam_role_policy" "this" {
 # Route 53 and the account-level ones) are exempt, as AWS requires. A drift guard: the Allow statements above
 # already name this stack's own resources, so this changes nothing today.
 resource "aws_iam_role_policy" "india_only" {
-  name   = "india-only"
-  role   = aws_iam_role.this.id
+  name = "india-only"
+  role = aws_iam_role.this.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
