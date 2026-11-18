@@ -54,7 +54,9 @@ appear in it** (the demo prints them instead of emailing them). Press Ctrl+C to 
 the demo keeps running. `.\demo.ps1 codes` watches again.
 
 Stop it, and throw away everything it held, with `.\demo.ps1 stop`. **Every start begins empty**: the demo's
-sign-in lives in memory, so anything you did is forgotten when it stops. That is expected.
+sign-in accounts live in a file inside the demo's own storage, which `stop` removes, so anything you did is forgotten
+when it stops. That is expected. Restarting only the API (`docker compose -p gstdemo restart api`) keeps accounts and
+signed-in browsers.
 
 ### Mac and Linux
 
@@ -117,7 +119,7 @@ so you create a business through the sign-up page.
   stand-in readers for one **invented** layout, "demo orders", for files named `demo-*.csv`. Real marketplace
   reports are rejected as "We can't read this file's columns" until R1-M4. Everything the demo says about
   the file (its layout is unchecked) is true.
-- Sign-in uses an in-memory stand-in for Cognito. Email is replaced by the codes in your terminal.
+- Sign-in uses a stand-in for Cognito (accounts kept in a file in the demo's storage when run with Docker, in memory otherwise). Email is replaced by the codes in your terminal.
 - **Two-step sign-in** (Settings, Two-step sign-in): an authenticator app on your phone cannot give the right code
   here, because the stand-in has its own code. When you press Turn on, and each time you sign in with it on, the
   demo prints `TWO-STEP CODE for <email>: 123456` in the same terminal as the sign-up codes (`./demo.sh codes`
@@ -233,7 +235,7 @@ its data in memory, not on any disk, so it never waits for the disk.)
    4. `docker compose -p gstdemo logs --since 5m web api`, and a screenshot of the browser's Network tab (F12) showing
       the failed request's status (failed, blocked, cancelled or pending).
    If (1) answers and (2) or (3) hang, Docker's port forwarding between your computer and the container is the problem, not
-   the demo; `./demo.sh check` runs (1) for you. If (1) hangs, the API itself is frozen (it runs some database calls on its event loop, so one stuck database call stops every request, even `/health`); `docker compose -p gstdemo restart api` frees it, but the demo forgets every account, the ready-made one too; run `./demo.sh` again to get it back. Also send `./demo.sh check` (it lists CPU and memory per piece).
+   the demo; `./demo.sh check` runs (1) for you. If (1) hangs, the API itself is frozen (it runs some database calls on its event loop, so one stuck database call stops every request, even `/health`); `docker compose -p gstdemo restart api` frees it, and accounts and signed-in browsers are kept (never restart only the database: it lives in memory and would lose its data). Also send `./demo.sh check` (it lists CPU and memory per piece).
 5. More detail from the API: `UVICORN_LOG_LEVEL=debug ./demo.sh` (the database already logs any statement slower than
    half a second, and lock waits).
 
