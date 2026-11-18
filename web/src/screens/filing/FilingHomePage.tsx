@@ -24,6 +24,8 @@ const STATUS: Record<string, string> = {
   unlocked: "Reopened after filing",
   skipped: "Not required",
 };
+// Mock v13 tones: green once filed, amber when reopened, grey otherwise. Nothing here is red: past-due state is not a status the server sends.
+const TONE: Record<string, string> = { filed_locked: "chip-ok", unlocked: "chip-warn", open: "", skipped: "" };
 
 /**
  * One due date as the server sent it (GF-12: never show a date we can't stand behind). A date
@@ -34,7 +36,7 @@ function DueDate({ row }: { row: ReturnRow }) {
   if (row.due_date && row.due_date_confirmed) {
     return (
       <>
-        {formatDate(row.due_date)} <span className="chip">Confirmed on GST portal</span>
+        {formatDate(row.due_date)} <span className="chip chip-info">Confirmed on GST portal</span>
       </>
     );
   }
@@ -138,7 +140,7 @@ export function FilingHomePage() {
                         <DueDate row={r} />
                       </td>
                       <td>
-                        <span className="chip">{STATUS[r.status] ?? r.status}</span>
+                        <span className={`chip ${TONE[r.status] ?? ""}`.trim()}>{STATUS[r.status] ?? r.status}</span>
                       </td>
                       {canPrepareReturns(business.role) && (
                         <td>
