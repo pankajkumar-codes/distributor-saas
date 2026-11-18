@@ -21,9 +21,14 @@ COPY web ./
 # Only this build knows it is the demo: sign-up screens say the code is in the terminal.
 ENV VITE_DEMO=1
 RUN npx vite build
+# The Kartaa landing page (landing/, a separate static site), shown at "/" for visitors without a session (demo/nginx.conf).
+# Its build takes the two fonts from /srv/web/node_modules, so it sits next to web/ the way it does in the repository.
+COPY landing /srv/landing
+RUN node /srv/landing/build.mjs --check
 
 # The built app behind nginx, which passes /api through to the API (demo/nginx.conf).
 FROM nginx:1.27-alpine AS web
 COPY demo/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=webbuild /srv/web/dist /usr/share/nginx/html
+COPY --from=webbuild /srv/landing/dist /usr/share/nginx/html/_landing
 EXPOSE 5173
