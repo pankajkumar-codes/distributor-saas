@@ -219,6 +219,9 @@
 - path: app/src/app/modules/filing/checks.py
   value: "100"
   reason: "converts a percentage rate to a fraction when comparing taxable value x rate with the tax columns (arithmetic, not a rate or threshold)"
+- path: app/src/app/modules/filing/checks.py
+  value: "2"
+  reason: "CGST and SGST are each half of the rate when the offline tool's tax for a row is worked out again (C-17); a split of the rate, not a rate or threshold"
 - path: app/src/app/modules/filing/api.py
   value: "12"
   reason: "the longest page marker (a row offset as digits) a section request may carry; a request-size limit, not a tax value"

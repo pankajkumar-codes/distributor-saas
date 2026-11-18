@@ -11,11 +11,13 @@ import hashlib
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy.orm import Session
 
 from app.modules.business.interface import check_gstin, fy_of, gstin_state, hsn_band_missing, hsn_min_digits
+from platform_common.money import PAISE
+
 from app.modules.refdata import RefdataMissing, provenance_on, state_name, uqc_codes, value_on
 
 from .build import ReturnBuild
@@ -161,6 +163,53 @@ def c16_provisional_values(tx: Session, b: ReturnBuild) -> list[Finding]:
                     _fp("C-16", *unconfirmed), True)]
 
 
+# -- Checks added with the offline tool in mind (LLD-5 §6: C-13, C-17) ----------------------------------------
+
+
+def c13_line_items(tx: Session, b: ReturnBuild) -> list[Finding]:
+    """More data rows than one file may hold: the export is split into several files (§7), and the person is told to
+    watch the tool's own size message. The limit is a provisional refdata value, so the finding is marked for the CA."""
+    limit = int(value_on(tx, "gstr1.offline_tool.max_lines", b.instance.period_end))
+    if b.line_items <= limit:
+        return []
+    return [Finding("C-13", "warn", f"This return has {b.line_items} rows and one file holds at most {limit}, so the "
+                    "export will be made as several files. Upload them one after the other, and check the tool's message "
+                    "about the 5 MB file size limit.", (), _fp("C-13", str(b.line_items), str(limit)), True)]
+
+
+def _tool_tax(taxable: Decimal, rate: Decimal, parts: int) -> Decimal:
+    """What the offline tool works out for one row and one tax head: taxable value x rate, then to the paisa, half up."""
+    return (taxable * rate / Decimal(100) / Decimal(parts)).quantize(PAISE, rounding=ROUND_HALF_UP)
+
+
+def c17_tool_recompute(tx: Session, b: ReturnBuild) -> list[Finding]:
+    """The tool works tax out again for every invoice-and-rate row (taxable value x rate), where we keep the sum of the
+    tax of the row's lines. They can differ by a paisa. GSTR-3B is filled from GSTR-1, so the person is shown both figures
+    and told to edit the row in the tool; our figures stay as the invoices have them. No tolerance: any difference shows.
+    Cess is not compared (the rule says nothing about it). Which figure the return should carry is a CA question (CA-2)."""
+    s = b.sections
+    out = []
+    for table, rows in (("Table 4A (B2B)", s.b2b), ("Table 5 (B2CL)", s.b2cl), ("Table 7 (B2CS)", s.b2cs),
+                        ("Table 9B (registered notes)", s.cdnr), ("Table 9B (unregistered notes)", s.cdnur)):  # fmt: skip
+        for r in rows:
+            a = r.amounts
+            if a.cgst == 0 and a.sgst == 0:
+                pairs = (("IGST", a.igst, _tool_tax(a.taxable_value, r.rate, 1)),)
+            else:
+                half = _tool_tax(a.taxable_value, r.rate, 2)
+                pairs = (("CGST", a.cgst, half), ("SGST", a.sgst, half))
+            off = [(head, ours, tool) for head, ours, tool in pairs if ours != tool]
+            if not off:
+                continue
+            figures = "; ".join(f"{head}: your invoice has {ours}, the tool will work out {tool}" for head, ours, tool in off)
+            ref = ", ".join(r.source_refs)
+            out.append(Finding("C-17", "warn", f"{table}, {ref} at {r.rate}%: {figures}. The tool works tax out again "
+                               "for each row, so edit this row's tax in the tool to match your invoice.", r.source_refs,
+                               _fp("C-17", table, str(r.rate), str(a.taxable_value), str(a.igst), str(a.cgst), str(a.sgst),
+                                   *r.source_refs), True))
+    return out
+
+
 # -- Own-invoice and arithmetic findings (decision 6: report-only, no tolerance chosen) ---------------------
 
 
@@ -209,7 +258,7 @@ def a4_number_in_two_years(tx: Session, b: ReturnBuild) -> list[Finding]:
 
 CHECKS: tuple[Callable[[Session, ReturnBuild], list[Finding]], ...] = (
     c01_missing_hsn, c02_customer_gstin, c03_document_number, c04_duplicate_number, c05_place_of_supply,
-    c10_hsn_digits, c12_negative_b2cs, c16_provisional_values, c18_unit_not_listed,
+    c10_hsn_digits, c12_negative_b2cs, c13_line_items, c16_provisional_values, c17_tool_recompute, c18_unit_not_listed,
     a1_tax_arithmetic, a2_heads_vs_place_of_supply, a3_cgst_sgst_differ, a4_number_in_two_years,
 )  # fmt: skip
 
