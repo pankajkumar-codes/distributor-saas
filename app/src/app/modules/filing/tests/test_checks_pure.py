@@ -132,3 +132,36 @@ def test_the_c17_acceptance_fingerprint_moves_with_the_row_figures():
     a = checks.c17_tool_recompute(None, sections(b2b=(b2b("1339.39", "120.54", "120.54"),)))[0]
     b = checks.c17_tool_recompute(None, sections(b2b=(b2b("1339.39", "120.53", "120.53"),)))[0]
     assert a.subject_fp != b.subject_fp
+
+
+# -- C-07 and C-09: invariants of one builder ------------------------------------------------------------------
+
+_INSTANCE = SimpleNamespace(id=uuid.UUID(int=7), form="GSTR1")
+
+
+def inv(sections_, gap=None):
+    return SimpleNamespace(sections=sections_, gap=gap or Amounts(), instance=_INSTANCE, fingerprint="f" * 64)
+
+
+def test_b2b_rows_without_an_hsn_b2b_summary_are_a_system_block():
+    from app.modules.filing.gstr1 import HSNRow
+
+    with_b2b = Gstr1Sections(kind="GSTR1", b2b=(b2b("100", "9", "9"),))
+    (f,) = checks.c07_b2b_without_hsn_summary(None, inv(with_b2b))
+    assert f.code == "C-07" and f.level == "block" and "our side" in f.message and not f.needs_ca_check
+    hsn = HSNRow("6109", "PCS", Decimal("18"), Decimal("1"), Amounts(Decimal("100")), ("r",))
+    assert checks.c07_b2b_without_hsn_summary(None, inv(replace_sections(with_b2b, hsn_b2b=(hsn,)))) == []
+    assert checks.c07_b2b_without_hsn_summary(None, inv(Gstr1Sections(kind="GSTR1"))) == []  # no B2B, nothing to summarise
+
+
+def replace_sections(sections_, **kw):
+    return replace(sections_, **kw)
+
+
+def test_a_paisa_of_difference_between_the_tables_and_the_hsn_summary_blocks_with_the_system_wording():
+    s = Gstr1Sections(kind="GSTR1")
+    assert checks.c09_reconciliation(None, inv(s)) == []
+    (f,) = checks.c09_reconciliation(None, inv(s, gap=Amounts(cgst=Decimal("0.01"))))
+    assert f.code == "C-09" and f.level == "block" and "do not add up" in f.message and not f.needs_ca_check
+    other = SimpleNamespace(**{**vars(inv(s, gap=Amounts(cgst=Decimal("0.01")))), "fingerprint": "e" * 64})
+    assert checks.c09_reconciliation(None, other)[0].subject_fp != f.subject_fp
