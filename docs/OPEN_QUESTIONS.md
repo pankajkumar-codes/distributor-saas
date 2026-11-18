@@ -329,6 +329,14 @@ Every row in `refdata/` is `provisional`. Before go-live:
 - **Download rule checked first (S2/S3).** The plan check runs before anything is built or stored, so a refusal leaves no objects behind.
 - **Excel text stays text (B1).** Every text cell is written as a string cell, so a supplier name or document number that starts with `=` is shown as text, never run as a formula.
 
+## R3-M1 and R3-M2 per-period gate and file button (2026-11-18)
+- **"The filing period has started" is taken as "the period has ended".** There is no separate portal date for when filing opens in refdata, and none is invented: the button opens the day after the month or quarter ends. If the GST portal calendar shows a different opening day, add a dated refdata key and the gate reads it. Needs the portal calendar (Pankaj's screenshot, already open).
+- **Due dates stay "Check on the GST portal"** until the refdata row in force is confirmed.
+- **Who may confirm.** Owner, admin and CA (`returns.prepare`) can confirm the two checks and press the button; billing cannot. Confirm with the EM whether the CA should be able to attest that all invoices are in the portal, or only the owner and admin.
+- **Staleness is strict.** Any change to the period's posted sales, purchases or practice rows after a confirmation makes it stale and the business confirms again. This may feel strict for a late purchase; it is the safe default until a CA says otherwise.
+- **Who is gated.** Only a business that has chosen a business type (distributor or retail) is gated on the GSTR-1 export; a seller with no type files as in R1. Revisit if marketplace sellers should confirm too.
+- **Not in this slice.** Platform files combined for sellers on both (R3-M4), GSTR-1 from finalized invoices (R3-M3) and return assignment, lock and mark filed for live invoices (R3-M5) are other slices.
+
 ## Release blockers (not R1 build blockers; Pankaj, 2026-11-17)
 These need Pankaj or his CA and do not stop building. Each must be done before production release.
 - **CA question sheet** (`team/program-lead/ca-question-sheet-v1.md`, CA-1 to CA-5 above and the platform treatment items): Pankaj takes it to his CA just before release.

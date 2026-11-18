@@ -38,7 +38,7 @@ from platform_common.errors import Conflict, Deny, Invalid
 from platform_common.permissions import Permission, require
 from platform_common.uow import BusinessUoW, parse_id
 
-from . import acceptance, export_job, lock, periods, plans
+from . import acceptance, export_job, lock, period_gate, periods, plans
 from .build import build_return
 from .checks import run_checks
 from .gate import accepted_key, export_gate
@@ -472,10 +472,11 @@ def get_section(
 
 
 @router.post("/returns/{instance_id}/exports", dependencies=PREPARE, status_code=http.HTTP_202_ACCEPTED)
-def start_export(instance_id: str, uow: BusinessUoW) -> ExportRef:
+def start_export(instance_id: str, uow: BusinessUoW, clock: Annotated[Clock, Depends(get_clock)]) -> ExportRef:
     """Queues the file of this return as it is now. Refused (409) when it is not ready, not allowed for the plan or cannot be
     written as a file; asking again for an unchanged return gives the same job."""
     inst = _instance_or_404(uow, instance_id)
+    period_gate.assert_open_for_instance(uow, inst, clock.today())  # R3: a business that invoices here files through the gate
     return ExportRef(job_id=str(export_job.start(uow, inst.id)))
 
 

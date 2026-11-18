@@ -26,6 +26,7 @@ from app.modules.identity.interface import resolve_principal
 from app.modules.identity.providers import auth_provider
 from app.modules.filing.api import router as filing_router
 from app.modules.filing.api_period_files import router as period_files_router
+from app.modules.filing.api_period_gate import router as period_gate_router
 from app.modules.filing.api_worksheet import router as worksheet_router
 from app.modules.refdata.api import router as refdata_router
 from platform_common.auth import debug_env
@@ -64,6 +65,7 @@ app.include_router(drafts_router, prefix=API_PREFIX)
 app.include_router(filing_router, prefix=API_PREFIX)
 app.include_router(worksheet_router, prefix=API_PREFIX)
 app.include_router(period_files_router, prefix=API_PREFIX)
+app.include_router(period_gate_router, prefix=API_PREFIX)
 app.include_router(uploads_router, prefix=API_PREFIX)
 app.include_router(purchases_router, prefix=API_PREFIX)
 app.include_router(refdata_router, prefix=API_PREFIX)
