@@ -411,9 +411,7 @@ which the Lambda Python runtime may need (pass it through if so; it is not a sec
 (c) the child has no network block. The dependency audit in CI is
 the EM's separate change; the Lambda size margin is about 7 MB zipped before an OCR layer.
 
-Not read yet: tax split over two heading rows ("CGST" over "Rate" and "Amt"), labels above their values, scans and
-photos (OCR, slice 4, packaging to be proved first). Tested only on synthetic PDFs made in `tests/fixtures/pdf.py`;
-accuracy on real invoices is not known.
+Two more layouts are read since slice 4c (D-079). **Tax over "Rate" and "Amt":** when the row under the headings holds only Rate and Amt cells, each under a tax heading, the Amt cell becomes that tax's column and the Rate cell is kept out of the way; an IGST rate is the line's GST % only when there is no GST % column, and a CGST or SGST rate is never doubled into one (that stays blank and unclear). **Labels above values:** a row made only of known labels (invoice no, invoice date, date, place of supply, GSTIN, credit or debit note no) over a row with exactly one value cell under each is read as "label: value". If any label has no value under it, that label row is dropped and its fields stay blank and unclear. Scans and photos are the OCR reader's job (slice 4b, D-078, not used in production). Tested only on synthetic PDFs made in `tests/fixtures/pdf.py`; accuracy on real invoices is not known.
 
 ### Own-invoice PDFs in uploads (R1-M6 slice 2b, `readers/own_pdf.py`, `reading.read_pdf`)
 
