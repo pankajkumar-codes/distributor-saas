@@ -198,13 +198,11 @@ def test_a_failed_new_item_leaves_no_product_and_no_movement(shop):
         assert c.execute(text("select count(*) from catalog.products where business_id = :b"), {"b": biz}).scalar() == 1
 
 
-def test_receiving_needs_the_business_type_first(pg):
+def test_receiving_works_without_a_business_type(pg):  # D-095
     app_api.app.dependency_overrides[get_clock] = lambda: FrozenClock(datetime(2026, 11, 18, 12, tzinfo=IST))
     biz = new_business(pg, "alice")  # no business type chosen
-    with pytest.raises(Conflict) as e:
-        receive(pg, biz, line(new_item=new_item()))
-    assert e.value.code == "business_type_required"
-    assert movements_in_db(pg, biz) == []
+    receive(pg, biz, line(new_item=new_item()))
+    assert len(movements_in_db(pg, biz)) == 1
 
 
 # --- Insert-only ------------------------------------------------------------------------------
@@ -374,18 +372,16 @@ def test_stock_follows_catalog_permissions_billing_may_change_it_and_ca_may_only
     assert audit_actions(pg, biz)[-1] == "stock.adjusted"
 
 
-def test_every_stock_route_needs_the_business_type(pg):
+def test_no_stock_route_needs_a_business_type(pg):  # D-095
     app_api.app.dependency_overrides[get_clock] = lambda: FrozenClock(datetime(2026, 11, 18, 12, tzinfo=IST))
     biz = new_business(pg, "alice")  # none chosen
     p = make_product(pg, biz)
     base = f"/api/v1/b/{biz}"
     adj = {"quantity": "1", "reason": "x", "occurred_on": "2026-11-18"}
-    replies = [
-        pg.client.get(f"{base}/stock", headers=as_user("alice")),
-        pg.client.get(f"{base}/products/{p['id']}/stock-movements", headers=as_user("alice")),
-        post(pg, f"{base}/products/{p['id']}/stock-adjustments", adj),
-        post(pg, f"{base}/stock-movements/{uuid.uuid4()}/reversals", {"reason": "x"}),
-    ]
-    assert [(r.status_code, r.json()["error"]["code"]) for r in replies] == [(409, "business_type_required")] * 4
+    assert pg.client.get(f"{base}/stock", headers=as_user("alice")).status_code == 200
+    assert pg.client.get(f"{base}/products/{p['id']}/stock-movements", headers=as_user("alice")).status_code == 200
+    assert post(pg, f"{base}/products/{p['id']}/stock-adjustments", adj).status_code == 201
+    missing = post(pg, f"{base}/stock-movements/{uuid.uuid4()}/reversals", {"reason": "x"})
+    assert missing.status_code == 404  # not found, no longer "choose a business type"
     # The R1 product routes are not behind it: a filing-only business keeps its catalog.
     assert pg.client.get(f"{base}/products", headers=as_user("alice")).status_code == 200
