@@ -41,6 +41,7 @@ def test_a_confirmed_month_shows_totals_findings_flags_and_a_draft_banner(shop):
     flags = {f["code"] for f in d["ca_flags"]}
     assert {"debit_notes_unsummed", "marketplace_reports", "uqc_mapping"} <= flags
     assert "C-16" in {g["code"] for g in d["finding_groups"]}
+    assert not {"C-07", "C-09", "C-11"} & {g["code"] for g in d["finding_groups"]}  # the invariants hold on real data
     assert len(d["fingerprint"]) == 64 and d["members_count"] == 4  # four documents; the debit note is not a member
     again = get(pg, f"/api/v1/b/{biz}/returns/{inst}").json()
     assert again["fingerprint"] == d["fingerprint"]  # reading changes nothing

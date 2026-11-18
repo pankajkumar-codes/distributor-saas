@@ -69,3 +69,27 @@ def test_a_return_with_more_rows_than_one_file_holds_is_a_warning_that_names_the
     (f,) = over
     assert f.code == "C-13" and f.level == "warn" and f.needs_ca_check
     assert str(limit + 1) in f.message and "several files" in f.message and "5 MB" in f.message
+
+
+def _iff(taxable_rows, form="IFF"):
+    from app.modules.filing.gstr1 import Amounts, B2BRow, Gstr1Sections
+
+    rows = tuple(B2BRow("29AAAAA0000A1Z5", None, f"I{i}", date(2026, 10, 5), Decimal(), "29", Decimal("18"),
+                        Amounts(Decimal(t)), (f"f.xlsx row {i}",)) for i, t in enumerate(taxable_rows, 1))
+    return SimpleNamespace(instance=SimpleNamespace(period_end=date(2026, 10, 31), form=form),
+                           sections=Gstr1Sections(kind="IFF", b2b=rows))
+
+
+def test_an_iff_over_the_b2b_limit_is_a_warning_and_at_the_limit_or_a_monthly_return_is_not(pg):
+    biz = new_business(pg, "alice")
+    with pg.app_rw.begin() as c:
+        ctx(c, user_id(pg.owner, "alice"), biz)
+        tx = Session(bind=c)
+        cap = Decimal(checks.value_on(tx, "iff.max_taxable_value", date(2026, 10, 31)))
+        at = checks.c11_iff_cap(tx, _iff([str(cap)]))
+        over = checks.c11_iff_cap(tx, _iff([str(cap - 1), "1.01"]))
+        monthly = checks.c11_iff_cap(tx, _iff([str(cap + 1)], form="GSTR1"))
+    assert at == [] and monthly == []
+    (f,) = over
+    assert f.code == "C-11" and f.level == "warn" and f.needs_ca_check
+    assert f.source_refs == ("f.xlsx row 1", "f.xlsx row 2") and str(cap) in f.message

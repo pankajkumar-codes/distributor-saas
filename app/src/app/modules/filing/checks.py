@@ -210,6 +210,44 @@ def c17_tool_recompute(tx: Session, b: ReturnBuild) -> list[Finding]:
     return out
 
 
+# -- Invariants and the IFF cap (LLD-5 §6: C-07, C-09, C-11) ------------------------------------------------
+
+
+def c07_b2b_without_hsn_summary(tx: Session, b: ReturnBuild) -> list[Finding]:
+    """One builder makes both, so this should never fire; it is kept as the invariant the BRD list asks for."""
+    if not b.sections.b2b or b.sections.hsn_b2b:
+        return []
+    return [Finding("C-07", "block", "Something is wrong on our side: this return has business-to-business invoices but "
+                    "no HSN summary for them. Do not use this return. We have been told.", (),
+                    _fp("C-07", b.instance.id.hex, b.fingerprint))]
+
+
+def c09_reconciliation(tx: Session, b: ReturnBuild) -> list[Finding]:
+    """The liability tables and the HSN summary must agree on every head (L5-7; a QRMP quarter adds its IFF builds, S6-2,
+    which `build.gap` already does). A difference is our error, never the person's, so the words are the system-error ones
+    the export gate uses."""
+    if b.gap.is_zero():
+        return []
+    return [Finding("C-09", "block", "Something is wrong on our side: the sections and the HSN summary do not add up. "
+                    "Do not use this return. We have been told.", (), _fp("C-09", b.instance.id.hex, b.fingerprint))]
+
+
+def c11_iff_cap(tx: Session, b: ReturnBuild) -> list[Finding]:
+    """An IFF month may carry B2B invoices up to a limit (CGST Rule 59(2)). Assignment already keeps within it (L5-3), so
+    this is the second guard if the refdata value changed. Credit notes are not counted until the GST expert says how
+    they are (the refdata note), so the sum is the B2B invoice rows only."""
+    if b.instance.form != "IFF":
+        return []
+    cap = Decimal(value_on(tx, "iff.max_taxable_value", b.instance.period_end))
+    taxable = sum((r.amounts.taxable_value for r in b.sections.b2b), Decimal())
+    if taxable <= cap:
+        return []
+    refs = tuple(sorted({ref for r in b.sections.b2b for ref in r.source_refs}))
+    return [Finding("C-11", "warn", f"The business-to-business invoices in this IFF come to {taxable} and the limit for one "
+                    f"IFF month is {cap}. Move some of them to the quarterly return, and check with your CA.", refs,
+                    _fp("C-11", str(taxable), str(cap), *refs), True)]
+
+
 # -- Own-invoice and arithmetic findings (decision 6: report-only, no tolerance chosen) ---------------------
 
 
@@ -258,7 +296,8 @@ def a4_number_in_two_years(tx: Session, b: ReturnBuild) -> list[Finding]:
 
 CHECKS: tuple[Callable[[Session, ReturnBuild], list[Finding]], ...] = (
     c01_missing_hsn, c02_customer_gstin, c03_document_number, c04_duplicate_number, c05_place_of_supply,
-    c10_hsn_digits, c12_negative_b2cs, c13_line_items, c16_provisional_values, c17_tool_recompute, c18_unit_not_listed,
+    c07_b2b_without_hsn_summary, c09_reconciliation, c10_hsn_digits, c11_iff_cap, c12_negative_b2cs, c13_line_items,
+    c16_provisional_values, c17_tool_recompute, c18_unit_not_listed,
     a1_tax_arithmetic, a2_heads_vs_place_of_supply, a3_cgst_sgst_differ, a4_number_in_two_years,
 )  # fmt: skip
 
