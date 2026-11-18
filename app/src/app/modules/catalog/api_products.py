@@ -104,6 +104,7 @@ class ProductOut(BaseModel):
     has_cess: bool
     status: str
     version: int
+    price_needed: bool  # R2-M3: set the selling price per 1 qty to clear it
     in_use: bool
     rate_on: RateOnOut | None
     warnings: list[Warning]
@@ -158,6 +159,7 @@ def _out(p: products.Product, rate: dict | None) -> dict:
         "has_cess": p.has_cess,
         "status": p.status,
         "version": p.version,
+        "price_needed": p.price_needed,
         "in_use": p.in_use,
         "rate_on": None if rate is None else {
             "rate": _rate_str(rate["rate"]), "rate_id": str(rate["rate_id"]), "valid_from": rate["valid_from"],

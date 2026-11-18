@@ -8,7 +8,7 @@ import { errorText, type ApiError } from "../../api/errors";
 import type { components } from "../../api/schema";
 import { fyIst, previousFy, quarterStartIst } from "../../format/dates";
 import { checkGstin, gstinMessage } from "../../format/gstin";
-import { BusinessTypeUpcoming } from "../../kit/BusinessTypeUpcoming";
+import { BusinessTypeField, type BusinessType } from "../../kit/BusinessTypeField";
 import { Banner } from "../../kit/Banner";
 import { StepProgress } from "../../kit/StepProgress";
 import { Button } from "../../kit/Button";
@@ -35,7 +35,7 @@ export const PLATFORM_OPTIONS: { value: keyof Channels; label: string; sub?: str
 ];
 export const NO_PLATFORMS: Channels = { amazon: false, flipkart: false, meesho: false, own_invoices: false };
 /** The fields that belong to step 3; a refusal naming one sends the user back there. */
-const STEP3_FIELDS = /^(registration|legal_name|trade_name|turnover_band|einvoice_history|address)(\.|$)/;
+const STEP3_FIELDS = /^(registration|legal_name|trade_name|turnover_band|einvoice_history|business_type|address)(\.|$)/;
 
 export const BAND_OPTIONS: { value: Band; label: string }[] = [
   { value: "up_to_threshold", label: "Up to the limit for quarterly filing (QRMP)" },
@@ -86,6 +86,7 @@ export function BusinessPage() {
   const [band, setBand] = useState<Band | "">("");
   const [lastBand, setLastBand] = useState<Band | "not_sure" | "">("");
   const [einvoice, setEinvoice] = useState<Einvoice | "">("");
+  const [businessType, setBusinessType] = useState<BusinessType | "">("");
   const [frequency, setFrequency] = useState<Frequency | "">("");
   const [line1, setLine1] = useState("");
   const [line2, setLine2] = useState("");
@@ -213,6 +214,7 @@ export function BusinessPage() {
         trade_name: blank(tradeName),
         turnover_band: band,
         einvoice_history: einvoice,
+        ...(businessType ? { business_type: businessType } : {}),
         address: {
           line1: blank(line1),
           line2: blank(line2),
@@ -233,7 +235,7 @@ export function BusinessPage() {
   const shown = new Set([
     ...(kind === "gstin" ? ["registration.gstin", "frequency"] : ["registration.enrolment_number", "registration.state_code"]),
     "platforms",
-    ...["legal_name", "trade_name", "turnover_band", "einvoice_history"],
+    ...["legal_name", "trade_name", "business_type", "turnover_band", "einvoice_history"],
     ...["address.line1", "address.line2", "address.city", "address.pin", "address.state_code"],
   ]);
   const bannerError = create.error && !(server && shown.has(server.field)) ? create.error : null;
@@ -347,7 +349,7 @@ export function BusinessPage() {
             </>
           )}
 
-          <BusinessTypeUpcoming />
+          <BusinessTypeField value={businessType} onChange={setBusinessType} error={err("business_type")} />
           <div className="grid2">
             <Field
               label="Legal name (as on GST certificate)"

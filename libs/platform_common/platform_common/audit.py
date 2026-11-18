@@ -71,7 +71,12 @@ ALLOWED_DATA: dict[str, frozenset[str]] = {
     "draft.deleted": frozenset(),
     # Finalize (LLD-4 §12): numbers, kinds and codes only; no amounts, names or GSTINs.
     "document.finalized": frozenset({"number", "kind", "practice", "draft_id"}),
+    "document.pdf_requested": frozenset({"attempt"}),
     "document.pos_override": frozenset({"computed_pos", "chosen_pos"}),  # reason required (G16)
+    # Stock ledger (R2-M3): the product code and the signed quantity only; no cost or price.
+    "stock.received": frozenset({"code", "quantity"}),
+    "stock.adjusted": frozenset({"code", "quantity"}),
+    "stock.reversed": frozenset({"code", "quantity"}),
     "catalog.import_applied": frozenset({"counts"}),  # row counts only
     "catalog.import_superseded": frozenset({"superseded_by"}),
     # Uploads (LLD-7 §11): the section and ids only, never a file's contents or name.
@@ -90,10 +95,17 @@ ALLOWED_DATA: dict[str, frozenset[str]] = {
     # Confirming a run into documents (R1-M7): counts only, never a number, GSTIN or value.
     "imports.confirmed": frozenset({"run_id", "section", "documents", "lines", "accepted_changes", "skipped_changes"}),
     "imports.none_this_month": frozenset({"section", "month"}),
+    # Purchase invoices (R2-M2): ids, counts and the reader's id only; never a number, GSTIN, name or value.
+    "imports.purchase_file_received": frozenset({"file_id"}),
+    "imports.purchase_file_rejected": frozenset({"file_id", "reason"}),
+    "imports.purchase_file_read": frozenset({"file_id", "drafts", "reader"}),
+    "imports.purchase_confirmed": frozenset({"review_id", "draft_id", "lines"}),
+    "imports.purchase_discarded": frozenset({"review_id", "draft_id"}),
     # Accepting a warning on a return as shown (R1-M8): the check code and how many items; the note is the reason.
     "filing.accept_warning": frozenset({"check_code", "count"}),
     # A GSTR-1 file made from a return (R1-M8): which snapshot, its version and how many files. Never a figure.
     "filing.exported": frozenset({"snapshot_id", "version", "parts"}),
+    "filing.period_files_made": frozenset({"export_id", "kind", "period", "sales_lines", "purchase_lines"}),  # counts only
     "returns.filed": frozenset({"snapshot_id", "version", "changed_since_export"}),
     # A GSTR-3B worksheet (R1-M8b): its version, and for entries the save number and the field names that changed. The
     # amounts live in the insert-only worksheet tables, never in an audit row.

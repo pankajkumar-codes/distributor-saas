@@ -23,6 +23,7 @@ const profile = (over: Record<string, unknown> = {}) => ({
   registration: { kind: "gstin", gstin: "19ABCDE1234F1Z5", enrolment_number: null, state_code: "19", state_name: "West Bengal", locked: false },
   address: { line1: "12 Lake Road", line2: null, city: "Kolkata", pin: "700029", state_code: "19" },
   einvoice_history: "no",
+  business_type: null,
   turnover_band: null,
   ready_for_documents: { ok: true, missing: [] },
   version: 4,
@@ -172,12 +173,42 @@ describe("business details", () => {
     });
   });
 
-  it("shows the business-type field disabled with an Upcoming tag, and a save never sends it", async () => {
+  it("offers the business type, shows the saved one, and a save sends only what changed", async () => {
+    server.reply(
+      PROFILE,
+      { status: 200, body: profile({ business_type: "retail" }) },
+      { status: 200, body: { profile: profile({ business_type: "distributor", version: 5 }), warnings: [] } },
+    );
+    open();
+    await screen.findByLabelText("Legal name");
+    const select = screen.getByLabelText(/Business type/);
+    expect(select).toBeEnabled();
+    expect(select).toHaveValue("retail");
+    expect(screen.queryByText("Upcoming")).not.toBeInTheDocument();
+    type("Business type (optional)", "distributor");
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(await screen.findByText(/Saved\./)).toBeInTheDocument();
+    expect(patches()[0].body).toEqual({ business_type: "distributor" });
+  });
+
+  it("clears the business type with null, and a save that left it alone never sends it", async () => {
+    server.reply(
+      PROFILE,
+      { status: 200, body: profile({ business_type: "retail" }) },
+      { status: 200, body: { profile: profile({ business_type: null, version: 5 }), warnings: [] } },
+    );
+    open();
+    await screen.findByLabelText("Legal name");
+    type("Business type (optional)", "");
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(await screen.findByText(/Saved\./)).toBeInTheDocument();
+    expect(patches()[0].body).toEqual({ business_type: null });
+  });
+
+  it("does not send business_type when only another field changed", async () => {
     server.reply(PROFILE, { status: 200, body: profile() }, { status: 200, body: { profile: profile({ trade_name: "Vashi", version: 5 }), warnings: [] } });
     open();
     await screen.findByLabelText("Legal name");
-    expect(screen.getByLabelText(/Business type/)).toBeDisabled();
-    expect(screen.getByText("Upcoming")).toBeInTheDocument();
     type("Trade name (optional)", "Vashi");
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     expect(await screen.findByText(/Saved\./)).toBeInTheDocument();

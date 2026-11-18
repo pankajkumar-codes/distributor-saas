@@ -15,6 +15,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session
 
+from platform_common.errors import Conflict
+
 from ..fiscal import (
     add_months,
     fy_of,
@@ -81,6 +83,7 @@ __all__ = [
     "SeriesSetting",
     "series_setting",
     "setup_state",
+    "require_business_type",
 ]
 
 
@@ -93,6 +96,7 @@ class NewBusinessProfile(BaseModel):
     address: Address | None = None
     turnover_band: Literal["up_to_threshold", "above_threshold"]
     einvoice_history: Literal["no", "yes", "not_sure"]
+    business_type: Literal["distributor", "retail"] | None = None  # R2-M1; optional
 
 
 @dataclass(frozen=True)
@@ -106,9 +110,9 @@ class BusinessCard:
 _INSERT_PROFILE = text(
     "insert into business.profiles (business_id, legal_name, trade_name, registration_kind, gstin,"
     " enrolment_number, state_code, address_line1, address_line2, city, pin, address_state_code,"
-    " einvoice_history, updated_by)"
+    " einvoice_history, business_type, updated_by)"
     " values (:b, :legal_name, :trade_name, :kind, :gstin, :enrolment_number, :state_code, :line1, :line2,"
-    " :city, :pin, :address_state_code, :einvoice_history, :by)"
+    " :city, :pin, :address_state_code, :einvoice_history, :business_type, :by)"
 )
 _INSERT_BAND = text(
     "insert into business.turnover_bands (business_id, fy, band, set_by) values (:b, :fy, :band, :by)"
@@ -142,6 +146,7 @@ def create_profile(tx: Session, business_id: uuid.UUID, profile_in: NewBusinessP
             "pin": address.pin,
             "address_state_code": address.state_code,
             "einvoice_history": profile_in.einvoice_history,
+            "business_type": profile_in.business_type,
             "by": by,
         },
     )
@@ -174,3 +179,19 @@ def display_name(tx: Session) -> str | None:
         text("select coalesce(trade_name, legal_name, gstin, enrolment_number) from business.profiles"
              " where business_id = nullif(current_setting('app.tenant_id', true), '')::uuid")
     ).scalar()
+
+
+def require_business_type(tx: Session) -> str:
+    """R2: a business must have chosen Distributor or Retail before it uses invoicing (CEO,
+    2026-11-18). Business type is optional at sign-up (D-080), so every R2 route that
+    starts purchase or sales work calls this first. Returns the type; otherwise 409
+    `business_type_required`. Read for the bound business only, under its row-level security.
+    """
+    value = tx.execute(
+        text("select business_type from business.profiles"
+             " where business_id = nullif(current_setting('app.tenant_id', true), '')::uuid")
+    ).scalar_one_or_none()
+    if value is None:
+        raise Conflict("business_type_required", "Choose Distributor or Retail in Business setup first",
+                       field="business_type", fix="Open Business setup, choose your business type, then try again")
+    return value

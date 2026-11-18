@@ -4,5 +4,5 @@
  * user may do, and a hidden route answers with the not-found page.
  */
 export const FEATURES = {
-  invoicing: false, // the Sell card on Home and the /invoices screens (R2)
+  invoicing: true, // the Sell card on Home and the /invoices screens (R2)
 } as const;

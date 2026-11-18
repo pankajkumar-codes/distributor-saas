@@ -332,6 +332,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Documents
+         * @description The business's finalized documents, newest first (practice ones included, each says `is_practice`). Read-only.
+         */
+        get: operations["list_documents_api_v1_b__business_id__documents_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/documents/{document_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Document
+         * @description One finalized document as stored, where its PDF stands and how many stock movements it wrote. Read-only: nothing
+         *     is queued; ask for the PDF with POST .../pdf.
+         */
+        get: operations["get_document_api_v1_b__business_id__documents__document_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/documents/{document_id}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Document Pdf Request
+         * @description Queues the PDF of a finalized document, made from what was stored at finalize. While live
+         *     numbering is off every document is a practice one and the PDF says it is not a tax invoice.
+         *     Asking again gives the same job unless the last attempt failed; poll GET .../pdf/{job_id}.
+         */
+        post: operations["document_pdf_request_api_v1_b__business_id__documents__document_id__pdf_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/documents/{document_id}/pdf/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Document Pdf Status */
+        get: operations["document_pdf_status_api_v1_b__business_id__documents__document_id__pdf__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/drafts": {
         parameters: {
             query?: never;
@@ -539,6 +619,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/invoicing-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Invoicing Plan
+         * @description The invoicing plan, its prices, how many free invoices are used, and whether the next one needs the plan. Read-only.
+         */
+        get: operations["get_invoicing_plan_api_v1_b__business_id__invoicing_plan_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/jobs": {
         parameters: {
             query?: never;
@@ -688,6 +788,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/period-files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Period Files */
+        get: operations["list_period_files_api_v1_b__business_id__period_files_get"];
+        put?: never;
+        /** Make Period Files */
+        post: operations["make_period_files_api_v1_b__business_id__period_files_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/period-files/{export_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Period Files */
+        get: operations["get_period_files_api_v1_b__business_id__period_files__export_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/plan": {
         parameters: {
             query?: never;
@@ -700,6 +835,27 @@ export interface paths {
          * @description The GST-filing plan and its prices, and whether it is free for now (`plans.FREE_FOR_NOW`). Read-only; nothing is charged.
          */
         get: operations["get_plan_api_v1_b__business_id__plan_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/plan-change-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Plan Change Preview
+         * @description What a plan change would show: the unused part of the current period credited, the new plan's full price from now.
+         *     Display only (D-086); the figures are the price list, never a charge.
+         */
+        get: operations["plan_change_preview_api_v1_b__business_id__plan_change_preview_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -948,6 +1104,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/products/{product_id}/stock-adjustments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Adjust Stock */
+        post: operations["adjust_stock_api_v1_b__business_id__products__product_id__stock_adjustments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/products/{product_id}/stock-movements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Movements */
+        get: operations["list_movements_api_v1_b__business_id__products__product_id__stock_movements_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/products/{product_id}/unarchive": {
         parameters: {
             query?: never;
@@ -985,6 +1175,173 @@ export interface paths {
          *     details changed since, 409 stale_record and nothing is saved (L3-9's rule).
          */
         patch: operations["patch_profile_api_v1_b__business_id__profile_patch"];
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/purchase-code-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check Item Code
+         * @description For the review screen: is this product code free? The confirm still refuses a taken code.
+         */
+        get: operations["check_item_code_api_v1_b__business_id__purchase_code_check_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/purchase-drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Drafts */
+        get: operations["list_drafts_api_v1_b__business_id__purchase_drafts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/purchase-drafts/{draft_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Draft */
+        get: operations["get_draft_api_v1_b__business_id__purchase_drafts__draft_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/purchase-drafts/{draft_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Draft
+         * @description The business confirms the invoice with the values it checked on the review screen. Once; a second call is a
+         *     conflict, not a second invoice. With an Idempotency-Key, a retry of the same request returns the first answer.
+         */
+        post: operations["confirm_draft_api_v1_b__business_id__purchase_drafts__draft_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/purchase-drafts/{draft_id}/discard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Discard Draft */
+        post: operations["discard_draft_api_v1_b__business_id__purchase_drafts__draft_id__discard_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/purchase-files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Files */
+        get: operations["list_files_api_v1_b__business_id__purchase_files_get"];
+        put?: never;
+        /**
+         * Start File
+         * @description A purchase file and a presigned POST for exactly its key, type and declared size.
+         */
+        post: operations["start_file_api_v1_b__business_id__purchase_files_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/purchase-files/{file_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get File */
+        get: operations["get_file_api_v1_b__business_id__purchase_files__file_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/purchase-files/{file_id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete File
+         * @description The upload finished: check it is there, then queue the read. Calling it again returns the same job.
+         */
+        post: operations["complete_file_api_v1_b__business_id__purchase_files__file_id__complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/purchase-invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Purchase Invoices */
+        get: operations["list_purchase_invoices_api_v1_b__business_id__purchase_invoices_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/b/{business_id}/returns": {
@@ -1416,6 +1773,40 @@ export interface paths {
         get: operations["list_rows_api_v1_b__business_id__runs__run_id__rows_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/stock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Stock */
+        get: operations["list_stock_api_v1_b__business_id__stock_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/stock-movements/{movement_id}/reversals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reverse Movement */
+        post: operations["reverse_movement_api_v1_b__business_id__stock_movements__movement_id__reversals_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2154,6 +2545,18 @@ export interface components {
             /** State Code */
             state_code: string | null;
         };
+        /** AdjustmentIn */
+        AdjustmentIn: {
+            /**
+             * Occurred On
+             * Format: date
+             */
+            occurred_on: string;
+            /** Quantity */
+            quantity: string;
+            /** Reason */
+            reason: string;
+        };
         /** AmountsOut */
         AmountsOut: {
             /** Cess */
@@ -2875,6 +3278,59 @@ export interface components {
             /** Seller Gstin */
             seller_gstin: string;
         };
+        /** DocumentDetailOut */
+        DocumentDetailOut: {
+            /** Cgst Total */
+            cgst_total: string;
+            /** Counterparty Name */
+            counterparty_name: string | null;
+            /** Customer Id */
+            customer_id: string | null;
+            /**
+             * Doc Date
+             * Format: date
+             */
+            doc_date: string;
+            /** Doc Number */
+            doc_number: string;
+            /** Doc Total */
+            doc_total: string;
+            /** Draft Id */
+            draft_id: string;
+            /** Due Date */
+            due_date: string | null;
+            /** Finalized At */
+            finalized_at: string;
+            /** Fy */
+            fy: string;
+            /** Gstin */
+            gstin: string;
+            /** Id */
+            id: string;
+            /** Igst Total */
+            igst_total: string;
+            /** Is Inter State */
+            is_inter_state: boolean;
+            /** Is Practice */
+            is_practice: boolean;
+            /** Kind */
+            kind: string;
+            pdf: components["schemas"]["DocumentPdfState"];
+            /** Pos State Code */
+            pos_state_code: string;
+            /** Round Off */
+            round_off: string;
+            /** Sgst Total */
+            sgst_total: string;
+            /** Stock Movements */
+            stock_movements: number;
+            /** Supply Class */
+            supply_class: string;
+            /** Taxable Total */
+            taxable_total: string;
+            /** Utgst */
+            utgst: boolean;
+        };
         /**
          * DocumentOut
          * @description The finalized document (LLD-4 §2.3), as stored: it never changes after this.
@@ -2928,12 +3384,42 @@ export interface components {
             /** Utgst */
             utgst: boolean;
         };
+        /** DocumentPdfRef */
+        DocumentPdfRef: {
+            /** Attempt */
+            attempt: number;
+            /** Job Id */
+            job_id: string;
+        };
+        /** DocumentPdfState */
+        DocumentPdfState: {
+            /** Attempt */
+            attempt?: number | null;
+            /** Error Code */
+            error_code?: string | null;
+            /** Job Id */
+            job_id?: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "none" | "queued" | "rendering" | "ready" | "failed";
+            /** Url */
+            url?: string | null;
+        };
         /** DocumentRef */
         DocumentRef: {
             /** Number */
             number: string;
             /** Section */
             section: string;
+        };
+        /** DocumentsOut */
+        DocumentsOut: {
+            /** Documents */
+            documents: components["schemas"]["DocumentOut"][];
+            /** Has More */
+            has_more: boolean;
         };
         /** DraftIn */
         DraftIn: {
@@ -3623,6 +4109,27 @@ export interface components {
             /** Role */
             role: string;
         };
+        /** InvoicingPlanOut */
+        InvoicingPlanOut: {
+            /** Free For Now */
+            free_for_now: boolean;
+            /** Free Invoices */
+            free_invoices: number;
+            /** Gst Note */
+            gst_note: string;
+            /** Monthly Rupees */
+            monthly_rupees: number;
+            /** Name */
+            name: string;
+            /** Needs Plan */
+            needs_plan: boolean;
+            /** Quarterly Rupees */
+            quarterly_rupees: number;
+            /** Remaining Free */
+            remaining_free: number;
+            /** Used */
+            used: number;
+        };
         /** IssueOut */
         IssueOut: {
             /** Code */
@@ -3802,6 +4309,52 @@ export interface components {
             /** Month */
             month: string;
         };
+        /** MovementOut */
+        MovementOut: {
+            /** Created At */
+            created_at: string;
+            /** Created By */
+            created_by: string;
+            /** Id */
+            id: string;
+            /** Is Practice */
+            is_practice: boolean;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "purchase_in" | "sale_out" | "adjustment" | "reversal";
+            /**
+             * Occurred On
+             * Format: date
+             */
+            occurred_on: string;
+            /** Product Id */
+            product_id: string;
+            /** Quantity */
+            quantity: string;
+            /** Reason */
+            reason: string | null;
+            /** Reversed By Id */
+            reversed_by_id: string | null;
+            /** Reverses Id */
+            reverses_id: string | null;
+            /** Source Id */
+            source_id: string | null;
+            /** Source Line Id */
+            source_line_id: string | null;
+            /** Source Type */
+            source_type: ("purchase_invoice" | "sales_invoice") | null;
+            /** Unit Cost */
+            unit_cost: string | null;
+        };
+        /** MovementPageOut */
+        MovementPageOut: {
+            /** Has More */
+            has_more: boolean;
+            /** Items */
+            items: components["schemas"]["MovementOut"][];
+        };
         /** MyBusiness */
         MyBusiness: {
             /** Business Id */
@@ -3844,6 +4397,8 @@ export interface components {
          */
         NewBusinessProfile: {
             address?: components["schemas"]["Address"] | null;
+            /** Business Type */
+            business_type?: ("distributor" | "retail") | null;
             /**
              * Einvoice History
              * @enum {string}
@@ -3976,6 +4531,99 @@ export interface components {
             /** Url */
             url?: string | null;
         };
+        /** PeriodExportOut */
+        PeriodExportOut: {
+            /** Created */
+            created: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Due Dates
+             * @default Check on the GST portal
+             */
+            due_dates: string;
+            /** Files */
+            files: components["schemas"]["PeriodFileOut"][];
+            /** Gstr1 Returns */
+            gstr1_returns: components["schemas"]["PeriodReturnOut"][];
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "month" | "quarter";
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+            /** Practice Documents */
+            practice_documents: number;
+            /** Purchase Lines */
+            purchase_lines: number;
+            /** Sales Lines */
+            sales_lines: number;
+        };
+        /** PeriodExportsOut */
+        PeriodExportsOut: {
+            /** Exports */
+            exports: components["schemas"]["PeriodExportOut"][];
+            /** Has More */
+            has_more: boolean;
+        };
+        /** PeriodFileOut */
+        PeriodFileOut: {
+            /**
+             * Name
+             * @enum {string}
+             */
+            name: "workbook" | "purchase_register";
+            /** Sha256 */
+            sha256: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /** Url */
+            url: string;
+        };
+        /** PeriodFilesIn */
+        PeriodFilesIn: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "month" | "quarter";
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+        };
+        /** PeriodReturnOut */
+        PeriodReturnOut: {
+            /** Form */
+            form: string;
+            /** Instance Id */
+            instance_id: string;
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+        };
         /** Person */
         Person: {
             /** Name */
@@ -3985,6 +4633,23 @@ export interface components {
              * Format: uuid
              */
             user_id: string;
+        };
+        /** PlanChangeOut */
+        PlanChangeOut: {
+            /** Amount Due */
+            amount_due: string;
+            /** Credit Left Over */
+            credit_left_over: string;
+            /** Current Price */
+            current_price: string;
+            /** Free For Now */
+            free_for_now: boolean;
+            /** Gst Note */
+            gst_note: string;
+            /** New Price */
+            new_price: string;
+            /** Unused Credit */
+            unused_credit: string;
         };
         /** PlanOut */
         PlanOut: {
@@ -4064,6 +4729,8 @@ export interface components {
             in_use: boolean;
             /** Name */
             name: string;
+            /** Price Needed */
+            price_needed: boolean;
             /** Rate Changed Within Warning Window */
             rate_changed_within_warning_window: boolean;
             rate_on: components["schemas"]["RateOnOut"] | null;
@@ -4124,6 +4791,8 @@ export interface components {
             in_use: boolean;
             /** Name */
             name: string;
+            /** Price Needed */
+            price_needed: boolean;
             rate_on: components["schemas"]["RateOnOut"] | null;
             /** Sale Rate */
             sale_rate: string;
@@ -4169,6 +4838,8 @@ export interface components {
             address: components["schemas"]["AddressOut"];
             /** Business Id */
             business_id: string;
+            /** Business Type */
+            business_type: ("distributor" | "retail") | null;
             /** Einvoice History */
             einvoice_history: ("no" | "yes" | "not_sure") | null;
             /** Legal Name */
@@ -4189,6 +4860,8 @@ export interface components {
          */
         ProfilePatch: {
             address?: components["schemas"]["Address"] | null;
+            /** Business Type */
+            business_type?: ("distributor" | "retail") | null;
             /** Einvoice History */
             einvoice_history?: ("no" | "yes" | "not_sure") | null;
             /** Legal Name */
@@ -4209,6 +4882,294 @@ export interface components {
             done: number;
             /** Out Of */
             out_of: number | null;
+        };
+        /** PurchaseCodeCheckOut */
+        PurchaseCodeCheckOut: {
+            /** Available */
+            available: boolean;
+            /** Code */
+            code: string;
+        };
+        /** PurchaseConfirmIn */
+        PurchaseConfirmIn: {
+            /**
+             * Doc Date
+             * Format: date
+             */
+            doc_date: string;
+            /** Doc Number */
+            doc_number: string;
+            /** Invoice Total */
+            invoice_total?: string | null;
+            /** Lines */
+            lines: components["schemas"]["PurchaseLineIn"][];
+            /** Supplier Gstin */
+            supplier_gstin: string;
+            /** Supplier Name */
+            supplier_name?: string | null;
+        };
+        /** PurchaseConfirmedListOut */
+        PurchaseConfirmedListOut: {
+            /** Has More */
+            has_more: boolean;
+            /** Invoices */
+            invoices: components["schemas"]["PurchaseConfirmedOut"][];
+        };
+        /** PurchaseConfirmedOut */
+        PurchaseConfirmedOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Doc Date
+             * Format: date
+             */
+            doc_date: string;
+            /** Doc Number */
+            doc_number: string;
+            /** Draft Id */
+            draft_id: string;
+            /** Invoice Total */
+            invoice_total: string | null;
+            /** Line Count */
+            line_count: number;
+            /**
+             * Received
+             * @default []
+             */
+            received: components["schemas"]["PurchaseReceivedOut"][];
+            /** Review Id */
+            review_id: string;
+            /** Supplier Gstin */
+            supplier_gstin: string;
+            /** Supplier Name */
+            supplier_name: string | null;
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: components["schemas"]["PurchaseWarningOut"][];
+        };
+        /** PurchaseDraftLineOut */
+        PurchaseDraftLineOut: {
+            /** Cess */
+            cess: string | null;
+            /** Cgst */
+            cgst: string | null;
+            /** Gst Rate */
+            gst_rate: string | null;
+            /** Hsn */
+            hsn: string | null;
+            /** Id */
+            id: string;
+            /** Igst */
+            igst: string | null;
+            /** Line No */
+            line_no: number;
+            /** Page */
+            page: number;
+            /** Quantity */
+            quantity: string | null;
+            /** Sgst */
+            sgst: string | null;
+            /** Taxable Value */
+            taxable_value: string | null;
+            /** Unclear */
+            unclear: string[];
+            /** Unit */
+            unit: string | null;
+        };
+        /** PurchaseDraftOut */
+        PurchaseDraftOut: {
+            /** Decision */
+            decision: ("confirmed" | "discarded") | null;
+            /** Doc Date */
+            doc_date: string | null;
+            /** Doc Number */
+            doc_number: string | null;
+            /** Doc Type */
+            doc_type: string | null;
+            /** File Id */
+            file_id: string;
+            /** File Name */
+            file_name: string;
+            /** Id */
+            id: string;
+            /** Invoice Total */
+            invoice_total: string | null;
+            /** Lines */
+            lines: components["schemas"]["PurchaseDraftLineOut"][];
+            /** Ordinal */
+            ordinal: number;
+            /** Pages */
+            pages: number[];
+            /** Reader */
+            reader: string;
+            /** Supplier Gstin */
+            supplier_gstin: string | null;
+            /** Unclear */
+            unclear: string[];
+        };
+        /** PurchaseDraftsOut */
+        PurchaseDraftsOut: {
+            /** Drafts */
+            drafts: components["schemas"]["PurchaseDraftOut"][];
+            /** Has More */
+            has_more: boolean;
+        };
+        /** PurchaseFileOut */
+        PurchaseFileOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** File Name */
+            file_name: string;
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "pdf" | "image";
+            /** Reject Message */
+            reject_message: string | null;
+            /** Reject Reason */
+            reject_reason: string | null;
+            /** Size Bytes */
+            size_bytes: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "received" | "read" | "rejected";
+        };
+        /** PurchaseFileStartIn */
+        PurchaseFileStartIn: {
+            /** File Name */
+            file_name: string;
+            /** Size Bytes */
+            size_bytes: number;
+        };
+        /** PurchaseFileStartOut */
+        PurchaseFileStartOut: {
+            /** File Id */
+            file_id: string;
+            upload: components["schemas"]["PurchasePresignedPostOut"];
+        };
+        /** PurchaseFilesOut */
+        PurchaseFilesOut: {
+            /** Files */
+            files: components["schemas"]["PurchaseFileOut"][];
+            /** Has More */
+            has_more: boolean;
+        };
+        /** PurchaseJobRef */
+        PurchaseJobRef: {
+            /** Job Id */
+            job_id: string;
+        };
+        /** PurchaseLineIn */
+        PurchaseLineIn: {
+            /**
+             * Cess
+             * @default 0
+             */
+            cess: string;
+            /**
+             * Cgst
+             * @default 0
+             */
+            cgst: string;
+            /** Draft Line Id */
+            draft_line_id?: string | null;
+            /** Gst Rate */
+            gst_rate: string;
+            /** Hsn */
+            hsn: string;
+            /**
+             * Igst
+             * @default 0
+             */
+            igst: string;
+            new_item?: components["schemas"]["PurchaseNewItemIn"] | null;
+            /** Product Id */
+            product_id?: string | null;
+            /** Product Name */
+            product_name: string;
+            /** Quantity */
+            quantity: string;
+            /**
+             * Sgst
+             * @default 0
+             */
+            sgst: string;
+            /** Taxable Value */
+            taxable_value: string;
+            /** Unit */
+            unit?: string | null;
+        };
+        /**
+         * PurchaseNewItemIn
+         * @description A product to create from a line. The name and HSN are the line's own; the rate is the business's to confirm.
+         */
+        PurchaseNewItemIn: {
+            /** Code */
+            code: string;
+            /** Gst Rate */
+            gst_rate?: string | null;
+            /**
+             * Has Cess
+             * @default false
+             */
+            has_cess: boolean;
+            /** Rate Valid From */
+            rate_valid_from?: string | null;
+            /**
+             * Tax Category
+             * @enum {string}
+             */
+            tax_category: "taxable" | "exempt" | "nil_rated" | "non_gst";
+            /** Uqc */
+            uqc: string;
+        };
+        /** PurchasePresignedPostOut */
+        PurchasePresignedPostOut: {
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Fields */
+            fields: {
+                [key: string]: string;
+            };
+            /** Url */
+            url: string;
+        };
+        /** PurchaseReceivedOut */
+        PurchaseReceivedOut: {
+            /** Created Product */
+            created_product: boolean;
+            /** Line No */
+            line_no: number;
+            /** Price Needed */
+            price_needed: boolean;
+            /** Product Id */
+            product_id: string;
+        };
+        /** PurchaseWarningOut */
+        PurchaseWarningOut: {
+            /**
+             * Code
+             * @enum {string}
+             */
+            code: "tax_differs_from_rate" | "unit_differs_from_product";
+            /** Line No */
+            line_no: number;
         };
         /** RateIn */
         RateIn: {
@@ -4431,6 +5392,11 @@ export interface components {
             /** Returns */
             returns: components["schemas"]["ReturnOut"][];
         };
+        /** ReversalIn */
+        ReversalIn: {
+            /** Reason */
+            reason: string;
+        };
         /**
          * Role
          * @enum {string}
@@ -4601,6 +5567,34 @@ export interface components {
             on: string;
             /** States */
             states: components["schemas"]["StateCode"][];
+        };
+        /** StockItemOut */
+        StockItemOut: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** No Stock */
+            no_stock: boolean;
+            /** On Hand */
+            on_hand: string;
+            /** Price Needed */
+            price_needed: boolean;
+            /** Product Id */
+            product_id: string;
+            /** Sale Rate */
+            sale_rate: string;
+            /** Status */
+            status: string;
+            /** Uqc */
+            uqc: string;
+        };
+        /** StockPageOut */
+        StockPageOut: {
+            /** Has More */
+            has_more: boolean;
+            /** Items */
+            items: components["schemas"]["StockItemOut"][];
         };
         /** SupportGrant */
         SupportGrant: {
@@ -5813,6 +6807,137 @@ export interface operations {
             };
         };
     };
+    list_documents_api_v1_b__business_id__documents_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_document_api_v1_b__business_id__documents__document_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    document_pdf_request_api_v1_b__business_id__documents__document_id__pdf_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentPdfRef"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    document_pdf_status_api_v1_b__business_id__documents__document_id__pdf__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+                job_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_drafts_api_v1_b__business_id__drafts_get: {
         parameters: {
             query?: {
@@ -6289,6 +7414,37 @@ export interface operations {
             };
         };
     };
+    get_invoicing_plan_api_v1_b__business_id__invoicing_plan_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoicingPlanOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     recent_jobs_api_v1_b__business_id__jobs_get: {
         parameters: {
             query?: {
@@ -6561,6 +7717,107 @@ export interface operations {
             };
         };
     };
+    list_period_files_api_v1_b__business_id__period_files_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PeriodExportsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    make_period_files_api_v1_b__business_id__period_files_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PeriodFilesIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PeriodExportOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_period_files_api_v1_b__business_id__period_files__export_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                export_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PeriodExportOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_plan_api_v1_b__business_id__plan_get: {
         parameters: {
             query?: never;
@@ -6579,6 +7836,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PlanOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_change_preview_api_v1_b__business_id__plan_change_preview_get: {
+        parameters: {
+            query: {
+                from_plan: "gst_filing" | "invoicing";
+                from_frequency: "monthly" | "quarterly";
+                to_plan: "gst_filing" | "invoicing";
+                to_frequency: "monthly" | "quarterly";
+                days_left: number;
+                period_days: number;
+            };
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanChangeOut"];
                 };
             };
             /** @description Validation Error */
@@ -7156,6 +8451,80 @@ export interface operations {
             };
         };
     };
+    adjust_stock_api_v1_b__business_id__products__product_id__stock_adjustments_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                product_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdjustmentIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MovementOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_movements_api_v1_b__business_id__products__product_id__stock_movements_get: {
+        parameters: {
+            query?: {
+                practice?: boolean | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                product_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MovementPageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     unarchive_product_api_v1_b__business_id__products__product_id__unarchive_post: {
         parameters: {
             query?: never;
@@ -7251,6 +8620,348 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_item_code_api_v1_b__business_id__purchase_code_check_get: {
+        parameters: {
+            query: {
+                code: string;
+            };
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseCodeCheckOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_drafts_api_v1_b__business_id__purchase_drafts_get: {
+        parameters: {
+            query?: {
+                file_id?: string | null;
+                open_only?: boolean;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseDraftsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_draft_api_v1_b__business_id__purchase_drafts__draft_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseDraftOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_draft_api_v1_b__business_id__purchase_drafts__draft_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                draft_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PurchaseConfirmIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseConfirmedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    discard_draft_api_v1_b__business_id__purchase_drafts__draft_id__discard_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                draft_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseDraftOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_files_api_v1_b__business_id__purchase_files_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseFilesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_file_api_v1_b__business_id__purchase_files_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PurchaseFileStartIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseFileStartOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_file_api_v1_b__business_id__purchase_files__file_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                file_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseFileOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    complete_file_api_v1_b__business_id__purchase_files__file_id__complete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                file_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseJobRef"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_purchase_invoices_api_v1_b__business_id__purchase_invoices_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchaseConfirmedListOut"];
+                };
             };
             /** @description Validation Error */
             422: {
@@ -8028,6 +9739,81 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RowsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_stock_api_v1_b__business_id__stock_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                status?: "active" | "archived" | "all";
+                only?: ("no_stock" | "price_needed") | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockPageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reverse_movement_api_v1_b__business_id__stock_movements__movement_id__reversals_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                movement_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReversalIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MovementOut"];
                 };
             };
             /** @description Validation Error */

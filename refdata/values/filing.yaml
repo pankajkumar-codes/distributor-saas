@@ -11,3 +11,13 @@
   last_checked: 2026-10-26
   status: provisional
   note: "Interim CEO default: invoices and marketplace rows dated in a locked return are refused (409); credit notes roll forward regardless. Changes only by a dated row after the CA answers CA-1 (team/product/ca-questions.md)."
+
+- key: filing.period_files.max_rows
+  value: "10000"
+  type: integer
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r2-m6-monthly-files.md
+  source_title: "R2-M6: the most rows of each kind (sales lines, purchase lines, practice documents) in one monthly or quarterly file (abuse cap, not a tax rule)"
+  last_checked: 2026-11-18
+  status: provisional

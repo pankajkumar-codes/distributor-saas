@@ -363,6 +363,33 @@
         "title": "AddressOut",
         "type": "object"
       },
+      "AdjustmentIn": {
+        "additionalProperties": false,
+        "properties": {
+          "occurred_on": {
+            "format": "date",
+            "title": "Occurred On",
+            "type": "string"
+          },
+          "quantity": {
+            "maxLength": 24,
+            "title": "Quantity",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 300,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "quantity",
+          "reason",
+          "occurred_on"
+        ],
+        "title": "AdjustmentIn",
+        "type": "object"
+      },
       "AmountsOut": {
         "properties": {
           "cess": {
@@ -2565,6 +2592,156 @@
         "title": "DocRefOut",
         "type": "object"
       },
+      "DocumentDetailOut": {
+        "properties": {
+          "cgst_total": {
+            "title": "Cgst Total",
+            "type": "string"
+          },
+          "counterparty_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counterparty Name"
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Customer Id"
+          },
+          "doc_date": {
+            "format": "date",
+            "title": "Doc Date",
+            "type": "string"
+          },
+          "doc_number": {
+            "title": "Doc Number",
+            "type": "string"
+          },
+          "doc_total": {
+            "title": "Doc Total",
+            "type": "string"
+          },
+          "draft_id": {
+            "title": "Draft Id",
+            "type": "string"
+          },
+          "due_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due Date"
+          },
+          "finalized_at": {
+            "title": "Finalized At",
+            "type": "string"
+          },
+          "fy": {
+            "title": "Fy",
+            "type": "string"
+          },
+          "gstin": {
+            "title": "Gstin",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "igst_total": {
+            "title": "Igst Total",
+            "type": "string"
+          },
+          "is_inter_state": {
+            "title": "Is Inter State",
+            "type": "boolean"
+          },
+          "is_practice": {
+            "title": "Is Practice",
+            "type": "boolean"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "pdf": {
+            "$ref": "#/components/schemas/DocumentPdfState"
+          },
+          "pos_state_code": {
+            "title": "Pos State Code",
+            "type": "string"
+          },
+          "round_off": {
+            "title": "Round Off",
+            "type": "string"
+          },
+          "sgst_total": {
+            "title": "Sgst Total",
+            "type": "string"
+          },
+          "stock_movements": {
+            "title": "Stock Movements",
+            "type": "integer"
+          },
+          "supply_class": {
+            "title": "Supply Class",
+            "type": "string"
+          },
+          "taxable_total": {
+            "title": "Taxable Total",
+            "type": "string"
+          },
+          "utgst": {
+            "title": "Utgst",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "draft_id",
+          "kind",
+          "is_practice",
+          "doc_number",
+          "doc_date",
+          "fy",
+          "gstin",
+          "supply_class",
+          "pos_state_code",
+          "is_inter_state",
+          "customer_id",
+          "counterparty_name",
+          "due_date",
+          "taxable_total",
+          "cgst_total",
+          "sgst_total",
+          "utgst",
+          "igst_total",
+          "round_off",
+          "doc_total",
+          "finalized_at",
+          "pdf",
+          "stock_movements"
+        ],
+        "title": "DocumentDetailOut",
+        "type": "object"
+      },
       "DocumentOut": {
         "description": "The finalized document (LLD-4 \u00a72.3), as stored: it never changes after this.",
         "properties": {
@@ -2707,6 +2884,88 @@
         "title": "DocumentOut",
         "type": "object"
       },
+      "DocumentPdfRef": {
+        "properties": {
+          "attempt": {
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "attempt"
+        ],
+        "title": "DocumentPdfRef",
+        "type": "object"
+      },
+      "DocumentPdfState": {
+        "properties": {
+          "attempt": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attempt"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "status": {
+            "enum": [
+              "none",
+              "queued",
+              "rendering",
+              "ready",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "DocumentPdfState",
+        "type": "object"
+      },
       "DocumentRef": {
         "properties": {
           "number": {
@@ -2723,6 +2982,27 @@
           "number"
         ],
         "title": "DocumentRef",
+        "type": "object"
+      },
+      "DocumentsOut": {
+        "properties": {
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentOut"
+            },
+            "title": "Documents",
+            "type": "array"
+          },
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "documents",
+          "has_more"
+        ],
+        "title": "DocumentsOut",
         "type": "object"
       },
       "DraftIn": {
@@ -4776,6 +5056,59 @@
         "title": "InvitePreviewOut",
         "type": "object"
       },
+      "InvoicingPlanOut": {
+        "properties": {
+          "free_for_now": {
+            "title": "Free For Now",
+            "type": "boolean"
+          },
+          "free_invoices": {
+            "title": "Free Invoices",
+            "type": "integer"
+          },
+          "gst_note": {
+            "title": "Gst Note",
+            "type": "string"
+          },
+          "monthly_rupees": {
+            "title": "Monthly Rupees",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "needs_plan": {
+            "title": "Needs Plan",
+            "type": "boolean"
+          },
+          "quarterly_rupees": {
+            "title": "Quarterly Rupees",
+            "type": "integer"
+          },
+          "remaining_free": {
+            "title": "Remaining Free",
+            "type": "integer"
+          },
+          "used": {
+            "title": "Used",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "monthly_rupees",
+          "quarterly_rupees",
+          "gst_note",
+          "free_for_now",
+          "free_invoices",
+          "used",
+          "remaining_free",
+          "needs_plan"
+        ],
+        "title": "InvoicingPlanOut",
+        "type": "object"
+      },
       "IssueOut": {
         "properties": {
           "code": {
@@ -5361,6 +5694,170 @@
         "title": "MonthCoverageOut",
         "type": "object"
       },
+      "MovementOut": {
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "title": "Created By",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "is_practice": {
+            "title": "Is Practice",
+            "type": "boolean"
+          },
+          "kind": {
+            "enum": [
+              "purchase_in",
+              "sale_out",
+              "adjustment",
+              "reversal"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "occurred_on": {
+            "format": "date",
+            "title": "Occurred On",
+            "type": "string"
+          },
+          "product_id": {
+            "title": "Product Id",
+            "type": "string"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "reversed_by_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reversed By Id"
+          },
+          "reverses_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reverses Id"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Id"
+          },
+          "source_line_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Line Id"
+          },
+          "source_type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "purchase_invoice",
+                  "sales_invoice"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Type"
+          },
+          "unit_cost": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit Cost"
+          }
+        },
+        "required": [
+          "id",
+          "product_id",
+          "kind",
+          "quantity",
+          "occurred_on",
+          "source_type",
+          "source_id",
+          "source_line_id",
+          "unit_cost",
+          "is_practice",
+          "reverses_id",
+          "reversed_by_id",
+          "reason",
+          "created_at",
+          "created_by"
+        ],
+        "title": "MovementOut",
+        "type": "object"
+      },
+      "MovementPageOut": {
+        "properties": {
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MovementOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items",
+          "has_more"
+        ],
+        "title": "MovementPageOut",
+        "type": "object"
+      },
       "MyBusiness": {
         "properties": {
           "business_id": {
@@ -5477,6 +5974,21 @@
                 "type": "null"
               }
             ]
+          },
+          "business_type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "distributor",
+                  "retail"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Business Type"
           },
           "einvoice_history": {
             "enum": [
@@ -5854,6 +6366,194 @@
         "title": "PdfStatusOut",
         "type": "object"
       },
+      "PeriodExportOut": {
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "due_dates": {
+            "default": "Check on the GST portal",
+            "title": "Due Dates",
+            "type": "string"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/PeriodFileOut"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "gstr1_returns": {
+            "items": {
+              "$ref": "#/components/schemas/PeriodReturnOut"
+            },
+            "title": "Gstr1 Returns",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "month",
+              "quarter"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "period_end": {
+            "format": "date",
+            "title": "Period End",
+            "type": "string"
+          },
+          "period_start": {
+            "format": "date",
+            "title": "Period Start",
+            "type": "string"
+          },
+          "practice_documents": {
+            "title": "Practice Documents",
+            "type": "integer"
+          },
+          "purchase_lines": {
+            "title": "Purchase Lines",
+            "type": "integer"
+          },
+          "sales_lines": {
+            "title": "Sales Lines",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "period_start",
+          "period_end",
+          "sales_lines",
+          "purchase_lines",
+          "practice_documents",
+          "created_at",
+          "created",
+          "gstr1_returns",
+          "files"
+        ],
+        "title": "PeriodExportOut",
+        "type": "object"
+      },
+      "PeriodExportsOut": {
+        "properties": {
+          "exports": {
+            "items": {
+              "$ref": "#/components/schemas/PeriodExportOut"
+            },
+            "title": "Exports",
+            "type": "array"
+          },
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "exports",
+          "has_more"
+        ],
+        "title": "PeriodExportsOut",
+        "type": "object"
+      },
+      "PeriodFileOut": {
+        "properties": {
+          "name": {
+            "enum": [
+              "workbook",
+              "purchase_register"
+            ],
+            "title": "Name",
+            "type": "string"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "sha256",
+          "size_bytes",
+          "url"
+        ],
+        "title": "PeriodFileOut",
+        "type": "object"
+      },
+      "PeriodFilesIn": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "month",
+              "quarter"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "start": {
+            "format": "date",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "start"
+        ],
+        "title": "PeriodFilesIn",
+        "type": "object"
+      },
+      "PeriodReturnOut": {
+        "properties": {
+          "form": {
+            "title": "Form",
+            "type": "string"
+          },
+          "instance_id": {
+            "title": "Instance Id",
+            "type": "string"
+          },
+          "period_end": {
+            "format": "date",
+            "title": "Period End",
+            "type": "string"
+          },
+          "period_start": {
+            "format": "date",
+            "title": "Period Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance_id",
+          "form",
+          "period_start",
+          "period_end"
+        ],
+        "title": "PeriodReturnOut",
+        "type": "object"
+      },
       "Person": {
         "properties": {
           "name": {
@@ -5871,6 +6571,49 @@
           "name"
         ],
         "title": "Person",
+        "type": "object"
+      },
+      "PlanChangeOut": {
+        "properties": {
+          "amount_due": {
+            "title": "Amount Due",
+            "type": "string"
+          },
+          "credit_left_over": {
+            "title": "Credit Left Over",
+            "type": "string"
+          },
+          "current_price": {
+            "title": "Current Price",
+            "type": "string"
+          },
+          "free_for_now": {
+            "title": "Free For Now",
+            "type": "boolean"
+          },
+          "gst_note": {
+            "title": "Gst Note",
+            "type": "string"
+          },
+          "new_price": {
+            "title": "New Price",
+            "type": "string"
+          },
+          "unused_credit": {
+            "title": "Unused Credit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "current_price",
+          "unused_credit",
+          "new_price",
+          "amount_due",
+          "credit_left_over",
+          "gst_note",
+          "free_for_now"
+        ],
+        "title": "PlanChangeOut",
         "type": "object"
       },
       "PlanOut": {
@@ -6080,6 +6823,10 @@
             "title": "Name",
             "type": "string"
           },
+          "price_needed": {
+            "title": "Price Needed",
+            "type": "boolean"
+          },
           "rate_changed_within_warning_window": {
             "title": "Rate Changed Within Warning Window",
             "type": "boolean"
@@ -6141,6 +6888,7 @@
           "has_cess",
           "status",
           "version",
+          "price_needed",
           "in_use",
           "rate_on",
           "warnings",
@@ -6277,6 +7025,10 @@
             "title": "Name",
             "type": "string"
           },
+          "price_needed": {
+            "title": "Price Needed",
+            "type": "boolean"
+          },
           "rate_on": {
             "anyOf": [
               {
@@ -6327,6 +7079,7 @@
           "has_cess",
           "status",
           "version",
+          "price_needed",
           "in_use",
           "rate_on",
           "warnings"
@@ -6471,6 +7224,21 @@
             "title": "Business Id",
             "type": "string"
           },
+          "business_type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "distributor",
+                  "retail"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Business Type"
+          },
           "einvoice_history": {
             "anyOf": [
               {
@@ -6547,6 +7315,7 @@
           "registration",
           "address",
           "einvoice_history",
+          "business_type",
           "turnover_band",
           "previous_turnover_band",
           "ready_for_documents",
@@ -6568,6 +7337,21 @@
                 "type": "null"
               }
             ]
+          },
+          "business_type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "distributor",
+                  "retail"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Business Type"
           },
           "einvoice_history": {
             "anyOf": [
@@ -6666,6 +7450,872 @@
           "out_of"
         ],
         "title": "ProgressOut",
+        "type": "object"
+      },
+      "PurchaseCodeCheckOut": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "available"
+        ],
+        "title": "PurchaseCodeCheckOut",
+        "type": "object"
+      },
+      "PurchaseConfirmIn": {
+        "additionalProperties": false,
+        "properties": {
+          "doc_date": {
+            "format": "date",
+            "title": "Doc Date",
+            "type": "string"
+          },
+          "doc_number": {
+            "maxLength": 40,
+            "title": "Doc Number",
+            "type": "string"
+          },
+          "invoice_total": {
+            "anyOf": [
+              {
+                "maxLength": 24,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invoice Total"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/PurchaseLineIn"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "supplier_gstin": {
+            "maxLength": 40,
+            "title": "Supplier Gstin",
+            "type": "string"
+          },
+          "supplier_name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supplier Name"
+          }
+        },
+        "required": [
+          "supplier_gstin",
+          "doc_number",
+          "doc_date",
+          "lines"
+        ],
+        "title": "PurchaseConfirmIn",
+        "type": "object"
+      },
+      "PurchaseConfirmedListOut": {
+        "properties": {
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "invoices": {
+            "items": {
+              "$ref": "#/components/schemas/PurchaseConfirmedOut"
+            },
+            "title": "Invoices",
+            "type": "array"
+          }
+        },
+        "required": [
+          "invoices",
+          "has_more"
+        ],
+        "title": "PurchaseConfirmedListOut",
+        "type": "object"
+      },
+      "PurchaseConfirmedOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "doc_date": {
+            "format": "date",
+            "title": "Doc Date",
+            "type": "string"
+          },
+          "doc_number": {
+            "title": "Doc Number",
+            "type": "string"
+          },
+          "draft_id": {
+            "title": "Draft Id",
+            "type": "string"
+          },
+          "invoice_total": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invoice Total"
+          },
+          "line_count": {
+            "title": "Line Count",
+            "type": "integer"
+          },
+          "received": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PurchaseReceivedOut"
+            },
+            "title": "Received",
+            "type": "array"
+          },
+          "review_id": {
+            "title": "Review Id",
+            "type": "string"
+          },
+          "supplier_gstin": {
+            "title": "Supplier Gstin",
+            "type": "string"
+          },
+          "supplier_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supplier Name"
+          },
+          "warnings": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PurchaseWarningOut"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "review_id",
+          "draft_id",
+          "supplier_gstin",
+          "supplier_name",
+          "doc_number",
+          "doc_date",
+          "invoice_total",
+          "line_count",
+          "created_at"
+        ],
+        "title": "PurchaseConfirmedOut",
+        "type": "object"
+      },
+      "PurchaseDraftLineOut": {
+        "properties": {
+          "cess": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cess"
+          },
+          "cgst": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cgst"
+          },
+          "gst_rate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gst Rate"
+          },
+          "hsn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hsn"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "igst": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Igst"
+          },
+          "line_no": {
+            "title": "Line No",
+            "type": "integer"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quantity"
+          },
+          "sgst": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sgst"
+          },
+          "taxable_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taxable Value"
+          },
+          "unclear": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unclear",
+            "type": "array"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          }
+        },
+        "required": [
+          "id",
+          "line_no",
+          "page",
+          "hsn",
+          "quantity",
+          "unit",
+          "taxable_value",
+          "gst_rate",
+          "igst",
+          "cgst",
+          "sgst",
+          "cess",
+          "unclear"
+        ],
+        "title": "PurchaseDraftLineOut",
+        "type": "object"
+      },
+      "PurchaseDraftOut": {
+        "properties": {
+          "decision": {
+            "anyOf": [
+              {
+                "enum": [
+                  "confirmed",
+                  "discarded"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision"
+          },
+          "doc_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doc Date"
+          },
+          "doc_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doc Number"
+          },
+          "doc_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doc Type"
+          },
+          "file_id": {
+            "title": "File Id",
+            "type": "string"
+          },
+          "file_name": {
+            "title": "File Name",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "invoice_total": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invoice Total"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/PurchaseDraftLineOut"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "ordinal": {
+            "title": "Ordinal",
+            "type": "integer"
+          },
+          "pages": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Pages",
+            "type": "array"
+          },
+          "reader": {
+            "title": "Reader",
+            "type": "string"
+          },
+          "supplier_gstin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supplier Gstin"
+          },
+          "unclear": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unclear",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "file_id",
+          "file_name",
+          "ordinal",
+          "reader",
+          "pages",
+          "doc_type",
+          "supplier_gstin",
+          "doc_number",
+          "doc_date",
+          "invoice_total",
+          "unclear",
+          "lines",
+          "decision"
+        ],
+        "title": "PurchaseDraftOut",
+        "type": "object"
+      },
+      "PurchaseDraftsOut": {
+        "properties": {
+          "drafts": {
+            "items": {
+              "$ref": "#/components/schemas/PurchaseDraftOut"
+            },
+            "title": "Drafts",
+            "type": "array"
+          },
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "drafts",
+          "has_more"
+        ],
+        "title": "PurchaseDraftsOut",
+        "type": "object"
+      },
+      "PurchaseFileOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "file_name": {
+            "title": "File Name",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "pdf",
+              "image"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "reject_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reject Message"
+          },
+          "reject_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reject Reason"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "received",
+              "read",
+              "rejected"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "file_name",
+          "size_bytes",
+          "kind",
+          "status",
+          "reject_reason",
+          "reject_message",
+          "created_at"
+        ],
+        "title": "PurchaseFileOut",
+        "type": "object"
+      },
+      "PurchaseFileStartIn": {
+        "additionalProperties": false,
+        "properties": {
+          "file_name": {
+            "maxLength": 255,
+            "title": "File Name",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "file_name",
+          "size_bytes"
+        ],
+        "title": "PurchaseFileStartIn",
+        "type": "object"
+      },
+      "PurchaseFileStartOut": {
+        "properties": {
+          "file_id": {
+            "title": "File Id",
+            "type": "string"
+          },
+          "upload": {
+            "$ref": "#/components/schemas/PurchasePresignedPostOut"
+          }
+        },
+        "required": [
+          "file_id",
+          "upload"
+        ],
+        "title": "PurchaseFileStartOut",
+        "type": "object"
+      },
+      "PurchaseFilesOut": {
+        "properties": {
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/PurchaseFileOut"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "files",
+          "has_more"
+        ],
+        "title": "PurchaseFilesOut",
+        "type": "object"
+      },
+      "PurchaseJobRef": {
+        "properties": {
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "title": "PurchaseJobRef",
+        "type": "object"
+      },
+      "PurchaseLineIn": {
+        "additionalProperties": false,
+        "properties": {
+          "cess": {
+            "default": "0",
+            "maxLength": 24,
+            "title": "Cess",
+            "type": "string"
+          },
+          "cgst": {
+            "default": "0",
+            "maxLength": 24,
+            "title": "Cgst",
+            "type": "string"
+          },
+          "draft_line_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Draft Line Id"
+          },
+          "gst_rate": {
+            "maxLength": 24,
+            "title": "Gst Rate",
+            "type": "string"
+          },
+          "hsn": {
+            "maxLength": 8,
+            "title": "Hsn",
+            "type": "string"
+          },
+          "igst": {
+            "default": "0",
+            "maxLength": 24,
+            "title": "Igst",
+            "type": "string"
+          },
+          "new_item": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PurchaseNewItemIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "product_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Id"
+          },
+          "product_name": {
+            "maxLength": 120,
+            "title": "Product Name",
+            "type": "string"
+          },
+          "quantity": {
+            "maxLength": 24,
+            "title": "Quantity",
+            "type": "string"
+          },
+          "sgst": {
+            "default": "0",
+            "maxLength": 24,
+            "title": "Sgst",
+            "type": "string"
+          },
+          "taxable_value": {
+            "maxLength": 24,
+            "title": "Taxable Value",
+            "type": "string"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          }
+        },
+        "required": [
+          "product_name",
+          "hsn",
+          "quantity",
+          "taxable_value",
+          "gst_rate"
+        ],
+        "title": "PurchaseLineIn",
+        "type": "object"
+      },
+      "PurchaseNewItemIn": {
+        "additionalProperties": false,
+        "description": "A product to create from a line. The name and HSN are the line's own; the rate is the business's to confirm.",
+        "properties": {
+          "code": {
+            "maxLength": 40,
+            "title": "Code",
+            "type": "string"
+          },
+          "gst_rate": {
+            "anyOf": [
+              {
+                "maxLength": 24,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gst Rate"
+          },
+          "has_cess": {
+            "default": false,
+            "title": "Has Cess",
+            "type": "boolean"
+          },
+          "rate_valid_from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate Valid From"
+          },
+          "tax_category": {
+            "enum": [
+              "taxable",
+              "exempt",
+              "nil_rated",
+              "non_gst"
+            ],
+            "title": "Tax Category",
+            "type": "string"
+          },
+          "uqc": {
+            "maxLength": 8,
+            "title": "Uqc",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "uqc",
+          "tax_category"
+        ],
+        "title": "PurchaseNewItemIn",
+        "type": "object"
+      },
+      "PurchasePresignedPostOut": {
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "fields": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Fields",
+            "type": "object"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "fields",
+          "expires_at"
+        ],
+        "title": "PurchasePresignedPostOut",
+        "type": "object"
+      },
+      "PurchaseReceivedOut": {
+        "properties": {
+          "created_product": {
+            "title": "Created Product",
+            "type": "boolean"
+          },
+          "line_no": {
+            "title": "Line No",
+            "type": "integer"
+          },
+          "price_needed": {
+            "title": "Price Needed",
+            "type": "boolean"
+          },
+          "product_id": {
+            "title": "Product Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "line_no",
+          "product_id",
+          "created_product",
+          "price_needed"
+        ],
+        "title": "PurchaseReceivedOut",
+        "type": "object"
+      },
+      "PurchaseWarningOut": {
+        "properties": {
+          "code": {
+            "enum": [
+              "tax_differs_from_rate",
+              "unit_differs_from_product"
+            ],
+            "title": "Code",
+            "type": "string"
+          },
+          "line_no": {
+            "title": "Line No",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "line_no",
+          "code"
+        ],
+        "title": "PurchaseWarningOut",
         "type": "object"
       },
       "RateIn": {
@@ -7329,6 +8979,21 @@
         "title": "ReturnsOut",
         "type": "object"
       },
+      "ReversalIn": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 300,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "ReversalIn",
+        "type": "object"
+      },
       "Role": {
         "enum": [
           "owner",
@@ -7876,6 +9541,80 @@
           "states"
         ],
         "title": "StateCodesOut",
+        "type": "object"
+      },
+      "StockItemOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "no_stock": {
+            "title": "No Stock",
+            "type": "boolean"
+          },
+          "on_hand": {
+            "title": "On Hand",
+            "type": "string"
+          },
+          "price_needed": {
+            "title": "Price Needed",
+            "type": "boolean"
+          },
+          "product_id": {
+            "title": "Product Id",
+            "type": "string"
+          },
+          "sale_rate": {
+            "title": "Sale Rate",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "uqc": {
+            "title": "Uqc",
+            "type": "string"
+          }
+        },
+        "required": [
+          "product_id",
+          "code",
+          "name",
+          "uqc",
+          "status",
+          "sale_rate",
+          "price_needed",
+          "on_hand",
+          "no_stock"
+        ],
+        "title": "StockItemOut",
+        "type": "object"
+      },
+      "StockPageOut": {
+        "properties": {
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/StockItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items",
+          "has_more"
+        ],
+        "title": "StockPageOut",
         "type": "object"
       },
       "SupportGrant": {
@@ -10227,6 +11966,237 @@
         ]
       }
     },
+    "/api/v1/b/{business_id}/documents": {
+      "get": {
+        "description": "The business's finalized documents, newest first (practice ones included, each says `is_practice`). Read-only.",
+        "operationId": "list_documents_api_v1_b__business_id__documents_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 1000000,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Documents",
+        "tags": [
+          "sales"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/documents/{document_id}": {
+      "get": {
+        "description": "One finalized document as stored, where its PDF stands and how many stock movements it wrote. Read-only: nothing\nis queued; ask for the PDF with POST .../pdf.",
+        "operationId": "get_document_api_v1_b__business_id__documents__document_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "title": "Document Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentDetailOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Document",
+        "tags": [
+          "sales"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/documents/{document_id}/pdf": {
+      "post": {
+        "description": "Queues the PDF of a finalized document, made from what was stored at finalize. While live\nnumbering is off every document is a practice one and the PDF says it is not a tax invoice.\nAsking again gives the same job unless the last attempt failed; poll GET .../pdf/{job_id}.",
+        "operationId": "document_pdf_request_api_v1_b__business_id__documents__document_id__pdf_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "title": "Document Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentPdfRef"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Document Pdf Request",
+        "tags": [
+          "sales"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/documents/{document_id}/pdf/{job_id}": {
+      "get": {
+        "operationId": "document_pdf_status_api_v1_b__business_id__documents__document_id__pdf__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "title": "Document Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Document Pdf Status",
+        "tags": [
+          "sales"
+        ]
+      }
+    },
     "/api/v1/b/{business_id}/drafts": {
       "get": {
         "description": "Open drafts, most recently saved first, with each one's total and readiness as of\nits last save. A cursor, not an offset: saving a draft moves it to the top, and an offset\nwould then show a row twice or skip one.",
@@ -11121,6 +13091,49 @@
         ]
       }
     },
+    "/api/v1/b/{business_id}/invoicing-plan": {
+      "get": {
+        "description": "The invoicing plan, its prices, how many free invoices are used, and whether the next one needs the plan. Read-only.",
+        "operationId": "get_invoicing_plan_api_v1_b__business_id__invoicing_plan_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoicingPlanOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Invoicing Plan",
+        "tags": [
+          "sales"
+        ]
+      }
+    },
     "/api/v1/b/{business_id}/jobs": {
       "get": {
         "operationId": "recent_jobs_api_v1_b__business_id__jobs_get",
@@ -11595,6 +13608,173 @@
         ]
       }
     },
+    "/api/v1/b/{business_id}/period-files": {
+      "get": {
+        "operationId": "list_period_files_api_v1_b__business_id__period_files_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 1000000,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeriodExportsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Period Files",
+        "tags": [
+          "filing"
+        ]
+      },
+      "post": {
+        "operationId": "make_period_files_api_v1_b__business_id__period_files_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PeriodFilesIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeriodExportOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Make Period Files",
+        "tags": [
+          "filing"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/period-files/{export_id}": {
+      "get": {
+        "operationId": "get_period_files_api_v1_b__business_id__period_files__export_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "export_id",
+            "required": true,
+            "schema": {
+              "title": "Export Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeriodExportOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Period Files",
+        "tags": [
+          "filing"
+        ]
+      }
+    },
     "/api/v1/b/{business_id}/plan": {
       "get": {
         "description": "The GST-filing plan and its prices, and whether it is free for now (`plans.FREE_FOR_NOW`). Read-only; nothing is charged.",
@@ -11635,6 +13815,119 @@
         "summary": "Get Plan",
         "tags": [
           "filing"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/plan-change-preview": {
+      "get": {
+        "description": "What a plan change would show: the unused part of the current period credited, the new plan's full price from now.\nDisplay only (D-086); the figures are the price list, never a charge.",
+        "operationId": "plan_change_preview_api_v1_b__business_id__plan_change_preview_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from_plan",
+            "required": true,
+            "schema": {
+              "enum": [
+                "gst_filing",
+                "invoicing"
+              ],
+              "title": "From Plan",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from_frequency",
+            "required": true,
+            "schema": {
+              "enum": [
+                "monthly",
+                "quarterly"
+              ],
+              "title": "From Frequency",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to_plan",
+            "required": true,
+            "schema": {
+              "enum": [
+                "gst_filing",
+                "invoicing"
+              ],
+              "title": "To Plan",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to_frequency",
+            "required": true,
+            "schema": {
+              "enum": [
+                "monthly",
+                "quarterly"
+              ],
+              "title": "To Frequency",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "days_left",
+            "required": true,
+            "schema": {
+              "title": "Days Left",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "period_days",
+            "required": true,
+            "schema": {
+              "title": "Period Days",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanChangeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plan Change Preview",
+        "tags": [
+          "sales"
         ]
       }
     },
@@ -12750,6 +15043,174 @@
         ]
       }
     },
+    "/api/v1/b/{business_id}/products/{product_id}/stock-adjustments": {
+      "post": {
+        "operationId": "adjust_stock_api_v1_b__business_id__products__product_id__stock_adjustments_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "title": "Product Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdjustmentIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MovementOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Adjust Stock",
+        "tags": [
+          "stock"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/products/{product_id}/stock-movements": {
+      "get": {
+        "operationId": "list_movements_api_v1_b__business_id__products__product_id__stock_movements_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "title": "Product Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "practice",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Practice"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 1000000,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MovementPageOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Movements",
+        "tags": [
+          "stock"
+        ]
+      }
+    },
     "/api/v1/b/{business_id}/products/{product_id}/unarchive": {
       "post": {
         "operationId": "unarchive_product_api_v1_b__business_id__products__product_id__unarchive_post",
@@ -12910,6 +15371,649 @@
         "summary": "Patch Profile",
         "tags": [
           "business"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/purchase-code-check": {
+      "get": {
+        "description": "For the review screen: is this product code free? The confirm still refuses a taken code.",
+        "operationId": "check_item_code_api_v1_b__business_id__purchase_code_check_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "maxLength": 40,
+              "title": "Code",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseCodeCheckOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Check Item Code",
+        "tags": [
+          "purchases"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/purchase-drafts": {
+      "get": {
+        "operationId": "list_drafts_api_v1_b__business_id__purchase_drafts_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "file_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "File Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "open_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Open Only",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 1000000,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseDraftsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Drafts",
+        "tags": [
+          "purchases"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/purchase-drafts/{draft_id}": {
+      "get": {
+        "operationId": "get_draft_api_v1_b__business_id__purchase_drafts__draft_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseDraftOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Draft",
+        "tags": [
+          "purchases"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/purchase-drafts/{draft_id}/confirm": {
+      "post": {
+        "description": "The business confirms the invoice with the values it checked on the review screen. Once; a second call is a\nconflict, not a second invoice. With an Idempotency-Key, a retry of the same request returns the first answer.",
+        "operationId": "confirm_draft_api_v1_b__business_id__purchase_drafts__draft_id__confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurchaseConfirmIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseConfirmedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm Draft",
+        "tags": [
+          "purchases"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/purchase-drafts/{draft_id}/discard": {
+      "post": {
+        "operationId": "discard_draft_api_v1_b__business_id__purchase_drafts__draft_id__discard_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseDraftOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Discard Draft",
+        "tags": [
+          "purchases"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/purchase-files": {
+      "get": {
+        "operationId": "list_files_api_v1_b__business_id__purchase_files_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 1000000,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseFilesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Files",
+        "tags": [
+          "purchases"
+        ]
+      },
+      "post": {
+        "description": "A purchase file and a presigned POST for exactly its key, type and declared size.",
+        "operationId": "start_file_api_v1_b__business_id__purchase_files_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurchaseFileStartIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseFileStartOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start File",
+        "tags": [
+          "purchases"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/purchase-files/{file_id}": {
+      "get": {
+        "operationId": "get_file_api_v1_b__business_id__purchase_files__file_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "file_id",
+            "required": true,
+            "schema": {
+              "title": "File Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseFileOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get File",
+        "tags": [
+          "purchases"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/purchase-files/{file_id}/complete": {
+      "post": {
+        "description": "The upload finished: check it is there, then queue the read. Calling it again returns the same job.",
+        "operationId": "complete_file_api_v1_b__business_id__purchase_files__file_id__complete_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "file_id",
+            "required": true,
+            "schema": {
+              "title": "File Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseJobRef"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Complete File",
+        "tags": [
+          "purchases"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/purchase-invoices": {
+      "get": {
+        "operationId": "list_purchase_invoices_api_v1_b__business_id__purchase_invoices_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 1000000,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseConfirmedListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Purchase Invoices",
+        "tags": [
+          "purchases"
         ]
       }
     },
@@ -14361,6 +17465,201 @@
         "summary": "List Rows",
         "tags": [
           "imports"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/stock": {
+      "get": {
+        "operationId": "list_stock_api_v1_b__business_id__stock_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 100,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "default": "active",
+              "enum": [
+                "active",
+                "archived",
+                "all"
+              ],
+              "title": "Status",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "only",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "no_stock",
+                    "price_needed"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Only"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 1000000,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockPageOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Stock",
+        "tags": [
+          "stock"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/stock-movements/{movement_id}/reversals": {
+      "post": {
+        "operationId": "reverse_movement_api_v1_b__business_id__stock_movements__movement_id__reversals_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "movement_id",
+            "required": true,
+            "schema": {
+              "title": "Movement Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReversalIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MovementOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reverse Movement",
+        "tags": [
+          "stock"
         ]
       }
     },

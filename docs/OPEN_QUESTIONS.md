@@ -267,6 +267,68 @@ Every row in `refdata/` is `provisional`. Before go-live:
 - **C-17 rounding and cess (LLD-5 §6, R1-M8 follow-up 1).** The check compares each tax head with round half up of taxable value x rate (IGST at the rate, CGST and SGST each at half of it), as the spec's golden example does (1,339.39 at 9% gives 120.55). The spec says nothing about cess, so cess is not compared. Which figure the return should carry (ours or the tool's) is CA-2; until it is answered the finding is a warning marked for the CA.
 - **Emulator run is blocked on a permission, not on the emulator (R1-M11 prep, 2026-11-18).** The emulator exists and has crates for our services, but a trimmed scratch build and the Terraform provider mirror were each refused by the session's permission check. Pankaj (or the session owner) decides whether the scratch `cargo build` may run, or whether we use the `moto` fallback described in `docs/AWS_EMULATOR.md`. No emulator result exists yet.
 
+## R2-M2 purchase invoices (2026-11-18)
+- **Photos and scans are typed in, not read (needs Pankaj, D2).** Until a picture reader is chosen and switched on (Bedrock approval and the AWS console check, or an OCR container, D-077, D-078), a phone photo or scanned bill gets a blank draft and the business types every field. The review screen and the confirm path are the same when a reader is later switched on; only the draft's prefilled values change.
+- **Purchase permissions.** The routes reuse `uploads.create` and `uploads.view`. The roles matrix lists "Post purchase bill" for more roles (and "cost data" hidden from sales and viewer). Whether purchases get their own permission, and which roles see purchase costs, is for R2-M3 and R4; no cost field is shown to a role beyond what uploads already allow.
+- **Duplicate rule for supplier invoice numbers.** The same supplier GSTIN, financial year and number (case and spaces folded) cannot be confirmed twice. Whether a supplier's number can legitimately repeat inside a financial year is a CA question (with CA-5).
+- **Product names.** The reader returns no item description, so names are typed on the review. Reading the description column is a later reader change.
+- **Files expire, records do not.** The raw purchase file follows the `uploads` area's expiry; once purged, a confirmed purchase still shows its values and the draft it came from, but not the paper. Whether purchase papers must be kept longer is a CA and retention question.
+- **Web screens (R2-M2).** `/b/:id/purchases` (upload, business-type prompt, what waits) and `/b/:id/purchases/:draftId` (review) are built behind the invoicing flag, from the routes' own shape, not checked against mock v13 pixel by pixel. The new-item form has no cess switch yet (a new item is created with no cess), and the existing-product list shows the first 100 active products only.
+## R2-M1 (business type)
+
+- **Business type before R2 invoicing: decided.** Optional at sign-up, required before invoicing (CEO, 2026-11-18, D-080); the server check is `require_business_type`. Still open: what the web shows a business that hits `business_type_required` (a link to Business setup is the plan; screens come with R2-M2 and later).
+- **Does a third choice or a rename belong on the list?** The list is exactly Distributor and Retail, the two words in Pankaj's R2 note. Anything else (wholesaler, manufacturer) is a new decision, not a wording change.
+- **Plan choice by type.** The price list differs by business type (filing-only against invoicing). R1-M9 is a placeholder with "free for now", so nothing maps type to plan yet; that mapping is for the payments milestone.
+- **Changing the type later.** Allowed at any time with an audit row. Whether a change after sales invoices exist should warn or be refused is not decided; it matters only once R2 invoicing exists.
+
+## R2-M3 (catalog and stock ledger)
+
+- **Negative stock (D-012) is only partly answered.** Pankaj's rule is that a sale at zero stock shows "no stock" and is never blocked, so the ledger lets the balance go below zero. Whether a stock adjustment, a marketplace deduction or a role-limited case should ever refuse is not decided; today nothing refuses.
+- **Who may correct stock.** Adjustments and reversals use catalog.edit, so owner, admin and billing can make them; the CA can only read. A stricter rule (owner and admin only, or a reason list) is a product decision, not built.
+- **Costing.** Each purchase line can store its price per 1 qty (`unit_cost`), but no average cost, margin or profit is computed. The costing policy is an approval gate (CLAUDE.md) and stays open.
+- **Locations.** One stock pool per business. Warehouses or shops (DOMAIN_MODEL's InventoryLocation) are not built; adding one later means a location column on the ledger.
+- **Returns and credit notes.** A sales return is not stock-in by itself (BUSINESS_RULES §4). Nothing posts it yet; R2 has no returns milestone.
+- **Archived products.** A product that is archived can still receive stock and be adjusted (stock arrives whatever the catalog says). Whether a purchase should offer to restore it is for the M2 review screen.
+- **A second purchase for the same line.** `(source_id, source_line_id)` is the once-only key. If M2 lets a business change a confirmed line, the change must be a reversal plus a new receipt, never an edit; M2 owns that flow.
+- **Web.** M3 ships the server and the interface. The stock screen, the "no stock" notice and the set-price step come with the web milestones on mock v13; the R1 product screens do not change yet.
+
+## R2-M4 (sales from the catalog, with stock)
+
+- **Practice invoices and stock: decided.** They take stock out like any other (CEO, 2026-11-18) and their movements are tagged `is_practice`, so a trial can be filtered or reversed (D-082). Still open: whether a business needs a one-step "undo all practice sales" action; today each is reversed by hand.
+- **Returns and cancellations.** Nothing cancels or credits an invoice yet (no credit notes). A stock reversal puts the goods back in the ledger and leaves the invoice as it was; a credit note flow with its own stock rule is not built.
+- **Services and non-stock items.** Every catalog product is treated as stock-tracked, so a service line shows "no stock". A "does not hold stock" flag on a product is not built; it would also need a rule on what finalize does for it.
+- **Stock check at finalize time.** `no_stock` and `low_stock` are computed from the ledger when the draft is saved or previewed and again at finalize; two invoices drafted before either is finalized can together sell more than is held. That is allowed by design (never block) and the balance simply goes negative.
+- **Quantity range.** Sales quantities are numeric(18,3) and the ledger numeric(15,3); a quantity above the ledger's range fails finalize with `quantity_invalid` instead of a database error. No real invoice reaches it.
+- **Zero price.** A catalog product can have a 0.00 selling price (R1 allowed it). It warns `price_zero`; refusing it is not decided.
+
+## R2-M5 (finalize and invoice PDF)
+
+- **Live invoice template.** The `invoice-document` template prints the Rule 46 fields from `team/gst/document-fields.md` so far as the stored document has them, but only as a practice page. A live "Tax Invoice" template needs the CA's approval of the fields and wording (D-010) and is refused until then. Fields the document does not carry yet (for example a signature block, "E&OE", e-invoice IRN/QR, bank details, terms) are not printed; whether they are required or wanted is open.
+- **Charges on the page.** The document stores the charges total and the charge labels, not each charge's amount, so the PDF shows one row with the labels and the total. Per-charge amounts would need a stored breakdown.
+- **Download screen.** There is no web screen yet for "Download PDF" on a finalized invoice; the API is built and tested (D-083). Which screen carries it is for the web milestone.
+- **Auto-queue at finalize.** The PDF is generated when asked, not at finalize. Queueing it at finalize would give the user a ready file sooner at the cost of a render per invoice; not decided.
+- **Reprints.** Every reprint reads the stored document, so it matches the first one. Whether to keep each generated PDF as a dated record is not decided.
+- **Renderer tests need the built task.** They skip unless `RENDERER_TASK` points at an unpacked renderer zip. The new template's tests, which need no native libraries, were run with `RENDERER_TASK` set to the source folder; WeasyPrint rendering of the new template runs only in CI's `renderer` job and has not been run locally.
+
+## R2-M7 (invoicing plan)
+
+- **Do practice invoices count toward the 10 free ones?** Built as yes (D-086): with live numbering off every invoice is practice, so otherwise the limit could never apply. The cost is that a business that tries the product with practice invoices uses its free ones. The alternative (count only live invoices) makes the plan inert until the CA confirms numbering. Pankaj or the CEO to confirm.
+- **Wording for the 11th invoice.** The BRD says only "first 10 invoices free". The refusal text and the "Choose an invoicing plan" prompt are ours and need Pankaj's wording, plus the web screen (not built).
+- **Proration formula.** The preview credits the unused part of the current period and starts the new plan's full price now. A provider may prorate differently (Razorpay's proration support is unknown); confirm with the provider (D3) before the figures are shown as a charge.
+- **Which plan is the business on?** Nothing stores a purchased plan yet (no payments). The check hook `entitlement.set_invoice_check` is where the provider integration will say so; until then the preview takes the current plan and days left as inputs.
+- **GST on our fee** is not computed anywhere (D6).
+## R2-M6 monthly and quarterly files (2026-11-18)
+- **Purchase register is our own format.** It is not a GST portal file and no portal sample exists for purchases; it says `portal_file: false`. If Pankaj or the CA wants a specific layout (for example the GSTR-2B reconciliation or a books import), that is a change to `build_register`.
+- **Input tax credit.** Purchases are listed as the business confirmed them. Eligibility of credit, reverse charge on purchases, and a purchase from an unregistered supplier are not decided here (CA question, with CA-5).
+- **GSTR-1 JSON for sales is the return's own export.** The monthly files do not remake it. A business sees the two together only through the response's list of return instances; a one-button bundle that triggers the GSTR-1 export too is a screen decision.
+- **Web screen (built).** `/b/:id/period-files` (owner, admin, CA; behind the invoicing flag): choose a finished month (a quarter too, for a quarterly filer), make the files, Download on each; earlier files get fresh links on request. The "button enabled only once the period has ended" rule is the server's; the screen offers only finished periods.
+- **Large periods.** (cap now 10,000, see below) A period with more than `filing.period_files.max_rows` rows of any kind is refused with `period_too_large`; the files are made inside the request, not a job. A job would be needed for bigger businesses.
+- **Workbook bytes.** The workbook is not byte-for-byte reproducible (the zip carries its own write times), so repeat requests return the stored file by fingerprint rather than rebuilding it.
+- **Purchases are placed in a period by invoice date (CA question).** Whether input tax credit follows the invoice date, the date received or the date the business confirmed it is for the CA sheet; the workbook says it does not decide ITC. A purchase confirmed late for an exported month makes a new export (the old stays, insert-only); the screen shows the newest first.
+- **Cap lowered to 10,000 rows per kind (Staff review of M6, S1).** Files are still built inside the request; 50,000 was never measured. `filing.period_files.max_rows` is now 10,000 until someone measures the API Lambda's time and memory on a real large month, or generation moves to a job. A month above the cap is refused with `period_too_large`.
+- **Download rule checked first (S2/S3).** The plan check runs before anything is built or stored, so a refusal leaves no objects behind.
+- **Excel text stays text (B1).** Every text cell is written as a string cell, so a supplier name or document number that starts with `=` is shown as text, never run as a formula.
+
 ## Release blockers (not R1 build blockers; Pankaj, 2026-11-17)
 These need Pankaj or his CA and do not stop building. Each must be done before production release.
 - **CA question sheet** (`team/program-lead/ca-question-sheet-v1.md`, CA-1 to CA-5 above and the platform treatment items): Pankaj takes it to his CA just before release.

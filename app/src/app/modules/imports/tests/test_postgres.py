@@ -198,6 +198,9 @@ def test_support_read_is_select_only_and_on_every_table(svc):
                            ("bundles", "SELECT"), ("document_lines", "SELECT"), ("documents", "SELECT"),
                            ("import_rows", "SELECT"),
                            ("import_runs", "SELECT"), ("period_confirmations", "SELECT"),
+                           ("purchase_draft_lines", "SELECT"), ("purchase_drafts", "SELECT"),
+                           ("purchase_files", "SELECT"), ("purchase_review_lines", "SELECT"),
+                           ("purchase_reviews", "SELECT"),
                            ("row_resolutions", "SELECT"), ("uploads", "SELECT")]
 
 

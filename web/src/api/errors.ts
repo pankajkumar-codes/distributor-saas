@@ -39,6 +39,9 @@ export function toApiError(response: Response | undefined, body: unknown, detail
 }
 
 const BY_CODE: Record<string, string> = {
+  // Invoicing (R2)
+  invoice_plan_required: "You have used your free invoices. Choose the invoicing plan to keep creating invoices.",
+  business_type_required: "Choose Distributor or Retail in Business setup first.",
   code_not_accepted: "That code didn't work. Check it, or send a new code.",
   email_invalid: "Enter a valid email address, like name@business.in.",
   password_weak: "Choose a stronger password.",
@@ -48,6 +51,10 @@ const BY_CODE: Record<string, string> = {
   // Preparing and filing a GST return (R1-M8)
   not_ready: "This return is not ready yet. Look at the items above and try again.",
   download_not_available: "Downloading the file is not available on your plan yet.",
+  period_not_ended: "That period has not ended yet. Come back after it has.",
+  period_too_large: "This period has more rows than one file can hold. Choose a shorter one, or contact support.",
+  quarter_not_for_monthly_filer: "Quarter files are for businesses that file quarterly.",
+  gstin_required: "Add your GSTIN in your business details first.",
   nothing_to_file: "There is nothing in this return to put in a file.",
   not_renderable: "We can't make a file for this kind of return yet.",
   file_too_large: "The file came out too large for the portal. Contact support.",

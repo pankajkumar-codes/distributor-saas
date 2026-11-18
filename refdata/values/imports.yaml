@@ -1120,3 +1120,33 @@
   source_title: "Bundle plan, decision 3: how many zips may sit inside the bundle zip (1: one level is opened, a zip inside that is refused)"
   last_checked: 2026-11-17
   status: provisional
+
+- key: imports.purchase.max_lines
+  value: "300"
+  type: integer
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r2-m2-purchase-review.md
+  source_title: "R2-M2: the most lines one purchase invoice can have on the review screen (abuse cap, not a tax rule)"
+  last_checked: 2026-11-18
+  status: provisional
+
+- key: imports.purchase.max_gst_rate
+  value: "100"
+  type: decimal
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r2-review-1.md
+  source_title: "R2-M2 review S2: the largest GST rate (percent) a purchase line may carry; a sanity cap, not a tax rate"
+  last_checked: 2026-11-18
+  status: provisional
+
+- key: imports.purchase.tax_tolerance
+  value: "0.01"
+  type: decimal
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/engineering/r2-review-1.md
+  source_title: "R2-M2 review S2: how far (in rupees) tax columns may differ from taxable value x rate before a warning shows"
+  last_checked: 2026-11-18
+  status: provisional

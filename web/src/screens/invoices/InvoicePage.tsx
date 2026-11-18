@@ -1,6 +1,6 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { api, call } from "../../api/client";
 import { errorText, type ApiError } from "../../api/errors";
@@ -17,8 +17,10 @@ import { RadioGroup } from "../../kit/RadioGroup";
 import { SelectField } from "../../kit/SelectField";
 import { TopBar } from "../../kit/TopBar";
 import { blankForm, draftIn, formOf, newLine, sameForm, type Draft, type Form } from "./draftForm";
+import { useStockFlags } from "../stock/useStock";
 import { CustomerPicker, ProductPicker } from "./Pickers";
 import { Totals } from "./Totals";
+import { useFinalize } from "./useFinalize";
 import { usePreview } from "./usePreview";
 
 type Product = components["schemas"]["ProductOut"];
@@ -26,7 +28,8 @@ type Product = components["schemas"]["ProductOut"];
 /**
  * M10 2a: a draft invoice. Everything shown about tax and totals is the server's computation
  * from the last save; the page never works out an amount. There is no Finalize here: it needs
- * the number series, which waits on the CA (LLD-4 L4-2), and stays out until its flag is on.
+ * the number series, which waits on the CA (LLD-4 L4-2); the server answers "not found" until
+ * it is on, and the page says so. While live numbering is off every finalized invoice is a practice one.
  */
 export function InvoicePage() {
   const { businessId = "", draftId } = useParams();
@@ -72,8 +75,11 @@ export function InvoicePage() {
         ? call(() => api.PUT("/api/v1/b/{business_id}/drafts/{draft_id}", { params: { path, header: { "If-Match": String(saved?.version) } }, body: draftIn(f) }))
         : call(() => api.POST("/api/v1/b/{business_id}/drafts", { params: { path: { business_id: businessId }, header: { "Idempotency-Key": key.current } }, body: draftIn(f) })),
     onMutate: () => setStale(false),
-    onSuccess: (out) => {
+    onSuccess: (out, sent) => {
       queryClient.setQueryData(["b", businessId, "draft", out.id], out);
+      // The server fills a blank rate with the product's rate on save, so show the saved draft as it is:
+      // otherwise the form reads as changed straight after saving and Preview and Finalize stay off.
+      setForm(formOf(out, Object.fromEntries(sent.lines.map((l) => [l.product_id, l.name]))));
       queryClient.invalidateQueries({ queryKey: ["b", businessId, "drafts"] });
       setSaved(out);
       if (!draftId) navigate(`/b/${businessId}/invoices/${out.id}`, { replace: true });
@@ -90,6 +96,8 @@ export function InvoicePage() {
     onError: (e) => setStale(e.code === "stale_record"),
   });
   const preview = usePreview(businessId, draftId ?? "");
+  const finalize = useFinalize(businessId, draftId ?? "", saved?.version, `finalize-${draftId}-${saved?.version}`, (doc) => navigate(`/b/${businessId}/documents/${doc.id}`, { replace: true }));
+  const flags = useStockFlags(businessId, Boolean(business));
 
   if (businesses.isPending) return <main className="page" aria-busy="true"><p>Loading…</p></main>;
   if (!business || !canCreateDocuments(business.role) || loaded.error?.status === 404) return <NotFound />;
@@ -117,6 +125,12 @@ export function InvoicePage() {
   };
   const setLine = (i: number, patch: Partial<Form["lines"][number]>) => set({ lines: form.lines.map((l, n) => (n === i ? { ...l, ...patch } : l)) });
   const pickProduct = (p: Product) => set({ lines: [...form.lines, { ...newLine(), product_id: p.id, name: p.name }] });
+  const finalizeError = finalize.error;
+  const finalizeWords = !finalizeError
+    ? null
+    : finalizeError.status === 404
+      ? "Finalizing isn't switched on for your business yet. Your draft is saved."
+      : finalizeError.fix ?? (finalizeError.message || errorText(finalizeError));
   const previewReady = preview.status.data?.status === "ready" && preview.forVersion === saved?.version;
 
   return (
@@ -124,6 +138,7 @@ export function InvoicePage() {
       <TopBar title={business.display_name} gstin={business.gstin} />
       <main className="page page-wide">
         <h1>{draftId ? "Draft invoice" : "New invoice"}</h1>
+        <>
         <p className="hint">Draft · gets its number when you finalize</p>
         {stale && (
           <Banner tone="error">
@@ -134,7 +149,17 @@ export function InvoicePage() {
             (your unsaved changes here are replaced).
           </Banner>
         )}
-        {error && !stale && <Banner tone="error">{error.fix ?? (error.message || errorText(error))}</Banner>}
+        {error && !stale && (
+          <Banner tone="error">
+            {error.fix ?? (error.message || errorText(error))}
+            {error.code === "business_type_required" && (
+              <>
+                {" "}
+                <Link to={`/b/${businessId}/settings/company`}>Open Business setup</Link>
+              </>
+            )}
+          </Banner>
+        )}
         <form onSubmit={submit} noValidate>
           <RadioGroup<"customer" | "cash">
             legend="Bill to"
@@ -163,6 +188,8 @@ export function InvoicePage() {
               <legend>
                 {i + 1}. {l.name || names[l.product_id] || "Product"}
               </legend>
+              {flags.noStock.has(l.product_id) && <p className="hint">No stock on hand for this product. You can still sell it; stock goes below zero until you add a purchase.</p>}
+              {flags.priceNeeded.has(l.product_id) && /^0*(\.0*)?$/.test(l.unit_price.trim()) && <p className="hint">This product has no selling price yet. Enter a rate here, or set its price under <Link to={`/b/${businessId}/stock?only=price_needed`}>Stock</Link>.</p>}
               <Field label="Quantity" inputMode="decimal" value={l.quantity} onChange={(e) => setLine(i, { quantity: e.target.value })} />
               <Field label="Rate (excl. GST)" inputMode="decimal" value={l.unit_price} onChange={(e) => setLine(i, { unit_price: e.target.value })} hint="Blank uses the product's sale rate." />
               <SelectField
@@ -253,6 +280,27 @@ export function InvoicePage() {
         )}
 
         {saved && (
+          <section aria-label="Finalize">
+            <Button type="button" busy={finalize.isPending} disabled={dirty || saved.ready === false} onClick={() => finalize.mutate()}>
+              Finalize invoice
+            </Button>
+            {dirty && <p className="hint">Save first: the invoice is made from the saved draft.</p>}
+            {!dirty && saved.ready === false && <p className="hint">Fix the checks above, then save, before you finalize.</p>}
+            {finalizeWords && (
+              <Banner tone="error">
+                {finalizeWords}
+                {finalizeError?.code === "invoice_plan_required" && (
+                  <>
+                    {" "}
+                    <Link to={`/b/${businessId}/settings/plan`}>See the invoicing plan</Link>
+                  </>
+                )}
+              </Banner>
+            )}
+          </section>
+        )}
+
+        {saved && (
           <div className="actions">
             {confirmDelete ? (
               <>
@@ -271,6 +319,7 @@ export function InvoicePage() {
             )}
           </div>
         )}
+        </>
       </main>
     </>
   );
