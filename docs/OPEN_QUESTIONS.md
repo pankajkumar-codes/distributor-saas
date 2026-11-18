@@ -267,6 +267,13 @@ Every row in `refdata/` is `provisional`. Before go-live:
 - **C-17 rounding and cess (LLD-5 §6, R1-M8 follow-up 1).** The check compares each tax head with round half up of taxable value x rate (IGST at the rate, CGST and SGST each at half of it), as the spec's golden example does (1,339.39 at 9% gives 120.55). The spec says nothing about cess, so cess is not compared. Which figure the return should carry (ours or the tool's) is CA-2; until it is answered the finding is a warning marked for the CA.
 - **Emulator run is blocked on a permission, not on the emulator (R1-M11 prep, 2026-11-18).** The emulator exists and has crates for our services, but a trimmed scratch build and the Terraform provider mirror were each refused by the session's permission check. Pankaj (or the session owner) decides whether the scratch `cargo build` may run, or whether we use the `moto` fallback described in `docs/AWS_EMULATOR.md`. No emulator result exists yet.
 
+## R2-M1 (business type)
+
+- **Is business type required once R2 invoicing starts?** It is optional now (D-080), so every R1 business keeps working with no value. A filing-only marketplace seller has no distributor or retail answer to give. If a business must choose before it can upload purchase invoices or make sales invoices (R2-M2 on), the screens that start those need to ask for it first. Needs the EM or Pankaj; until then nothing in the product depends on the value.
+- **Does a third choice or a rename belong on the list?** The list is exactly Distributor and Retail, the two words in Pankaj's R2 note. Anything else (wholesaler, manufacturer) is a new decision, not a wording change.
+- **Plan choice by type.** The price list differs by business type (filing-only against invoicing). R1-M9 is a placeholder with "free for now", so nothing maps type to plan yet; that mapping is for the payments milestone.
+- **Changing the type later.** Allowed at any time with an audit row. Whether a change after sales invoices exist should warn or be refused is not decided; it matters only once R2 invoicing exists.
+
 ## Release blockers (not R1 build blockers; Pankaj, 2026-11-17)
 These need Pankaj or his CA and do not stop building. Each must be done before production release.
 - **CA question sheet** (`team/program-lead/ca-question-sheet-v1.md`, CA-1 to CA-5 above and the platform treatment items): Pankaj takes it to his CA just before release.

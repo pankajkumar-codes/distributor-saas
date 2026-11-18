@@ -77,6 +77,7 @@ class ProfileOut(BaseModel):
     registration: RegistrationOut
     address: AddressOut
     einvoice_history: Literal["no", "yes", "not_sure"] | None
+    business_type: Literal["distributor", "retail"] | None  # null: not chosen
     turnover_band: TurnoverBandOut | None  # the current FY's
     previous_turnover_band: TurnoverBandOut | None  # last FY's; HSN digits and e-invoicing read it ([S4P-1])
     ready_for_documents: ReadinessOut
@@ -165,6 +166,7 @@ def _profile_out(uow, today: date) -> ProfileOut:
         address=AddressOut(line1=p.address_line1, line2=p.address_line2, city=p.city, pin=p.pin,
                            state_code=p.address_state_code),
         einvoice_history=p.einvoice_history,
+        business_type=p.business_type,
         turnover_band=None if band is None else _band_out(band),
         previous_turnover_band=None if previous is None else _band_out(previous),
         ready_for_documents=ReadinessOut(ok=ready.ok, missing=ready.missing),

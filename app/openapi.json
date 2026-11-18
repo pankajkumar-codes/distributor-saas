@@ -5478,6 +5478,21 @@
               }
             ]
           },
+          "business_type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "distributor",
+                  "retail"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Business Type"
+          },
           "einvoice_history": {
             "enum": [
               "no",
@@ -6471,6 +6486,21 @@
             "title": "Business Id",
             "type": "string"
           },
+          "business_type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "distributor",
+                  "retail"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Business Type"
+          },
           "einvoice_history": {
             "anyOf": [
               {
@@ -6547,6 +6577,7 @@
           "registration",
           "address",
           "einvoice_history",
+          "business_type",
           "turnover_band",
           "previous_turnover_band",
           "ready_for_documents",
@@ -6568,6 +6599,21 @@
                 "type": "null"
               }
             ]
+          },
+          "business_type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "distributor",
+                  "retail"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Business Type"
           },
           "einvoice_history": {
             "anyOf": [

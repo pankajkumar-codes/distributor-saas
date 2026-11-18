@@ -80,6 +80,19 @@ def test_a_retry_with_the_same_key_returns_the_first_answer_and_creates_nothing(
     assert create(pg.client, sub="bob", key="k1").json()["business_id"] != first.json()["business_id"]
 
 
+def test_business_type_is_optional_at_sign_up_and_stored_when_sent(pg):  # R2-M1
+    r = create(pg.client)  # BODY has none: an R1-style filing-only business
+    assert r.status_code == 201, r.text
+    assert scalar(pg.owner, "select business_type from business.profiles where business_id = :b",
+                  b=r.json()["business_id"]) is None
+    r = create(pg.client, sub="bob", body={**BODY, "business_type": "retail"})
+    assert r.status_code == 201, r.text
+    assert scalar(pg.owner, "select business_type from business.profiles where business_id = :b",
+                  b=r.json()["business_id"]) == "retail"
+    refused = create(pg.client, sub="carol", body={**BODY, "business_type": "salon"})
+    assert refused.status_code == 422
+
+
 def test_the_owned_business_limit_holds(pg):
     for _ in range(5):
         assert create(pg.client).status_code == 201
