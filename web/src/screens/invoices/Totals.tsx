@@ -1,3 +1,5 @@
+import { Link, useLocation, useParams } from "react-router-dom";
+
 import type { components } from "../../api/schema";
 import { formatRupees as rupees } from "../../format/money";
 
@@ -7,6 +9,8 @@ type Issue = components["schemas"]["IssueOut"];
 // Display only: every figure is the server's string; the page does no tax arithmetic.
 
 function Issues({ title, items, tone }: { title: string; items: Issue[]; tone: "error" | "info" }) {
+  const { businessId = "" } = useParams();
+  const here = useLocation().pathname;
   if (items.length === 0) return null;
   return (
     <div className={`banner banner-${tone}`} role={tone === "error" ? "alert" : "status"}>
@@ -16,6 +20,15 @@ function Issues({ title, items, tone }: { title: string; items: Issue[]; tone: "
           <li key={`${i.code}-${i.line_no ?? ""}-${n}`}>
             {i.line_no ? `Line ${i.line_no}: ` : ""}
             {i.fix}
+            {i.code === "hsn_needs_turnover_band" && (
+              <>
+                {" "}
+                <Link to={`/b/${businessId}/settings#last-year-band`} state={{ backTo: here }}>
+                  Set last year's turnover band
+                </Link>{" "}
+                (you'll come back to this invoice).
+              </>
+            )}
           </li>
         ))}
       </ul>
@@ -38,8 +51,10 @@ export function Totals({ c, states }: { c: Computation; states: Record<string, s
         </p>
       )}
       <dl className="totals">
-        <dt>Taxable value</dt>
-        <dd>{rupees(c.taxable_total)}</dd>
+        <div className="row">
+          <dt>Taxable value</dt>
+          <dd>{rupees(c.taxable_total)}</dd>
+        </div>
         {heads.map(([name, v]) => (
           <div key={name} className="row">
             <dt>{name}</dt>
