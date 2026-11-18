@@ -467,6 +467,14 @@ A business uploads a supplier's invoice as a PDF, or as a photo of a paper bill 
 - **Tests.** `tests/test_purchases_postgres.py` (13, PostgreSQL, real sandbox, synthetic PDFs and made-up photo bytes): read, review, blank draft for a photo and for a scan, same file twice, complete twice, wrong file kinds, server-side validation, decide once, duplicate invoice, discard, insert-only triggers, tenant isolation, roles, audit has no values. **Not run:** a real phone photo or scan (nothing reads one yet), real Bedrock, a browser run of the web screens (unit tests only, with a fake API).
 - **Storage.** Files use the `uploads` area of the object store, so the raw-file expiry rule of that area applies; the drafts and reviews stay.
 
+### Review fixes after Staff review (r2-review-1)
+
+- Amounts are ASCII digits with an optional point only (`^[0-9]+(\.[0-9]+)?$`); look-alike digits such as "²" are a 422 `amount_invalid`, never a 500.
+- Two confirms of one supplier invoice from different files that pass the pre-check together meet the unique index inside a savepoint and answer 409 `purchase_already_confirmed`; nothing is received.
+- Confirm and discard accept an optional `Idempotency-Key`: a retry with the same key and body returns the first answer (including `received`); the same key with another body is `idempotency_mismatch`. The web screen sends one key per attempt.
+- `gst_rate` above `imports.purchase.max_gst_rate` (100, a sanity cap) is refused. The confirm response carries `warnings` (never blocking, nothing recomputed): `tax_differs_from_rate` when taxable value x rate and the IGST/CGST/SGST columns differ by more than `imports.purchase.tax_tolerance` (0.01), and `unit_differs_from_product` when a line received into an existing product has a unit other than the product's UQC.
+- Note (S4): the file row stays locked (FOR UPDATE) while the sandboxed PDF read runs, so a second reader of the same file waits; accepted for now as reads are short and capped.
+
 ## Retention of uploads (R1-M3, TD-18)
 
 `retention.purge_uploads()` (the third rule of the retention Lambda, after `purge_drafts`) does two things in the
