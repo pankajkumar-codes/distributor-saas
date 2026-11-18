@@ -2734,6 +2734,24 @@
         "title": "DocumentOut",
         "type": "object"
       },
+      "DocumentPdfRef": {
+        "properties": {
+          "attempt": {
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "attempt"
+        ],
+        "title": "DocumentPdfRef",
+        "type": "object"
+      },
       "DocumentRef": {
         "properties": {
           "number": {
@@ -10560,6 +10578,118 @@
         "summary": "Unarchive Customer",
         "tags": [
           "catalog"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/documents/{document_id}/pdf": {
+      "post": {
+        "description": "Queues the PDF of a finalized document, made from what was stored at finalize. While live\nnumbering is off every document is a practice one and the PDF says it is not a tax invoice.\nAsking again gives the same job unless the last attempt failed; poll GET .../pdf/{job_id}.",
+        "operationId": "document_pdf_request_api_v1_b__business_id__documents__document_id__pdf_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "title": "Document Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentPdfRef"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Document Pdf Request",
+        "tags": [
+          "sales"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/documents/{document_id}/pdf/{job_id}": {
+      "get": {
+        "operationId": "document_pdf_status_api_v1_b__business_id__documents__document_id__pdf__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "title": "Document Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Document Pdf Status",
+        "tags": [
+          "sales"
         ]
       }
     },

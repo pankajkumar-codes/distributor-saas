@@ -66,6 +66,7 @@ ACTIONS: dict[str, tuple[str, str]] = {
     "draft.deleted": ("Deleted an invoice draft", "invoices"),
     "document.finalized": ("Finalized an invoice", "invoices"),
     "document.pos_override": ("Changed an invoice's place of supply", "invoices"),
+    "document.pdf_requested": ("Asked for an invoice PDF", "invoices"),
     "stock.received": ("Received stock from a purchase invoice", "invoices"),
     "stock.adjusted": ("Corrected a stock count", "invoices"),
     "stock.reversed": ("Reversed a stock movement", "invoices"),

@@ -152,6 +152,18 @@ def test_the_same_natural_key_returns_the_same_job_within_a_business_only(db, qu
     assert other != first
 
 
+def test_latest_is_the_newest_job_of_that_type_and_prefix_in_this_business_only(db, queue):
+    one, two = create(key="doc-1:1"), create(key="doc-1:2")
+    create(key="doc-2:1")
+    other = create(business=B, user=RAVI, key="doc-1:3")
+    with unit_of_work(P(), read_only=True) as uow:
+        assert jobs.latest(uow, "test.ok", "doc-1:").id == two != one
+        assert jobs.latest(uow, "test.ok", "doc-9:") is None
+        assert jobs.latest(uow, "test.other", "doc-1:") is None
+    with unit_of_work(P(business=B, user=RAVI), read_only=True) as uow:
+        assert jobs.latest(uow, "test.ok", "doc-1:").id == other
+
+
 def test_unknown_job_types_and_non_id_payloads_are_refused(db, queue):
     with pytest.raises(ValueError, match="no handler"):
         create("test.nobody")

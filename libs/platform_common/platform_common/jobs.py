@@ -210,6 +210,18 @@ def get(uow: UnitOfWork, job_id: uuid.UUID) -> JobView | None:
     return None if row is None else JobView(*row)
 
 
+def latest(uow: UnitOfWork, type_: str, natural_key_prefix: str) -> JobView | None:
+    """The business's newest job of `type_` whose natural key starts with the prefix (letters,
+    digits, hyphens and colons only), or None. For work that may be asked again after it
+    failed, with the attempt number in the key."""
+    row = uow.tx.execute(
+        text(f"select {_COLUMNS} from platform.jobs where business_id = :b and type = :t"  # noqa: S608
+             " and starts_with(natural_key, :p) order by created_at desc, id desc limit 1"),
+        {"b": uow.principal.business_id, "t": type_, "p": natural_key_prefix},
+    ).one_or_none()
+    return None if row is None else JobView(*row)
+
+
 def recent(uow: UnitOfWork, limit: int = RECENT) -> list[JobView]:
     rows = uow.tx.execute(
         text(f"select {_COLUMNS} from platform.jobs where business_id = :b"  # noqa: S608

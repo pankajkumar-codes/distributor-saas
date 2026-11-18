@@ -332,6 +332,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/documents/{document_id}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Document Pdf Request
+         * @description Queues the PDF of a finalized document, made from what was stored at finalize. While live
+         *     numbering is off every document is a practice one and the PDF says it is not a tax invoice.
+         *     Asking again gives the same job unless the last attempt failed; poll GET .../pdf/{job_id}.
+         */
+        post: operations["document_pdf_request_api_v1_b__business_id__documents__document_id__pdf_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/documents/{document_id}/pdf/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Document Pdf Status */
+        get: operations["document_pdf_status_api_v1_b__business_id__documents__document_id__pdf__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/drafts": {
         parameters: {
             query?: never;
@@ -3007,6 +3046,13 @@ export interface components {
             taxable_total: string;
             /** Utgst */
             utgst: boolean;
+        };
+        /** DocumentPdfRef */
+        DocumentPdfRef: {
+            /** Attempt */
+            attempt: number;
+            /** Job Id */
+            job_id: string;
         };
         /** DocumentRef */
         DocumentRef: {
@@ -5969,6 +6015,71 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CustomerOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    document_pdf_request_api_v1_b__business_id__documents__document_id__pdf_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentPdfRef"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    document_pdf_status_api_v1_b__business_id__documents__document_id__pdf__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+                job_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewOut"];
                 };
             };
             /** @description Validation Error */
