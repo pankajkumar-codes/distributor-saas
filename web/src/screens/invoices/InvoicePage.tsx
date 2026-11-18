@@ -19,7 +19,6 @@ import { TopBar } from "../../kit/TopBar";
 import { blankForm, draftIn, formOf, newLine, sameForm, type Draft, type Form } from "./draftForm";
 import { useStockFlags } from "../stock/useStock";
 import { CustomerPicker, ProductPicker } from "./Pickers";
-import { BusinessTypePrompt } from "./BusinessTypePrompt";
 import { Totals } from "./Totals";
 import { useFinalize } from "./useFinalize";
 import { usePreview } from "./usePreview";
@@ -153,17 +152,7 @@ export function InvoicePage() {
             (your unsaved changes here are replaced).
           </Banner>
         )}
-        {error && !stale && error.code !== "business_type_required" && <Banner tone="error">{error.fix ?? (error.message || errorText(error))}</Banner>}
-        <BusinessTypePrompt
-          businessId={businessId}
-          role={business.role}
-          refused={error?.code === "business_type_required"}
-          onChosen={() => {
-            const retry = save.error?.code === "business_type_required";
-            save.reset();
-            if (retry) save.mutate(form); // carry on with the draft as typed
-          }}
-        />
+        {error && !stale && <Banner tone="error">{error.fix ?? (error.message || errorText(error))}</Banner>}
         <form onSubmit={submit} noValidate>
           <RadioGroup<"customer" | "cash">
             legend="Bill to"

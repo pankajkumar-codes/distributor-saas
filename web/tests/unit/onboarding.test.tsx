@@ -84,9 +84,10 @@ const sentTo = (path: string) => server.sent.filter((s) => s.path === path);
 describe("the business-type field (ON-7, on in R2-M1)", () => {
   it("is optional: left alone, nothing is sent for it", async () => {
     await open();
-    const select = screen.getByLabelText(/Business type/);
-    expect(select).toBeEnabled();
-    expect(select).toHaveValue("");
+    expect(screen.getByRole("group", { name: /What best describes your business/ })).toBeInTheDocument();
+    for (const label of ["Retailer", "Wholesaler", "Distributor", "Manufacturer", "Online seller", "Service provider", "Other"]) {
+      expect(screen.getByLabelText(label)).not.toBeChecked();
+    }
     expect(screen.queryByText("Upcoming")).not.toBeInTheDocument();
     server.reply(CREATE, created());
     server.reply(FREQUENCY, chosen([]));
@@ -94,19 +95,20 @@ describe("the business-type field (ON-7, on in R2-M1)", () => {
     fillGstinBusiness();
     submitAll();
     expect(await screen.findByRole("heading", { name: HOME })).toBeInTheDocument();
-    expect(sentTo(CREATE)[0].body).not.toHaveProperty("business_type");
+    expect(sentTo(CREATE)[0].body).not.toHaveProperty("business_types");
   });
 
   it("is sent as chosen", async () => {
     await open();
-    fireEvent.change(screen.getByLabelText(/Business type/), { target: { value: "distributor" } });
+    fireEvent.click(screen.getByLabelText("Distributor"));
+    fireEvent.click(screen.getByLabelText("Online seller"));
     server.reply(CREATE, created());
     server.reply(FREQUENCY, chosen([]));
     server.reply(ME, me);
     fillGstinBusiness();
     submitAll();
     expect(await screen.findByRole("heading", { name: HOME })).toBeInTheDocument();
-    expect(sentTo(CREATE)[0].body).toMatchObject({ business_type: "distributor" });
+    expect(sentTo(CREATE)[0].body).toMatchObject({ business_types: ["distributor", "online_seller"] });
   });
 });
 
