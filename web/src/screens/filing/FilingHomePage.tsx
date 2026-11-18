@@ -96,7 +96,7 @@ export function FilingHomePage() {
           <section className="card">
             <p>You haven't chosen how often you file yet.</p>
             <p>
-              <Link to={`/b/${businessId}/settings/filing`}>Choose your filing frequency</Link>
+              <Link to={`/b/${businessId}/settings`}>Choose your filing frequency</Link>
             </p>
           </section>
         )}
@@ -150,7 +150,7 @@ export function FilingHomePage() {
               </table>
             )}
             <p>
-              <Link to={`/b/${businessId}/settings/filing`}>Change how often you file</Link>
+              <Link to={`/b/${businessId}/settings`}>Change how often you file</Link>
             </p>
           </section>
         )}
