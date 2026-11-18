@@ -15,6 +15,7 @@ import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
 import { useReturns } from "../filing/returns";
 import { warningText } from "../onboarding/warnings";
+import { TEAM_MANAGERS } from "../team/TeamPage";
 import { AUDIT_VIEWERS } from "../settings/AuditPage";
 import { SUPPORT_VIEWERS } from "../settings/SupportPage";
 import { screenPath } from "./links";
@@ -249,6 +250,7 @@ export function HomePage() {
               <p className="hint">Change your business details, where you sell and how often you file.</p>
               <Link to={`/b/${businessId}/settings`}>Open Business setup</Link>
               <div className="home-links">
+                {TEAM_MANAGERS.has(business.role) && <Link to={`/b/${businessId}/settings/team`}>Your team</Link>}
                 {SUPPORT_VIEWERS.has(business.role) && <Link to={`/b/${businessId}/settings/support`}>Support access</Link>}
                 {AUDIT_VIEWERS.has(business.role) && <Link to={`/b/${businessId}/settings/audit`}>Audit log</Link>}
                 {business.role !== SUPPORT_ROLE && <Link to={`/b/${businessId}/settings/security`}>Two-step sign-in</Link>}
