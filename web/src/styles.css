@@ -1,5 +1,5 @@
-/* Design tokens from the mocks (v13). Light ships first; the dark values are the mocks'
-   and are switched on only with data-theme="dark" until a theme switch is decided. */
+/* Design tokens from the mocks (v13). The mocks follow the device setting: dark values apply
+   under prefers-color-scheme: dark, unless data-theme="light" is set; data-theme="dark" forces dark. */
 :root {
   color-scheme: light;
   --bg: #f4f4f0;
@@ -27,6 +27,29 @@
   color: var(--ink);
   background: var(--bg);
   line-height: 1.45;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #141716;
+    --surface: #1c201f;
+    --sunk: #232826;
+    --line: #323836;
+    --control: #7c8480;
+    --ink: #eceeeb;
+    --muted: #a3aaa6;
+    --accent: #5fb8ac;
+    --accent-ink: #0e1513;
+    --accent-soft: #1e3330;
+    --gst: #93aee6;
+    --gst-soft: #1f2638;
+    --ok: #7ccb95;
+    --ok-soft: #1c2e22;
+    --warn: #e8b467;
+    --warn-soft: #33281a;
+    --bad: #f09a90;
+    --bad-soft: #3a201d;
+  }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
