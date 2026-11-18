@@ -55,7 +55,7 @@ describe("a new customer", () => {
     open("/b/b-1/customers/new");
     await screen.findByRole("option", { name: "West Bengal (19)" });
     server.reply(LIST, { status: 503 }, { status: 201, body: detail({ version: 1 }) });
-    server.reply(ONE, { status: 200, body: detail({ version: 1 }) });
+    server.reply(`GET ${LIST}`, { status: 200, body: { items: [detail({ version: 1 })], has_more: false } });
     type("Name", " Sharma Traders ");
     type("GSTIN (optional)", "19AAAAA0000A1Z5");
     type("Address line 1", "4 Park Street");
@@ -64,8 +64,11 @@ describe("a new customer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add customer" }));
     expect(await screen.findByText(/Something went wrong on our side/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Add customer" }));
-    expect(await screen.findByRole("heading", { name: "Sharma Traders" })).toBeInTheDocument();
-    expect(window.location.pathname).toBe("/b/b-1/customers/c-1");
+    expect(await screen.findByRole("heading", { name: "Customers" })).toBeInTheDocument(); // lands on the list
+    expect(window.location.pathname).toBe("/b/b-1/customers");
+    expect(screen.getByText("Added Sharma Traders.")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Archive Sharma Traders" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete Sharma Traders" })).toBeInTheDocument();
     const [first, second] = sent(LIST, "POST");
     expect(second.headers.get("Idempotency-Key")).toBe(first.headers.get("Idempotency-Key"));
     expect(first.body).toEqual({

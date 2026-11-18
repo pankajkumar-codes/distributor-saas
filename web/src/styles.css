@@ -255,3 +255,5 @@ ol.steps > li::before { content: counter(s); position: absolute; left: 0; top: 1
 .manage-row:first-of-type { border-top: 0; }
 .manage-row h3 { font-size: 15px; margin: 0; }
 .manage-row p { margin: 0; }
+.row-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.row-actions p { flex-basis: 100%; margin: 0; }

@@ -55,11 +55,11 @@ const type = (label: string, value: string) => fireEvent.change(screen.getByLabe
 const sent = (path: string, method: string) => server.sent.filter((s) => s.path === path && s.method === method);
 
 describe("a new product", () => {
-  it("is created once per form, with its first GST rate, and opens its own page", async () => {
+  it("is created once per form, with its first GST rate, and lands on the list", async () => {
     open("/b/b-1/products/new");
     await screen.findByRole("option", { name: "Numbers (NOS)" });
     server.reply(LIST, { status: 503 }, { status: 201, body: detail({ version: 1 }) });
-    server.reply(ONE, { status: 200, body: detail({ version: 1 }) });
+    server.reply(`GET ${LIST}`, { status: 200, body: { items: [detail({ version: 1 })], has_more: false } });
     type("Product code", " SOAP-1 ");
     type("Name", "Neem soap");
     type("HSN (optional)", "3401");
@@ -72,8 +72,11 @@ describe("a new product", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add product" }));
     expect(await screen.findByText(/Something went wrong on our side/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Add product" }));
-    expect(await screen.findByRole("heading", { name: "Neem soap" })).toBeInTheDocument();
-    expect(window.location.pathname).toBe("/b/b-1/products/p-1");
+    expect(await screen.findByRole("heading", { name: "Products" })).toBeInTheDocument(); // lands on the list
+    expect(window.location.pathname).toBe("/b/b-1/products");
+    expect(screen.getByText("Added Neem soap.")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Archive Neem soap" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete Neem soap" })).toBeInTheDocument();
 
     const [first, second] = sent(LIST, "POST");
     expect(second.headers.get("Idempotency-Key")).toBe(first.headers.get("Idempotency-Key"));

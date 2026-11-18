@@ -200,7 +200,7 @@ export function ProductPage() {
     },
     onSuccess: (p) => {
       saved(p);
-      if (isNew) navigate(`/b/${businessId}/products/${p.id}`, { replace: true });
+      if (isNew) navigate(`/b/${businessId}/products`, { replace: true, state: { added: p.name } });
     },
     onError: (e) => {
       if (e.code === "stale_record") product.refetch(); // the newer version brings the banner

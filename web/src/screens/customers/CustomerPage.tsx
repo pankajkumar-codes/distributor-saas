@@ -133,7 +133,7 @@ export function CustomerPage() {
     },
     onSuccess: (c) => {
       saved(c);
-      if (isNew) navigate(`/b/${businessId}/customers/${c.id}`, { replace: true });
+      if (isNew) navigate(`/b/${businessId}/customers`, { replace: true, state: { added: c.name } });
     },
     onError: refetchIfStale,
   });
