@@ -232,6 +232,8 @@ def code_in_use(tx: Session, code: str) -> bool:
         text(f"select 1 from catalog.products where {_MINE} and lower(code) = lower(:c) and status <> 'deleted'"),
         {"c": (code or "").strip()}).first() is not None
 
+
+
 def movements_for_document(tx: Session, document_id: uuid.UUID) -> int:
     """How many stock movements an invoice wrote (its `sale_out` rows), in the bound business. Read-only."""
     return tx.execute(

@@ -5,6 +5,8 @@ import { App } from "../../src/App";
 import { resetSessionForTests } from "../../src/auth/session";
 import { fakeApi } from "./fakeApi";
 
+vi.mock("../../src/features", () => ({ FEATURES: { invoicing: false } })); // R1 build: the flag off (R2 branches turn it on)
+
 const REFRESH = "/api/v1/auth/refresh";
 const ME = "/api/v1/me/businesses";
 const me = { status: 200, body: { businesses: [{ business_id: "b-1", display_name: "Vashi Essentials", gstin: null, role: "owner" }] } };
