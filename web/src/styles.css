@@ -213,3 +213,24 @@ input:-webkit-autofill, input:-webkit-autofill:focus {
 .card h2 { font-size: 17px; margin-bottom: 8px; }
 .list li { padding: 7px 0; }
 .card .list { margin: 0; }
+
+/* Home (mock v14): setup card on the left, GST filing / account / Business setup stacked on the right */
+.home-sub { margin: -6px 0 12px; }
+.home-cols { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+.home-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.home-col > .card { margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.home-col > .card h2 { margin: 0; }
+.home-col > .card .hint { margin: 0; }
+.between { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.kv { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; flex-wrap: wrap; }
+.home-bar { height: 6px; border-radius: 3px; background: var(--sunk); overflow: hidden; }
+.home-bar i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+.home-steps { list-style: none; margin: 0; padding: 0; }
+.home-steps li { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 12px; align-items: center; min-height: 42px; padding: 0; border-top: 1px solid var(--line); }
+.home-steps .muted { color: var(--muted); }
+.home-dot { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; border: 2px solid var(--line); color: var(--muted); }
+.home-dot.done { background: var(--ok); border-color: var(--ok); color: var(--surface); }
+.home-dot.now { border-color: var(--accent); color: var(--accent); }
+.home-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.home-links { display: flex; gap: 14px; flex-wrap: wrap; font-size: 14px; }
+@media (max-width: 760px) { .home-cols { grid-template-columns: minmax(0, 1fr); } }

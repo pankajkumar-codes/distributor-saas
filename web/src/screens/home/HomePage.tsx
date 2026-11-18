@@ -8,11 +8,12 @@ import { canCreateDocuments, canViewUploads } from "../../auth/roles";
 import { FEATURES } from "../../features";
 import { TOTP_PROMPTED, useMe } from "../../auth/useMe";
 import { SUPPORT_ROLE, useMyBusinesses } from "../../auth/useMyBusinesses";
-import { formatDate, hourIst } from "../../format/dates";
+import { formatDate } from "../../format/dates";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
+import { useReturns } from "../filing/returns";
 import { warningText } from "../onboarding/warnings";
 import { AUDIT_VIEWERS } from "../settings/AuditPage";
 import { SUPPORT_VIEWERS } from "../settings/SupportPage";
@@ -32,12 +33,11 @@ const ITEMS: Record<string, string> = {
   first_customer: "Add your first customer",
   invite_ca_or_teammate: "Invite your CA or a teammate",
 };
+const FORMS: Record<string, string> = { GSTR1: "GSTR-1", GSTR3B: "GSTR-3B" };
 const SEVERITY = { block: "Needs action", warn: "Check", info: "For your information" } as const;
 
-export function greeting(name: string | null | undefined, now = new Date()): string {
-  if (!name) return "Welcome";
-  const hour = hourIst(now);
-  return `Good ${hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening"}, ${name}`;
+export function greeting(name: string | null | undefined): string {
+  return name ? `Welcome, ${name}` : "Welcome";
 }
 
 function asNudge(row: Record<string, unknown>): Nudge | null {
@@ -62,6 +62,8 @@ export function HomePage() {
     queryFn: () => call(() => api.GET("/api/v1/b/{business_id}/home", { params: { path: { business_id: businessId } } })),
     enabled: Boolean(business),
   });
+  // The GST card shows the server's current periods (the same call as Filing home); if it fails the card just has the button.
+  const returns = useReturns(businessId, undefined, Boolean(business));
   // Owners and CAs are asked to turn on two-step sign-in (H-1 item 3); nobody else is asked.
   const me = useMe({ enabled: Boolean(business && TOTP_PROMPTED.has(business.role)) });
   // Warnings from creating the business, handed over by /onboarding/business; gone on reload.
@@ -86,6 +88,10 @@ export function HomePage() {
 
   const data = home.data;
   const items = (data?.checklist.items ?? []).filter((i) => i.key in ITEMS);
+  // The first return still to do for each form, in the server's order; due dates only when the server has confirmed them.
+  const filingRows = ["GSTR1", "GSTR3B"]
+    .map((f) => returns.data?.returns.find((r) => r.form === f && (r.status === "open" || r.status === "unlocked")))
+    .filter((r): r is NonNullable<typeof r> => r !== undefined);
   const nudges = (data?.attention ?? []).map(asNudge).filter((n): n is Nudge => n !== null);
 
   return (
@@ -93,6 +99,7 @@ export function HomePage() {
       <TopBar title={business.display_name} gstin={business.gstin} />
       <main className="page page-wide">
         <h1>{greeting(data?.greeting_name)}</h1>
+        <p className="hint home-sub">Here is where your business stands today.</p>
         {warnings.length > 0 && (
           <Banner>
             <p>Your business is saved. Please check:</p>
@@ -111,15 +118,6 @@ export function HomePage() {
               Try again
             </Button>
           </Banner>
-        )}
-
-        <div className="grid2 cards">
-        {me.data && !me.data.user.totp_enabled && (
-          <section className="card" aria-labelledby="totp-prompt">
-            <h2 id="totp-prompt">Protect your account</h2>
-            <p className="hint">Two-step sign-in asks for a code from your phone as well as your password.</p>
-            <Link to={`/b/${businessId}/settings/security`}>Turn on two-step sign-in</Link>
-          </section>
         )}
 
         {nudges.length > 0 && (
@@ -143,81 +141,101 @@ export function HomePage() {
           </section>
         )}
 
-        {data && data.checklist.done < data.checklist.total && (
-          <section className="card" aria-labelledby="setup">
-            <h2 id="setup">Set up your business</h2>
-            <p className="hint">
-              {data.checklist.done} of {data.checklist.total} done
-            </p>
-            <ul className="list">
-              {items.map((item, i) => {
-                const to = screenPath(item.href, businessId);
-                return (
-                  <li key={item.key} className="setup-step">
-                    <span className={item.done ? "dot done" : "dot"} aria-hidden="true">
-                      {item.done ? "✓" : i + 1}
-                    </span>
-                    <span>
-                      {item.done || !to ? <span>{ITEMS[item.key]}</span> : <Link to={to}>{ITEMS[item.key]}</Link>}
-                      <span className="visually-hidden">{item.done ? " (done)" : " (not done)"}</span>{" "}
-                      {!item.done && !to && <span className="up">Upcoming</span>}
-                    </span>
+        <div className="home-cols">
+          <div className="home-col">
+            {data && data.checklist.done < data.checklist.total && (
+              <section className="card" aria-labelledby="setup">
+                <div className="between">
+                  <h2 id="setup">Set up your business</h2>
+                  <span className="hint">
+                    {data.checklist.done} of {data.checklist.total} done
+                  </span>
+                </div>
+                <div className="home-bar" aria-hidden="true">
+                  <i style={{ width: `${(data.checklist.done / Math.max(data.checklist.total, 1)) * 100}%` }} />
+                </div>
+                <ul className="home-steps">
+                  {items.map((item, i) => {
+                    const to = screenPath(item.href, businessId);
+                    const state = item.done ? "done" : to ? "now" : "later";
+                    return (
+                      <li key={item.key}>
+                        <span className={`home-dot ${state}`} aria-hidden="true">
+                          {item.done ? "✓" : i + 1}
+                        </span>
+                        <span className={state === "now" ? undefined : "muted"}>
+                          {state === "now" && to ? <Link to={to}>{ITEMS[item.key]}</Link> : ITEMS[item.key]}
+                          <span className="visually-hidden">{item.done ? " (done)" : " (not done)"}</span>
+                        </span>
+                        {item.done ? (
+                          <span className="hint">Done</span>
+                        ) : to ? (
+                          <span className="chip chip-warn">To do</span>
+                        ) : (
+                          <span className="up">Upcoming</span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            )}
+            {/* Until the app has its own navigation (Designer, OPEN_QUESTIONS), Home is the way in. */}
+            {FEATURES.invoicing && canCreateDocuments(business.role) && (
+              <nav className="card" aria-labelledby="sell">
+                <h2 id="sell">Sell</h2>
+                <ul className="list">
+                  <li>
+                    <Link to={`/b/${businessId}/invoices/new`}>New invoice</Link>
                   </li>
-                );
-              })}
-            </ul>
-          </section>
-        )}
+                </ul>
+              </nav>
+            )}
+          </div>
 
-        {/* Until the app has its own navigation (Designer, OPEN_QUESTIONS), Home is the way in. */}
-        {FEATURES.invoicing && canCreateDocuments(business.role) && (
-          <nav className="card" aria-labelledby="sell">
-            <h2 id="sell">Sell</h2>
-            <ul className="list">
-              <li>
-                <Link to={`/b/${businessId}/invoices/new`}>New invoice</Link>
-              </li>
-            </ul>
-          </nav>
-        )}
-        <nav className="card" aria-labelledby="filing">
-          <h2 id="filing">GST filing</h2>
-          <ul className="list">
-            <li>
-              <Link to={`/b/${businessId}/filing`}>Your GST filing and deadlines</Link>
-            </li>
-            {canViewUploads(business.role) && (
-              <li>
-                <Link to={`/b/${businessId}/uploads`}>Upload your reports</Link>
-              </li>
+          <div className="home-col">
+            <nav className="card" aria-labelledby="filing">
+              <div className="between">
+                <h2 id="filing">GST filing</h2>
+                {returns.data?.filing_frequency && (
+                  <span className="chip chip-info">{returns.data.filing_frequency === "quarterly" ? "Quarterly" : "Monthly"}</span>
+                )}
+              </div>
+              {filingRows.map((r) => (
+                <div className="kv" key={r.instance_id}>
+                  <span>
+                    {FORMS[r.form]} · {r.period_label}
+                  </span>
+                  <span className="hint">
+                    {r.due_date && r.due_date_confirmed ? `Due ${formatDate(r.due_date)}` : "Due date: check Filing home"}
+                  </span>
+                </div>
+              ))}
+              <div className="home-actions">
+                <Link className="btn btn-primary" to={`/b/${businessId}/filing`}>
+                  Open Filing home
+                </Link>
+                {canViewUploads(business.role) && <Link to={`/b/${businessId}/uploads`}>Upload your reports</Link>}
+              </div>
+            </nav>
+            {me.data && !me.data.user.totp_enabled && (
+              <section className="card" aria-labelledby="totp-prompt">
+                <h2 id="totp-prompt">Protect your account</h2>
+                <p className="hint">Two-step sign-in asks for a code from your phone as well as your password.</p>
+                <Link to={`/b/${businessId}/settings/security`}>Turn on two-step sign-in</Link>
+              </section>
             )}
-          </ul>
-        </nav>
-        <nav className="card" aria-labelledby="settings">
-          <h2 id="settings">
-            <Link to={`/b/${businessId}/settings`}>Settings</Link>
-          </h2>
-          <ul className="list">
-            <li>
-              <Link to={`/b/${businessId}/settings`}>Business details, where you sell and filing frequency</Link>
-            </li>
-            {SUPPORT_VIEWERS.has(business.role) && (
-              <li>
-                <Link to={`/b/${businessId}/settings/support`}>Support access</Link>
-              </li>
-            )}
-            {AUDIT_VIEWERS.has(business.role) && (
-              <li>
-                <Link to={`/b/${businessId}/settings/audit`}>Audit log</Link>
-              </li>
-            )}
-            {business.role !== SUPPORT_ROLE && (
-              <li>
-                <Link to={`/b/${businessId}/settings/security`}>Two-step sign-in</Link>
-              </li>
-            )}
-          </ul>
-        </nav>
+            <nav className="card" aria-labelledby="settings">
+              <h2 id="settings">Business setup</h2>
+              <p className="hint">Change your business details, where you sell and how often you file.</p>
+              <Link to={`/b/${businessId}/settings`}>Open Business setup</Link>
+              <div className="home-links">
+                {SUPPORT_VIEWERS.has(business.role) && <Link to={`/b/${businessId}/settings/support`}>Support access</Link>}
+                {AUDIT_VIEWERS.has(business.role) && <Link to={`/b/${businessId}/settings/audit`}>Audit log</Link>}
+                {business.role !== SUPPORT_ROLE && <Link to={`/b/${businessId}/settings/security`}>Two-step sign-in</Link>}
+              </div>
+            </nav>
+          </div>
         </div>
       </main>
     </>
