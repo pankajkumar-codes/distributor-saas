@@ -150,14 +150,18 @@ export function HomePage() {
               {data.checklist.done} of {data.checklist.total} done
             </p>
             <ul className="list">
-              {items.map((item) => {
+              {items.map((item, i) => {
                 const to = screenPath(item.href, businessId);
                 return (
-                  <li key={item.key} className="check">
-                    <span aria-hidden="true">{item.done ? "✓" : "○"}</span>{" "}
-                    {item.done || !to ? <span>{ITEMS[item.key]}</span> : <Link to={to}>{ITEMS[item.key]}</Link>}
-                    <span className="visually-hidden">{item.done ? " (done)" : " (not done)"}</span>
-                    {!item.done && !to && <span className="tag"> Upcoming</span>}
+                  <li key={item.key} className="setup-step">
+                    <span className={item.done ? "dot done" : "dot"} aria-hidden="true">
+                      {item.done ? "✓" : i + 1}
+                    </span>
+                    <span>
+                      {item.done || !to ? <span>{ITEMS[item.key]}</span> : <Link to={to}>{ITEMS[item.key]}</Link>}
+                      <span className="visually-hidden">{item.done ? " (done)" : " (not done)"}</span>{" "}
+                      {!item.done && !to && <span className="up">Upcoming</span>}
+                    </span>
                   </li>
                 );
               })}

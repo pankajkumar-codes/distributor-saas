@@ -195,6 +195,12 @@ input:-webkit-autofill, input:-webkit-autofill:focus {
 .setup-cols { align-items: start; gap: 0 24px; }
 .setup-h { font-size: 20px; margin: 8px 0 12px; }
 
+/* "Upcoming" (mock v13 .up): for anything not built yet, wherever it appears */
+.up { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; background: var(--sunk); color: var(--muted); padding: 2px 7px; border-radius: 6px; border: 1px solid var(--line); white-space: nowrap; }
+/* Numbered rows (mock v13 .step/.dot): a round dot, green and ticked when done */
+.setup-step { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 12px; align-items: center; }
+.dot { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 700; background: var(--gst-soft); color: var(--gst); }
+.dot.done { background: var(--ok); color: var(--surface); }
 /* Density (mock v13): one view per screen. Cards that sit side by side drop their own bottom margin. */
 /* Home: two columns that fill top to bottom, so a short card never leaves a hole beside a tall one. */
 .grid2.cards { display: block; columns: 2; column-gap: 14px; }

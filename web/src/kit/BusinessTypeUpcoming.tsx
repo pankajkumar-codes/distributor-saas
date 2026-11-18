@@ -9,7 +9,7 @@ export function BusinessTypeUpcoming() {
   return (
     <div className="field">
       <label htmlFor={id}>
-        Business type <span className="tag">Upcoming</span>
+        Business type <span className="up">Upcoming</span>
       </label>
       <select id={id} disabled aria-describedby={`${id}-hint`} defaultValue="">
         <option value="">Distributor or retail business</option>
