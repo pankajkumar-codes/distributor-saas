@@ -274,6 +274,17 @@ Every row in `refdata/` is `provisional`. Before go-live:
 - **Plan choice by type.** The price list differs by business type (filing-only against invoicing). R1-M9 is a placeholder with "free for now", so nothing maps type to plan yet; that mapping is for the payments milestone.
 - **Changing the type later.** Allowed at any time with an audit row. Whether a change after sales invoices exist should warn or be refused is not decided; it matters only once R2 invoicing exists.
 
+## R2-M3 (catalog and stock ledger)
+
+- **Negative stock (D-012) is only partly answered.** Pankaj's rule is that a sale at zero stock shows "no stock" and is never blocked, so the ledger lets the balance go below zero. Whether a stock adjustment, a marketplace deduction or a role-limited case should ever refuse is not decided; today nothing refuses.
+- **Who may correct stock.** Adjustments and reversals use catalog.edit, so owner, admin and billing can make them; the CA can only read. A stricter rule (owner and admin only, or a reason list) is a product decision, not built.
+- **Costing.** Each purchase line can store its price per 1 qty (`unit_cost`), but no average cost, margin or profit is computed. The costing policy is an approval gate (CLAUDE.md) and stays open.
+- **Locations.** One stock pool per business. Warehouses or shops (DOMAIN_MODEL's InventoryLocation) are not built; adding one later means a location column on the ledger.
+- **Returns and credit notes.** A sales return is not stock-in by itself (BUSINESS_RULES §4). Nothing posts it yet; R2 has no returns milestone.
+- **Archived products.** A product that is archived can still receive stock and be adjusted (stock arrives whatever the catalog says). Whether a purchase should offer to restore it is for the M2 review screen.
+- **A second purchase for the same line.** `(source_id, source_line_id)` is the once-only key. If M2 lets a business change a confirmed line, the change must be a reversal plus a new receipt, never an edit; M2 owns that flow.
+- **Web.** M3 ships the server and the interface. The stock screen, the "no stock" notice and the set-price step come with the web milestones on mock v13; the R1 product screens do not change yet.
+
 ## Release blockers (not R1 build blockers; Pankaj, 2026-11-17)
 These need Pankaj or his CA and do not stop building. Each must be done before production release.
 - **CA question sheet** (`team/program-lead/ca-question-sheet-v1.md`, CA-1 to CA-5 above and the platform treatment items): Pankaj takes it to his CA just before release.

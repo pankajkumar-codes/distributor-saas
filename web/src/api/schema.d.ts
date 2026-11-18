@@ -948,6 +948,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/products/{product_id}/stock-adjustments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Adjust Stock */
+        post: operations["adjust_stock_api_v1_b__business_id__products__product_id__stock_adjustments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/products/{product_id}/stock-movements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Movements */
+        get: operations["list_movements_api_v1_b__business_id__products__product_id__stock_movements_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/products/{product_id}/unarchive": {
         parameters: {
             query?: never;
@@ -1416,6 +1450,40 @@ export interface paths {
         get: operations["list_rows_api_v1_b__business_id__runs__run_id__rows_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/stock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Stock */
+        get: operations["list_stock_api_v1_b__business_id__stock_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/stock-movements/{movement_id}/reversals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reverse Movement */
+        post: operations["reverse_movement_api_v1_b__business_id__stock_movements__movement_id__reversals_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2153,6 +2221,18 @@ export interface components {
             pin: string | null;
             /** State Code */
             state_code: string | null;
+        };
+        /** AdjustmentIn */
+        AdjustmentIn: {
+            /**
+             * Occurred On
+             * Format: date
+             */
+            occurred_on: string;
+            /** Quantity */
+            quantity: string;
+            /** Reason */
+            reason: string;
         };
         /** AmountsOut */
         AmountsOut: {
@@ -3802,6 +3882,50 @@ export interface components {
             /** Month */
             month: string;
         };
+        /** MovementOut */
+        MovementOut: {
+            /** Created At */
+            created_at: string;
+            /** Created By */
+            created_by: string;
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "purchase_in" | "sale_out" | "adjustment" | "reversal";
+            /**
+             * Occurred On
+             * Format: date
+             */
+            occurred_on: string;
+            /** Product Id */
+            product_id: string;
+            /** Quantity */
+            quantity: string;
+            /** Reason */
+            reason: string | null;
+            /** Reversed By Id */
+            reversed_by_id: string | null;
+            /** Reverses Id */
+            reverses_id: string | null;
+            /** Source Id */
+            source_id: string | null;
+            /** Source Line Id */
+            source_line_id: string | null;
+            /** Source Type */
+            source_type: ("purchase_invoice" | "sales_invoice") | null;
+            /** Unit Cost */
+            unit_cost: string | null;
+        };
+        /** MovementPageOut */
+        MovementPageOut: {
+            /** Has More */
+            has_more: boolean;
+            /** Items */
+            items: components["schemas"]["MovementOut"][];
+        };
         /** MyBusiness */
         MyBusiness: {
             /** Business Id */
@@ -4066,6 +4190,8 @@ export interface components {
             in_use: boolean;
             /** Name */
             name: string;
+            /** Price Needed */
+            price_needed: boolean;
             /** Rate Changed Within Warning Window */
             rate_changed_within_warning_window: boolean;
             rate_on: components["schemas"]["RateOnOut"] | null;
@@ -4126,6 +4252,8 @@ export interface components {
             in_use: boolean;
             /** Name */
             name: string;
+            /** Price Needed */
+            price_needed: boolean;
             rate_on: components["schemas"]["RateOnOut"] | null;
             /** Sale Rate */
             sale_rate: string;
@@ -4437,6 +4565,11 @@ export interface components {
             /** Returns */
             returns: components["schemas"]["ReturnOut"][];
         };
+        /** ReversalIn */
+        ReversalIn: {
+            /** Reason */
+            reason: string;
+        };
         /**
          * Role
          * @enum {string}
@@ -4607,6 +4740,34 @@ export interface components {
             on: string;
             /** States */
             states: components["schemas"]["StateCode"][];
+        };
+        /** StockItemOut */
+        StockItemOut: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** No Stock */
+            no_stock: boolean;
+            /** On Hand */
+            on_hand: string;
+            /** Price Needed */
+            price_needed: boolean;
+            /** Product Id */
+            product_id: string;
+            /** Sale Rate */
+            sale_rate: string;
+            /** Status */
+            status: string;
+            /** Uqc */
+            uqc: string;
+        };
+        /** StockPageOut */
+        StockPageOut: {
+            /** Has More */
+            has_more: boolean;
+            /** Items */
+            items: components["schemas"]["StockItemOut"][];
         };
         /** SupportGrant */
         SupportGrant: {
@@ -7162,6 +7323,79 @@ export interface operations {
             };
         };
     };
+    adjust_stock_api_v1_b__business_id__products__product_id__stock_adjustments_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                product_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdjustmentIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MovementOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_movements_api_v1_b__business_id__products__product_id__stock_movements_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                product_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MovementPageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     unarchive_product_api_v1_b__business_id__products__product_id__unarchive_post: {
         parameters: {
             query?: never;
@@ -8034,6 +8268,81 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RowsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_stock_api_v1_b__business_id__stock_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                status?: "active" | "archived" | "all";
+                only?: ("no_stock" | "price_needed") | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockPageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reverse_movement_api_v1_b__business_id__stock_movements__movement_id__reversals_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                movement_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReversalIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MovementOut"];
                 };
             };
             /** @description Validation Error */

@@ -11,6 +11,7 @@ from app.modules.business.api import router as business_router
 from app.modules.catalog.api_customers import router as customers_router
 from app.modules.catalog.api_imports import router as product_imports_router
 from app.modules.catalog.api_products import router as products_router
+from app.modules.catalog.api_stock import router as stock_router
 from app.modules.imports.api import router as uploads_router
 from app.modules.imports.readers import register_readers
 from app.modules.sales.api import router as drafts_router
@@ -55,6 +56,7 @@ app.include_router(business_router, prefix=API_PREFIX)
 app.include_router(home_router, prefix=API_PREFIX)
 app.include_router(product_imports_router, prefix=API_PREFIX)  # before products: /products/import-template
 app.include_router(products_router, prefix=API_PREFIX)
+app.include_router(stock_router, prefix=API_PREFIX)
 app.include_router(customers_router, prefix=API_PREFIX)
 app.include_router(drafts_router, prefix=API_PREFIX)
 app.include_router(filing_router, prefix=API_PREFIX)
