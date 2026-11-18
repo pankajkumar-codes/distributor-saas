@@ -1,5 +1,5 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useParams, useSearchParams } from "react-router-dom";
 
 import { api, call } from "../../api/client";
 import { errorText, type ApiError } from "../../api/errors";
@@ -10,6 +10,7 @@ import { formatRate, formatRupees } from "../../format/money";
 import { Banner } from "../../kit/Banner";
 import { ErrorDetail } from "../../kit/ErrorDetail";
 import { Button } from "../../kit/Button";
+import { RowActions } from "../../kit/RowActions";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
 import { uniqueById, useUrlSearch } from "../../kit/lists";
@@ -49,6 +50,7 @@ function Chips({ p }: { p: Product }) {
 export function ProductsPage() {
   const { businessId = "" } = useParams();
   const [params, setParams] = useSearchParams();
+  const added = (useLocation().state as { added?: string } | null)?.added;
   const businesses = useMyBusinesses();
   const business = businesses.data?.find((b) => b.business_id === businessId);
   const status = (STATUSES.find((s) => s.value === params.get("status"))?.value ?? "active") as Status;
@@ -147,6 +149,7 @@ export function ProductsPage() {
           ))}
         </div>
 
+        {added && <Banner>Added {added}.</Banner>}
         {list.error && (
           <Banner tone="error">
             {errorText(list.error)}<ErrorDetail error={list.error} />{" "}
@@ -169,6 +172,7 @@ export function ProductsPage() {
                 <th scope="col">Unit</th>
                 <th scope="col">Sale rate (excl. GST)</th>
                 <th scope="col">GST rate</th>
+                {canEditCatalog(business.role) && <th scope="col">Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -186,6 +190,31 @@ export function ProductsPage() {
                   <td data-label="GST rate">
                     {p.rate_on ? formatRate(p.rate_on.rate) : p.tax_category === "taxable" ? "—" : CATEGORY[p.tax_category] ?? "—"}
                   </td>
+                  {canEditCatalog(business.role) && (
+                    <td data-label="Actions">
+                      <RowActions
+                        name={p.name}
+                        editTo={`/b/${businessId}/products/${p.id}`}
+                        archived={p.status === "archived"}
+                        inUse={p.in_use}
+                        listKey={["b", businessId, "products"]}
+                        archive={(a) =>
+                          call(() =>
+                            a
+                              ? api.POST("/api/v1/b/{business_id}/products/{product_id}/archive", { params: { path: { business_id: businessId, product_id: p.id } } })
+                              : api.POST("/api/v1/b/{business_id}/products/{product_id}/unarchive", { params: { path: { business_id: businessId, product_id: p.id } } }),
+                          )
+                        }
+                        remove={() =>
+                          call(() =>
+                            api.DELETE("/api/v1/b/{business_id}/products/{product_id}", {
+                              params: { path: { business_id: businessId, product_id: p.id }, header: { "If-Match": String(p.version) } },
+                            }),
+                          )
+                        }
+                      />
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

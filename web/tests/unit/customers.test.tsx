@@ -155,4 +155,62 @@ describe("the customers list", () => {
     expect(await screen.findByText(/couldn't find that page/i)).toBeInTheDocument();
     expect(server.paths()).not.toContain("/api/v1/b/b-9/customers");
   });
+
+  describe("row actions", () => {
+    const ONE = `${LIST}/c-1`;
+
+    it("asks before archiving, then refreshes the list", async () => {
+      server.reply(`GET ${LIST}`, page([customer()]), page([]));
+      server.reply(`POST ${ONE}/archive`, { status: 200, body: customer({ status: "archived", version: 2 }) });
+      open();
+      fireEvent.click(await screen.findByRole("button", { name: "Archive Sharma Traders" }));
+      expect(server.sent.filter((x) => x.path === `${ONE}/archive`)).toHaveLength(0);
+      fireEvent.click(screen.getByRole("button", { name: "Keep it active" }));
+      expect(screen.getByRole("button", { name: "Archive Sharma Traders" })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Archive Sharma Traders" }));
+      fireEvent.click(screen.getByRole("button", { name: "Yes, archive" }));
+      await screen.findByText(/No customers/);
+      expect(server.sent.filter((x) => x.path === `${ONE}/archive`)).toHaveLength(1);
+    });
+
+    it("deletes only after asking, sending the row's version", async () => {
+      server.reply(`GET ${LIST}`, page([customer({ version: 4 })]), page([]));
+      server.reply(`DELETE ${ONE}`, { status: 204 });
+      open();
+      fireEvent.click(await screen.findByRole("button", { name: "Delete Sharma Traders" }));
+      fireEvent.click(screen.getByRole("button", { name: "Yes, delete" }));
+      await screen.findByText(/No customers/);
+      expect(server.sent.filter((x) => x.path === ONE && x.method === "DELETE")[0].headers.get("If-Match")).toBe("4");
+    });
+
+    it("shows the server's reason when it refuses the delete", async () => {
+      server.reply(`GET ${LIST}`, page([customer()]));
+      server.reply(`DELETE ${ONE}`, {
+        status: 409,
+        body: { error: { code: "customer_in_use", message: "This customer is on invoices, so it can be archived but not deleted" } },
+      });
+      open();
+      fireEvent.click(await screen.findByRole("button", { name: "Delete Sharma Traders" }));
+      fireEvent.click(screen.getByRole("button", { name: "Yes, delete" }));
+      expect(await screen.findByText(/on invoices, so it can be archived but not deleted/)).toBeInTheDocument();
+    });
+
+    it("shows the server's reason when an archive fails", async () => {
+      server.reply(`GET ${LIST}`, page([customer()]));
+      server.reply(`POST ${ONE}/archive`, { status: 409, body: { error: { code: "customer_in_use", message: "x" } } });
+      open();
+      fireEvent.click(await screen.findByRole("button", { name: "Archive Sharma Traders" }));
+      fireEvent.click(screen.getByRole("button", { name: "Yes, archive" }));
+      expect(await screen.findByRole("alert")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Archive Sharma Traders" })).toBeInTheDocument();
+    });
+
+    it("offers no Delete for a customer on invoices", async () => {
+      server.reply(`GET ${LIST}`, page([customer({ in_use: true })]));
+      open();
+      await screen.findByRole("button", { name: "Archive Sharma Traders" });
+      expect(screen.queryByRole("button", { name: "Delete Sharma Traders" })).toBeNull();
+      expect(screen.getByText("On invoices: archive only")).toBeInTheDocument();
+    });
+  });
 });

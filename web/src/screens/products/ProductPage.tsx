@@ -10,6 +10,7 @@ import { canConfirmRates, canEditCatalog } from "../../auth/roles";
 import { todayIst } from "../../format/dates";
 import { formatRate } from "../../format/money";
 import { Banner } from "../../kit/Banner";
+import { ManageRecord } from "../../kit/ManageRecord";
 import { Button } from "../../kit/Button";
 import { Field } from "../../kit/Field";
 import { NotFound } from "../../kit/NotFound";
@@ -128,7 +129,6 @@ export function ProductPage() {
   const [stale, setStale] = useState(false);
   const [advanced, setAdvanced] = useState(false);
   const rates = useGstRates(validFrom, isNew && values.tax_category === "taxable");
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const latest = product.data ?? null;
 
   useEffect(() => {
@@ -200,7 +200,7 @@ export function ProductPage() {
     },
     onSuccess: (p) => {
       saved(p);
-      if (isNew) navigate(`/b/${businessId}/products/${p.id}`, { replace: true });
+      if (isNew) navigate(`/b/${businessId}/products`, { replace: true, state: { added: p.name } });
     },
     onError: (e) => {
       if (e.code === "stale_record") product.refetch(); // the newer version brings the banner
@@ -411,36 +411,17 @@ export function ProductPage() {
         )}
 
         {canEdit && !isNew && base && (
-          <section className="card" aria-labelledby="manage">
-            <h2 id="manage">Archive or delete</h2>
-            <Button
-              type="button"
-              variant="link"
-              busy={archive.isPending}
-              disabled={dirty}
-              onClick={() => archive.mutate(base.status !== "archived")}
-            >
-              {base.status === "archived" ? "Unarchive" : "Archive"}
-            </Button>
-            {dirty && <p className="hint">Save or undo your changes first.</p>}
-            {!base.in_use &&
-              (confirmDelete ? (
-                <p>
-                  Delete {base.name} for good?{" "}
-                  <Button type="button" variant="link" busy={remove.isPending} onClick={() => remove.mutate()}>
-                    Yes, delete
-                  </Button>{" "}
-                  <Button type="button" variant="link" onClick={() => setConfirmDelete(false)}>
-                    Keep it
-                  </Button>
-                </p>
-              ) : (
-                <Button type="button" variant="link" onClick={() => setConfirmDelete(true)}>
-                  Delete
-                </Button>
-              ))}
-            {base.in_use && <p className="hint">This product is on invoices, so it can be archived but not deleted.</p>}
-          </section>
+          <ManageRecord
+            noun="product"
+            name={base.name}
+            archived={base.status === "archived"}
+            inUse={base.in_use}
+            dirty={dirty}
+            archiveBusy={archive.isPending}
+            deleteBusy={remove.isPending}
+            onArchive={(a) => archive.mutate(a)}
+            onDelete={() => remove.mutate()}
+          />
         )}
       </main>
     </>

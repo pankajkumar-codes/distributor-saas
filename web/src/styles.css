@@ -271,3 +271,12 @@ ol.steps > li::before { content: counter(s); position: absolute; left: 0; top: 1
 .home-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 .home-links { display: flex; gap: 14px; flex-wrap: wrap; font-size: 14px; }
 @media (max-width: 760px) { .home-cols { grid-template-columns: minmax(0, 1fr); } }
+
+/* Archive / delete on customer and product pages: two separate actions, each explained */
+.btn-danger { background: var(--surface); color: var(--bad); border: 1.5px solid var(--bad); min-height: 40px; padding: 0 14px; font-size: 14px; }
+.manage-row { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 14px 0; border-top: 1px solid var(--line); }
+.manage-row:first-of-type { border-top: 0; }
+.manage-row h3 { font-size: 15px; margin: 0; }
+.manage-row p { margin: 0; }
+.row-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.row-actions p { flex-basis: 100%; margin: 0; }
