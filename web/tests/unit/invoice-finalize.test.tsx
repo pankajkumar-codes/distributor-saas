@@ -44,13 +44,15 @@ describe("a sales invoice from the catalog", () => {
     expect(screen.getByRole("button", { name: "Finalize invoice" })).toBeEnabled();
   });
 
-  it("finalizes a practice invoice, says so, and downloads its PDF", async () => {
+  it("finalizes a practice invoice, opens it, says so, and downloads its PDF", async () => {
+    const detail = (pdf: Record<string, unknown>) => ({ ...doc, stock_movements: 1, pdf });
     server.reply(`POST ${ONE}/finalize`, { status: 200, body: doc });
+    server.reply(`GET ${B}/documents/doc-1`, { status: 200, body: detail({ status: "none" }) }, { status: 200, body: detail({ status: "ready", job_id: "j-1", attempt: 1, url: "https://files.example/p.pdf" }) });
     server.reply(`POST ${B}/documents/doc-1/pdf`, { status: 202, body: { job_id: "j-1", attempt: 1 } });
-    server.reply(`GET ${B}/documents/doc-1/pdf/j-1`, { status: 200, body: { status: "ready", url: "https://files.example/p.pdf" } });
     open();
     fireEvent.click(await screen.findByRole("button", { name: "Finalize invoice" }));
     expect(await screen.findByText("Invoice PI-2026-27-0001")).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/b/b-1/documents/doc-1");
     expect(screen.getByText(/not a tax invoice/)).toBeInTheDocument();
     const fin = server.sent.find((s) => s.path === `${ONE}/finalize`)!;
     expect(fin.headers.get("If-Match")).toBe("2");
@@ -58,6 +60,23 @@ describe("a sales invoice from the catalog", () => {
     fireEvent.click(screen.getByRole("button", { name: "Download practice PDF" }));
     const link = await screen.findByRole("link", { name: "Open the PDF" });
     expect(link).toHaveAttribute("href", "https://files.example/p.pdf");
+  });
+
+  it("shows a PDF that is already ready when the invoice is opened later", async () => {
+    server.reply(`GET ${B}/documents/doc-1`, { status: 200, body: { ...doc, stock_movements: 1, pdf: { status: "ready", job_id: "j-1", attempt: 1, url: "https://files.example/p.pdf" } } });
+    window.history.replaceState(null, "", "/b/b-1/documents/doc-1");
+    render(<App />);
+    expect(await screen.findByRole("link", { name: "Open the PDF" })).toBeInTheDocument();
+    expect(screen.getByText("Practice invoice.")).toBeInTheDocument();
+  });
+
+  it("lists issued invoices, practice ones marked", async () => {
+    server.reply(`${B}/documents`, { status: 200, body: { documents: [{ ...doc, counterparty_name: "Sharma Traders" }], has_more: false } });
+    window.history.replaceState(null, "", "/b/b-1/documents");
+    render(<App />);
+    expect(await screen.findByRole("link", { name: "PI-2026-27-0001" })).toHaveAttribute("href", "/b/b-1/documents/doc-1");
+    expect(screen.getByText("Practice")).toBeInTheDocument();
+    expect(screen.getByText("₹1,180.00")).toBeInTheDocument();
   });
 
   it("says finalizing is not switched on when the server answers not found", async () => {

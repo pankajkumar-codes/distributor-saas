@@ -18,7 +18,6 @@ import { SelectField } from "../../kit/SelectField";
 import { TopBar } from "../../kit/TopBar";
 import { blankForm, draftIn, formOf, newLine, sameForm, type Draft, type Form } from "./draftForm";
 import { useStockFlags } from "../stock/useStock";
-import { FinalizedPanel } from "./FinalizedPanel";
 import { CustomerPicker, ProductPicker } from "./Pickers";
 import { Totals } from "./Totals";
 import { useFinalize } from "./useFinalize";
@@ -97,7 +96,7 @@ export function InvoicePage() {
     onError: (e) => setStale(e.code === "stale_record"),
   });
   const preview = usePreview(businessId, draftId ?? "");
-  const finalize = useFinalize(businessId, draftId ?? "", saved?.version, `finalize-${draftId}-${saved?.version}`);
+  const finalize = useFinalize(businessId, draftId ?? "", saved?.version, `finalize-${draftId}-${saved?.version}`, (doc) => navigate(`/b/${businessId}/documents/${doc.id}`, { replace: true }));
   const flags = useStockFlags(businessId, Boolean(business));
 
   if (businesses.isPending) return <main className="page" aria-busy="true"><p>Loading…</p></main>;
@@ -138,8 +137,8 @@ export function InvoicePage() {
     <>
       <TopBar title={business.display_name} gstin={business.gstin} />
       <main className="page page-wide">
-        <h1>{finalize.data ? "Invoice issued" : draftId ? "Draft invoice" : "New invoice"}</h1>
-        {finalize.data ? <FinalizedPanel businessId={businessId} doc={finalize.data} /> : (<>
+        <h1>{draftId ? "Draft invoice" : "New invoice"}</h1>
+        <>
         <p className="hint">Draft · gets its number when you finalize</p>
         {stale && (
           <Banner tone="error">
@@ -320,7 +319,7 @@ export function InvoicePage() {
             )}
           </div>
         )}
-        </>)}
+        </>
       </main>
     </>
   );

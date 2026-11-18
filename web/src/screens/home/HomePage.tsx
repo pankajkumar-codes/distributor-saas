@@ -173,6 +173,9 @@ export function HomePage() {
                 <Link to={`/b/${businessId}/invoices/new`}>New invoice</Link>
               </li>
               <li>
+                <Link to={`/b/${businessId}/documents`}>Issued invoices</Link>
+              </li>
+              <li>
                 <Link to={`/b/${businessId}/purchases`}>Purchase invoices</Link>
               </li>
               <li>
