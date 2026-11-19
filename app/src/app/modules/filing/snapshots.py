@@ -20,7 +20,7 @@ from platform_common.ids import uuid7
 from platform_common.uow import BusinessUoW
 
 from .build import ReturnBuild
-from .gstr1 import Gstr1Sections
+from .gstr1 import Amounts, Gstr1Sections
 from .periods import ReturnInstance
 
 # Bump when `build_return` or the rows below change what a fingerprint means, so an old snapshot says which rules made it.
@@ -38,8 +38,9 @@ class Snapshot:
     created: bool  # False when this call found the snapshot it had already written
 
 
-def rows_of(sections: Gstr1Sections) -> list[dict]:
-    """The output rows of a build, in a fixed order (section order, then the build's own row order), numbered from 1."""
+def rows_of(sections: Gstr1Sections, docs=()) -> list[dict]:
+    """The output rows of a build, in a fixed order (section order, then the build's own row order), numbered from 1.
+    `docs` are the counted Table 13 rows (`table13.DocRow`), written last as section 'docs' so a snapshot reproduces the file."""
     out: list[dict] = []
 
     def add(section: str, **v) -> None:
@@ -65,12 +66,16 @@ def rows_of(sections: Gstr1Sections) -> list[dict]:
     for name in ("hsn_b2b", "hsn_b2c"):
         for r in getattr(sections, name):
             add(name, hsn=r.hsn, uqc=r.uqc, rate=r.rate, quantity=r.quantity, amounts=r.amounts)
+    for d in docs:
+        add("docs", nature=d.nature, from_no=d.from_no, to_no=d.to_no, total_count=d.total, cancelled_count=d.cancelled,
+            amounts=Amounts())  # fmt: skip
     return out
 
 
 _COLUMNS = (
     "doc_number", "doc_date", "counterparty_gstin", "pos_state_code", "rate", "hsn", "uqc", "note_type", "ur_type",
     "quantity", "invoice_value", "series_prefix", "from_no", "to_no", "total_count", "cancelled_count", "file_part",
+    "nature",
 )  # fmt: skip
 
 
@@ -113,6 +118,7 @@ def write_snapshot(
     changed_since_export: bool = False,
     accept_reason: str | None = None,
     difference: dict | None = None,
+    docs=(),
 ) -> Snapshot:
     """Write the build as the next version of this instance's snapshots. Must run in the caller's transaction.
 
@@ -152,7 +158,7 @@ def write_snapshot(
          "t": json.dumps(_totals(build)), "c": changed_since_export, "ar": accept_reason,
          "d": json.dumps(difference) if difference is not None else None, "u": uow.principal.user_id},
     )  # fmt: skip
-    rows = rows_of(build.sections)
+    rows = rows_of(build.sections, docs)
     if rows:
         cols = ("section", "row_no", "taxable_value", "igst", "cgst", "sgst", "cess", *_COLUMNS)
         tx.execute(

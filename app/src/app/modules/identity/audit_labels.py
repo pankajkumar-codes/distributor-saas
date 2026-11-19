@@ -37,6 +37,7 @@ ACTIONS: dict[str, tuple[str, str]] = {
     "members.reactivate": ("Reactivated a member", "team_settings"),
     "returns.filed": ("Marked a return filed", "gst_filing"),
     "returns.unlock": ("Unlocked a filed period", "gst_filing"),
+    "return.table13_confirmed": ("Confirmed the documents issued for a return", "gst_filing"),
     "documents.s34_override": ("Overrode the credit-note time limit", "invoices"),
     "filing.accept_warning": ("Accepted a filing warning", "gst_filing"),
     "filing.exported": ("Prepared a GSTR-1 file", "gst_filing"),

@@ -264,6 +264,15 @@ def test_a_live_month_is_exported_and_locked_without_staging_anything(real):
             json={"kind": "month", "start": "2026-10-01", "item": item, "confirmed": True},
         )
         assert gate.status_code == 200, gate.text
+    t13 = pg.client.get(f"/api/v1/b/{biz}/returns/{inst_id}/table13", headers=as_user("alice")).json()
+    assert t13["required"] and not t13["confirmed"]  # Table 13 comes from the live invoice only: the practice one is nowhere
+    assert [(x["from_no"], x["to_no"], x["total_issued"], x["source"]) for x in t13["rows"]] == [("INV-1", "INV-1", 1, "own_live")]
+    refused = pg.client.post(f"/api/v1/b/{biz}/returns/{inst_id}/exports", headers=as_user("alice"))
+    assert refused.status_code == 409 and refused.json()["error"]["code"] == "not_ready"  # C-08 blocks until it is confirmed
+    put = pg.client.put(f"/api/v1/b/{biz}/returns/{inst_id}/table13", headers=as_user("alice"),
+                        json={"rows": [{k: x[k] for k in ("nature", "from_no", "to_no", "total_issued", "cancelled", "counted")}
+                                       for x in t13["rows"]]})
+    assert put.status_code == 200 and put.json()["confirmed"], put.text
     r = pg.client.post(f"/api/v1/b/{biz}/returns/{inst_id}/exports", headers=as_user("alice"))
     assert r.status_code == 202, r.text
     queue.drain(jobs.handle_message)
@@ -273,6 +282,10 @@ def test_a_live_month_is_exported_and_locked_without_staging_anything(real):
     assert s["status"] == "ready" and len(s["files"]) == 1, s
     kinds = [r[0] for r in pg.owner.connect().execute(text("select source_kind from filing.snapshot_members"))]
     assert kinds == ["own_invoice"]  # the live invoice only; the practice document is nowhere
+    snap_docs = pg.owner.connect().execute(
+        text("select nature, from_no, to_no, total_count, cancelled_count from filing.snapshot_lines where section = 'docs'")
+    ).all()
+    assert [tuple(x) for x in snap_docs] == [(1, "INV-1", "INV-1", 1, 0)]
     done = pg.client.post(
         f"/api/v1/b/{biz}/returns/{inst_id}/filed",
         headers=as_user("alice"),
