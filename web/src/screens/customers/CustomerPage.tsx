@@ -137,7 +137,10 @@ export function CustomerPage() {
       if (isNew) formKey.reset();
       if (isNew) navigate(`/b/${businessId}/customers`, { replace: true, state: { added: c.name } });
     },
-    onError: refetchIfStale,
+    onError: (e) => {
+      refetchIfStale(e);
+      if (e.code === "idempotency_mismatch") formKey.reset(); // the key was used by an earlier, different request: next press starts fresh
+    },
   });
   const archive = useMutation<Customer, ApiError, boolean>({
     mutationFn: (archived) =>

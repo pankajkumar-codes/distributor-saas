@@ -101,6 +101,44 @@ describe("a new customer", () => {
     expect(sent(LIST, "POST")).toHaveLength(1);
   });
 
+  it("after a failed save, a quick double press sends one more request with the same key", async () => {
+    open("/b/b-1/customers/new");
+    await screen.findByRole("option", { name: "West Bengal (19)" });
+    let release = () => {};
+    const held = new Promise<void>((r) => (release = r));
+    server.reply(LIST, { status: 503 }, { status: 201, body: detail({ version: 1 }), wait: held });
+    server.reply(`GET ${LIST}`, { status: 200, body: { items: [detail({ version: 1 })], has_more: false } });
+    type("Name", "Sharma Traders");
+    type("Credit days", "30");
+    fireEvent.click(screen.getByRole("button", { name: "Add customer" }));
+    expect(await screen.findByText(/Something went wrong on our side/)).toBeInTheDocument();
+    const button = screen.getByRole("button", { name: "Add customer" });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    release();
+    expect(await screen.findByText("Added Sharma Traders.")).toBeInTheDocument();
+    const posts = sent(LIST, "POST");
+    expect(posts).toHaveLength(2); // the failed one and one retry, not three
+    expect(posts[1].headers.get("Idempotency-Key")).toBe(posts[0].headers.get("Idempotency-Key"));
+  });
+
+  it("starts a fresh key when the server says the key belonged to a different request", async () => {
+    open("/b/b-1/customers/new");
+    await screen.findByRole("option", { name: "West Bengal (19)" });
+    const mismatch = { status: 409, body: { error: { code: "idempotency_mismatch", message: "This Idempotency-Key was already used for a different request" } } };
+    server.reply(LIST, mismatch, { status: 201, body: detail({ version: 1 }) });
+    server.reply(`GET ${LIST}`, { status: 200, body: { items: [detail({ version: 1 })], has_more: false } });
+    type("Name", "Sharma Traders");
+    type("Credit days", "30");
+    fireEvent.click(screen.getByRole("button", { name: "Add customer" }));
+    await vi.waitFor(() => expect(sent(LIST, "POST")).toHaveLength(1));
+    await screen.findByRole("alert");
+    fireEvent.click(screen.getByRole("button", { name: "Add customer" }));
+    expect(await screen.findByText("Added Sharma Traders.")).toBeInTheDocument();
+    const [first, second] = sent(LIST, "POST");
+    expect(second.headers.get("Idempotency-Key")).not.toBe(first.headers.get("Idempotency-Key"));
+  });
+
   it("uses the same key when the page is rebuilt while the first save is still running", async () => {
     window.history.replaceState(null, "", "/b/b-1/customers/new");
     const first = render(<App />);

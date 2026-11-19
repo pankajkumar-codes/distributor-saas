@@ -208,6 +208,7 @@ export function ProductPage() {
     },
     onError: (e) => {
       if (e.code === "stale_record") product.refetch(); // the newer version brings the banner
+      if (e.code === "idempotency_mismatch") formKey.reset(); // the key was used by an earlier, different request: next press starts fresh
     },
   });
 

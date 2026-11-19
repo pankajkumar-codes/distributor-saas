@@ -45,6 +45,29 @@ describe("your team", () => {
     expect(sent.headers.get("Idempotency-Key")).toBeTruthy();
   });
 
+  it("after a failed send keeps the same key, and starts a fresh one when the server says it belonged to another request", async () => {
+    server.reply(`${B}/members`, team([member()]));
+    open("/b/b-1/settings/team");
+    await screen.findByText("Asha");
+    const mismatch = { status: 409, body: { error: { code: "idempotency_mismatch", message: "This Idempotency-Key was already used for a different request" } } };
+    server.reply(`POST ${B}/invitations`, { status: 503 }, mismatch, { status: 201, body: invite({ id: "i-2", email: "ca@example.com", role: "ca" }) });
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "ca@example.com" } });
+    fireEvent.change(screen.getByLabelText("Role"), { target: { value: "ca" } });
+    const posts = () => server.sent.filter((s) => s.method === "POST" && s.path === `${B}/invitations`);
+    const press = async (n: number) => {
+      fireEvent.click(screen.getByRole("button", { name: "Send invitation" }));
+      await vi.waitFor(() => expect(posts()).toHaveLength(n));
+      await screen.findByRole("alert");
+    };
+    await press(1);
+    await press(2);
+    fireEvent.click(screen.getByRole("button", { name: "Send invitation" }));
+    expect(await screen.findByText("Invitation sent to ca@example.com.")).toBeInTheDocument();
+    const [a, b, c] = posts();
+    expect(b.headers.get("Idempotency-Key")).toBe(a.headers.get("Idempotency-Key"));
+    expect(c.headers.get("Idempotency-Key")).not.toBe(b.headers.get("Idempotency-Key"));
+  });
+
   it("shows the server's words when the address is already a member", async () => {
     server.reply(`${B}/members`, team([member()]));
     open("/b/b-1/settings/team");
