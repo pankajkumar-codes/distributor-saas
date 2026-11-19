@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { api, call } from "../../api/client";
@@ -20,6 +20,7 @@ import { TopBar } from "../../kit/TopBar";
 import { RateHistory } from "./RateHistory";
 import { saleRateProblem } from "./saleRate";
 import { useGstRates } from "./useGstRates";
+import { useFormKey } from "../../kit/formKey";
 
 type Detail = components["schemas"]["ProductDetailOut"];
 type Category = components["schemas"]["ProductIn"]["tax_category"];
@@ -99,7 +100,7 @@ export function ProductPage() {
   const queryClient = useQueryClient();
   const businesses = useMyBusinesses();
   const business = businesses.data?.find((b) => b.business_id === businessId);
-  const key = useRef(crypto.randomUUID());
+  const formKey = useFormKey(`product:${businessId}`);
   const path = { business_id: businessId };
 
   const units = useQuery<components["schemas"]["UnitOut"][], ApiError>({
@@ -188,7 +189,7 @@ export function ProductPage() {
         };
         return call(() =>
           api.POST("/api/v1/b/{business_id}/products", {
-            params: { path, header: { "Idempotency-Key": key.current } },
+            params: { path, header: { "Idempotency-Key": formKey.current() } },
             body,
           }),
         );
@@ -202,6 +203,7 @@ export function ProductPage() {
     },
     onSuccess: (p) => {
       saved(p);
+      if (isNew) formKey.reset();
       if (isNew) navigate(`/b/${businessId}/products`, { replace: true, state: { added: p.name } });
     },
     onError: (e) => {

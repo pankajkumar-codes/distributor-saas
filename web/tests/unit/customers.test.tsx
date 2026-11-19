@@ -51,6 +51,21 @@ function open(path = "/b/b-1/customers") {
 const queries = () =>
   server.sent.filter((s) => s.path === LIST).map((s) => Object.fromEntries(new URL(s.url).searchParams));
 
+describe("the customers list when the server fails", () => {
+  it("replaces Loading with a plain message and a working Try again", async () => {
+    open(); // nothing queued for the list: every request answers 500
+    expect(screen.getByText("Loading…")).toBeInTheDocument();
+    // After the first failure it says it is trying again, rather than looking stuck.
+    expect(await screen.findByText("Having trouble loading. Trying again…")).toBeInTheDocument();
+    expect(await screen.findByText(/Something went wrong on our side/, {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(screen.queryByText("Loading…")).toBeNull();
+    server.reply(LIST, page([customer()]));
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByText("Sharma Traders")).toBeInTheDocument();
+    expect(screen.queryByText(/Something went wrong/)).toBeNull();
+  }, 10000);
+});
+
 describe("the customers list", () => {
   it("has a Home link back to the business's filing home", async () => {
     server.reply(LIST, page([]));
