@@ -402,7 +402,7 @@ export interface paths {
         };
         /**
          * Get Document
-         * @description One finalized document as stored, where its PDF stands and how many stock movements it wrote. Read-only: nothing
+         * @description One finalized document as stored (header, buyer, lines with their tax split), where its PDF stands and how many stock movements it wrote. Read-only: nothing
          *     is queued; ask for the PDF with POST .../pdf.
          */
         get: operations["get_document_api_v1_b__business_id__documents__document_id__get"];
@@ -2215,6 +2215,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/gstin-lookup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Gstin Lookup
+         * @description Only a GSTIN that passes the format and check-digit test is sent to the provider (`gstin_*` 422 otherwise). The reply
+         *     never says "verified": it is the provider's record, for the person to confirm.
+         */
+        post: operations["gstin_lookup_api_v1_gstin_lookup_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/health": {
         parameters: {
             query?: never;
@@ -3432,8 +3453,17 @@ export interface components {
         };
         /** DocumentDetailOut */
         DocumentDetailOut: {
+            /** Amount In Words */
+            amount_in_words: string;
+            buyer: components["schemas"]["DocumentParty"] | null;
+            /** Cess Total */
+            cess_total: string;
             /** Cgst Total */
             cgst_total: string;
+            /** Charges Label */
+            charges_label: string | null;
+            /** Charges Total */
+            charges_total: string;
             /** Counterparty Name */
             counterparty_name: string | null;
             /** Customer Id */
@@ -3455,25 +3485,36 @@ export interface components {
             finalized_at: string;
             /** Fy */
             fy: string;
+            /** Gross Total */
+            gross_total: string;
             /** Gstin */
             gstin: string;
             /** Id */
             id: string;
             /** Igst Total */
             igst_total: string;
+            /** Invoice Discount */
+            invoice_discount: string;
             /** Is Inter State */
             is_inter_state: boolean;
             /** Is Practice */
             is_practice: boolean;
             /** Kind */
             kind: string;
+            /** Line Discount Total */
+            line_discount_total: string;
+            /** Lines */
+            lines: components["schemas"]["DocumentLineOut"][];
             pdf: components["schemas"]["DocumentPdfState"];
+            /** Place Of Supply */
+            place_of_supply: string | null;
             /** Pos State Code */
             pos_state_code: string;
             /** Round Off */
             round_off: string;
             /** Sgst Total */
             sgst_total: string;
+            ship_to: components["schemas"]["DocumentShipTo"] | null;
             /** Stock Movements */
             stock_movements: number;
             /** Supply Class */
@@ -3482,6 +3523,46 @@ export interface components {
             taxable_total: string;
             /** Utgst */
             utgst: boolean;
+        };
+        /**
+         * DocumentLineOut
+         * @description One stored line, as finalized: the page shows it and works out nothing.
+         */
+        DocumentLineOut: {
+            /** Description */
+            description: string;
+            /** Discount */
+            discount: string | null;
+            /** Gross */
+            gross: string;
+            /** Hsn */
+            hsn: string;
+            /** No */
+            no: string;
+            /** Quantity */
+            quantity: string;
+            /** Taxable */
+            taxable: string;
+            /** Taxes */
+            taxes: components["schemas"]["DocumentLineTax"][];
+            /** Total */
+            total: string;
+            /** Unit Price */
+            unit_price: string | null;
+            /** Uqc */
+            uqc: string;
+        };
+        /** DocumentLineTax */
+        DocumentLineTax: {
+            /** Amount */
+            amount: string;
+            /**
+             * Component
+             * @enum {string}
+             */
+            component: "CGST" | "SGST" | "UTGST" | "IGST";
+            /** Rate */
+            rate: string;
         };
         /**
          * DocumentOut
@@ -3536,6 +3617,17 @@ export interface components {
             /** Utgst */
             utgst: boolean;
         };
+        /** DocumentParty */
+        DocumentParty: {
+            /** Address */
+            address: string[];
+            /** Gstin */
+            gstin: string | null;
+            /** Name */
+            name: string | null;
+            /** State */
+            state: string | null;
+        };
         /** DocumentPdfRef */
         DocumentPdfRef: {
             /** Attempt */
@@ -3565,6 +3657,13 @@ export interface components {
             number: string;
             /** Section */
             section: string;
+        };
+        /** DocumentShipTo */
+        DocumentShipTo: {
+            /** Address */
+            address: string[];
+            /** State */
+            state: string | null;
         };
         /** DocumentsOut */
         DocumentsOut: {
@@ -4110,6 +4209,27 @@ export interface components {
             /** Rates */
             rates: string[];
         };
+        /** GstinLookupIn */
+        GstinLookupIn: {
+            /** Gstin */
+            gstin: string;
+        };
+        /** GstinLookupOut */
+        GstinLookupOut: {
+            address: components["schemas"]["LookupAddress"] | null;
+            /** Found */
+            found: boolean;
+            /** Gstin */
+            gstin: string;
+            /** Legal Name */
+            legal_name: string | null;
+            /** Source */
+            source: string;
+            /** Status */
+            status: string | null;
+            /** Trade Name */
+            trade_name: string | null;
+        };
         /** HSNRowOut */
         HSNRowOut: {
             /** Cess */
@@ -4437,6 +4557,19 @@ export interface components {
             quantity: string;
             /** Unit Price */
             unit_price: string;
+        };
+        /** LookupAddress */
+        LookupAddress: {
+            /** City */
+            city: string | null;
+            /** Line1 */
+            line1: string | null;
+            /** Line2 */
+            line2: string | null;
+            /** Pin */
+            pin: string | null;
+            /** State Code */
+            state_code: string | null;
         };
         /** MeMembership */
         MeMembership: {
@@ -10975,6 +11108,51 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
+            };
+        };
+    };
+    gstin_lookup_api_v1_gstin_lookup_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GstinLookupIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GstinLookupOut"];
+                };
+            };
+            /** @description not a well-formed GSTIN */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description rate_limited */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description lookup_off or lookup_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

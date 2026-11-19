@@ -133,19 +133,8 @@ def _party(tx, p: dict | None, on: date) -> dict | None:
     }
 
 
-def build(tx, business_id: uuid.UUID, document_id: uuid.UUID) -> dict:
-    """The render input for one stored document (template invoice-document)."""
-    doc = tx.execute(
-        text("select doc_number as number, doc_date, due_date, is_practice, print, pos_state_code, taxable_total,"
-             " cgst_total, sgst_total, utgst, igst_total, round_off, doc_total, amount_in_words, is_inter_state,"
-             " invoice_discount, charges_total from sales.documents where id = :d and business_id = :b"),
-        {"d": document_id, "b": business_id},
-    ).mappings().one_or_none()
-    if doc is None:
-        raise jobs.JobFailed("document_not_found")
-    if not doc["is_practice"]:
-        raise jobs.JobFailed("live_template_not_approved")
-    on, snap = doc["doc_date"], doc["print"]
+def _lines(tx, business_id: uuid.UUID, document_id: uuid.UUID) -> list[dict]:
+    """The stored lines with their stored tax amounts, as decimal strings; the only sum is a line's own total."""
     lines = []
     for ln in tx.execute(
         text("select id, line_no, name, hsn, uqc, quantity, unit_price, gross, line_discount, taxable"
@@ -165,6 +154,52 @@ def build(tx, business_id: uuid.UUID, document_id: uuid.UUID) -> dict:
             "taxes": [{"component": c, "rate": _qty(r), "amount": _money(a)} for c, r, a in taxes],
             "total": _money(Decimal(ln["taxable"]) + sum((Decimal(a) for _, _, a in taxes), Decimal())),
         })
+    return lines
+
+
+def view(tx, business_id: uuid.UUID, document_id: uuid.UUID) -> dict:
+    """What the invoice page shows besides the stored header: the buyer and ship-to as snapshotted at finalize, the
+    place of supply, the lines with their tax split, and the amount in words. Read-only; no money is worked out."""
+    doc = tx.execute(
+        text("select print, doc_date, pos_state_code, amount_in_words, gross_total, line_discount_total,"
+             " invoice_discount, charges_total, cess_total from sales.documents where id = :d and business_id = :b"),
+        {"d": document_id, "b": business_id},
+    ).mappings().one()
+    snap, on = doc["print"], doc["doc_date"]
+    buyer = _party(tx, snap.get("bill_to"), on)
+    if buyer is None and snap.get("cash_buyer"):
+        buyer = _party(tx, snap["cash_buyer"], on)
+    ship = _party(tx, snap.get("ship_to"), on)
+    labels = snap.get("charge_labels") or []
+    return {
+        "buyer": buyer,
+        "ship_to": None if ship is None else {"address": ship["address"], "state": ship["state"]},
+        "place_of_supply": _state(tx, doc["pos_state_code"], on),
+        "lines": _lines(tx, business_id, document_id),
+        "gross_total": _money(doc["gross_total"]),
+        "line_discount_total": _money(doc["line_discount_total"]),
+        "invoice_discount": _money(doc["invoice_discount"]),
+        "charges_total": _money(doc["charges_total"]),
+        "charges_label": ", ".join(labels) or ("Charges" if doc["charges_total"] else None),
+        "cess_total": _money(doc["cess_total"]),
+        "amount_in_words": doc["amount_in_words"],
+    }
+
+
+def build(tx, business_id: uuid.UUID, document_id: uuid.UUID) -> dict:
+    """The render input for one stored document (template invoice-document)."""
+    doc = tx.execute(
+        text("select doc_number as number, doc_date, due_date, is_practice, print, pos_state_code, taxable_total,"
+             " cgst_total, sgst_total, utgst, igst_total, round_off, doc_total, amount_in_words, is_inter_state,"
+             " invoice_discount, charges_total from sales.documents where id = :d and business_id = :b"),
+        {"d": document_id, "b": business_id},
+    ).mappings().one_or_none()
+    if doc is None:
+        raise jobs.JobFailed("document_not_found")
+    if not doc["is_practice"]:
+        raise jobs.JobFailed("live_template_not_approved")
+    on, snap = doc["doc_date"], doc["print"]
+    lines = _lines(tx, business_id, document_id)
     if doc["is_inter_state"]:
         heads = [("IGST", doc["igst_total"])]
     else:

@@ -75,3 +75,7 @@ Sources are web summaries only; I did not run TallyPrime. Confidence is marked. 
 ## 8. Hand-off
 
 Code changes (primary button, inline HSN, preview session handling, Home links) are for the EM thread. This pull request changes documents and mocks only.
+
+## 9. The issued invoice page (#328)
+
+`GET /b/{b}/documents/{id}` now also returns the buyer and ship-to as snapshotted at finalize, the place of supply, every stored line with its stored tax split (CGST and SGST, or IGST), the discount, charge and cess totals and the amount in words. The page `/b/{b}/documents/{id}` shows them (mock v15, "Invoice created"): header with the number, the Practice label while numbering is off, Parties, Items (a card per line on a phone), Totals, then Download PDF. Every figure is the stored string; the page works out nothing. Zero discounts, charges, cess and round off are left out. The five preview states belong to the draft screen and are unchanged; the demo has no PDF renderer, so Download PDF there never finishes.

@@ -341,3 +341,12 @@ main:focus { outline: none; } /* the skip link moves focus here; the page itself
 }
 table.products td input:not([type="checkbox"]) { width: 9em; max-width: 100%; }
 table.products td select { max-width: 100%; }
+
+/* An issued invoice: label/value facts and the totals block. Figures right-aligned so the amounts line up. */
+.facts { display: grid; grid-template-columns: minmax(7em, max-content) 1fr; gap: 6px 16px; margin: 0 0 16px; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; overflow-wrap: anywhere; }
+.facts.totals { max-width: 420px; }
+.facts.totals dd { text-align: right; font-variant-numeric: tabular-nums; }
+.taxpart { display: block; white-space: nowrap; }
+@media (max-width: 600px) { .taxpart { white-space: normal; text-align: right; } .facts.totals { max-width: none; } }
