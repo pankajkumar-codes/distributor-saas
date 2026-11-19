@@ -436,6 +436,49 @@ def test_a_short_hsn_without_last_year_s_band_says_which_band_to_set():  # EM de
     assert blocks[0].fix.startswith("Tell us last year's turnover band (FY 2025-26) to use 4-digit HSN codes.")
 
 
+def relief_run(lines, buyer, *, relief=True, digits=4):
+    seller = Seller(state_code=MH, hsn_min_digits=digits, einvoice_status="no", hsn_b2c_relief=relief)
+    inp = ComputeInput(doc_date=TODAY, today=TODAY, seller=seller, buyer=buyer, lines=numbered(lines), rules=RULES)
+    return compute(inp)
+
+
+def test_a_blank_hsn_only_warns_for_an_unregistered_buyer_of_a_seller_known_to_be_small():  # #344
+    c = relief_run([line(1, 100, 18, hsn=None)], unregistered(MH))
+    assert c.blocks == ()
+    assert [(w.code, w.line_no, w.field) for w in c.warnings] == [("hsn_missing_b2c", 1, "lines.0.product_id")]
+    assert "GSTR-1" in c.warnings[0].fix
+
+
+def test_a_cash_sale_counts_as_an_unregistered_buyer():
+    buyer = Buyer(None, None, None, MH, MH, False)  # no customer: gstin is None
+    assert relief_run([line(1, 100, 18, hsn=None)], buyer).blocks == ()
+
+
+@pytest.mark.parametrize(
+    "buyer, relief",
+    [
+        (registered(MH), True),  # a registered buyer: still blocked
+        (unregistered(MH), False),  # turnover band unset or above the limit: the stricter default
+    ],
+)
+def test_a_blank_hsn_still_blocks_without_the_relief(buyer, relief):
+    c = relief_run([line(1, 100, 18, hsn=None)], buyer, relief=relief)
+    assert [b.code for b in c.blocks] == ["hsn_missing"]
+    assert c.warnings == ()
+
+
+def test_a_short_hsn_also_warns_under_the_relief_but_blocks_otherwise():
+    short = [line(1, 100, 18, hsn="34")]
+    warned = relief_run(short, unregistered(MH))
+    assert (warned.blocks, [w.code for w in warned.warnings]) == ((), ["hsn_short_b2c"])
+    assert [b.code for b in relief_run(short, registered(MH)).blocks] == ["hsn_too_short"]
+
+
+def test_a_filled_hsn_gives_no_hsn_warning():
+    c = relief_run([line(1, 100, 18)], unregistered(MH))
+    assert (c.blocks, c.warnings) == ((), ())
+
+
 def test_document_blocks_and_warnings():
     seller = Seller(state_code=MH, hsn_min_digits=4, einvoice_status="applies", ready_missing=("address",))
     inp = ComputeInput(

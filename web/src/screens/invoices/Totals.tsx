@@ -7,6 +7,10 @@ import { formatRupees as rupees } from "../../format/money";
 type Computation = components["schemas"]["ComputationOut"];
 type Issue = components["schemas"]["IssueOut"];
 
+// The checks that offer the inline HSN box: the blocks, and the warnings for a buyer without a GSTIN (#344), where adding
+// the HSN is optional now but the GSTR-1 return will need it.
+const HSN_FIX_CODES = ["hsn_missing", "hsn_too_short", "hsn_missing_b2c", "hsn_short_b2c"];
+
 // Display only: every figure is the server's string; the page does no tax arithmetic.
 
 function Issues({ title, items, tone, canLeave, productOf, hsnFix }: { title: string; items: Issue[]; tone: "error" | "info"; canLeave: boolean; productOf?: (line: number) => string | undefined; hsnFix?: (line: number, productId: string) => ReactNode }) {
@@ -51,7 +55,7 @@ function Issues({ title, items, tone, canLeave, productOf, hsnFix }: { title: st
                 )}
               </>
             )}
-            {(i.code === "hsn_missing" || i.code === "hsn_too_short") && i.line_no && productOf?.(i.line_no) && canLeave && hsnFix?.(i.line_no, productOf(i.line_no) as string)}
+            {HSN_FIX_CODES.includes(i.code) && i.line_no && productOf?.(i.line_no) && canLeave && hsnFix?.(i.line_no, productOf(i.line_no) as string)}
             {i.code === "hsn_needs_turnover_band" && (
               <>
                 {" "}
@@ -82,7 +86,7 @@ export function Totals({ c, states, canLeave = true, productOf, hsnFix }: { c: C
   return (
     <section aria-label="Totals">
       <Issues title="Fix before finalizing" items={c.blocks} tone="error" canLeave={canLeave} productOf={productOf} hsnFix={hsnFix} />
-      <Issues title="Please check" items={c.warnings} tone="info" canLeave={canLeave} />
+      <Issues title="Please check" items={c.warnings} tone="info" canLeave={canLeave} productOf={productOf} hsnFix={hsnFix} />
       {c.pos_state_code && (
         <p>
           Place of supply: {c.pos_state_code} {states[c.pos_state_code] ?? ""} · {c.is_inter_state ? "IGST" : c.utgst ? "CGST + UTGST" : "CGST + SGST"}

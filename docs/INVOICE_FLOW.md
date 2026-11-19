@@ -68,7 +68,7 @@ Sources are web summaries only; I did not run TallyPrime. Confidence is marked. 
 
 ## 7. Open questions
 
-- OQ-INV-1 (CA): is an HSN mandatory on every sales invoice for this business, and with how many digits? Until answered the server rule stays as built.
+- OQ-INV-1 (CA): is an HSN mandatory on every sales invoice for this business, and with how many digits? Until answered the server rule stays as built, except that D-101 (`docs/HSN_B2C_RELIEF.md`) turns a blank HSN into a warning for a buyer without a GSTIN when the seller is known to be up to Rs 5 crore.
 - OQ-INV-2 (owner): should "Create invoice" also be allowed to skip the confirmation sheet in r1-invoice-screens I2? The mock goes straight to the result because invoices are practice-only.
 - Tally behaviours marked low or unverified above were not confirmed from Tally itself.
 

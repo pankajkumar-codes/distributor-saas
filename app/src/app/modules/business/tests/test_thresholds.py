@@ -37,6 +37,19 @@ def test_min_digits_table(band, band_threshold, rule_threshold, digits):
 
 
 @pytest.mark.parametrize(
+    "band, band_threshold, rule_threshold, small",
+    [
+        ("up_to_threshold", FIVE_CRORE, FIVE_CRORE, True),
+        ("above_threshold", FIVE_CRORE, FIVE_CRORE, False),
+        (None, FIVE_CRORE, FIVE_CRORE, False),  # no band: never assume small (#344)
+        ("up_to_threshold", TEN_CRORE, FIVE_CRORE, False),  # up to Rs 10 crore does not say up to Rs 5 crore
+    ],
+)
+def test_small_seller_table(band, band_threshold, rule_threshold, small):
+    assert thresholds.small_seller_for(band, band_threshold, rule_threshold) is small
+
+
+@pytest.mark.parametrize(
     "band_threshold, expected",
     [
         (FIVE_CRORE, HsnBandMissing("2025-26", 4)),  # today: both Rs 5 crore

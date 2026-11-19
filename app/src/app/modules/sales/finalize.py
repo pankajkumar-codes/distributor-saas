@@ -349,7 +349,7 @@ def _insert(
                 "product": p.product_id,
                 "code": p.code,
                 "name": p.name,
-                "hsn": p.hsn,
+                "hsn": p.hsn or "",  # blank only on a B2C line the compute warned about (hsn_missing_b2c)
                 "uqc": p.uqc,
                 "qty": ln.quantity,
                 "price": ln.unit_price,

@@ -263,8 +263,21 @@ def _line_checks(i: int, line: LineIn, inp: ComputeInput, checks: _Checks) -> De
     if p.has_cess:
         checks.block("product_has_cess", "Products with compensation cess aren't supported yet.", f"{at}.product_id", n)
     hsn = p.hsn or ""
+    # Notification 78/2020-CT: a seller known to be up to the limit need not state the HSN digits on an
+    # invoice to an unregistered buyer. Anything else (registered buyer, band unset or above) stays a block.
+    relief = inp.seller.hsn_b2c_relief and not inp.buyer.gstin
     if not hsn:
-        checks.block("hsn_missing", "Add the product's HSN code.", f"{at}.product_id", n)
+        if relief:
+            checks.warn(
+                "hsn_missing_b2c",
+                "This product has no HSN code. This invoice is for a buyer without a GSTIN and your turnover last year"
+                " was within the small-business limit, so we allow it. Ask your CA to confirm, and add the HSN before"
+                " you file GSTR-1; the return needs it.",
+                f"{at}.product_id",
+                n,
+            )
+        else:
+            checks.block("hsn_missing", "Add the product's HSN code.", f"{at}.product_id", n)
     elif (
         len(hsn) < inp.seller.hsn_min_digits
         and inp.seller.hsn_band_missing_fy
@@ -280,6 +293,15 @@ def _line_checks(i: int, line: LineIn, inp: ComputeInput, checks: _Checks) -> De
             f"Tell us last year's turnover band (FY {fy}) to use {low}-digit HSN codes."
             f" Until then, HSN codes need at least {inp.seller.hsn_min_digits} digits.",  # mock-note-last-fy-band.md
             "business.turnover_band",
+            n,
+        )
+    elif len(hsn) < inp.seller.hsn_min_digits and relief:
+        checks.warn(
+            "hsn_short_b2c",
+            f"This HSN has fewer than {inp.seller.hsn_min_digits} digits. This invoice is for a buyer without a GSTIN"
+            " and your turnover last year was within the small-business limit, so we allow it. Ask your CA to confirm,"
+            " and check the code before you file GSTR-1.",
+            f"{at}.product_id",
             n,
         )
     elif len(hsn) < inp.seller.hsn_min_digits:

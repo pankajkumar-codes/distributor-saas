@@ -22,6 +22,7 @@ from ..fiscal import (
     fy_quarters,
     gstin_state,
     is_fy,
+    previous_fy,
     quarter_months,
     quarter_start,
 )
@@ -44,7 +45,14 @@ from ..profile import (
 )
 from ..registration import Address, Registration, blank_to_none, check_state, registration
 from ..series import SeriesSetting, series_setting
-from ..thresholds import EinvoiceStatus, HsnBandMissing, einvoice_status, hsn_band_missing, hsn_min_digits
+from ..thresholds import (
+    EinvoiceStatus,
+    HsnBandMissing,
+    einvoice_status,
+    hsn_b2c_relief,
+    hsn_band_missing,
+    hsn_min_digits,
+)
 
 __all__ = [
     "Address",
@@ -75,9 +83,11 @@ __all__ = [
     "get_profile",
     "gstin_message",
     "HsnBandMissing",
+    "hsn_b2c_relief",
     "hsn_band_missing",
     "hsn_min_digits",
     "lock_gstin",
+    "previous_fy",
     "quarter_months",
     "quarter_start",
     "ready_for_documents",
