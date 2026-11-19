@@ -141,16 +141,43 @@ describe("a new product", () => {
 });
 
 describe("the new product form's lists and fields", () => {
-  it("keeps only digits and one decimal point, up to 2 decimals, in the sale rate", async () => {
+  it("keeps what was typed in the sale rate and says what is wrong, so a price never changes silently", async () => {
     open("/b/b-1/products/new");
     await screen.findByRole("option", { name: "Numbers (NOS)" });
-    const box = screen.getByLabelText("Sale rate per unit, excluding GST (₹)");
-    type("Sale rate per unit, excluding GST (₹)", "Rs 1,20a.505.9");
-    expect(box).toHaveValue("120.50");
-    type("Sale rate per unit, excluding GST (₹)", "-4e5");
-    expect(box).toHaveValue("45");
-    type("Sale rate per unit, excluding GST (₹)", "abc");
-    expect(box).toHaveValue("");
+    const label = "Sale rate per unit, excluding GST (₹)";
+    const box = screen.getByLabelText(label);
+    const cases: [string, string | null][] = [
+      ["10.999", "Use at most 2 decimal places."],
+      ["-10", "A price can't be negative."],
+      ["1,200", "Enter a number, like 45 or 45.50."],
+      ["Rs 120", "Enter a number, like 45 or 45.50."],
+      ["1.2.3", "Enter a number, like 45 or 45.50."],
+      ["12345678901234567", "That number is too large."],
+      ["10.", null], // still typing
+      ["45.50", null],
+    ];
+    for (const [text, message] of cases) {
+      type(label, text);
+      expect(box).toHaveValue(text); // nothing dropped
+      if (message) expect(await screen.findByText(message)).toBeInTheDocument();
+      else expect(screen.queryByRole("alert")).toBeNull();
+    }
+  });
+
+  it("does not save a sale rate with a problem, and sends a good one exactly as typed", async () => {
+    open("/b/b-1/products/new");
+    await screen.findByRole("option", { name: "Numbers (NOS)" });
+    type("Product code", "G1");
+    type("Name", "Gel");
+    type("Unit", "NOS");
+    type("Sale rate per unit, excluding GST (₹)", "10.999");
+    fireEvent.click(screen.getByRole("button", { name: /add product/i }));
+    expect(await screen.findByText("Use at most 2 decimal places.")).toBeInTheDocument();
+    expect(server.sent.some((s) => s.method === "POST" && s.path.endsWith("/products"))).toBe(false);
+    type("Sale rate per unit, excluding GST (₹)", "10.");
+    fireEvent.click(screen.getByRole("button", { name: /add product/i }));
+    expect(await screen.findByText("Enter a number, like 45 or 45.50.")).toBeInTheDocument();
+    expect(server.sent.some((s) => s.method === "POST" && s.path.endsWith("/products"))).toBe(false);
   });
 
   it("hides the date a rate starts under Advanced, today by default, and opens it when the server names it", async () => {

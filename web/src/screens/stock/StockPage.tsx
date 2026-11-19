@@ -11,7 +11,7 @@ import { ErrorDetail } from "../../kit/ErrorDetail";
 import { uniqueById, useUrlSearch } from "../../kit/lists";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
-import { saleRateText } from "../products/saleRate";
+import { saleRateProblem } from "../products/saleRate";
 import { useSetPrice, useStockList, type Only, type StockItem } from "./useStock";
 
 const FILTERS: { value: Only; label: string }[] = [
@@ -22,6 +22,8 @@ const FILTERS: { value: Only; label: string }[] = [
 /** The price box for one row: the selling price per 1 qty, excluding GST, sent to the server as typed. */
 function PriceEntry({ businessId, item }: { businessId: string; item: StockItem }) {
   const [text, setText] = useState("");
+  const [tried, setTried] = useState(false);
+  const problem = saleRateProblem(text, tried);
   const save = useSetPrice(businessId);
   const id = `price-${item.product_id}`;
   return (
@@ -29,14 +31,20 @@ function PriceEntry({ businessId, item }: { businessId: string; item: StockItem 
       className="inline-form"
       onSubmit={(e) => {
         e.preventDefault();
-        if (text) save.mutate({ productId: item.product_id, rate: text });
+        if (!text) return;
+        if (saleRateProblem(text, true)) {
+          setTried(true);
+          return;
+        }
+        save.mutate({ productId: item.product_id, rate: text.trim() });
       }}
     >
-      <input id={id} aria-label={`Price per 1 ${item.uqc} (excl. GST) for ${item.name}`} placeholder={`per 1 ${item.uqc}`} inputMode="decimal" value={text} onChange={(e) => setText(saleRateText(e.target.value))} aria-invalid={save.error ? true : undefined} />
+      <input id={id} aria-label={`Price per 1 ${item.uqc} (excl. GST) for ${item.name}`} placeholder={`per 1 ${item.uqc}`} inputMode="decimal" value={text} onChange={(e) => setText(e.target.value)} aria-invalid={problem || save.error ? true : undefined} />
       <Button type="submit" busy={save.isPending} disabled={!text}>
         Save price
       </Button>
-      {save.error && <p className="error">{save.error.fix ?? (save.error.message || errorText(save.error))}</p>}
+      {problem && <p className="error" role="alert">{problem}</p>}
+      {!problem && save.error && <p className="error">{save.error.fix ?? (save.error.message || errorText(save.error))}</p>}
     </form>
   );
 }

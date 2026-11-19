@@ -43,6 +43,8 @@ export function InvoicePage() {
   const [saved, setSaved] = useState<Draft | null>(null);
   const [stale, setStale] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [cashStateMissing, setCashStateMissing] = useState(false);
+  const cashStateRef = useRef<HTMLSelectElement>(null);
   const path = { business_id: businessId, draft_id: draftId ?? "" };
 
   const loaded = useQuery<Draft, ApiError>({
@@ -115,6 +117,13 @@ export function InvoicePage() {
   const stateOptions = (states.data ?? []).map((s) => ({ value: s.code, label: `${s.code} ${s.name}` }));
   const stateNames = Object.fromEntries((states.data ?? []).map((s) => [s.code, s.name]));
   const error = save.error ?? remove.error;
+  // A cash sale has no customer to work the place of supply out from, so the buyer's state is required: say so beside it.
+  const cashStateError =
+    cashStateMissing && !form.cash_state
+      ? "Choose the buyer's state for a cash sale."
+      : save.error?.field?.startsWith("cash_buyer") && save.error.field.endsWith("state_code")
+        ? "Choose the buyer's state for a cash sale."
+        : undefined;
   const reload = async () => {
     const latest = (await loaded.refetch()).data;
     if (latest) {
@@ -127,6 +136,11 @@ export function InvoicePage() {
   };
   const submit = (e: FormEvent) => {
     e.preventDefault();
+    if (form.buyer === "cash" && !form.cash_state) {
+      setCashStateMissing(true);
+      cashStateRef.current?.focus();
+      return;
+    }
     save.mutate(form);
   };
   const setLine = (i: number, patch: Partial<Form["lines"][number]>) => set({ lines: form.lines.map((l, n) => (n === i ? { ...l, ...patch } : l)) });
@@ -158,7 +172,7 @@ export function InvoicePage() {
             (your unsaved changes here are replaced).
           </Banner>
         )}
-        {error && !stale && <Banner tone="error">{error.fix ?? (error.message || errorText(error))}</Banner>}
+        {error && !stale && !cashStateError && <Banner tone="error">{error.fix ?? (error.message || errorText(error))}</Banner>}
         <form onSubmit={submit} noValidate>
           <RadioGroup<"customer" | "cash">
             legend="Bill to"
@@ -174,7 +188,18 @@ export function InvoicePage() {
             </>
           ) : (
             <>
-              <SelectField label="Buyer's state" options={stateOptions} value={form.cash_state} onChange={(e) => set({ cash_state: e.target.value })} />
+              <SelectField
+                ref={cashStateRef}
+                label="Buyer's state"
+                options={stateOptions}
+                value={form.cash_state}
+                onChange={(e) => {
+                  set({ cash_state: e.target.value });
+                  setCashStateMissing(false);
+                }}
+                hint="Needed for a cash sale: it decides the place of supply and the tax."
+                error={cashStateError}
+              />
               <Field label="Buyer's name (optional)" value={form.cash_name} onChange={(e) => set({ cash_name: e.target.value })} />
               <Field label="Buyer's address (optional)" value={form.cash_address} onChange={(e) => set({ cash_address: e.target.value })} />
             </>

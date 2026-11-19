@@ -54,7 +54,11 @@ describe("stock", () => {
     const box = await screen.findByLabelText(/Price per 1 PCS/);
     expect(server.sent.filter((s) => s.path === `${B}/stock`).at(-1)!.url).toContain("only=price_needed");
     fireEvent.change(box, { target: { value: "99.5x" } });
-    expect(box).toHaveValue("99.5");
+    expect(box).toHaveValue("99.5x"); // kept as typed, and said to be wrong
+    expect(screen.getByText("Enter a number, like 45 or 45.50.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Save price" }));
+    expect(server.sent.some((s) => s.method === "PATCH")).toBe(false);
+    fireEvent.change(box, { target: { value: "99.5" } });
     server.reply(`GET ${B}/products/p-1`, { status: 200, body: { id: "p-1", version: 4 } });
     server.reply(`PATCH ${B}/products/p-1`, { status: 200, body: { id: "p-1", version: 5 } });
     server.reply(`${B}/stock`, { status: 200, body: { items: [], has_more: false } });

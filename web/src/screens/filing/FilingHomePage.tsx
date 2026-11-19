@@ -100,7 +100,7 @@ export function FilingHomePage() {
         </p>
         <h1>Your GST filing</h1>
         {frequency && <p className="hint">{frequency === "quarterly" ? "Quarterly (QRMP)" : "Monthly"} filer.</p>}
-        <Banner>R1 prepares your files and a guide. You file on the GST portal yourself.</Banner>
+        <Banner>We prepare your files and a step-by-step guide. You file on the GST portal yourself.</Banner>
         {now.isPending && business && <p aria-busy="true">Loading…</p>}
         {notSet && (
           <section className="card">
@@ -117,7 +117,7 @@ export function FilingHomePage() {
             {rows.length === 0 ? (
               <p>No returns to show yet.</p>
             ) : (
-              <table className="products">
+              <table className="products deadlines">
                 <thead>
                   <tr>
                     <th scope="col">Period</th>
