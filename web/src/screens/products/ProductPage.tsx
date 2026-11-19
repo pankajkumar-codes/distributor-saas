@@ -128,6 +128,7 @@ export function ProductPage() {
   const [validFrom, setValidFrom] = useState(todayIst());
   const [stale, setStale] = useState(false);
   const [advanced, setAdvanced] = useState(false);
+  const [rateMissing, setRateMissing] = useState(false);
   const rates = useGstRates(validFrom, isNew && values.tax_category === "taxable");
   const latest = product.data ?? null;
 
@@ -261,8 +262,13 @@ export function ProductPage() {
   }
 
   const error = save.error && save.error.code !== "stale_record" ? save.error : null;
-  const errorFor = (field: string) =>
-    error && formField(error.field) === field ? error.fix ?? (error.message || errorText(error)) : undefined;
+  const errorFor = (field: string) => {
+    if (field === "rate" && rateMissing && !chosenRate) return "Choose a GST rate.";
+    if (!error || formField(error.field) !== field) return undefined;
+    // A server check on the rate can come back as pattern text; the owner only needs to know to choose one.
+    if (field === "rate") return error.fix ?? "Choose a GST rate.";
+    return error.fix ?? (error.message || errorText(error));
+  };
   const base = opened;
   const dirty = Boolean(opened) && Object.keys(changedFields(valuesOf(opened!), values)).length > 0;
   const warningFor = (field: string) => base?.warnings.find((w) => w.field === field)?.message;
@@ -277,6 +283,10 @@ export function ProductPage() {
   const set = (field: keyof Values) => (e: { target: { value: string } }) => setValues({ ...values, [field]: e.target.value });
   const submit = (e: FormEvent) => {
     e.preventDefault();
+    if (isNew && values.tax_category === "taxable" && !chosenRate) {
+      setRateMissing(true);
+      return;
+    }
     save.mutate();
   };
   const otherError = error && !formField(error.field) ? error : (archive.error ?? remove.error);
@@ -360,7 +370,10 @@ export function ProductPage() {
                 disabled={!ratesReady}
                 options={(rates.data ?? []).map((r) => ({ value: r, label: formatRate(r) }))}
                 value={chosenRate}
-                onChange={(e) => setRate(e.target.value)}
+                onChange={(e) => {
+                  setRate(e.target.value);
+                  setRateMissing(false);
+                }}
                 hint={ratesNote ?? "The rate your CA advised. The list is the GST rates in force on the date the rate starts (under Advanced)."}
                 error={errorFor("rate")}
               />

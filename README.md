@@ -5,7 +5,7 @@ Multi-tenant commerce and distribution SaaS for Indian sellers and distributors
 
 ## Shape
 
-One Python (FastAPI) app on AWS Lambda in Mumbai (`ap-south-1`), split into modules
+One Python (FastAPI) app on AWS Lambda in Mumbai (`ap-south-1`; tenant data stays in India, D-094), split into modules
 that each own a PostgreSQL schema (D-027, which replaced the five-service design).
 It sits behind one API Gateway with Cognito sign-in and shares one RDS PostgreSQL
 instance. Everything in AWS is Terraform.

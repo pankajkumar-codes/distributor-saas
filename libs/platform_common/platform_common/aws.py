@@ -12,6 +12,7 @@ from datetime import timedelta
 import boto3
 
 from .clock import Clock
+from .regions import check_endpoints, configured_region
 from .storage import (
     GET_EXPIRY_SECONDS,
     POST_EXPIRY_SECONDS,
@@ -116,16 +117,32 @@ def client_config(**extra):
     read_timeout bounds each socket read, not a whole transfer, so a large S3 object is
     not cut off by it.
     botocore is imported here, not at the top, so this module loads without it (the
-    platform_common tests replace boto3 with a stand-in)."""
+    platform_common tests replace boto3 with a stand-in).
+    Tenant data stays in India (D-094): the client is pinned to the configured region, which must be Mumbai or
+    Hyderabad, and an endpoint override must point at this computer or an Indian regional host; otherwise this
+    raises and the function fails at start-up instead of sending data abroad."""
     from botocore.config import Config
 
-    return Config(connect_timeout=2, read_timeout=5, retries={"mode": "standard", "total_max_attempts": 3}, **extra)
+    check_endpoints()
+    return Config(
+        region_name=configured_region(),
+        connect_timeout=2,
+        read_timeout=5,
+        retries={"mode": "standard", "total_max_attempts": 3},
+        **extra,
+    )
 
 
 def cognito_client():
     """The cognito-idp client identity's CognitoAuthProvider drives (LLD-1 §7.2). Built
     here because boto3 is imported only in this module (D-039)."""
     return boto3.client("cognito-idp", config=client_config())
+
+
+def bedrock_client():
+    """The bedrock-runtime client for the paid invoice reader (D-077, off today and not wired). Pinned to India like
+    every other client here; the reader itself refuses any model or profile that would run elsewhere."""
+    return boto3.client("bedrock-runtime", config=client_config())
 
 
 def get_parameter(name: str) -> str:

@@ -74,5 +74,8 @@ These sharpen the priorities above for the approved design (docs/ARCHITECTURE.md
 - Verification codes and share tokens are stored only as hashes.
 - Nothing secret is kept in the repo.
 
+## Data residency (D-094)
+Tenant data, files, backups and logs that hold them stay in AWS Mumbai (ap-south-1) and Hyderabad (ap-south-2). No replication, backup copy, multi-region key or global inference profile; no third-party service receives tenant data unless it processes it in India and the decision is recorded. The CI check `scripts/ci_checks/india_only.py` fails the build on any other region name or cross-region construct; the only exception is the CloudFront certificate in `us-east-1`. Real tenant data never goes to GitHub, CI, AI sessions or shared project files.
+
 ## Data handling
 Use synthetic data in development and tests. Do not upload production customer records to external AI tools unless the data-handling implications have been explicitly reviewed and approved.
