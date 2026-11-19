@@ -40,6 +40,9 @@
   value: "300"
   reason: "max length of a text field in a request body; input hygiene, not a tax rule"
 - path: app/src/app/modules/catalog/api_products.py
+  value: "1000"
+  reason: "ceiling on a name in a request body, above the 200 rule so the plain message wins; input hygiene"
+- path: app/src/app/modules/catalog/api_products.py
   value: "24"
   reason: "max length of a decimal string in a request body; input hygiene"
 - path: app/src/app/modules/catalog/api_products.py

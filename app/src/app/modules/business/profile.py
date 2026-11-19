@@ -28,6 +28,35 @@ from .registration import Address, Registration, blank_to_none, check_state, reg
 # business.marketplace_channels, whose column keeps its old name.
 MARKETPLACES = ("amazon", "flipkart", "meesho", "own_invoices")
 
+# R2-M1 (D-095): what the business says it is. Optional, several allowed, never gates a route.
+BusinessType = Literal[
+    "retailer", "wholesaler", "distributor", "manufacturer", "online_seller", "service_provider", "other"
+]
+BUSINESS_TYPES: tuple[str, ...] = (
+    "retailer", "wholesaler", "distributor", "manufacturer", "online_seller", "service_provider", "other",
+)
+
+
+# Transition (D-095): the single-value field of R2-M1 is still accepted and shown for one release so the web app
+# can move to the list in its own PR. Distributor stays distributor; retail became retailer.
+_LEGACY_IN = {"distributor": "distributor", "retail": "retailer"}
+_LEGACY_OUT = {"distributor": "distributor", "retailer": "retail"}
+
+
+def legacy_to_types(value: str | None) -> list[str]:
+    return [] if value is None else [_LEGACY_IN[value]]
+
+
+def types_to_legacy(types: list[str]) -> str | None:
+    """The first of the list that has a single-value name, else None."""
+    return next((_LEGACY_OUT[t] for t in types if t in _LEGACY_OUT), None)
+
+
+def clean_business_types(values: list[str] | None) -> list[str]:
+    """Each type once, in the order of BUSINESS_TYPES, so the same choice always reads (and compares) the same."""
+    chosen = set(values or [])
+    return [t for t in BUSINESS_TYPES if t in chosen]
+
 
 @dataclass(frozen=True)
 class Profile:
@@ -45,7 +74,7 @@ class Profile:
     pin: str | None
     address_state_code: str | None
     einvoice_history: str | None
-    business_type: str | None  # R2-M1: distributor, retail, or None (not chosen)
+    business_types: list[str]  # R2-M1: zero or more of BUSINESS_TYPES; empty = not chosen
     marketplaces_answered_at: datetime | None
     version: int  # bumped by every change the company form can see (If-Match)
 
@@ -83,7 +112,7 @@ class BusinessSetup:
 _PROFILE = text(
     "select business_id, legal_name, trade_name, registration_kind, gstin, enrolment_number, state_code,"
     " gstin_locked_at is not null as gstin_locked, address_line1, address_line2, city, pin, address_state_code,"
-    " einvoice_history, business_type, marketplaces_answered_at, version from business.profiles"
+    " einvoice_history, business_types, marketplaces_answered_at, version from business.profiles"
     " where business_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
 )
 
@@ -120,7 +149,8 @@ class ProfilePatch(BaseModel):
     trade_name: str | None = Field(default=None, max_length=200)
     address: Address | None = None
     einvoice_history: Literal["no", "yes", "not_sure"] | None = None
-    business_type: Literal["distributor", "retail"] | None = None  # null clears it
+    business_types: list[BusinessType] | None = None  # null or [] clears it
+    business_type: Literal["distributor", "retail"] | None = None  # deprecated: use business_types
 
 
 _UPDATE = text(
@@ -128,7 +158,7 @@ _UPDATE = text(
     " registration_kind = :registration_kind, gstin = :gstin, enrolment_number = :enrolment_number,"
     " state_code = :state_code, address_line1 = :address_line1, address_line2 = :address_line2, city = :city,"
     " pin = :pin, address_state_code = :address_state_code, einvoice_history = :einvoice_history,"
-    " business_type = :business_type,"
+    " business_types = :business_types,"
     " version = version + 1, updated_at = now(), updated_by = :by where business_id = :b"
 )
 _ADDRESS = {"line1": "address_line1", "line2": "address_line2", "city": "city", "pin": "pin",
@@ -171,8 +201,10 @@ def update_profile(uow: UnitOfWork, patch: ProfilePatch, *, today: date, if_matc
             new[name] = blank_to_none(getattr(patch, name))
     if "einvoice_history" in sent:
         new["einvoice_history"] = patch.einvoice_history
-    if "business_type" in sent:
-        new["business_type"] = patch.business_type
+    if "business_types" in sent:
+        new["business_types"] = clean_business_types(patch.business_types)
+    elif "business_type" in sent:
+        new["business_types"] = legacy_to_types(patch.business_type)
     if "address" in sent:
         # null clears the whole address; an object changes only the fields it carries.
         fields = _ADDRESS if patch.address is None else patch.address.model_fields_set

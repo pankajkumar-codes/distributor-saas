@@ -297,8 +297,8 @@ def _read_only_step(uow: UnitOfWork, caller: Caller, business_id: uuid.UUID, fir
 
 async def business_uow(business_id: str, request: Request) -> AsyncIterator[UnitOfWork]:
     """FastAPI dependency for every `/api/v1/b/{business_id}/...` route."""
+    caller = current_caller(request)  # first: a caller who is not signed in gets 401 whatever the id looks like (#283)
     bid = parse_id(business_id)
-    caller = current_caller(request)
     rid = request_id(request)
     async with _async_unit_of_work(Principal(user_sub=caller.user_sub, request_id=rid)) as uow:
         principal = await run_in_threadpool(_bind_resolved, uow, caller, bid)

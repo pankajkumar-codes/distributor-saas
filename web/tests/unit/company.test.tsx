@@ -23,7 +23,7 @@ const profile = (over: Record<string, unknown> = {}) => ({
   registration: { kind: "gstin", gstin: "19ABCDE1234F1Z5", enrolment_number: null, state_code: "19", state_name: "West Bengal", locked: false },
   address: { line1: "12 Lake Road", line2: null, city: "Kolkata", pin: "700029", state_code: "19" },
   einvoice_history: "no",
-  business_type: null,
+  business_types: [],
   turnover_band: null,
   ready_for_documents: { ok: true, missing: [] },
   version: 4,
@@ -46,6 +46,26 @@ function open(role = "owner") {
 }
 const type = (label: string, value: string) => fireEvent.change(screen.getByLabelText(label), { target: { value } });
 const patches = () => server.sent.filter((s) => s.path === PROFILE && s.method === "PATCH");
+
+describe("coming from an invoice that needs last year's band", () => {
+  it("offers the way back to that invoice only", async () => {
+    server.reply(PROFILE, { status: 200, body: profile() });
+    server.reply(ME, me(), me());
+    window.history.replaceState({ usr: { backTo: "/b/b-1/invoices/d-1" }, key: "k1", idx: 0 }, "", "/b/b-1/settings");
+    render(<App />);
+    expect(await screen.findByRole("link", { name: "Back to your invoice" })).toHaveAttribute("href", "/b/b-1/invoices/d-1");
+    expect(screen.getByRole("group", { name: /Turnover last financial year/ }).parentElement).toHaveAttribute("id", "last-year-band");
+  });
+
+  it("ignores a way back that is not an invoice of this business", async () => {
+    server.reply(PROFILE, { status: 200, body: profile() });
+    server.reply(ME, me(), me());
+    window.history.replaceState({ usr: { backTo: "https://example.com/" }, key: "k2", idx: 0 }, "", "/b/b-1/settings");
+    render(<App />);
+    await screen.findByLabelText("Legal name");
+    expect(screen.queryByRole("link", { name: "Back to your invoice" })).toBeNull();
+  });
+});
 
 describe("business details", () => {
   it("sends only the changed fields with If-Match, and shows the server's warnings", async () => {
@@ -173,39 +193,37 @@ describe("business details", () => {
     });
   });
 
-  it("offers the business type, shows the saved one, and a save sends only what changed", async () => {
+  it("offers the business types, shows the saved ones, and a save sends only what changed", async () => {
     server.reply(
       PROFILE,
-      { status: 200, body: profile({ business_type: "retail" }) },
-      { status: 200, body: { profile: profile({ business_type: "distributor", version: 5 }), warnings: [] } },
+      { status: 200, body: profile({ business_types: ["retailer"] }) },
+      { status: 200, body: { profile: profile({ business_types: ["retailer", "distributor"], version: 5 }), warnings: [] } },
     );
     open();
     await screen.findByLabelText("Legal name");
-    const select = screen.getByLabelText(/Business type/);
-    expect(select).toBeEnabled();
-    expect(select).toHaveValue("retail");
-    expect(screen.queryByText("Upcoming")).not.toBeInTheDocument();
-    type("Business type (optional)", "distributor");
+    expect(screen.getByLabelText("Retailer")).toBeChecked();
+    expect(screen.getByLabelText("Distributor")).not.toBeChecked();
+    fireEvent.click(screen.getByLabelText("Distributor"));
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     expect(await screen.findByText(/Saved\./)).toBeInTheDocument();
-    expect(patches()[0].body).toEqual({ business_type: "distributor" });
+    expect(patches()[0].body).toEqual({ business_types: ["retailer", "distributor"] });
   });
 
-  it("clears the business type with null, and a save that left it alone never sends it", async () => {
+  it("clears the business types with an empty list, and a save that left them alone never sends them", async () => {
     server.reply(
       PROFILE,
-      { status: 200, body: profile({ business_type: "retail" }) },
-      { status: 200, body: { profile: profile({ business_type: null, version: 5 }), warnings: [] } },
+      { status: 200, body: profile({ business_types: ["retailer"] }) },
+      { status: 200, body: { profile: profile({ business_types: [], version: 5 }), warnings: [] } },
     );
     open();
     await screen.findByLabelText("Legal name");
-    type("Business type (optional)", "");
+    fireEvent.click(screen.getByLabelText("Retailer"));
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     expect(await screen.findByText(/Saved\./)).toBeInTheDocument();
-    expect(patches()[0].body).toEqual({ business_type: null });
+    expect(patches()[0].body).toEqual({ business_types: [] });
   });
 
-  it("does not send business_type when only another field changed", async () => {
+  it("does not send business_types when only another field changed", async () => {
     server.reply(PROFILE, { status: 200, body: profile() }, { status: 200, body: { profile: profile({ trade_name: "Vashi", version: 5 }), warnings: [] } });
     open();
     await screen.findByLabelText("Legal name");

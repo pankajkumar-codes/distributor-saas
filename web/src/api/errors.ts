@@ -20,6 +20,43 @@ type Body = {
   challenge?: string;
 };
 
+/**
+ * The API's request checks (the framework's own validation, before the app's rules run) answer in programmer text:
+ * "String should match pattern '^[0-9]{6}$'", "Input should be 'taxable' or ...". A person must never read that.
+ * This turns each kind into a plain sentence, by the field it names, in one place for every form. Any message that
+ * is already plain (the app's own rules write those) passes through untouched.
+ */
+const BY_FIELD: Record<string, { pattern?: string; choice?: string }> = {
+  pin: { pattern: "A PIN code is 6 digits and doesn't start with 0." },
+  email: { pattern: "Enter a valid email address, like name@business.in." },
+  rate: { pattern: "Choose a GST rate.", choice: "Choose a GST rate." },
+  tax_category: { choice: "Choose how GST applies." },
+  sale_rate: { pattern: "Enter the rate as a number, like 45 or 45.50." },
+  gstin: { pattern: "Check the GSTIN: it is 15 letters and numbers." },
+};
+export function plainValidation(message: string, field?: string): string {
+  const key = (field ?? "").split(".").pop() ?? "";
+  const hit = BY_FIELD[key];
+  // A rule of ours wrapped by the framework ("Value error, Enter a name"): its sentence is already plain; keep it, drop the prefix.
+  const wrapped = /^Value error,\s*(.+)$/is.exec(message);
+  if (wrapped) return wrapped[1].trim();
+  // Number and date checks first, so a field's own wording below never hides what is actually wrong with the number.
+  const places = /^Decimal input should have no more than (\d+) decimal places?/i.exec(message);
+  if (places) return `Use at most ${places[1]} decimal place${places[1] === "1" ? "" : "s"}.`;
+  if (/^Input should be (greater|less)( than)?|^Input should be (greater|less) than or equal/i.test(message)) return "That number is outside the allowed range.";
+  if (/^Input should be a valid (decimal|number|integer)|^Input should be a finite number|^Decimal (input|scale)/i.test(message)) return "Enter a number, like 45 or 45.50.";
+  if (/^Input should be a valid (date|datetime)|^Input should be a valid date/i.test(message)) return "Enter a valid date.";
+  if (/^String should match pattern/i.test(message)) return hit?.pattern ?? "That isn't in the format we expect. Check it and try again.";
+  if (/^Input should be '/i.test(message) || /^value is not a valid/i.test(message)) return hit?.choice ?? "Choose one of the options.";
+  if (/^Input should be/i.test(message)) return "Check this and try again.";
+  if (/^String should have at most/i.test(message)) return "That is too long. Make it shorter.";
+  if (/^String should have at least/i.test(message)) return "That is too short.";
+  if (/^Field required/i.test(message)) return "This is required.";
+  if (message === "that isn't a GST state code") return "Choose a state from the list.";
+  if (/^(List|Set|Tuple) should have/i.test(message)) return "Check the number of items.";
+  return message;
+}
+
 export function toApiError(response: Response | undefined, body: unknown, detail?: string): ApiError {
   if (!response) return { status: 0, code: "network", message: "", ...(detail ? { detail } : {}) };
   const error = (body as Body | undefined)?.error ?? {};
@@ -28,7 +65,7 @@ export function toApiError(response: Response | undefined, body: unknown, detail
   return {
     status: response.status,
     code: error.code ?? "unknown",
-    message: error.message ?? "",
+    message: plainValidation(error.message ?? "", error.field),
     field: error.field,
     fix: error.fix,
     unmet: error.unmet,
@@ -44,7 +81,6 @@ const BY_CODE: Record<string, string> = {
   product_in_use: "This product is on invoices, so it can be archived but not deleted.",
   // Invoicing (R2)
   invoice_plan_required: "You have used your free invoices. Choose the invoicing plan to keep creating invoices.",
-  business_type_required: "Choose Distributor or Retail in Business setup first.",
   code_not_accepted: "That code didn't work. Check it, or send a new code.",
   email_invalid: "Enter a valid email address, like name@business.in.",
   password_weak: "Choose a stronger password.",

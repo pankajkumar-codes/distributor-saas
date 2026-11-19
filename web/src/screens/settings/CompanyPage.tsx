@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 
 import { api, call } from "../../api/client";
 import { errorText, type ApiError } from "../../api/errors";
@@ -9,7 +9,7 @@ import { useStateCodes } from "../../api/useStateCodes";
 import { useMyBusinesses } from "../../auth/useMyBusinesses";
 import { fyIst, previousFy } from "../../format/dates";
 import { AddressFields, addressIn, addressLine, addressOf, sameAddress, type Address } from "../../kit/AddressFields";
-import { BusinessTypeField, type BusinessType } from "../../kit/BusinessTypeField";
+import { BUSINESS_TYPES, BusinessTypeField, orderedTypes, type BusinessType } from "../../kit/BusinessTypeField";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { Field } from "../../kit/Field";
@@ -30,7 +30,7 @@ export type Values = {
   trade_name: string;
   address: Address;
   einvoice_history: Einvoice | "";
-  business_type: BusinessType | "";
+  business_types: BusinessType[];
   this_band: Band | "";
   last_band: Band | "";
 };
@@ -51,14 +51,16 @@ export const valuesOf = (p: Profile): Values => ({
   trade_name: p.trade_name ?? "",
   address: addressOf(p.address),
   einvoice_history: p.einvoice_history ?? "",
-  business_type: p.business_type ?? "",
+  business_types: orderedTypes(p.business_types ?? []),
   this_band: p.turnover_band?.band ?? "",
   last_band: p.previous_turnover_band?.band ?? "",
 });
 /** What changes when anyone saves: the profile's version or either band's. */
 const stamp = (p: Profile) => `${p.version}/${p.turnover_band?.version ?? 0}/${p.previous_turnover_band?.version ?? 0}`;
 const equal = (a: Values[Key], b: Values[Key]) =>
-  typeof a === "object" && typeof b === "object" ? sameAddress(a, b) : String(a).trim() === String(b).trim();
+  Array.isArray(a) && Array.isArray(b)
+    ? a.join(",") === b.join(",")
+    : typeof a === "object" && typeof b === "object" ? sameAddress(a as Address, b as Address) : String(a).trim() === String(b).trim();
 
 /** The fields that differ from `from`. */
 export function changedKeys(from: Values, to: Values): Key[] {
@@ -72,7 +74,7 @@ export function patchBody(from: Values, to: Values): components["schemas"]["Prof
     if (k === "this_band" || k === "last_band") continue;
     if (k === "address") out.address = addressIn(to.address);
     else if (k === "einvoice_history") out.einvoice_history = to.einvoice_history || null;
-    else if (k === "business_type") out.business_type = to.business_type || null;
+    else if (k === "business_types") out.business_types = to.business_types;
     else out[k] = to[k].trim() || null;
   }
   return out;
@@ -110,6 +112,14 @@ export function CompanyPage({ embedded = false }: { embedded?: boolean } = {}) {
   const [stale, setStale] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
   const latest = profile.data ?? null;
+  // Sent here from an invoice that needs last year's turnover band: offer the way back, and show the field.
+  const fromState = (useLocation().state as { backTo?: unknown } | null)?.backTo;
+  const backTo = typeof fromState === "string" && fromState.startsWith(`/b/${businessId}/invoices/`) ? fromState : null;
+  const hash = useLocation().hash;
+  const valuesReady = Boolean(values);
+  useEffect(() => {
+    if (hash === "#last-year-band" && valuesReady) document.getElementById("last-year-band")?.scrollIntoView?.({ block: "center" });
+  }, [hash, valuesReady]);
   // What the server has confirmed during the current save, write by write. If a later write
   // fails, the form moves to it, so a re-read can only show what other people changed.
   const confirmed = useRef<Profile | null>(null);
@@ -171,6 +181,7 @@ export function CompanyPage({ embedded = false }: { embedded?: boolean } = {}) {
     onSuccess: (out) => {
       queryClient.setQueryData(["b", businessId, "profile"], out.profile);
       queryClient.invalidateQueries({ queryKey: ["b", businessId, "home"] });
+      queryClient.invalidateQueries({ queryKey: ["b", businessId, "draft"] }); // a draft's checks depend on the bands
       queryClient.invalidateQueries({ queryKey: ["me", "businesses"] }); // the top bar shows the trade name
       setOpened(out.profile);
       setValues(valuesOf(out.profile));
@@ -225,11 +236,12 @@ export function CompanyPage({ embedded = false }: { embedded?: boolean } = {}) {
   const error = save.error && !["stale_record", "if_match_required"].includes(save.error.code ?? "") ? save.error : null;
   const words = (e: ApiError) => e.fix ?? (e.message || errorText(e));
   const errorFor = (field: string) => (error && error.field === field ? words(error) : undefined);
-  const onField = error && /^(legal_name|trade_name|einvoice_history|business_type|address(\..+)?)$/.test(error.field ?? "");
+  const onField = error && /^(legal_name|trade_name|einvoice_history|business_types|address(\..+)?)$/.test(error.field ?? "");
   const theirHint = (k: Key) => {
     if (!stale || !theirs.includes(k)) return undefined;
     const now = valuesOf(opened)[k];
     if (equal(now, values[k])) return "Someone else changed this.";
+    if (Array.isArray(now)) return `Now saved as: ${now.map((t) => BUSINESS_TYPES.find((o) => o.value === t)?.label ?? t).join(", ") || "(none)"}`;
     if (typeof now === "object") return `Now saved as: ${addressLine(now)}`;
     const label = [...EINVOICE, ...BAND_OPTIONS].find((o) => o.value === now)?.label;
     return `Now saved as: ${label ?? (now || "(blank)")}`;
@@ -250,6 +262,11 @@ export function CompanyPage({ embedded = false }: { embedded?: boolean } = {}) {
   return (
     <SetupFrame embedded={embedded} business={business}>
         <SetupTitle embedded={embedded} businessId={businessId} title="Business details" />
+        {backTo && (
+          <p>
+            <Link to={backTo}>Back to your invoice</Link>
+          </p>
+        )}
         {!opened.ready_for_documents.ok && opened.ready_for_documents.missing.length > 0 && (
           <Banner>
             Needed before your first invoice: {opened.ready_for_documents.missing.map((m) => MISSING[m] ?? m).join(", ")}.
@@ -304,9 +321,9 @@ export function CompanyPage({ embedded = false }: { embedded?: boolean } = {}) {
               error={errorFor("trade_name")}
             />
             <BusinessTypeField
-              value={values.business_type}
-              onChange={(v) => edit({ ...values, business_type: v })}
-              error={errorFor("business_type")}
+              value={values.business_types}
+              onChange={(v) => edit({ ...values, business_types: v })}
+              error={errorFor("business_types")}
             />
             <AddressFields
               legend="Principal place of business"
@@ -333,6 +350,7 @@ export function CompanyPage({ embedded = false }: { embedded?: boolean } = {}) {
               onChange={(v) => edit({ ...values, this_band: v })}
               hint={theirHint("this_band") ?? "Ask your CA if you're not sure which applies."}
             />
+            <div id="last-year-band">
             <RadioGroup<Band>
               legend={`Turnover last financial year (FY ${lastFy})`}
               name="last_band"
@@ -344,6 +362,7 @@ export function CompanyPage({ embedded = false }: { embedded?: boolean } = {}) {
                 (values.last_band ? "This decides whether 4-digit HSN codes are enough on your invoices." : "Not set yet. This decides whether 4-digit HSN codes are enough on your invoices.")
               }
             />
+            </div>
           </fieldset>
           {canEdit && (
             <div className="actions">

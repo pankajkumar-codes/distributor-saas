@@ -181,7 +181,20 @@ describe("row text", () => {
   });
 
   it("puts the reason first, then the details by name", () => {
-    expect(detailText({ reason: "left", details: { role: "billing", code: null } })).toBe("left; role: billing");
+    expect(detailText({ reason: "left", details: { role: "billing", code: null } })).toBe("left; Role: Billing");
     expect(detailText({ reason: null, details: {} })).toBe("");
+  });
+
+  it("writes each recorded detail in plain words and keeps ids and internal codes out of sight", () => {
+    const text = (details: Record<string, unknown>) => detailText({ reason: null, details });
+    expect(text({ enabled: ["amazon", "flipkart", "meesho", "own_invoices"] })).toBe("Marketplaces: Amazon, Flipkart, Meesho, Own sales invoices");
+    expect(text({ effective_from: "2026-10-01", frequency: "monthly", warnings: [] })).toBe("Monthly filing from 01-Oct-2026");
+    expect(text({ rate: "3", rate_id: "01a1f0a8-642f-78f7-bc18-a73f173c55c7", valid_from: "2026-11-19" })).toBe("GST rate 3% from 19-Nov-2026");
+    expect(text({ code: "SKU-1" })).toBe("Code SKU-1");
+    expect(text({ fields: ["business_type"] })).toBe("Changed: business type");
+    expect(text({ registration_kind: "gstin" })).toBe("Registered with a GSTIN");
+    expect(text({ from: "admin", to: "billing" })).toBe("From Admin to Billing");
+    expect(text({ review_id: "01a1f0a8-642f-78f7-bc18-a73f173c55c7", seq: 4, section: "b2b" })).toBe("Section: b2b");
+    expect(text({ effective_from: "2026-10-01", frequency: "monthly", warnings: ["outside_window"] })).toMatch(/^Monthly filing from 01-Oct-2026; Your filing frequency choice may fall outside/);
   });
 });

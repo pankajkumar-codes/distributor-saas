@@ -148,6 +148,7 @@ def test_field_checks(shop):
         ({"code": "has space"}, "code_invalid"),
         ({"code": "x" * 41}, "code_invalid"),
         ({"name": "   "}, "name_invalid"),
+        ({"name": "x" * 400}, "name_invalid"),
     ]
     for extra, code in cases:
         body = product(**{"code": f"F-{uuid.uuid4().hex[:6]}", **extra})
