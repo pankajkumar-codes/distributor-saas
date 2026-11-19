@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { api, call } from "../../api/client";
@@ -15,6 +15,7 @@ import { Button } from "../../kit/Button";
 import { Field } from "../../kit/Field";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
+import { useFormKey } from "../../kit/formKey";
 
 type Customer = components["schemas"]["CustomerOut"];
 export type Values = { name: string; gstin: string; credit_days: string; same: boolean; billing: Address; delivery: Address };
@@ -72,7 +73,7 @@ export function CustomerPage() {
   const businesses = useMyBusinesses();
   const business = businesses.data?.find((b) => b.business_id === businessId);
   const states = useStateCodes();
-  const key = useRef(crypto.randomUUID());
+  const formKey = useFormKey(`customer:${businessId}`);
   const path = { business_id: businessId, customer_id: customerId ?? "" };
 
   const customer = useQuery<Customer, ApiError>({
@@ -122,7 +123,7 @@ export function CustomerPage() {
           delivery: values.same ? null : addressIn(values.delivery),
           credit_days: Number(values.credit_days.trim()),
         };
-        return call(() => api.POST("/api/v1/b/{business_id}/customers", { params: { path, header: { "Idempotency-Key": key.current } }, body }));
+        return call(() => api.POST("/api/v1/b/{business_id}/customers", { params: { path, header: { "Idempotency-Key": formKey.current() } }, body }));
       }
       return call(() =>
         api.PATCH("/api/v1/b/{business_id}/customers/{customer_id}", {
@@ -133,6 +134,7 @@ export function CustomerPage() {
     },
     onSuccess: (c) => {
       saved(c);
+      if (isNew) formKey.reset();
       if (isNew) navigate(`/b/${businessId}/customers`, { replace: true, state: { added: c.name } });
     },
     onError: refetchIfStale,
