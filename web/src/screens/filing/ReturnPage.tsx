@@ -16,6 +16,7 @@ import { TopBar } from "../../kit/TopBar";
 import { ExportPanel } from "./ExportPanel";
 import { useAccept } from "./export";
 import { FiledPanel } from "./FiledPanel";
+import { Table13Panel } from "./Table13Panel";
 import { returnKey, useReturnDetail, useSectionRows, type SectionName } from "./returns";
 import { NoAccess } from "../../kit/NoAccess";
 import { Loading } from "../../kit/Loading";
@@ -278,6 +279,7 @@ export function ReturnPage() {
                 </>
               )}
             </section>
+            {d.instance.form === "GSTR1" && d.instance.status !== "filed_locked" && canPrepareReturns(business.role) && <Table13Panel businessId={businessId} instanceId={instanceId} />}
             {d.export && d.instance.status !== "filed_locked" && <ExportPanel businessId={businessId} instanceId={instanceId} gate={d.export} fingerprint={d.fingerprint} periodLabel={d.instance.period_label} />}
             <FiledPanel businessId={businessId} instance={d.instance} role={business.role} />
             <section aria-labelledby="sections">

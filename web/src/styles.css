@@ -339,3 +339,5 @@ main:focus { outline: none; } /* the skip link moves focus here; the page itself
   /* A slim bar (one row, about 64 px), and focus scrolling keeps the field clear of it. */
   html:has(.sticky-actions) { scroll-padding-bottom: 96px; }
 }
+table.products td input:not([type="checkbox"]) { width: 9em; max-width: 100%; }
+table.products td select { max-width: 100%; }
