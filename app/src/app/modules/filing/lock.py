@@ -24,14 +24,15 @@ from platform_common import audit, jobs
 from platform_common.errors import Conflict, Deny, Invalid
 from platform_common.uow import UnitOfWork
 
-from . import entitlement, export_job, periods, snapshots
+from . import entitlement, export_job, periods, snapshots, table13
 from .build import ReturnBuild, build_return
 from .export_model import NotRenderable, export_model
 
 DOCUMENT_SECTIONS = ("b2b", "b2cl", "cdnr", "cdnur")
-SUMMARY_SECTIONS = ("b2cs", "hsn_b2b", "hsn_b2c")
+SUMMARY_SECTIONS = ("b2cs", "hsn_b2b", "hsn_b2c", "docs")
 FIGURES = ("doc_date", "counterparty_gstin", "pos_state_code", "rate", "invoice_value", "taxable_value", "igst", "cgst",
-           "sgst", "cess", "note_type", "ur_type", "hsn", "uqc", "quantity")  # fmt: skip
+           "sgst", "cess", "note_type", "ur_type", "hsn", "uqc", "quantity", "nature", "from_no", "to_no", "total_count",
+           "cancelled_count")  # fmt: skip
 ARN_MAX = 32  # the column's width; there is no cited format to check against (TD-12)
 
 
@@ -100,14 +101,14 @@ def changes(uow: UnitOfWork, instance_id: uuid.UUID) -> dict:
     diff = _difference(uow, ref, build)
     return {
         "reference": None if ref is None else {"purpose": ref.purpose, "version": ref.version},
-        "same": ref is not None and ref.fingerprint == build.fingerprint,
+        "same": ref is not None and ref.fingerprint == build.fingerprint and is_same(diff),
         "difference": diff,
     }
 
 
 def _difference(uow: UnitOfWork, ref: snapshots.Snapshot | None, build: ReturnBuild) -> dict:
     old = snapshots.read_rows(uow.tx, ref.id) if ref else []
-    return diff_rows(old, snapshots.rows_of(build.sections))
+    return diff_rows(old, snapshots.rows_of(build.sections, table13.counted_rows(uow.tx, build)))
 
 
 def mark_filed(
@@ -138,8 +139,10 @@ def mark_filed(
     snapshots.lock_instance(tx, inst.id)
     build = build_return(tx, inst)
     ref = _reference(tx, inst)
-    differs = ref is None or ref.fingerprint != build.fingerprint
-    diff = _difference(uow, ref, build) if differs else None
+    diff = _difference(uow, ref, build)
+    # Table 13 is confirmed apart from the build, so the same fingerprint can still give a different file: compare the rows too.
+    differs = ref is None or ref.fingerprint != build.fingerprint or not is_same(diff)
+    diff = diff if differs else None
     if differs and reason is None:
         raise Conflict(
             "changed_since_export",
@@ -149,7 +152,7 @@ def mark_filed(
     sid = uuid.uuid4()
     snap = snapshots.write_snapshot(
         uow, inst, build, purpose="lock", snapshot_id=sid, changed_since_export=differs, accept_reason=reason if differs else None,
-        difference=diff,
+        difference=diff, docs=table13.counted_rows(tx, build),
     )  # fmt: skip
     has_file = _store_file(uow, inst, build, sid)
     tx.execute(
@@ -173,7 +176,7 @@ def _store_file(uow: UnitOfWork, inst, build: ReturnBuild, sid: uuid.UUID) -> bo
     """The GSTR-1 file of the locked build, kept with its lock snapshot. A return that cannot be written as a file (an IFF, a
     quarterly return, nothing in it, a part over the size limit) is locked all the same, without one."""
     try:
-        model = export_model(build)
+        model = export_model(build, table13.counted_rows(uow.tx, build))
         if model.empty:
             return False
         files = export_job.make_files(uow.tx, model)

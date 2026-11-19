@@ -483,7 +483,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Draft */
+        /**
+         * Get Draft
+         * @description Reading a draft checks it again as of today, so a fixed product, or a business setting changed
+         *     meanwhile, shows at once. Not a user edit: the version is unchanged. A draft that cannot be
+         *     computed (its customer was deleted) is returned as stored, so the page can open it and the buyer be changed.
+         */
         get: operations["get_draft_api_v1_b__business_id__drafts__draft_id__get"];
         /** Save Draft */
         put: operations["save_draft_api_v1_b__business_id__drafts__draft_id__put"];
@@ -1580,6 +1585,24 @@ export interface paths {
         /** Get Section */
         get: operations["get_section_api_v1_b__business_id__returns__instance_id__sections__section__get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/returns/{instance_id}/table13": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Table13 */
+        get: operations["get_table13_api_v1_b__business_id__returns__instance_id__table13_get"];
+        /** Put Table13 */
+        put: operations["put_table13_api_v1_b__business_id__returns__instance_id__table13_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -3353,6 +3376,59 @@ export interface components {
             doc_type: string;
             /** Seller Gstin */
             seller_gstin: string;
+        };
+        /** DocRowIn */
+        DocRowIn: {
+            /** Cancelled */
+            cancelled: number;
+            /**
+             * Counted
+             * @default true
+             */
+            counted: boolean;
+            /** From No */
+            from_no: string;
+            /**
+             * Manual
+             * @default false
+             */
+            manual: boolean;
+            /** Nature */
+            nature: number;
+            /** To No */
+            to_no: string;
+            /** Total Issued */
+            total_issued: number;
+        };
+        /** DocRowOut */
+        DocRowOut: {
+            /** Cancelled */
+            cancelled: number;
+            /** Counted */
+            counted: boolean;
+            /** From No */
+            from_no: string;
+            /** Manual */
+            manual: boolean;
+            /** Missing */
+            missing: number;
+            /** Nature */
+            nature: number;
+            /** Nature Label */
+            nature_label: string;
+            /** Needs Ca Check */
+            needs_ca_check: boolean;
+            /** Net Issue */
+            net_issue: number;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "own_live" | "uploaded_own" | "marketplace" | "manual";
+            /** To No */
+            to_no: string;
+            /** Total Issued */
+            total_issued: number;
         };
         /** DocumentDetailOut */
         DocumentDetailOut: {
@@ -5835,6 +5911,32 @@ export interface components {
         SupportGrants: {
             /** Grants */
             grants: components["schemas"]["SupportGrant"][];
+        };
+        /** Table13In */
+        Table13In: {
+            /** Rows */
+            rows: components["schemas"]["DocRowIn"][];
+        };
+        /** Table13Out */
+        Table13Out: {
+            /** Applies */
+            applies: boolean;
+            /** Confirmed */
+            confirmed: boolean;
+            /** Confirmed At */
+            confirmed_at: string | null;
+            /** Fingerprint */
+            fingerprint: string;
+            /** Instance Id */
+            instance_id: string;
+            /** Required */
+            required: boolean;
+            /** Rows */
+            rows: components["schemas"]["DocRowOut"][];
+            /** Stale */
+            stale: boolean;
+            /** Version */
+            version: number | null;
         };
         /** Target */
         Target: {
@@ -9637,6 +9739,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["B2BPage"] | components["schemas"]["B2CLPage"] | components["schemas"]["B2CSPage"] | components["schemas"]["CDNRPage"] | components["schemas"]["CDNURPage"] | components["schemas"]["HsnB2bPage"] | components["schemas"]["HsnB2cPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_table13_api_v1_b__business_id__returns__instance_id__table13_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instance_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Table13Out"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_table13_api_v1_b__business_id__returns__instance_id__table13_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instance_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Table13In"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Table13Out"];
                 };
             };
             /** @description Validation Error */

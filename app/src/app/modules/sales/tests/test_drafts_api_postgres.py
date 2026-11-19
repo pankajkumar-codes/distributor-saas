@@ -44,7 +44,7 @@ def make_customer(pg, biz, name="Sharma Stores", sub="alice"):
 
 
 def bare(d):
-    return {k: v for k, v in d.items() if k != "computation"}
+    return {k: v for k, v in d.items() if k not in ("computation", "computed_at")}  # a read checks again, so it stamps its own time
 
 
 def draft_body(product, **extra):
@@ -257,8 +257,25 @@ def test_a_save_returns_the_computation(shop):
     same_state = create(pg, biz, draft_body(p, cash_buyer={"state_code": "19"})).json()["computation"]
     assert same_state["is_inter_state"] is False and same_state["igst_total"] == "0.00"
     assert D(same_state["cgst_total"]) == D(same_state["sgst_total"]) > 0
-    # reads and lists do not compute
-    assert pg.client.get(f"/api/v1/b/{biz}/drafts/{other_state['id']}", headers=h()).json()["computation"] is None
+    # a read checks the draft again (below); the list still does not compute
+    read = pg.client.get(f"/api/v1/b/{biz}/drafts/{other_state['id']}", headers=h()).json()
+    assert read["computation"] == c and read["version"] == other_state["version"]
+
+
+def test_reading_a_draft_checks_it_again_so_a_fixed_product_clears_the_block(shop):
+    pg, biz, _ = shop
+    p = make_product(pg, biz, hsn=None)
+    d = create(pg, biz, draft_body(p, cash_buyer={"state_code": "19"})).json()
+    assert d["ready"] is False and [b["code"] for b in d["computation"]["blocks"]] == ["hsn_missing"]
+    fixed = pg.client.patch(f"/api/v1/b/{biz}/products/{p}", json={"hsn": "340120"}, headers=h(**{"If-Match": "1"}))
+    assert fixed.status_code == 200, fixed.text
+    read = pg.client.get(f"/api/v1/b/{biz}/drafts/{d['id']}", headers=h())
+    assert read.status_code == 200 and read.headers["ETag"] == pg.client.get(f"/api/v1/b/{biz}/drafts/{d['id']}", headers=h()).headers["ETag"]
+    got = read.json()
+    assert got["version"] == d["version"] and got["updated_at"] == d["updated_at"]  # not a user edit
+    assert got["computation"]["blocks"] == [] and got["ready"] is True
+    listed = pg.client.get(f"/api/v1/b/{biz}/drafts", headers=h()).json()["items"][0]
+    assert listed["ready"] is True
 
 
 def test_an_incomplete_draft_saves_with_blocks_not_an_error(shop):
@@ -291,6 +308,18 @@ def test_a_customer_deleted_after_the_draft_was_saved_is_customer_not_found_on_s
     assert gone.status_code == 204
     r = put(pg, biz, d, draft_body(p, customer_id=c))
     assert r.status_code == 422 and r.json()["error"]["code"] == "customer_not_found"
+
+
+def test_a_draft_whose_customer_was_deleted_can_still_be_opened_to_change_the_buyer(shop):
+    pg, biz, _ = shop
+    p, c = make_product(pg, biz, hsn="340120"), make_customer(pg, biz)
+    d = create(pg, biz, draft_body(p, customer_id=c)).json()
+    cu = pg.client.get(f"/api/v1/b/{biz}/customers/{c}", headers=h()).json()
+    assert pg.client.delete(f"/api/v1/b/{biz}/customers/{c}", headers=h(**{"If-Match": str(cu["version"])})).status_code == 204
+    r = pg.client.get(f"/api/v1/b/{biz}/drafts/{d['id']}", headers=h())
+    assert r.status_code == 200 and r.json()["computation"] is None and r.json()["version"] == d["version"]
+    other = make_customer(pg, biz, name="Das Traders")
+    assert put(pg, biz, r.json(), draft_body(p, customer_id=other)).status_code == 200
 
 
 # -- Delivery and place of supply on the draft (LLD-4 §3.1: case B and G16) -------------------
