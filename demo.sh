@@ -2,6 +2,7 @@
 # The whole product on your own computer, for trying a milestone by hand. Needs only Docker.
 # Mac and Linux twin of demo.ps1 (Windows); `make demo` calls this.
 #   ./demo.sh            start (about 5 minutes the first time) and show sign-up codes here
+#   ./demo.sh --finalize start with finalize switched on, so an invoice can be finalized (numbers are PRACTICE only)
 #   ./demo.sh stop       stop it and forget everything it held
 #   ./demo.sh codes      show the sign-up codes again (Ctrl+C leaves the demo running)
 #   ./demo.sh check      quick health check: is each piece up, and does the page answer
@@ -44,7 +45,12 @@ wait_open() {
   die "The page did not answer within 3 minutes." "Run './demo.sh stop', then './demo.sh' again. If it repeats, look at: docker compose -f docker-compose.demo.yml logs api web"
 }
 
-case "${1:-start}" in
+FINALIZE=0
+for arg in "$@"; do [ "$arg" = "--finalize" ] && FINALIZE=1; done
+cmd="${1:-start}"
+[ "$cmd" = "--finalize" ] && cmd=start
+
+case "$cmd" in
   start)
     check_docker
     warn_slow_disk
@@ -54,6 +60,11 @@ case "${1:-start}" in
     dc up -d --build --wait api web codes || die "Docker could not build or start the demo." "Look at the lines above. Common causes: no internet while building, or Docker is out of disk space or memory."
     dc run --rm seed || die "Setting up the demo business failed." "Run './demo.sh stop' and try again."
     wait_open
+    if [ "$FINALIZE" = 1 ]; then
+      dc exec -T db psql -U postgres -d saas -v ON_ERROR_STOP=1 < demo/enable-finalize.sql >/dev/null \
+        || die "Switching finalize on failed." "Run './demo.sh stop' and start again without --finalize, or send demo-logs.txt."
+      printf '\nFinalize is ON in this demo. Numbers it gives are PRACTICE only, not real invoice numbers.\nThey stay off everywhere else until the CA confirms the numbering scope.\n'
+    fi
     cat <<MSG
 
 ==================================================================
