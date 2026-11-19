@@ -1,0 +1,10 @@
+First-principles view: the BRD now asks the right question. Can a reconciled marketplace plus own-invoice return, traced to row level, beat Vyapar, Zoho, Tally and the seller's own CA at a price sellers pay? Gate A (switching test, CA conversations, concierge diff) and Gate B (second period, kill rules, spend cap) test that. The round 3 fixes are coherent. I found no new contradictions or silent changes to approved decisions, and P-1 and P-7 are correctly labelled proposals. Two gate-design flaws remain.
+
+1. Major: money and build effort are committed before the demand gate. Section 10 makes L-3 (lawyer, a legal spend), L-4 (paid AWS staging, SES, domain) and 3a items 6 to 8 (CAH-1, CAH-2, LG-3, NF-13) pilot-entry. The 10a table runs them in weeks 0 to 3, before Gate A at week 4. If Gate A fails, that spend and build is wasted. Change: split pilot-entry into pre-Gate-A (L-0a, L-0, L-1, L-2, the spend cap) and post-Gate-A (L-3, L-4, 3a items 6 to 8). Move those to weeks 4 to 6, or state explicitly that the spend is accepted as at-risk.
+
+2. Major: no gate observes actual payment. Under 10a, L-5 runs "in parallel" and the pilot is free. Gate B and L-6 therefore rest only on stated intent ("5 of 10 would pay"), which is the weakest evidence for the question "will they pay ₹499". Change: add to Gate B that, if L-5 holds by week 12, at least 3 of 10 convert to a real first payment. If L-5 does not hold, Gate B records "payment unproven" and L-6 is limited to a paid soft launch.
+
+Minor: the banner clause "until Gate B accuracy passes" (GC-W1) has no defined pass test. Tie it to the accuracy metric in section 10 (0 differences, 3 periods).
+
+Remaining material objections: 2 (spend before Gate A; no real-payment evidence before public launch)
+Would I back this as the final baseline: yes, conditional on these two small text edits.
