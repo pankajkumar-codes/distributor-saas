@@ -19,6 +19,7 @@ import { TEAM_MANAGERS } from "../team/TeamPage";
 import { AUDIT_VIEWERS } from "../settings/AuditPage";
 import { SUPPORT_VIEWERS } from "../settings/SupportPage";
 import { screenPath } from "./links";
+import { Loading } from "../../kit/Loading";
 
 type Home = components["schemas"]["HomeOut"];
 // LLD-6 §3. The API types it as a plain object until insights (S6) gives it a model.
@@ -111,7 +112,7 @@ export function HomePage() {
             </ul>
           </Banner>
         )}
-        {home.isPending && <p aria-busy="true">Loading…</p>}
+        {home.isPending && <Loading query={home} />}
         {home.error && (
           <Banner tone="error">
             {errorText(home.error)}{" "}
