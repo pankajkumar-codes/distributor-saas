@@ -334,7 +334,10 @@ main:focus { outline: none; } /* the skip link moves focus here; the page itself
 
 /* On a phone the Create button stays in reach while the form scrolls (INVOICE_FLOW G1). */
 @media (max-width: 600px) {
-  .sticky-actions { position: sticky; bottom: 0; background: var(--bg); padding: 10px 0; z-index: 5; }
+  .sticky-actions { position: sticky; bottom: 0; background: var(--bg); padding: 10px 0; z-index: 5; flex-direction: row-reverse; margin-top: 16px; }
+  .sticky-actions .btn { flex: 1; }
+  /* A slim bar (one row, about 64 px), and focus scrolling keeps the field clear of it. */
+  html:has(.sticky-actions) { scroll-padding-bottom: 96px; }
 }
 table.products td input:not([type="checkbox"]) { width: 9em; max-width: 100%; }
 table.products td select { max-width: 100%; }
