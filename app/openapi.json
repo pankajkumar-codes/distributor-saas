@@ -12858,6 +12858,7 @@
         ]
       },
       "get": {
+        "description": "Reading a draft checks it again as of today, so a fixed product, or a business setting changed\nmeanwhile, shows at once. Not a user edit: the version is unchanged. A draft that cannot be\ncomputed (its customer was deleted) is returned as stored, so the page can open it and the buyer be changed.",
         "operationId": "get_draft_api_v1_b__business_id__drafts__draft_id__get",
         "parameters": [
           {
