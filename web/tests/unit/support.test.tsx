@@ -98,7 +98,7 @@ describe("support access", () => {
 
   it.each(["billing", "ca"])("is not found for %s, and asks the server nothing", async (role) => {
     open(role);
-    expect(await screen.findByRole("heading", { name: "We couldn't find that page" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "You don't have access to this page" })).toBeInTheDocument();
     expect(server.paths()).not.toContain(GRANTS);
   });
 });

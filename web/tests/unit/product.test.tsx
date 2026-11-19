@@ -55,11 +55,11 @@ const type = (label: string, value: string) => fireEvent.change(screen.getByLabe
 const sent = (path: string, method: string) => server.sent.filter((s) => s.path === path && s.method === method);
 
 describe("a new product", () => {
-  it("is created once per form, with its first GST rate, and opens its own page", async () => {
+  it("is created once per form, with its first GST rate, and lands on the list", async () => {
     open("/b/b-1/products/new");
     await screen.findByRole("option", { name: "Numbers (NOS)" });
     server.reply(LIST, { status: 503 }, { status: 201, body: detail({ version: 1 }) });
-    server.reply(ONE, { status: 200, body: detail({ version: 1 }) });
+    server.reply(`GET ${LIST}`, { status: 200, body: { items: [detail({ version: 1 })], has_more: false } });
     type("Product code", " SOAP-1 ");
     type("Name", "Neem soap");
     type("HSN (optional)", "3401");
@@ -72,8 +72,11 @@ describe("a new product", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add product" }));
     expect(await screen.findByText(/Something went wrong on our side/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Add product" }));
-    expect(await screen.findByRole("heading", { name: "Neem soap" })).toBeInTheDocument();
-    expect(window.location.pathname).toBe("/b/b-1/products/p-1");
+    expect(await screen.findByRole("heading", { name: "Products" })).toBeInTheDocument(); // lands on the list
+    expect(window.location.pathname).toBe("/b/b-1/products");
+    expect(screen.getByText("Added Neem soap.")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Archive Neem soap" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete Neem soap" })).toBeInTheDocument();
 
     const [first, second] = sent(LIST, "POST");
     expect(second.headers.get("Idempotency-Key")).toBe(first.headers.get("Idempotency-Key"));
@@ -91,6 +94,28 @@ describe("a new product", () => {
     expect(new URL(server.sent.find((s) => s.path === RATES)!.url).searchParams.get("on")).toBe(todayIst());
   });
 
+  it("starts a fresh key when the server says the key belonged to a different request", async () => {
+    open("/b/b-1/products/new");
+    await screen.findByRole("option", { name: "Numbers (NOS)" });
+    const mismatch = { status: 409, body: { error: { code: "idempotency_mismatch", message: "This Idempotency-Key was already used for a different request" } } };
+    server.reply(LIST, mismatch, { status: 201, body: detail({ version: 1 }) });
+    server.reply(`GET ${LIST}`, { status: 200, body: { items: [detail({ version: 1 })], has_more: false } });
+    type("Product code", "SOAP-1");
+    type("Name", "Neem soap");
+    type("Unit", "NOS");
+    type("Sale rate per unit, excluding GST (₹)", "45");
+    server.reply(RATES, { status: 200, body: { on: todayIst(), rates: ["18"] } });
+    fireEvent.click(screen.getByRole("radio", { name: "Taxable" }));
+    await screen.findByRole("option", { name: "18%" });
+    type("GST rate", "18");
+    fireEvent.click(screen.getByRole("button", { name: "Add product" }));
+    await screen.findByRole("alert");
+    fireEvent.click(screen.getByRole("button", { name: "Add product" }));
+    expect(await screen.findByText("Added Neem soap.")).toBeInTheDocument();
+    const [first, second] = sent(LIST, "POST");
+    expect(second.headers.get("Idempotency-Key")).not.toBe(first.headers.get("Idempotency-Key"));
+  });
+
   it("drops the chosen rate when it isn't in force on the new date", async () => {
     open("/b/b-1/products/new");
     await screen.findByRole("option", { name: "Numbers (NOS)" });
@@ -102,10 +127,25 @@ describe("a new product", () => {
     type("Rate applies from", "2026-03-01");
     await screen.findByRole("option", { name: "40%" });
     expect(screen.getByLabelText("GST rate")).toHaveValue("");
-    server.reply(LIST, { status: 422, body: { error: { code: "invalid", message: "Choose a rate", field: "rate.rate" } } });
+    // Nothing is chosen any more: the form says so in plain words and sends nothing.
     fireEvent.click(screen.getByRole("button", { name: "Add product" }));
-    await screen.findByText("Choose a rate");
-    expect(sent(LIST, "POST")[0].body).toMatchObject({ rate: { rate: "", valid_from: "2026-03-01" } });
+    expect(await screen.findByText("Choose a GST rate.")).toBeInTheDocument();
+    expect(sent(LIST, "POST")).toHaveLength(0);
+    type("GST rate", "5");
+    expect(screen.queryByText("Choose a GST rate.")).toBeNull();
+  });
+
+  it("never shows the server's pattern text under the GST rate", async () => {
+    open("/b/b-1/products/new");
+    await screen.findByRole("option", { name: "Numbers (NOS)" });
+    server.reply(RATES, { status: 200, body: { on: todayIst(), rates: ["5", "18"] } });
+    fireEvent.click(screen.getByRole("radio", { name: "Taxable" }));
+    await screen.findByRole("option", { name: "18%" });
+    type("GST rate", "18");
+    server.reply(LIST, { status: 422, body: { error: { code: "invalid", message: "String should match pattern '^\\s*[0-9]+$'", field: "rate.rate" } } });
+    fireEvent.click(screen.getByRole("button", { name: "Add product" }));
+    expect(await screen.findByText("Choose a GST rate.")).toBeInTheDocument();
+    expect(screen.queryByText(/should match pattern/)).toBeNull();
   });
 
   it("sends no rate for an exempt product, and shows the server's words under the field it names", async () => {
@@ -123,16 +163,43 @@ describe("a new product", () => {
 });
 
 describe("the new product form's lists and fields", () => {
-  it("keeps only digits and one decimal point, up to 2 decimals, in the sale rate", async () => {
+  it("keeps what was typed in the sale rate and says what is wrong, so a price never changes silently", async () => {
     open("/b/b-1/products/new");
     await screen.findByRole("option", { name: "Numbers (NOS)" });
-    const box = screen.getByLabelText("Sale rate per unit, excluding GST (₹)");
-    type("Sale rate per unit, excluding GST (₹)", "Rs 1,20a.505.9");
-    expect(box).toHaveValue("120.50");
-    type("Sale rate per unit, excluding GST (₹)", "-4e5");
-    expect(box).toHaveValue("45");
-    type("Sale rate per unit, excluding GST (₹)", "abc");
-    expect(box).toHaveValue("");
+    const label = "Sale rate per unit, excluding GST (₹)";
+    const box = screen.getByLabelText(label);
+    const cases: [string, string | null][] = [
+      ["10.999", "Use at most 2 decimal places."],
+      ["-10", "A price can't be negative."],
+      ["1,200", "Enter a number, like 45 or 45.50."],
+      ["Rs 120", "Enter a number, like 45 or 45.50."],
+      ["1.2.3", "Enter a number, like 45 or 45.50."],
+      ["12345678901234567", "That number is too large."],
+      ["10.", null], // still typing
+      ["45.50", null],
+    ];
+    for (const [text, message] of cases) {
+      type(label, text);
+      expect(box).toHaveValue(text); // nothing dropped
+      if (message) expect(await screen.findByText(message)).toBeInTheDocument();
+      else expect(screen.queryByRole("alert")).toBeNull();
+    }
+  });
+
+  it("does not save a sale rate with a problem, and sends a good one exactly as typed", async () => {
+    open("/b/b-1/products/new");
+    await screen.findByRole("option", { name: "Numbers (NOS)" });
+    type("Product code", "G1");
+    type("Name", "Gel");
+    type("Unit", "NOS");
+    type("Sale rate per unit, excluding GST (₹)", "10.999");
+    fireEvent.click(screen.getByRole("button", { name: /add product/i }));
+    expect(await screen.findByText("Use at most 2 decimal places.")).toBeInTheDocument();
+    expect(server.sent.some((s) => s.method === "POST" && s.path.endsWith("/products"))).toBe(false);
+    type("Sale rate per unit, excluding GST (₹)", "10.");
+    fireEvent.click(screen.getByRole("button", { name: /add product/i }));
+    expect(await screen.findByText("Enter a number, like 45 or 45.50.")).toBeInTheDocument();
+    expect(server.sent.some((s) => s.method === "POST" && s.path.endsWith("/products"))).toBe(false);
   });
 
   it("hides the date a rate starts under Advanced, today by default, and opens it when the server names it", async () => {
@@ -207,6 +274,21 @@ describe("editing a product", () => {
     expect(patch.headers.get("If-Match")).toBe("3");
   });
 
+  it("sends one request and shows Saved when Save is pressed twice quickly", async () => {
+    server.reply(ONE, { status: 200, body: detail() });
+    open("/b/b-1/products/p-1");
+    await screen.findByRole("heading", { name: "Neem soap" });
+    server.reply(`PATCH ${ONE}`, { status: 200, body: detail({ name: "Neem bath soap", version: 4 }) }, { status: 409, body: { error: { code: "stale_record", message: "changed" } } });
+    type("Name", "Neem bath soap");
+    const save = screen.getByRole("button", { name: "Save changes" });
+    fireEvent.click(save);
+    fireEvent.click(save);
+    expect(await screen.findByText(/Saved\. Invoices already finalized keep/)).toBeInTheDocument();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(sent(ONE, "PATCH")).toHaveLength(1);
+    expect(screen.getByText(/Saved\. Invoices already finalized keep/)).toBeInTheDocument();
+  });
+
   it("after someone else saved first, keeps the user's values beside theirs, then saves against their version", async () => {
     server.reply(ONE, { status: 200, body: detail() });
     open("/b/b-1/products/p-1");
@@ -245,7 +327,7 @@ describe("editing a product", () => {
     expect(screen.getByLabelText("Sale rate per unit, excluding GST (₹)")).toHaveValue("50.00");
     expect(screen.getByLabelText("Name")).toHaveValue("Neem bath soap");
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
-    await screen.findByText(/Saved\./);
+    await screen.findByText(/Saved\./, undefined, { timeout: 3000 });
     const patches = sent(ONE, "PATCH");
     expect(patches[1].headers.get("If-Match")).toBe("4");
     expect(patches[1].body).toEqual({ name: "Neem bath soap" });
@@ -275,6 +357,21 @@ describe("editing a product", () => {
     expect(sent(ONE, "DELETE")[0].headers.get("If-Match")).toBe("3");
   });
 
+  it("explains Archive and Delete separately, and Keep it cancels either question", async () => {
+    server.reply(ONE, { status: 200, body: detail() });
+    open("/b/b-1/products/p-1");
+    await screen.findByRole("heading", { name: "Neem soap" });
+    expect(screen.getByText(/Invoices already made keep it/)).toBeInTheDocument();
+    expect(screen.getByText(/never been on an invoice/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("button", { name: "Keep it" }));
+    expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Archive" }));
+    fireEvent.click(screen.getByRole("button", { name: "Keep it active" }));
+    expect(screen.getByRole("button", { name: "Archive" })).toBeInTheDocument();
+    expect(sent(ONE, "DELETE")).toHaveLength(0);
+  });
+
   it("only archives a product that is on invoices", async () => {
     server.reply(ONE, { status: 200, body: detail({ in_use: true }) });
     server.reply(`${ONE}/archive`, { status: 200, body: detail({ in_use: true, status: "archived", version: 4 }) });
@@ -282,6 +379,8 @@ describe("editing a product", () => {
     await screen.findByRole("heading", { name: "Neem soap" });
     expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Archive" }));
+    expect(sent(`${ONE}/archive`, "POST")).toHaveLength(0); // asks first
+    fireEvent.click(screen.getByRole("button", { name: "Yes, archive" }));
     expect(await screen.findByText(/This product is archived/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Unarchive" })).toBeInTheDocument();
   });

@@ -19,7 +19,7 @@ async function createDistributor(page: Page) {
   await page.getByLabel("Address line 1").fill("12 Market Road");
   await page.getByLabel("City or town").fill("Pune");
   await page.getByLabel("PIN code").fill("411001");
-  await page.getByLabel("Business type (optional)").selectOption("distributor");
+  await page.getByRole("checkbox", { name: "Distributor" }).check();
   await page.getByRole("button", { name: "Continue" }).click();
   await page.getByRole("checkbox", { name: "Amazon" }).check();
   await page.getByRole("radio", { name: "Quarterly (QRMP)" }).check();
@@ -38,7 +38,7 @@ test("R2: purchase, stock, price, practice invoice, PDF request", async ({ page 
   await page.getByLabel("Name", { exact: true }).fill("Asha Stores");
   await page.getByRole("group", { name: "Billing address" }).getByLabel("State", { exact: true }).selectOption("27");
   await page.getByRole("button", { name: "Add customer" }).click();
-  await expect(page.getByRole("heading", { name: "Asha Stores" })).toBeVisible();
+  await expect(page.getByText("Added Asha Stores.")).toBeVisible(); // adding lands on the Customers list
 
   // Upload a photo of a supplier invoice: it is kept and the business types it in.
   await page.goto(`/b/${businessId}/purchases`);
@@ -87,7 +87,7 @@ test("R2: purchase, stock, price, practice invoice, PDF request", async ({ page 
   await page.getByLabel("Quantity").fill("3");
   await page.getByRole("button", { name: /^Save/ }).click();
   await expect(page.getByRole("heading", { name: "Draft invoice" })).toBeVisible();
-  await page.getByRole("button", { name: /^Finalize/ }).click();
+  await page.getByRole("button", { name: /^Create (practice )?invoice/ }).click();
   await expect(page.getByRole("heading", { name: "Invoice issued" })).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText("Practice invoice.")).toBeVisible();
   await expect(page.getByText("It is not a tax invoice and is not in any GST return.")).toBeVisible();

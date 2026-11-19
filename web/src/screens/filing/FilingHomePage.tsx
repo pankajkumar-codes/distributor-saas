@@ -9,6 +9,7 @@ import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
 import { useChannels } from "../uploads/useChannels";
 import { useReturns, type ReturnRow } from "./returns";
+import { NoAccess } from "../../kit/NoAccess";
 
 const PLATFORMS: [string, string][] = [
   ["amazon", "Amazon"],
@@ -81,7 +82,8 @@ export function FilingHomePage() {
       </main>
     );
   }
-  if (!business || !may) return <NotFound />;
+  if (!business) return <NotFound />;
+  if (!may) return <NoAccess businessId={businessId} />;
 
   const notSet = now.isSuccess && now.data.filing_frequency === null; // the server sends an empty list, not an error
   // Last year's rows only while something is still open there (a late March or Q4 return).
@@ -100,7 +102,7 @@ export function FilingHomePage() {
         </p>
         <h1>Your GST filing</h1>
         {frequency && <p className="hint">{frequency === "quarterly" ? "Quarterly (QRMP)" : "Monthly"} filer.</p>}
-        <Banner>R1 prepares your files and a guide. You file on the GST portal yourself.</Banner>
+        <Banner>We prepare your files and a step-by-step guide. You file on the GST portal yourself.</Banner>
         {now.isPending && business && <p aria-busy="true">Loading…</p>}
         {notSet && (
           <section className="card">
@@ -117,7 +119,7 @@ export function FilingHomePage() {
             {rows.length === 0 ? (
               <p>No returns to show yet.</p>
             ) : (
-              <table className="products">
+              <table className="products deadlines">
                 <thead>
                   <tr>
                     <th scope="col">Period</th>

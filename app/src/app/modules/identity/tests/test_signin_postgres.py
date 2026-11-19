@@ -14,7 +14,7 @@ from sqlalchemy import text
 
 from platform_common.clock import FrozenClock
 
-from .auth_env import EMAIL, ORIGIN, PASSWORD, auth_env, one, sign_up, verify
+from .auth_env import EMAIL, ORIGIN, PASSWORD, auth_env, end_sessions, one, sign_up, verify
 from .conftest import PG_ADMIN_URL
 
 pytestmark = pytest.mark.skipif(not PG_ADMIN_URL, reason="PG_ADMIN_URL not set")
@@ -25,8 +25,9 @@ SECRET = "JBSWY3DPEHPK3PXP"  # a made-up TOTP secret for the fake provider
 @pytest.fixture()
 def env():
     with auth_env() as e:
-        client, _, mail, _ = e
+        client, _, mail, admin = e
         assert verify(client, sign_up(client, mail).params["code"]).status_code == 200
+        end_sessions(admin)  # one active session per user: sign-up opened one
         yield e
 
 
@@ -66,7 +67,7 @@ def test_sign_in_opens_a_session_and_sets_the_cookie(env):
         True,
         True,
     )
-    assert one(admin, "select count(*) from identity.sessions where revoked_at is null") == 2  # sign-up's + this
+    assert one(admin, "select count(*) from identity.sessions where revoked_at is null") == 1  # the fixture ended sign-up's, so this one is the only one
     assert (
         client.post("/api/v1/auth/refresh", headers={**ORIGIN, "cookie": f"__Secure-rt={c.value}"}).status_code == 200
     )
@@ -87,7 +88,7 @@ def test_sign_in_writes_a_user_level_audit_row(env):
 
 
 def test_sign_in_lists_the_callers_memberships(env):
-    client, idp, _, _ = env
+    client, idp, _, admin = env
     body = {
         "registration": {"kind": "gstin", "gstin": "19AAPFU0939F1ZS"},
         "legal_name": "Vashi Essentials LLP",
@@ -100,6 +101,7 @@ def test_sign_in_lists_the_callers_memberships(env):
         "/api/v1/b", json=body, headers={"x-debug-user": idp.user(EMAIL).sub, "Idempotency-Key": uuid.uuid4().hex}
     )
     assert made.status_code == 201, made.text
+    end_sessions(admin)  # the debug header opened a session of its own
     r = signin(client)
     assert r.json()["memberships"] == [
         {

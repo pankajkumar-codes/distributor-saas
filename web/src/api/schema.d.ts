@@ -83,6 +83,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/session/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Session Cancel
+         * @description No: the new sign-in does not complete and the other session keeps running. Always 204.
+         */
+        post: operations["session_cancel_api_v1_auth_session_cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/session/replace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Session Replace
+         * @description Yes to "One session is already active. Sign out there and continue here?": ends the other session and opens
+         *     this one. The Bearer is the access token /signin answered with (step "session_active").
+         */
+        post: operations["session_replace_api_v1_auth_session_replace_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/signin": {
         parameters: {
             query?: never;
@@ -442,7 +483,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Draft */
+        /**
+         * Get Draft
+         * @description Reading a draft checks it again as of today, so a fixed product, or a business setting changed
+         *     meanwhile, shows at once. Not a user edit: the version is unchanged. A draft that cannot be
+         *     computed (its customer was deleted) is returned as stored, so the page can open it and the buyer be changed.
+         */
         get: operations["get_draft_api_v1_b__business_id__drafts__draft_id__get"];
         /** Save Draft */
         put: operations["save_draft_api_v1_b__business_id__drafts__draft_id__put"];
@@ -1539,6 +1585,24 @@ export interface paths {
         /** Get Section */
         get: operations["get_section_api_v1_b__business_id__returns__instance_id__sections__section__get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/returns/{instance_id}/table13": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Table13 */
+        get: operations["get_table13_api_v1_b__business_id__returns__instance_id__table13_get"];
+        /** Put Table13 */
+        put: operations["put_table13_api_v1_b__business_id__returns__instance_id__table13_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -3313,6 +3377,59 @@ export interface components {
             /** Seller Gstin */
             seller_gstin: string;
         };
+        /** DocRowIn */
+        DocRowIn: {
+            /** Cancelled */
+            cancelled: number;
+            /**
+             * Counted
+             * @default true
+             */
+            counted: boolean;
+            /** From No */
+            from_no: string;
+            /**
+             * Manual
+             * @default false
+             */
+            manual: boolean;
+            /** Nature */
+            nature: number;
+            /** To No */
+            to_no: string;
+            /** Total Issued */
+            total_issued: number;
+        };
+        /** DocRowOut */
+        DocRowOut: {
+            /** Cancelled */
+            cancelled: number;
+            /** Counted */
+            counted: boolean;
+            /** From No */
+            from_no: string;
+            /** Manual */
+            manual: boolean;
+            /** Missing */
+            missing: number;
+            /** Nature */
+            nature: number;
+            /** Nature Label */
+            nature_label: string;
+            /** Needs Ca Check */
+            needs_ca_check: boolean;
+            /** Net Issue */
+            net_issue: number;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "own_live" | "uploaded_own" | "marketplace" | "manual";
+            /** To No */
+            to_no: string;
+            /** Total Issued */
+            total_issued: number;
+        };
         /** DocumentDetailOut */
         DocumentDetailOut: {
             /** Cgst Total */
@@ -4508,6 +4625,8 @@ export interface components {
             address?: components["schemas"]["Address"] | null;
             /** Business Type */
             business_type?: ("distributor" | "retail") | null;
+            /** Business Types */
+            business_types?: ("retailer" | "wholesaler" | "distributor" | "manufacturer" | "online_seller" | "service_provider" | "other")[] | null;
             /**
              * Einvoice History
              * @enum {string}
@@ -4991,6 +5110,8 @@ export interface components {
             business_id: string;
             /** Business Type */
             business_type: ("distributor" | "retail") | null;
+            /** Business Types */
+            business_types: ("retailer" | "wholesaler" | "distributor" | "manufacturer" | "online_seller" | "service_provider" | "other")[];
             /** Einvoice History */
             einvoice_history: ("no" | "yes" | "not_sure") | null;
             /** Legal Name */
@@ -5013,6 +5134,8 @@ export interface components {
             address?: components["schemas"]["Address"] | null;
             /** Business Type */
             business_type?: ("distributor" | "retail") | null;
+            /** Business Types */
+            business_types?: ("retailer" | "wholesaler" | "distributor" | "manufacturer" | "online_seller" | "service_provider" | "other")[] | null;
             /** Einvoice History */
             einvoice_history?: ("no" | "yes" | "not_sure") | null;
             /** Legal Name */
@@ -5643,6 +5766,23 @@ export interface components {
             sections: components["schemas"]["app__modules__imports__api__SectionOut"][];
         };
         /**
+         * SessionActiveOut
+         * @description The sign-in was right but this user already has a live session. Nothing is open yet: ask the person, then call
+         *     POST /auth/session/replace (yes) or /auth/session/cancel (no) with this token as the Bearer.
+         */
+        SessionActiveOut: {
+            /** Access Token */
+            access_token: string;
+            /** Expires In */
+            expires_in: number;
+            /**
+             * Step
+             * @default session_active
+             * @constant
+             */
+            step: "session_active";
+        };
+        /**
          * ShipToIn
          * @description Where the goods go, when it isn't the customer's own delivery address (LLD-4 §3.1).
          */
@@ -5771,6 +5911,32 @@ export interface components {
         SupportGrants: {
             /** Grants */
             grants: components["schemas"]["SupportGrant"][];
+        };
+        /** Table13In */
+        Table13In: {
+            /** Rows */
+            rows: components["schemas"]["DocRowIn"][];
+        };
+        /** Table13Out */
+        Table13Out: {
+            /** Applies */
+            applies: boolean;
+            /** Confirmed */
+            confirmed: boolean;
+            /** Confirmed At */
+            confirmed_at: string | null;
+            /** Fingerprint */
+            fingerprint: string;
+            /** Instance Id */
+            instance_id: string;
+            /** Required */
+            required: boolean;
+            /** Rows */
+            rows: components["schemas"]["DocRowOut"][];
+            /** Stale */
+            stale: boolean;
+            /** Version */
+            version: number | null;
         };
         /** Target */
         Target: {
@@ -6290,6 +6456,62 @@ export interface operations {
             };
         };
     };
+    session_cancel_api_v1_auth_session_cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    session_replace_api_v1_auth_session_replace_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignedInOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
     signin_password_api_v1_auth_signin_post: {
         parameters: {
             query?: never;
@@ -6309,7 +6531,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SignedInOut"] | components["schemas"]["TotpStepOut"];
+                    "application/json": components["schemas"]["SignedInOut"] | components["schemas"]["TotpStepOut"] | components["schemas"]["SessionActiveOut"];
                 };
             };
             /** @description Unauthorized */
@@ -6360,7 +6582,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SignedInOut"];
+                    "application/json": components["schemas"]["SignedInOut"] | components["schemas"]["SessionActiveOut"];
                 };
             };
             /** @description Unauthorized */
@@ -6515,8 +6737,8 @@ export interface operations {
     new_business_api_v1_b_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string | null;
             };
             path?: never;
             cookie?: never;
@@ -6587,8 +6809,8 @@ export interface operations {
     export_audit_log_api_v1_b__business_id__audit_log_exports_post: {
         parameters: {
             query?: never;
-            header?: {
-                "idempotency-key"?: string | null;
+            header: {
+                "idempotency-key": string | null;
             };
             path: {
                 business_id: string;
@@ -6758,8 +6980,8 @@ export interface operations {
     create_customer_api_v1_b__business_id__customers_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string | null;
             };
             path: {
                 business_id: string;
@@ -6827,8 +7049,8 @@ export interface operations {
     delete_customer_api_v1_b__business_id__customers__customer_id__delete: {
         parameters: {
             query?: never;
-            header?: {
-                "If-Match"?: string | null;
+            header: {
+                "If-Match": string | null;
             };
             path: {
                 customer_id: string;
@@ -6859,8 +7081,8 @@ export interface operations {
     update_customer_api_v1_b__business_id__customers__customer_id__patch: {
         parameters: {
             query?: never;
-            header?: {
-                "If-Match"?: string | null;
+            header: {
+                "If-Match": string | null;
             };
             path: {
                 customer_id: string;
@@ -7129,8 +7351,8 @@ export interface operations {
     create_draft_api_v1_b__business_id__drafts_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string | null;
             };
             path: {
                 business_id: string;
@@ -7198,8 +7420,8 @@ export interface operations {
     save_draft_api_v1_b__business_id__drafts__draft_id__put: {
         parameters: {
             query?: never;
-            header?: {
-                "If-Match"?: string | null;
+            header: {
+                "If-Match": string | null;
             };
             path: {
                 draft_id: string;
@@ -7236,8 +7458,8 @@ export interface operations {
     delete_draft_api_v1_b__business_id__drafts__draft_id__delete: {
         parameters: {
             query?: never;
-            header?: {
-                "If-Match"?: string | null;
+            header: {
+                "If-Match": string | null;
             };
             path: {
                 draft_id: string;
@@ -7268,9 +7490,9 @@ export interface operations {
     finalize_draft_api_v1_b__business_id__drafts__draft_id__finalize_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
-                "If-Match"?: string | null;
+            header: {
+                "Idempotency-Key": string | null;
+                "If-Match": string | null;
             };
             path: {
                 draft_id: string;
@@ -7399,8 +7621,8 @@ export interface operations {
     post_frequency_api_v1_b__business_id__filing_profile_frequency_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string | null;
             };
             path: {
                 business_id: string;
@@ -7467,8 +7689,8 @@ export interface operations {
     invite_api_v1_b__business_id__invitations_post: {
         parameters: {
             query?: never;
-            header?: {
-                "idempotency-key"?: string | null;
+            header: {
+                "idempotency-key": string | null;
             };
             path: {
                 business_id: string;
@@ -8145,8 +8367,8 @@ export interface operations {
     start_import_api_v1_b__business_id__product_imports_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string | null;
             };
             path: {
                 business_id: string;
@@ -8356,8 +8578,8 @@ export interface operations {
     create_product_api_v1_b__business_id__products_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string | null;
             };
             path: {
                 business_id: string;
@@ -8458,8 +8680,8 @@ export interface operations {
     delete_product_api_v1_b__business_id__products__product_id__delete: {
         parameters: {
             query?: never;
-            header?: {
-                "If-Match"?: string | null;
+            header: {
+                "If-Match": string | null;
             };
             path: {
                 product_id: string;
@@ -8490,8 +8712,8 @@ export interface operations {
     update_product_api_v1_b__business_id__products__product_id__patch: {
         parameters: {
             query?: never;
-            header?: {
-                "If-Match"?: string | null;
+            header: {
+                "If-Match": string | null;
             };
             path: {
                 product_id: string;
@@ -8560,8 +8782,8 @@ export interface operations {
     add_rate_api_v1_b__business_id__products__product_id__rates_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string | null;
             };
             path: {
                 product_id: string;
@@ -8709,8 +8931,8 @@ export interface operations {
     adjust_stock_api_v1_b__business_id__products__product_id__stock_adjustments_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string | null;
             };
             path: {
                 product_id: string;
@@ -8846,8 +9068,8 @@ export interface operations {
     patch_profile_api_v1_b__business_id__profile_patch: {
         parameters: {
             query?: never;
-            header?: {
-                "If-Match"?: string | null;
+            header: {
+                "If-Match": string | null;
             };
             path: {
                 business_id: string;
@@ -9097,8 +9319,8 @@ export interface operations {
     start_file_api_v1_b__business_id__purchase_files_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string | null;
             };
             path: {
                 business_id: string;
@@ -9530,6 +9752,74 @@ export interface operations {
             };
         };
     };
+    get_table13_api_v1_b__business_id__returns__instance_id__table13_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instance_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Table13Out"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_table13_api_v1_b__business_id__returns__instance_id__table13_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instance_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Table13In"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Table13Out"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     unlock_return_api_v1_b__business_id__returns__instance_id__unlock_post: {
         parameters: {
             query?: never;
@@ -9802,8 +10092,8 @@ export interface operations {
     resolve_row_api_v1_b__business_id__rows__row_id__resolve_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string | null;
             };
             path: {
                 row_id: string;
@@ -9872,8 +10162,8 @@ export interface operations {
     confirm_run_api_v1_b__business_id__runs__run_id__confirm_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string | null;
             };
             path: {
                 run_id: string;
@@ -10047,8 +10337,8 @@ export interface operations {
     reverse_movement_api_v1_b__business_id__stock_movements__movement_id__reversals_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string | null;
             };
             path: {
                 movement_id: string;
@@ -10252,8 +10542,8 @@ export interface operations {
     start_bundle_api_v1_b__business_id__upload_bundles_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string | null;
             };
             path: {
                 business_id: string;
@@ -10493,8 +10783,8 @@ export interface operations {
     start_upload_api_v1_b__business_id__uploads_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string | null;
             };
             path: {
                 business_id: string;

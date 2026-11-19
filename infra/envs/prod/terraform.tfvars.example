@@ -4,3 +4,9 @@ web_origins         = ["https://app.example.in"]
 budget_alert_emails = ["you@example.com"]
 # Set once a domain is chosen and verified for SES (pending on Pankaj).
 # mail_domain = "example.in"
+# The API is served by a regional API Gateway endpoint in Mumbai on its own name, a sibling of the app's
+# (the same site, so the sign-in cookie works). It is not behind CloudFront (D-094). The certificate is an
+# ACM certificate in ap-south-1, the API's own region. After the apply, point api_domain at the
+# api_regional_domain_name output in DNS.
+# api_domain          = "api.example.in"
+# api_certificate_arn = "arn:aws:acm:ap-south-1:123456789012:certificate/..."

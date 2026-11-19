@@ -11,6 +11,7 @@ import { SelectField } from "../../kit/SelectField";
 import { TopBar } from "../../kit/TopBar";
 import { finishedPeriods, type PeriodKind } from "./periods";
 import { useExports, useFilingProfile, useFreshLinks, useMakeFiles, type PeriodExport } from "./usePeriodFiles";
+import { NoAccess } from "../../kit/NoAccess";
 
 const FILE_LABEL = { workbook: "Excel workbook", purchase_register: "Purchase register (JSON)" } as const;
 
@@ -91,7 +92,8 @@ export function PeriodFilesPage() {
       </main>
     );
   }
-  if (!business || !allowed) return <NotFound />;
+  if (!business) return <NotFound />;
+  if (!allowed) return <NoAccess businessId={businessId} />;
 
   return (
     <>

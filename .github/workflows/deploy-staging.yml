@@ -22,6 +22,9 @@ name: deploy-staging
 #   AWS_DEPLOY_ROLE_ARN   the OIDC role this workflow assumes
 #   TF_STATE_BUCKET       the state_bucket output of infra/bootstrap
 #   STAGING_WEB_ORIGINS   JSON list, the app origin first, e.g. ["https://app.example.in"]
+#   STAGING_API_DOMAIN    the API's own name, a sibling of the app's, e.g. api.example.in (regional API Gateway in
+#                         Mumbai, not CloudFront: D-094). The web build calls https://<this>.
+#   STAGING_API_CERT_ARN  ACM certificate for it, issued in ap-south-1
 #   BUDGET_ALERT_EMAILS   JSON list of addresses for budget and alarm emails
 
 on:
@@ -40,6 +43,8 @@ env:
   TF_IN_AUTOMATION: "1"
   TF_VAR_git_sha: ${{ github.sha }}
   TF_VAR_web_origins: ${{ vars.STAGING_WEB_ORIGINS }}
+  TF_VAR_api_domain: ${{ vars.STAGING_API_DOMAIN }}
+  TF_VAR_api_certificate_arn: ${{ vars.STAGING_API_CERT_ARN }}
   TF_VAR_budget_alert_emails: ${{ vars.BUDGET_ALERT_EMAILS }}
   PLAN_PREFIX: s3://${{ vars.TF_STATE_BUCKET }}/plans/staging/${{ github.run_id }}
 
@@ -55,7 +60,7 @@ jobs:
         shell: bash
     steps:
       - name: Refuse without the setup
-        if: vars.AWS_DEPLOY_ROLE_ARN == '' || vars.TF_STATE_BUCKET == '' || vars.STAGING_WEB_ORIGINS == '' || vars.BUDGET_ALERT_EMAILS == ''
+        if: vars.AWS_DEPLOY_ROLE_ARN == '' || vars.TF_STATE_BUCKET == '' || vars.STAGING_WEB_ORIGINS == '' || vars.STAGING_API_DOMAIN == '' || vars.STAGING_API_CERT_ARN == '' || vars.BUDGET_ALERT_EMAILS == ''
         run: |
           echo "A repository variable listed at the top of this workflow is not set; nothing to deploy to." >&2
           exit 1
@@ -81,7 +86,13 @@ jobs:
           make renderer-zip PY=python
       - name: Build web files
         working-directory: web
+        env:
+          VITE_API_ORIGIN: https://${{ vars.STAGING_API_DOMAIN }}
         run: npm ci && npm run build
+      # The landing page is built after `npm ci` in web/ (it takes its two fonts from there) and is checked:
+      # no scripts, no inline styles, no third-party URLs (landing/README.md).
+      - name: Build the landing page
+        run: node landing/build.mjs --check
 
       - run: scripts/deploy/aws_oidc_login.sh
 
@@ -100,6 +111,7 @@ jobs:
           aws s3 cp build/migrator.zip "$PLAN_PREFIX/migrator.zip"
           aws s3 cp build/renderer.zip "$PLAN_PREFIX/renderer.zip"
           aws s3 sync web/dist "$PLAN_PREFIX/web/"
+          aws s3 sync landing/dist "$PLAN_PREFIX/landing/"
 
   apply:
     needs: plan
@@ -118,13 +130,14 @@ jobs:
 
       - name: Fetch the reviewed plan and its files
         run: |
-          mkdir -p build web/dist
+          mkdir -p build web/dist landing/dist
           aws s3 cp "$PLAN_PREFIX/tfplan" infra/envs/staging/tfplan
           aws s3 cp "$PLAN_PREFIX/terraform.lock.hcl" infra/envs/staging/.terraform.lock.hcl
           aws s3 cp "$PLAN_PREFIX/app.zip" build/app.zip
           aws s3 cp "$PLAN_PREFIX/migrator.zip" build/migrator.zip
           aws s3 cp "$PLAN_PREFIX/renderer.zip" build/renderer.zip
           aws s3 sync "$PLAN_PREFIX/web/" web/dist
+          aws s3 sync "$PLAN_PREFIX/landing/" landing/dist
 
       # The plan's provider lock file comes with it, so init installs the same versions.
       # Terraform refuses a saved plan whose state has changed since it was made.
@@ -143,7 +156,12 @@ jobs:
           aws s3 sync web/dist "s3://$bucket" --exclude index.html \
             --cache-control "public, max-age=31536000, immutable"
           aws s3 cp web/dist/index.html "s3://$bucket/index.html" --cache-control "no-cache"
-          aws cloudfront create-invalidation --distribution-id "$dist" --paths /index.html
+          # The landing page lives under _landing/ (infra/modules/cdn/viewer_request.js sends "/" there for a visitor).
+          # Its files have no hash in their names, so the page and the stylesheet are revalidated on every load.
+          aws s3 sync landing/dist "s3://$bucket/_landing" --exclude "fonts/*" --delete --cache-control "no-cache"
+          aws s3 sync landing/dist/fonts "s3://$bucket/_landing/fonts" --delete --cache-control "public, max-age=86400"
+          aws cloudfront create-invalidation --distribution-id "$dist" \
+            --paths /index.html /_landing/index.html /_landing/styles.css
 
       - name: Remove the saved plan
         if: always()

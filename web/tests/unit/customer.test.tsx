@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../../src/App";
 import { resetSessionForTests } from "../../src/auth/session";
+import { resetFormKeysForTests } from "../../src/kit/formKey";
 import { changedKeys, patchBody, rebase, type Values } from "../../src/screens/customers/CustomerPage";
 import { fakeApi } from "./fakeApi";
 
@@ -35,6 +36,7 @@ let server: ReturnType<typeof fakeApi>;
 
 beforeEach(() => {
   resetSessionForTests();
+  resetFormKeysForTests();
   server = fakeApi();
   server.reply(REFRESH, { status: 200, body: { access_token: "t", expires_in: 3600 } });
   server.reply(ME, me);
@@ -55,7 +57,7 @@ describe("a new customer", () => {
     open("/b/b-1/customers/new");
     await screen.findByRole("option", { name: "West Bengal (19)" });
     server.reply(LIST, { status: 503 }, { status: 201, body: detail({ version: 1 }) });
-    server.reply(ONE, { status: 200, body: detail({ version: 1 }) });
+    server.reply(`GET ${LIST}`, { status: 200, body: { items: [detail({ version: 1 })], has_more: false } });
     type("Name", " Sharma Traders ");
     type("GSTIN (optional)", "19AAAAA0000A1Z5");
     type("Address line 1", "4 Park Street");
@@ -64,8 +66,11 @@ describe("a new customer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add customer" }));
     expect(await screen.findByText(/Something went wrong on our side/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Add customer" }));
-    expect(await screen.findByRole("heading", { name: "Sharma Traders" })).toBeInTheDocument();
-    expect(window.location.pathname).toBe("/b/b-1/customers/c-1");
+    expect(await screen.findByRole("heading", { name: "Customers" })).toBeInTheDocument(); // lands on the list
+    expect(window.location.pathname).toBe("/b/b-1/customers");
+    expect(screen.getByText("Added Sharma Traders.")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Archive Sharma Traders" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete Sharma Traders" })).toBeInTheDocument();
     const [first, second] = sent(LIST, "POST");
     expect(second.headers.get("Idempotency-Key")).toBe(first.headers.get("Idempotency-Key"));
     expect(first.body).toEqual({
@@ -76,6 +81,85 @@ describe("a new customer", () => {
       delivery: null,
       credit_days: 30,
     });
+  });
+
+  it("sends one request however fast Add customer is pressed twice, and keeps the button off meanwhile", async () => {
+    open("/b/b-1/customers/new");
+    await screen.findByRole("option", { name: "West Bengal (19)" });
+    let release = () => {};
+    const held = new Promise<void>((r) => (release = r));
+    server.reply(LIST, { status: 201, body: detail({ version: 1 }), wait: held });
+    server.reply(`GET ${LIST}`, { status: 200, body: { items: [detail({ version: 1 })], has_more: false } });
+    type("Name", "Sharma Traders");
+    type("Credit days", "30");
+    const button = screen.getByRole("button", { name: "Add customer" });
+    fireEvent.click(button);
+    fireEvent.click(button); // the second press lands before the page has redrawn
+    expect(screen.getByRole("button", { name: "Add customer" })).toBeDisabled();
+    release();
+    expect(await screen.findByText("Added Sharma Traders.")).toBeInTheDocument();
+    expect(sent(LIST, "POST")).toHaveLength(1);
+  });
+
+  it("after a failed save, a quick double press sends one more request with the same key", async () => {
+    open("/b/b-1/customers/new");
+    await screen.findByRole("option", { name: "West Bengal (19)" });
+    let release = () => {};
+    const held = new Promise<void>((r) => (release = r));
+    server.reply(LIST, { status: 503 }, { status: 201, body: detail({ version: 1 }), wait: held });
+    server.reply(`GET ${LIST}`, { status: 200, body: { items: [detail({ version: 1 })], has_more: false } });
+    type("Name", "Sharma Traders");
+    type("Credit days", "30");
+    fireEvent.click(screen.getByRole("button", { name: "Add customer" }));
+    expect(await screen.findByText(/Something went wrong on our side/)).toBeInTheDocument();
+    const button = screen.getByRole("button", { name: "Add customer" });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    release();
+    expect(await screen.findByText("Added Sharma Traders.")).toBeInTheDocument();
+    const posts = sent(LIST, "POST");
+    expect(posts).toHaveLength(2); // the failed one and one retry, not three
+    expect(posts[1].headers.get("Idempotency-Key")).toBe(posts[0].headers.get("Idempotency-Key"));
+  });
+
+  it("starts a fresh key when the server says the key belonged to a different request", async () => {
+    open("/b/b-1/customers/new");
+    await screen.findByRole("option", { name: "West Bengal (19)" });
+    const mismatch = { status: 409, body: { error: { code: "idempotency_mismatch", message: "This Idempotency-Key was already used for a different request" } } };
+    server.reply(LIST, mismatch, { status: 201, body: detail({ version: 1 }) });
+    server.reply(`GET ${LIST}`, { status: 200, body: { items: [detail({ version: 1 })], has_more: false } });
+    type("Name", "Sharma Traders");
+    type("Credit days", "30");
+    fireEvent.click(screen.getByRole("button", { name: "Add customer" }));
+    await vi.waitFor(() => expect(sent(LIST, "POST")).toHaveLength(1));
+    await screen.findByRole("alert");
+    fireEvent.click(screen.getByRole("button", { name: "Add customer" }));
+    expect(await screen.findByText("Added Sharma Traders.")).toBeInTheDocument();
+    const [first, second] = sent(LIST, "POST");
+    expect(second.headers.get("Idempotency-Key")).not.toBe(first.headers.get("Idempotency-Key"));
+  });
+
+  it("uses the same key when the page is rebuilt while the first save is still running", async () => {
+    window.history.replaceState(null, "", "/b/b-1/customers/new");
+    const first = render(<App />);
+    await screen.findByRole("option", { name: "West Bengal (19)" });
+    server.reply(LIST, { status: 201, body: detail({ version: 1 }), wait: new Promise<void>(() => {}) }, { status: 201, body: detail({ version: 1 }) });
+    server.reply(`GET ${LIST}`, { status: 200, body: { items: [detail({ version: 1 })], has_more: false } });
+    type("Name", "Sharma Traders");
+    type("Credit days", "30");
+    fireEvent.click(screen.getByRole("button", { name: "Add customer" }));
+    first.unmount(); // the page is rebuilt: its own memory of the key is gone
+    server.reply(REFRESH, { status: 200, body: { access_token: "t", expires_in: 3600 } });
+    server.reply(ME, me);
+    server.reply(STATES, states);
+    render(<App />);
+    await screen.findByRole("option", { name: "West Bengal (19)" });
+    type("Name", "Sharma Traders");
+    type("Credit days", "30");
+    fireEvent.click(screen.getByRole("button", { name: "Add customer" }));
+    expect(await screen.findByText("Added Sharma Traders.")).toBeInTheDocument();
+    const [one, two] = sent(LIST, "POST");
+    expect(two.headers.get("Idempotency-Key")).toBe(one.headers.get("Idempotency-Key"));
   });
 
   it("sends a delivery address when it differs, and shows the server's words on the field it names", async () => {
@@ -181,6 +265,19 @@ describe("editing a customer", () => {
     expect(await screen.findByRole("heading", { name: "Sharma Traders" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save changes" })).toBeInTheDocument();
   }, 12000);
+
+  it("shows the server's words when it refuses the delete", async () => {
+    server.reply(
+      ONE,
+      { status: 200, body: detail() },
+      { status: 409, body: { error: { code: "customer_in_use", message: "This customer is on an invoice, so it can't be deleted. Archive it instead." } } },
+    );
+    open("/b/b-1/customers/c-1");
+    await screen.findByRole("heading", { name: "Sharma Traders" });
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("button", { name: "Yes, delete" }));
+    expect(await screen.findByText(/can't be deleted. Archive it instead/)).toBeInTheDocument();
+  });
 
   it("doesn't offer Delete for a customer on invoices", async () => {
     server.reply(ONE, { status: 200, body: detail({ in_use: true }) });

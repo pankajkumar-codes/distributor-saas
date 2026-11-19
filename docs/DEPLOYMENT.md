@@ -40,7 +40,7 @@ Compare:
 - Vendor lock-in.
 
 ## Current state (D-040)
-AWS in Mumbai (`ap-south-1`) is chosen (TD-1). The Terraform under `infra/` and the
+AWS in Mumbai (`ap-south-1`) is chosen (TD-1). **Tenant data stays in India (D-094):** only `ap-south-1` and `ap-south-2` are used for anything that holds tenant data; CI enforces it (`scripts/ci_checks/india_only.py`). The Terraform under `infra/` and the
 manual workflow `.github/workflows/deploy-staging.yml` are written but **not applied**:
 no AWS resource exists until Pankaj decides on staging, and the first staging deploy needs
 the CEO's approval (TD-20, TD-21). How to deploy and test: `docs/TESTING.md` §3.
@@ -82,8 +82,15 @@ a month at Lambda list prices (not verified against an AWS bill).
   keeps 100 of the account quota unreserved, so the apply fails on a smaller quota. The
   increase is requested in Service Quotas and costs nothing. Staging leaves the caps off.
 - The deploy setup below.
-- A domain, its ACM certificate in us-east-1 (CloudFront), and SES production access for
-  that domain (tech plan §0, §4.5).
+- A domain, two ACM certificates (one in us-east-1 for CloudFront's web names, one in
+  ap-south-1 for the API's `api.<domain>`, D-096), and SES production access for that
+  domain (tech plan §0, §4.5). Both names must be on the same registrable domain: the
+  refresh cookie is SameSite=Strict. After the apply, point `api.<domain>` at the
+  `api_regional_domain_name` output. Nothing enforces the sibling name: if `api_domain` is
+  not on the same site as the web name, sign-in silently fails. At the first staging deploy,
+  check sign-in, refresh and sign-out from the real app origin, and that an expired-token
+  401 from API Gateway's JWT authorizer still carries the CORS headers (the web's refresh
+  and retry reads that status).
 
 ## How a staging deploy runs (`.github/workflows/deploy-staging.yml`)
 Started by hand from `main` only. Two jobs, both in the `staging` environment, so each
@@ -121,8 +128,8 @@ Terraform is installed from HashiCorp and checked against its published SHA-256
 3. GitHub, Settings > Environments: create `staging` with **required reviewers** (you,
    or whoever you name) and **deployment branches limited to `main`**.
 4. GitHub, Settings > Secrets and variables > Actions > Variables: set
-   `AWS_DEPLOY_ROLE_ARN`, `TF_STATE_BUCKET`, `STAGING_WEB_ORIGINS` and
-   `BUDGET_ALERT_EMAILS`.
+   `AWS_DEPLOY_ROLE_ARN`, `TF_STATE_BUCKET`, `STAGING_WEB_ORIGINS`,
+   `STAGING_API_DOMAIN`, `STAGING_API_CERT_ARN` and `BUDGET_ALERT_EMAILS`.
 5. Confirm each budget and alarm email subscription that AWS sends.
 
 ## Go-live checklist

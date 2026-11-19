@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { api, call } from "../../api/client";
@@ -10,10 +10,13 @@ import { useMyBusinesses } from "../../auth/useMyBusinesses";
 import { canEditCatalog } from "../../auth/roles";
 import { AddressFields, NO_ADDRESS, addressIn, addressLine, addressOf, sameAddress, type Address } from "../../kit/AddressFields";
 import { Banner } from "../../kit/Banner";
+import { ManageRecord } from "../../kit/ManageRecord";
 import { Button } from "../../kit/Button";
 import { Field } from "../../kit/Field";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
+import { NoAccess } from "../../kit/NoAccess";
+import { useFormKey } from "../../kit/formKey";
 
 type Customer = components["schemas"]["CustomerOut"];
 export type Values = { name: string; gstin: string; credit_days: string; same: boolean; billing: Address; delivery: Address };
@@ -71,7 +74,7 @@ export function CustomerPage() {
   const businesses = useMyBusinesses();
   const business = businesses.data?.find((b) => b.business_id === businessId);
   const states = useStateCodes();
-  const key = useRef(crypto.randomUUID());
+  const formKey = useFormKey(`customer:${businessId}`);
   const path = { business_id: businessId, customer_id: customerId ?? "" };
 
   const customer = useQuery<Customer, ApiError>({
@@ -84,7 +87,6 @@ export function CustomerPage() {
   const [theirs, setTheirs] = useState<Key[]>([]);
   const [stale, setStale] = useState(false);
   const [daysError, setDaysError] = useState<string | undefined>();
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const latest = customer.data ?? null;
 
   useEffect(() => {
@@ -122,7 +124,7 @@ export function CustomerPage() {
           delivery: values.same ? null : addressIn(values.delivery),
           credit_days: Number(values.credit_days.trim()),
         };
-        return call(() => api.POST("/api/v1/b/{business_id}/customers", { params: { path, header: { "Idempotency-Key": key.current } }, body }));
+        return call(() => api.POST("/api/v1/b/{business_id}/customers", { params: { path, header: { "Idempotency-Key": formKey.current() } }, body }));
       }
       return call(() =>
         api.PATCH("/api/v1/b/{business_id}/customers/{customer_id}", {
@@ -133,9 +135,13 @@ export function CustomerPage() {
     },
     onSuccess: (c) => {
       saved(c);
-      if (isNew) navigate(`/b/${businessId}/customers/${c.id}`, { replace: true });
+      if (isNew) formKey.reset();
+      if (isNew) navigate(`/b/${businessId}/customers`, { replace: true, state: { added: c.name } });
     },
-    onError: refetchIfStale,
+    onError: (e) => {
+      refetchIfStale(e);
+      if (e.code === "idempotency_mismatch") formKey.reset(); // the key was used by an earlier, different request: next press starts fresh
+    },
   });
   const archive = useMutation<Customer, ApiError, boolean>({
     mutationFn: (archived) =>
@@ -165,7 +171,7 @@ export function CustomerPage() {
   }
   if (!business || customer.error?.status === 404) return <NotFound />;
   const canEdit = canEditCatalog(business.role);
-  if (isNew && !canEdit) return <NotFound />;
+  if (isNew && !canEdit) return <NoAccess businessId={businessId} />;
   // Any other failure to load is not an empty form: saving one would have nothing to edit against.
   if (!isNew && !opened && customer.error) {
     return (
@@ -279,30 +285,17 @@ export function CustomerPage() {
         </form>
 
         {canEdit && !isNew && opened && (
-          <section className="card" aria-labelledby="manage">
-            <h2 id="manage">Archive or delete</h2>
-            <Button type="button" variant="link" busy={archive.isPending} disabled={dirty} onClick={() => archive.mutate(opened.status !== "archived")}>
-              {opened.status === "archived" ? "Unarchive" : "Archive"}
-            </Button>
-            {dirty && <p className="hint">Save or undo your changes first.</p>}
-            {!opened.in_use &&
-              (confirmDelete ? (
-                <p>
-                  Delete {opened.name} for good?{" "}
-                  <Button type="button" variant="link" busy={remove.isPending} onClick={() => remove.mutate()}>
-                    Yes, delete
-                  </Button>{" "}
-                  <Button type="button" variant="link" onClick={() => setConfirmDelete(false)}>
-                    Keep it
-                  </Button>
-                </p>
-              ) : (
-                <Button type="button" variant="link" onClick={() => setConfirmDelete(true)}>
-                  Delete
-                </Button>
-              ))}
-            {opened.in_use && <p className="hint">This customer is on invoices, so they can be archived but not deleted.</p>}
-          </section>
+          <ManageRecord
+            noun="customer"
+            name={opened.name}
+            archived={opened.status === "archived"}
+            inUse={opened.in_use}
+            dirty={dirty}
+            archiveBusy={archive.isPending}
+            deleteBusy={remove.isPending}
+            onArchive={(a) => archive.mutate(a)}
+            onDelete={() => remove.mutate()}
+          />
         )}
       </main>
     </>

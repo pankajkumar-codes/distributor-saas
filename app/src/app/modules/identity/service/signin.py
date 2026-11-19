@@ -30,7 +30,7 @@ from platform_common.uow import Principal, unit_of_work
 
 from ..interface import MembershipCard, list_my_businesses, session_key_from_claims
 from . import limits
-from .sessions import open_session, revoke_at_provider, verified_claims
+from .sessions import open_session_once, revoke_at_provider, verified_claims
 
 log = logging.getLogger(__name__)
 
@@ -72,6 +72,17 @@ class TotpStep:
 
 
 @dataclass(frozen=True)
+class SessionActive:
+    """Password (and code) were right, but the user already has a live session. Nothing was opened: these
+    tokens only work for POST /auth/session/replace or /auth/session/cancel (no session row, so every other route
+    refuses them)."""
+
+    access_token: str
+    refresh_token: str
+    expires_in: int
+
+
+@dataclass(frozen=True)
 class SignedIn:
     user_id: uuid.UUID
     email: str
@@ -82,7 +93,9 @@ class SignedIn:
     is_support: bool = False
 
 
-def sign_in(email: str, password: str, ip: str, request_id: str, idp: AuthProvider, today: date) -> SignedIn | TotpStep:
+def sign_in(
+    email: str, password: str, ip: str, request_id: str, idp: AuthProvider, today: date
+) -> SignedIn | TotpStep | SessionActive:
     """§5.3. Raises SigninNotAccepted or RateLimited."""
     lim = limits.read(
         ("auth.signin_per_email_per_15min", "auth.signin_per_ip_per_hour", "auth.session_max_days"), today, request_id
@@ -107,7 +120,7 @@ def sign_in(email: str, password: str, ip: str, request_id: str, idp: AuthProvid
 
 def sign_in_totp(
     email: str, challenge: str, code: str, ip: str, request_id: str, idp: AuthProvider, today: date
-) -> SignedIn:
+) -> SignedIn | SessionActive:
     """§5.4. Raises TotpNotAccepted, SigninExpired, SigninNotAccepted or RateLimited."""
     lim = limits.read(
         ("auth.totp_tries_per_email_per_15min", "auth.signin_per_ip_per_hour", "auth.session_max_days"),
@@ -127,7 +140,7 @@ def sign_in_totp(
 
 def _finish(
     email: str, tokens: AuthResult, request_id: str, idp: AuthProvider, max_days: int, *, totp: bool
-) -> SignedIn:
+) -> SignedIn | SessionActive:
     try:
         claims = verified_claims(tokens.access_token, idp)
     except TokenInvalid:
@@ -138,6 +151,7 @@ def _finish(
     with unit_of_work(Principal(user_sub=None, request_id=request_id)) as uow:
         user = uow.tx.execute(text("select user_id, email from identity.auth_user_by_sub(:s)"), {"s": sub}).first()
         is_support = False
+        taken = False
         if user is not None and user.email == email:
             uow.become_user(user.user_id, sub)
             # users_self lets the bound user read its own row.
@@ -146,15 +160,20 @@ def _finish(
                     text("select is_support from identity.users where id = :me"), {"me": user.user_id}
                 ).scalar()
             )
-            session_id = open_session(uow, user.user_id, key, auth_time, max_days)
-            audit.record(uow, "auth.signin", "session", session_id, data={"totp": totp}, user_level=True)
-            uow.become_read_only()  # list_my_businesses reads through app_ro policies
-            memberships = list_my_businesses(uow.tx, user.user_id)
+            session_id = open_session_once(uow, user.user_id, key, auth_time, max_days)
+            if session_id is None:
+                taken = True  # one active session per user: the person is asked before the other one ends
+            else:
+                audit.record(uow, "auth.signin", "session", session_id, data={"totp": totp}, user_level=True)
+                uow.become_read_only()  # list_my_businesses reads through app_ro policies
+                memberships = list_my_businesses(uow.tx, user.user_id)
     if user is None or user.email != email:
         # A provider user with no users row (a half-finished sign-up), or a TOTP answer
         # sent under someone else's email: nothing was written, and the provider's
         # tokens are dropped.
         _refuse(tokens, idp, request_id)
+    if taken:
+        return SessionActive(tokens.access_token, tokens.refresh_token, tokens.expires_in)
     return SignedIn(
         user.user_id, email, tokens.access_token, tokens.refresh_token, tokens.expires_in, memberships, is_support
     )

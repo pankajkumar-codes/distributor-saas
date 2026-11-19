@@ -49,8 +49,10 @@ When it is ready you will see a green box that prints the exact address:
       password:  Seven-Lamps-42!
 ```
 
+That address opens the Kartaa landing page (the static site in `landing/`). Its **Sign in** button goes to `http://localhost:5173/signin` and **Sign up** to `/signup`. Someone who is already signed in who opens the address goes straight to their home instead (the app leaves a plain `kartaa_in` cookie while you are signed in, so the web server knows which to show). Real hosting of the landing page is separate and not set up.
+
 Open that address in your browser. Leave the PowerShell window open: **sign-up and password-reset codes
-appear in it** (the demo prints them instead of emailing them). Press Ctrl+C to stop watching for codes;
+appear in it** (the demo prints them instead of emailing them). **Team invitations are printed there too**: the demo sends no real email, so when you invite someone on the Team page the terminal shows `INVITATION for <email>` and the accept link. Open that link in a browser where you are signed out, sign in (or create an account) with the invited email, and press **Accept the invitation**. A person with no account creates it first, then opens the link again. The link is shown nowhere else: never on the Team page, never in the API log. Press Ctrl+C to stop watching for codes;
 the demo keeps running. `.\demo.ps1 codes` watches again.
 
 Stop it, and throw away everything it held, with `.\demo.ps1 stop`. **Every start begins empty**: the demo's
@@ -68,6 +70,20 @@ Install Docker Desktop (Mac) or Docker Engine with the Compose plugin (Linux), s
 ```
 
 It does the same things and prints the same box.
+
+### Trying finalize (practice numbers only)
+
+Finalizing an invoice (giving it a number) is **off in the product** until the CA confirms the numbering scope, so by default
+the Finalize button does nothing here either. To try it, start the demo with the switch:
+
+```bash
+./demo.sh --finalize       # Windows: .\demo.ps1 -Finalize
+```
+
+> **Practice only.** Finalize is switched on in this demo's own throwaway database and nowhere else. The numbers it gives
+> are practice numbers, not real invoice numbers, and are forgotten when the demo stops. The switch is not available in
+> staging or production configuration, and it stays off there until the CA answers (D-010, D-044, CA-1). Without the
+> flag the demo behaves as the product ships.
 
 ### Windows with WSL (an alternative that is partly verified)
 
@@ -120,6 +136,11 @@ so you create a business through the sign-up page.
   reports are rejected as "We can't read this file's columns" until R1-M4. Everything the demo says about
   the file (its layout is unchecked) is true.
 - Sign-in uses a stand-in for Cognito (accounts kept in a file in the demo's storage when run with Docker, in memory otherwise). Email is replaced by the codes in your terminal.
+- **Team invitations** (Settings, Your team): no email is sent in the demo. After you press Send invitation, the
+  terminal that shows the sign-up codes (`./demo.sh codes`) prints `INVITATION for <email>` and the accept link
+  (the same text the real email carries: "<inviter> invited you to join <business> as <role>", then "Accept the
+  invitation: <link>"). Use a second browser or a private window. The link works once, for 7 days, only for the
+  invited email, and is not shown on the Team page or in the API log.
 - **Two-step sign-in** (Settings, Two-step sign-in): an authenticator app on your phone cannot give the right code
   here, because the stand-in has its own code. When you press Turn on, and each time you sign in with it on, the
   demo prints `TWO-STEP CODE for <email>: 123456` in the same terminal as the sign-up codes (`./demo.sh codes`

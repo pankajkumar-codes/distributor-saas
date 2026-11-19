@@ -20,6 +20,7 @@ from app.modules.business.interface import (
     ready_for_documents,
 )
 from app.modules.catalog.interface import customer_snapshot, products_for_lines
+from app.modules.filing.interface import gstr1_period_month
 from app.modules.refdata import RefdataMissing, first_valid_from, value_on
 from platform_common.errors import Invalid
 
@@ -35,7 +36,7 @@ def load_inputs(tx: Session, draft: DraftIn, lines: list[DraftLineIn], *, today:
     if profile is None:
         raise Invalid("business_profile_missing", "Add your business details first.", field="business")
     try:
-        rules = _rules(tx, on)
+        rules = _rules(tx, on, profile.gstin)
         band_missing = hsn_band_missing(tx, on)
         seller = Seller(
             state_code=profile.state_code,
@@ -86,12 +87,14 @@ def _before_history(tx: Session, e: RefdataMissing) -> bool:
     return e.found == 0 and first is not None and e.on < first
 
 
-def _rules(tx: Session, on: date) -> Rules:
+def _rules(tx: Session, on: date, gstin: str | None = None) -> Rules:
+    # The B2CL limit follows the return period, not the document date (CA expert v4, #362).
+    b2cl_on = gstr1_period_month(tx, gstin, on) if gstin else on
     return Rules(
         rounding_mode=value_on(tx, "invoice.rounding_mode", on),
         round_off_line=value_on(tx, "invoice.round_off_line", on),
         utgst_state_codes=frozenset(c.strip() for c in value_on(tx, "gst.utgst_state_codes", on).split(",")),
-        b2cl_threshold=value_on(tx, "gstr1.b2cl_threshold", on),
+        b2cl_threshold=value_on(tx, "gstr1.b2cl_threshold", b2cl_on),
         unregistered_address_threshold=value_on(tx, "invoice.unregistered_address_threshold", on),
         eway_threshold=value_on(tx, "eway.consignment_value_threshold", on),
     )

@@ -1,5 +1,5 @@
-/* Design tokens from the mocks (v13). Light ships first; the dark values are the mocks'
-   and are switched on only with data-theme="dark" until a theme switch is decided. */
+/* Design tokens from the mocks (v13). The mocks follow the device setting: dark values apply
+   under prefers-color-scheme: dark, unless data-theme="light" is set; data-theme="dark" forces dark. */
 :root {
   color-scheme: light;
   --bg: #f4f4f0;
@@ -27,6 +27,29 @@
   color: var(--ink);
   background: var(--bg);
   line-height: 1.45;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #141716;
+    --surface: #1c201f;
+    --sunk: #232826;
+    --line: #323836;
+    --control: #7c8480;
+    --ink: #eceeeb;
+    --muted: #a3aaa6;
+    --accent: #5fb8ac;
+    --accent-ink: #0e1513;
+    --accent-soft: #1e3330;
+    --gst: #93aee6;
+    --gst-soft: #1f2638;
+    --ok: #7ccb95;
+    --ok-soft: #1c2e22;
+    --warn: #e8b467;
+    --warn-soft: #33281a;
+    --bad: #f09a90;
+    --bad-soft: #3a201d;
+  }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
@@ -142,6 +165,7 @@ fieldset.plain {
 .picker { list-style: none; margin: 0.25rem 0 0; padding: 0; }
 .picker li { padding: 0.125rem 0; }
 fieldset.line { margin: 0.75rem 0; }
+.check-line { display: block; }
 .totals { max-width: 24rem; }
 .totals .row { display: flex; justify-content: space-between; }
 .totals .total { font-weight: 600; border-top: 1px solid currentColor; }
@@ -248,3 +272,72 @@ ol.steps > li::before { content: counter(s); position: absolute; left: 0; top: 1
 .home-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 .home-links { display: flex; gap: 14px; flex-wrap: wrap; font-size: 14px; }
 @media (max-width: 760px) { .home-cols { grid-template-columns: minmax(0, 1fr); } }
+
+/* Archive / delete on customer and product pages: two separate actions, each explained */
+.btn-danger { background: var(--surface); color: var(--bad); border: 1.5px solid var(--bad); min-height: 40px; padding: 0 14px; font-size: 14px; }
+.manage-row { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 14px 0; border-top: 1px solid var(--line); }
+.manage-row:first-of-type { border-top: 0; }
+.manage-row h3 { font-size: 15px; margin: 0; }
+.manage-row p { margin: 0; }
+.row-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.row-actions p { flex-basis: 100%; margin: 0; }
+.kartaa-mark { display: block; flex: none; }
+.brand .wordmark { font-family: var(--display); font-weight: 600; font-size: 22px; letter-spacing: -0.01em; line-height: 1; }
+
+/* A member card inside a .list keeps the card's own padding (the plain list-row padding made it flush to the edge). */
+.list li.card { padding: 14px 18px; border-bottom: 1px solid var(--line); }
+.list li.card li { padding: 2px 0; border-bottom: 0; }
+/* File pickers: the browser's grey "Choose File" button takes the app's secondary button look. The input itself stays native, so keyboard, screen readers and dropping a file onto it keep working. */
+input[type="file"] { font: inherit; color: var(--muted, var(--ink)); max-width: 100%; }
+input[type="file"]::file-selector-button {
+  margin-right: 12px; min-height: 40px; padding: 0 14px; border-radius: 10px; border: 1.5px solid var(--control);
+  background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+}
+input[type="file"]:hover::file-selector-button { border-color: var(--accent); }
+input[type="file"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+input[type="file"]:disabled::file-selector-button { opacity: 0.45; cursor: not-allowed; }
+/* Phone header (390 px): the business and Sign out share one row; the links sit under them in a single row that scrolls
+   sideways if it must, instead of wrapping to three rows. */
+@media (max-width: 600px) {
+  .topbar-in { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; }
+  .topbar .brand { margin: 0; min-width: 0; }
+  .topbar .brand strong { overflow-wrap: anywhere; }
+  .topbar .nav { grid-column: 1 / -1; order: 3; flex-wrap: nowrap; overflow-x: auto; margin: 0 -8px; padding-bottom: 2px; }
+  .topbar .nav a { white-space: nowrap; flex: none; }
+  .topbar .nav a:focus-visible { outline-offset: -2px; } /* the scrolling row would clip an outside focus ring */
+  .topbar-in > .btn-link { min-height: 36px; justify-self: end; }
+
+  /* Filing deadlines on a phone: period and status, then form and due date, then the action; no label on every line. */
+  table.products.deadlines tr { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; align-items: center; padding: 10px 12px; margin-bottom: 10px; }
+  table.products.deadlines td { display: block; padding: 0; text-align: left; }
+  table.products.deadlines td::before { content: none; }
+  table.products.deadlines td:nth-child(1) { grid-column: 1; grid-row: 1; }
+  table.products.deadlines td:nth-child(4) { grid-column: 2; grid-row: 1; justify-self: end; }
+  table.products.deadlines td:nth-child(2) { grid-column: 1; grid-row: 2; font-weight: 600; }
+  table.products.deadlines td:nth-child(3) { grid-column: 1 / -1; grid-row: 3; }
+  table.products.deadlines td:nth-child(5) { grid-column: 1 / -1; grid-row: 4; margin-top: 6px; }
+  table.products.deadlines td:nth-child(5) .btn { width: 100%; }
+}
+/* Skip link: the first Tab stop on every screen, visible only while focused. */
+.skip-link { position: absolute; left: 8px; top: -80px; z-index: 100; padding: 10px 14px; border-radius: 8px; background: var(--surface); color: var(--accent); border: 2px solid var(--accent); font-weight: 600; }
+.skip-link:focus, .skip-link:focus-visible { top: 8px; outline-offset: 2px; }
+main:focus { outline: none; } /* the skip link moves focus here; the page itself is not a control */
+
+/* Phone: text links get at least a 24 px tall tap area (WCAG 2.2, 2.5.8) instead of the 20 to 22 px of a bare line of text. */
+@media (max-width: 600px) {
+  main a:not(.btn):not(.btn-link) { display: inline-block; min-height: 24px; padding: 3px 0; line-height: 1.35; }
+  .list li > a, td a:not(.btn) { padding: 6px 0; }
+}
+
+/* Phone: the file picker's button reaches the 44px tap size the other buttons have under 700px. */
+@media (max-width: 700px) { input[type="file"]::file-selector-button { min-height: 44px; } }
+
+/* On a phone the Create button stays in reach while the form scrolls (INVOICE_FLOW G1). */
+@media (max-width: 600px) {
+  .sticky-actions { position: sticky; bottom: 0; background: var(--bg); padding: 10px 0; z-index: 5; flex-direction: row-reverse; margin-top: 16px; }
+  .sticky-actions .btn { flex: 1; }
+  /* A slim bar (one row, about 64 px), and focus scrolling keeps the field clear of it. */
+  html:has(.sticky-actions) { scroll-padding-bottom: 96px; }
+}
+table.products td input:not([type="checkbox"]) { width: 9em; max-width: 100%; }
+table.products td select { max-width: 100%; }

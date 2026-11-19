@@ -1,5 +1,4 @@
 import type { RouteObject } from "react-router-dom";
-import { Navigate } from "react-router-dom";
 
 import { FEATURES } from "./features";
 import { RequireAuth } from "./auth/AuthProvider";
@@ -20,6 +19,8 @@ import { HomePage } from "./screens/home/HomePage";
 import { BusinessPage } from "./screens/onboarding/BusinessPage";
 import { CustomerPage } from "./screens/customers/CustomerPage";
 import { CustomersPage } from "./screens/customers/CustomersPage";
+import { AcceptInvitePage } from "./screens/team/AcceptInvitePage";
+import { TeamPage } from "./screens/team/TeamPage";
 import { PlanPage } from "./screens/plan/PlanPage";
 import { StockPage } from "./screens/stock/StockPage";
 import { DocumentPage } from "./screens/invoices/DocumentPage";
@@ -28,6 +29,7 @@ import { InvoicePage } from "./screens/invoices/InvoicePage";
 import { ImportPage } from "./screens/products/ImportPage";
 import { ProductPage } from "./screens/products/ProductPage";
 import { ProductsPage } from "./screens/products/ProductsPage";
+import { RootPage } from "./screens/root/RootPage";
 import { ResetPage } from "./screens/reset/ResetPage";
 import { SettingsPage, ToBusinessSetup } from "./screens/settings/SettingsPage";
 import { AuditPage } from "./screens/settings/AuditPage";
@@ -41,7 +43,7 @@ import { SignupPage } from "./screens/signup/SignupPage";
 
 // LLD-1 §11.2. Team and My account come in later S1 PRs.
 export const routes: RouteObject[] = [
-  { path: "/", element: <Navigate to="/signin" replace /> },
+  { path: "/", element: <RootPage /> },
   { path: "/signup", element: <PageTitle title="Create your account"><SignupPage /></PageTitle> },
   { path: "/signin", element: <PageTitle title="Sign in"><SigninPage /></PageTitle> },
   { path: "/reset", element: <PageTitle title="Reset your password"><ResetPage /></PageTitle> },
@@ -82,6 +84,8 @@ export const routes: RouteObject[] = [
   { path: "/b/:businessId/settings/filing", element: <RequireAuth><ToBusinessSetup /></RequireAuth> },
   { path: "/b/:businessId/settings/support", element: <PageTitle title="Support access"><RequireAuth><SupportPage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/settings/audit", element: <PageTitle title="Audit log"><RequireAuth><AuditPage /></RequireAuth></PageTitle> },
+  { path: "/b/:businessId/settings/team", element: <PageTitle title="Your team"><RequireAuth><TeamPage /></RequireAuth></PageTitle> },
+  { path: "/invite/:token", element: <PageTitle title="Accept your invitation"><AcceptInvitePage /></PageTitle> },
   { path: "/b/:businessId/settings/security", element: <PageTitle title="Two-step sign-in"><RequireAuth><SecurityPage /></RequireAuth></PageTitle> },
   { path: "/account/security", element: <PageTitle title="Two-step sign-in"><RequireAuth><SecurityPage /></RequireAuth></PageTitle> },
   { path: "/support/totp-recovery", element: <PageTitle title="Recover two-step sign-in"><RequireAuth><TotpRecoveryPage /></RequireAuth></PageTitle> },

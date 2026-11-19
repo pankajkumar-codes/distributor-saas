@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useEffect, useState, type FormEvent } from "react";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { api, call } from "../../api/client";
 import { errorText, type ApiError } from "../../api/errors";
@@ -10,6 +10,7 @@ import { canConfirmRates, canEditCatalog } from "../../auth/roles";
 import { todayIst } from "../../format/dates";
 import { formatRate } from "../../format/money";
 import { Banner } from "../../kit/Banner";
+import { ManageRecord } from "../../kit/ManageRecord";
 import { Button } from "../../kit/Button";
 import { Field } from "../../kit/Field";
 import { NotFound } from "../../kit/NotFound";
@@ -17,8 +18,11 @@ import { RadioGroup } from "../../kit/RadioGroup";
 import { SelectField } from "../../kit/SelectField";
 import { TopBar } from "../../kit/TopBar";
 import { RateHistory } from "./RateHistory";
-import { saleRateText } from "./saleRate";
+import { saleRateProblem } from "./saleRate";
 import { useGstRates } from "./useGstRates";
+import { NoAccess } from "../../kit/NoAccess";
+import { useFormKey } from "../../kit/formKey";
+import { useSingleFlight } from "../../kit/singleFlight";
 
 type Detail = components["schemas"]["ProductDetailOut"];
 type Category = components["schemas"]["ProductIn"]["tax_category"];
@@ -98,7 +102,7 @@ export function ProductPage() {
   const queryClient = useQueryClient();
   const businesses = useMyBusinesses();
   const business = businesses.data?.find((b) => b.business_id === businessId);
-  const key = useRef(crypto.randomUUID());
+  const formKey = useFormKey(`product:${businessId}`);
   const path = { business_id: businessId };
 
   const units = useQuery<components["schemas"]["UnitOut"][], ApiError>({
@@ -118,6 +122,9 @@ export function ProductPage() {
     enabled: Boolean(business) && !isNew,
   });
 
+  // Sent here from an invoice line that needs this product's HSN: offer the way back.
+  const fromState = (useLocation().state as { backTo?: unknown } | null)?.backTo;
+  const backTo = typeof fromState === "string" && fromState.startsWith(`/b/${businessId}/invoices/`) ? fromState : null;
   const [values, setValues] = useState<Values>(EMPTY);
   // The version the form's edits are against: the diff base and the If-Match. It moves only
   // with a save, or with the "someone changed this" banner when a reload brings a newer one.
@@ -127,8 +134,9 @@ export function ProductPage() {
   const [validFrom, setValidFrom] = useState(todayIst());
   const [stale, setStale] = useState(false);
   const [advanced, setAdvanced] = useState(false);
+  const [rateMissing, setRateMissing] = useState(false);
+  const [saleRateChecked, setSaleRateChecked] = useState(false); // a save was tried: a half-typed "10." is now a problem
   const rates = useGstRates(validFrom, isNew && values.tax_category === "taxable");
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const latest = product.data ?? null;
 
   useEffect(() => {
@@ -170,6 +178,7 @@ export function ProductPage() {
     setTheirFields([]);
   };
 
+  const once = useSingleFlight();
   const save = useMutation<Detail, ApiError>({
     mutationFn: () => {
       if (isNew) {
@@ -186,7 +195,7 @@ export function ProductPage() {
         };
         return call(() =>
           api.POST("/api/v1/b/{business_id}/products", {
-            params: { path, header: { "Idempotency-Key": key.current } },
+            params: { path, header: { "Idempotency-Key": formKey.current() } },
             body,
           }),
         );
@@ -200,10 +209,12 @@ export function ProductPage() {
     },
     onSuccess: (p) => {
       saved(p);
-      if (isNew) navigate(`/b/${businessId}/products/${p.id}`, { replace: true });
+      if (isNew) formKey.reset();
+      if (isNew) navigate(`/b/${businessId}/products`, { replace: true, state: { added: p.name } });
     },
     onError: (e) => {
       if (e.code === "stale_record") product.refetch(); // the newer version brings the banner
+      if (e.code === "idempotency_mismatch") formKey.reset(); // the key was used by an earlier, different request: next press starts fresh
     },
   });
 
@@ -242,7 +253,7 @@ export function ProductPage() {
   }
   if (!business || product.error?.status === 404) return <NotFound />;
   const canEdit = canEditCatalog(business.role);
-  if (isNew && !canEdit) return <NotFound />;
+  if (isNew && !canEdit) return <NoAccess businessId={businessId} />;
   // Any other failure to load is not an empty form: saving one would have nothing to edit against.
   if (!isNew && !opened && product.error) {
     return (
@@ -261,8 +272,17 @@ export function ProductPage() {
   }
 
   const error = save.error && save.error.code !== "stale_record" ? save.error : null;
-  const errorFor = (field: string) =>
-    error && formField(error.field) === field ? error.fix ?? (error.message || errorText(error)) : undefined;
+  const errorFor = (field: string) => {
+    if (field === "sale_rate") {
+      const problem = saleRateProblem(values.sale_rate, saleRateChecked);
+      if (problem) return problem;
+    }
+    if (field === "rate" && rateMissing && !chosenRate) return "Choose a GST rate.";
+    if (!error || formField(error.field) !== field) return undefined;
+    // A server check on the rate can come back as pattern text; the owner only needs to know to choose one.
+    if (field === "rate") return error.fix ?? "Choose a GST rate.";
+    return error.fix ?? (error.message || errorText(error));
+  };
   const base = opened;
   const dirty = Boolean(opened) && Object.keys(changedFields(valuesOf(opened!), values)).length > 0;
   const warningFor = (field: string) => base?.warnings.find((w) => w.field === field)?.message;
@@ -277,7 +297,15 @@ export function ProductPage() {
   const set = (field: keyof Values) => (e: { target: { value: string } }) => setValues({ ...values, [field]: e.target.value });
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    save.mutate();
+    if (saleRateProblem(values.sale_rate, true)) {
+      setSaleRateChecked(true);
+      return;
+    }
+    if (isNew && values.tax_category === "taxable" && !chosenRate) {
+      setRateMissing(true);
+      return;
+    }
+    once((done) => save.mutate(undefined, { onSettled: done }));
   };
   const otherError = error && !formField(error.field) ? error : (archive.error ?? remove.error);
 
@@ -289,6 +317,11 @@ export function ProductPage() {
           <Link to={`/b/${businessId}/products`}>Products</Link>
         </p>
         <h1>{isNew ? "New product" : base?.name}</h1>
+        {backTo && (
+          <p>
+            <Link to={backTo}>Back to your invoice</Link>
+          </p>
+        )}
         {base?.status === "archived" && <Banner>This product is archived. It isn't offered on new invoices.</Banner>}
         {stale && (
           <Banner tone="error">
@@ -308,7 +341,7 @@ export function ProductPage() {
             inputMode="numeric"
             value={values.hsn}
             onChange={set("hsn")}
-            hint={hint("hsn", "Digits only. You need it before invoicing; ask your CA if you're not sure.")}
+            hint={hint("hsn", "Digits only. You can leave it for now, but an invoice can't be created for this product until it has an HSN; ask your CA if you're not sure.")}
             error={errorFor("hsn")}
           />
           <SelectField
@@ -332,7 +365,7 @@ export function ProductPage() {
             label="Sale rate per unit, excluding GST (₹)"
             inputMode="decimal"
             value={values.sale_rate}
-            onChange={(e) => setValues({ ...values, sale_rate: saleRateText(e.target.value) })}
+            onChange={(e) => setValues({ ...values, sale_rate: e.target.value })}
             hint={hint("sale_rate")}
             error={errorFor("sale_rate")}
           />
@@ -360,7 +393,10 @@ export function ProductPage() {
                 disabled={!ratesReady}
                 options={(rates.data ?? []).map((r) => ({ value: r, label: formatRate(r) }))}
                 value={chosenRate}
-                onChange={(e) => setRate(e.target.value)}
+                onChange={(e) => {
+                  setRate(e.target.value);
+                  setRateMissing(false);
+                }}
                 hint={ratesNote ?? "The rate your CA advised. The list is the GST rates in force on the date the rate starts (under Advanced)."}
                 error={errorFor("rate")}
               />
@@ -411,36 +447,17 @@ export function ProductPage() {
         )}
 
         {canEdit && !isNew && base && (
-          <section className="card" aria-labelledby="manage">
-            <h2 id="manage">Archive or delete</h2>
-            <Button
-              type="button"
-              variant="link"
-              busy={archive.isPending}
-              disabled={dirty}
-              onClick={() => archive.mutate(base.status !== "archived")}
-            >
-              {base.status === "archived" ? "Unarchive" : "Archive"}
-            </Button>
-            {dirty && <p className="hint">Save or undo your changes first.</p>}
-            {!base.in_use &&
-              (confirmDelete ? (
-                <p>
-                  Delete {base.name} for good?{" "}
-                  <Button type="button" variant="link" busy={remove.isPending} onClick={() => remove.mutate()}>
-                    Yes, delete
-                  </Button>{" "}
-                  <Button type="button" variant="link" onClick={() => setConfirmDelete(false)}>
-                    Keep it
-                  </Button>
-                </p>
-              ) : (
-                <Button type="button" variant="link" onClick={() => setConfirmDelete(true)}>
-                  Delete
-                </Button>
-              ))}
-            {base.in_use && <p className="hint">This product is on invoices, so it can be archived but not deleted.</p>}
-          </section>
+          <ManageRecord
+            noun="product"
+            name={base.name}
+            archived={base.status === "archived"}
+            inUse={base.in_use}
+            dirty={dirty}
+            archiveBusy={archive.isPending}
+            deleteBusy={remove.isPending}
+            onArchive={(a) => archive.mutate(a)}
+            onDelete={() => remove.mutate()}
+          />
         )}
       </main>
     </>

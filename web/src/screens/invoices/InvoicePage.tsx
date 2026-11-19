@@ -6,7 +6,7 @@ import { api, call } from "../../api/client";
 import { errorText, type ApiError } from "../../api/errors";
 import type { components } from "../../api/schema";
 import { useStateCodes } from "../../api/useStateCodes";
-import { canCreateDocuments } from "../../auth/roles";
+import { canCreateDocuments, canEditCatalog } from "../../auth/roles";
 import { useMyBusinesses } from "../../auth/useMyBusinesses";
 import { formatRupees } from "../../format/money";
 import { Banner } from "../../kit/Banner";
@@ -19,11 +19,19 @@ import { TopBar } from "../../kit/TopBar";
 import { blankForm, draftIn, formOf, newLine, sameForm, type Draft, type Form } from "./draftForm";
 import { useStockFlags } from "../stock/useStock";
 import { CustomerPicker, ProductPicker } from "./Pickers";
+import { HsnFix } from "./HsnFix";
 import { Totals } from "./Totals";
 import { useFinalize } from "./useFinalize";
+import { PreviewPanel } from "./PreviewPanel";
 import { usePreview } from "./usePreview";
+import { useFormKey } from "../../kit/formKey";
+import { useSingleFlight } from "../../kit/singleFlight";
+import { NoAccess } from "../../kit/NoAccess";
 
 type Product = components["schemas"]["ProductOut"];
+
+// Invoice numbering is off until the CA confirms it (D-010), so every invoice made here is a practice one and the button says so.
+const PRACTICE_ONLY = true;
 
 /**
  * M10 2a: a draft invoice. Everything shown about tax and totals is the server's computation
@@ -38,29 +46,33 @@ export function InvoicePage() {
   const businesses = useMyBusinesses();
   const business = businesses.data?.find((b) => b.business_id === businessId);
   const states = useStateCodes();
-  const key = useRef(crypto.randomUUID()); // one create, however many times Save is pressed
+  const formKey = useFormKey(`invoice:${businessId}`); // one create, however many times Save is pressed or the page is rebuilt
+  const once = useSingleFlight();
   const [form, setForm] = useState<Form | null>(draftId ? null : blankForm());
   const [saved, setSaved] = useState<Draft | null>(null);
   const [stale, setStale] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [cashStateMissing, setCashStateMissing] = useState(false);
+  const cashStateRef = useRef<HTMLSelectElement>(null);
   const path = { business_id: businessId, draft_id: draftId ?? "" };
 
   const loaded = useQuery<Draft, ApiError>({
     queryKey: ["b", businessId, "draft", draftId],
     enabled: Boolean(business && draftId),
     staleTime: Infinity, // the page moves it on each save; a re-read is the stale banner's choice
+    refetchOnMount: "always", // coming back from another page (e.g. Business setup) shows the server's checks as they are now
     queryFn: () => call(() => api.GET("/api/v1/b/{business_id}/drafts/{draft_id}", { params: { path } })),
   });
   const ids = [...new Set((form?.lines ?? loaded.data?.lines ?? []).map((l) => l.product_id))];
-  const names = Object.fromEntries(
-    useQueries({
-      queries: ids.map((id) => ({
-        queryKey: ["b", businessId, "product", id],
-        staleTime: 5 * 60_000,
-        queryFn: () => call(() => api.GET("/api/v1/b/{business_id}/products/{product_id}", { params: { path: { business_id: businessId, product_id: id } } })),
-      })),
-    }).flatMap((q, i) => (q.data ? [[ids[i], (q.data as Product).name]] : [])),
-  ) as Record<string, string>;
+  const productQueries = useQueries({
+    queries: ids.map((id) => ({
+      queryKey: ["b", businessId, "product", id],
+      staleTime: 5 * 60_000,
+      queryFn: () => call(() => api.GET("/api/v1/b/{business_id}/products/{product_id}", { params: { path: { business_id: businessId, product_id: id } } })),
+    })),
+  });
+  const names = Object.fromEntries(productQueries.flatMap((q, i) => (q.data ? [[ids[i], (q.data as Product).name]] : []))) as Record<string, string>;
+  const unitOf = Object.fromEntries(productQueries.flatMap((q, i) => (q.data ? [[ids[i], (q.data as Product).uqc]] : []))) as Record<string, string | undefined>;
 
   useEffect(() => {
     if (loaded.data && !saved) {
@@ -68,12 +80,17 @@ export function InvoicePage() {
       setForm(formOf(loaded.data));
     }
   }, [loaded.data, saved]);
+  // The server recomputes a draft's checks whenever it is read (e.g. after the turnover band was set on Business setup).
+  // The same version read again carries fresh checks; take them, leaving what the user has typed alone.
+  useEffect(() => {
+    if (loaded.data && saved && loaded.data !== saved && loaded.data.id === saved.id && loaded.data.version === saved.version) setSaved(loaded.data);
+  }, [loaded.data, saved]);
 
   const save = useMutation<Draft, ApiError, Form>({
     mutationFn: (f) =>
       draftId
         ? call(() => api.PUT("/api/v1/b/{business_id}/drafts/{draft_id}", { params: { path, header: { "If-Match": String(saved?.version) } }, body: draftIn(f) }))
-        : call(() => api.POST("/api/v1/b/{business_id}/drafts", { params: { path: { business_id: businessId }, header: { "Idempotency-Key": key.current } }, body: draftIn(f) })),
+        : call(() => api.POST("/api/v1/b/{business_id}/drafts", { params: { path: { business_id: businessId }, header: { "Idempotency-Key": formKey.current() } }, body: draftIn(f) })),
     onMutate: () => setStale(false),
     onSuccess: (out, sent) => {
       queryClient.setQueryData(["b", businessId, "draft", out.id], out);
@@ -82,9 +99,13 @@ export function InvoicePage() {
       setForm(formOf(out, Object.fromEntries(sent.lines.map((l) => [l.product_id, l.name]))));
       queryClient.invalidateQueries({ queryKey: ["b", businessId, "drafts"] });
       setSaved(out);
+      if (!draftId) formKey.reset();
       if (!draftId) navigate(`/b/${businessId}/invoices/${out.id}`, { replace: true });
     },
-    onError: (e) => setStale(e.code === "stale_record"),
+    onError: (e) => {
+      setStale(e.code === "stale_record");
+      if (e.code === "idempotency_mismatch") formKey.reset(); // the key was used by an earlier, different request: next press starts fresh
+    },
   });
   const remove = useMutation<unknown, ApiError>({
     mutationFn: () => call(() => api.DELETE("/api/v1/b/{business_id}/drafts/{draft_id}", { params: { path, header: { "If-Match": String(saved?.version) } } })),
@@ -100,7 +121,9 @@ export function InvoicePage() {
   const flags = useStockFlags(businessId, Boolean(business));
 
   if (businesses.isPending) return <main className="page" aria-busy="true"><p>Loading…</p></main>;
-  if (!business || !canCreateDocuments(business.role) || loaded.error?.status === 404) return <NotFound />;
+  if (!business) return <NotFound />;
+  if (!canCreateDocuments(business.role)) return <NoAccess businessId={businessId} />;
+  if (loaded.error?.status === 404) return <NotFound />;
   if (loaded.error) return <main className="page"><Banner tone="error">{errorText(loaded.error)}</Banner></main>;
   if (!form) return <main className="page" aria-busy="true"><p>Loading…</p></main>;
 
@@ -109,6 +132,13 @@ export function InvoicePage() {
   const stateOptions = (states.data ?? []).map((s) => ({ value: s.code, label: `${s.code} ${s.name}` }));
   const stateNames = Object.fromEntries((states.data ?? []).map((s) => [s.code, s.name]));
   const error = save.error ?? remove.error;
+  // A cash sale has no customer to work the place of supply out from, so the buyer's state is required: say so beside it.
+  const cashStateError =
+    cashStateMissing && !form.cash_state
+      ? "Choose the buyer's state for a cash sale."
+      : save.error?.field?.startsWith("cash_buyer") && save.error.field.endsWith("state_code")
+        ? "Choose the buyer's state for a cash sale."
+        : undefined;
   const reload = async () => {
     const latest = (await loaded.refetch()).data;
     if (latest) {
@@ -121,17 +151,52 @@ export function InvoicePage() {
   };
   const submit = (e: FormEvent) => {
     e.preventDefault();
+    if (form.buyer === "cash" && !form.cash_state) {
+      setCashStateMissing(true);
+      cashStateRef.current?.focus();
+      return;
+    }
     save.mutate(form);
+  };
+  // One press: save what is on screen (if anything changed), then finalize that saved version. A failed save or
+  // finalize leaves the draft saved and says why.
+  const createInvoice = () => {
+    if (form.buyer === "cash" && !form.cash_state) {
+      setCashStateMissing(true);
+      cashStateRef.current?.focus();
+      return;
+    }
+    // One chain at a time, however fast the button is pressed: a second press while the first is still saving or
+    // finalizing does nothing. The create key (one per form) and the finalize key (one per saved version) make a
+    // press after a failure carry on from where it stopped.
+    once((done) => {
+      void (async () => {
+        let target = saved;
+        if (dirty || !target) {
+          try {
+            target = await save.mutateAsync(form);
+          } catch {
+            return; // the save error is shown beside the form
+          }
+        }
+        try {
+          await finalize.mutateAsync({ draftId: target.id, version: target.version });
+        } catch {
+          // the finalize error is shown under the form
+        }
+      })().finally(done);
+    });
   };
   const setLine = (i: number, patch: Partial<Form["lines"][number]>) => set({ lines: form.lines.map((l, n) => (n === i ? { ...l, ...patch } : l)) });
   const pickProduct = (p: Product) => set({ lines: [...form.lines, { ...newLine(), product_id: p.id, name: p.name }] });
   const finalizeError = finalize.error;
   const finalizeWords = !finalizeError
     ? null
-    : finalizeError.status === 404
+    : finalizeError.code === "finalize_blocked" && saved?.computation && saved.computation.blocks.length > 0
+      ? null // the list under the form already says what to fix; a second generic banner only repeats it
+      : finalizeError.status === 404
       ? "Finalizing isn't switched on for your business yet. Your draft is saved."
       : finalizeError.fix ?? (finalizeError.message || errorText(finalizeError));
-  const previewReady = preview.status.data?.status === "ready" && preview.forVersion === saved?.version;
 
   return (
     <>
@@ -140,6 +205,9 @@ export function InvoicePage() {
         <h1>{draftId ? "Draft invoice" : "New invoice"}</h1>
         <>
         <p className="hint">Draft · gets its number when you finalize</p>
+        <Banner tone="info">
+          <strong>Practice mode.</strong> Invoice numbering isn't approved by your CA yet, so every invoice you finalize is a practice invoice: a PR- number, not for your customers, and never in GST Filing.
+        </Banner>
         {stale && (
           <Banner tone="error">
             Someone saved this draft after you opened it.{" "}
@@ -149,17 +217,7 @@ export function InvoicePage() {
             (your unsaved changes here are replaced).
           </Banner>
         )}
-        {error && !stale && (
-          <Banner tone="error">
-            {error.fix ?? (error.message || errorText(error))}
-            {error.code === "business_type_required" && (
-              <>
-                {" "}
-                <Link to={`/b/${businessId}/settings/company`}>Open Business setup</Link>
-              </>
-            )}
-          </Banner>
-        )}
+        {error && !stale && !cashStateError && <Banner tone="error">{error.fix ?? (error.message || errorText(error))}</Banner>}
         <form onSubmit={submit} noValidate>
           <RadioGroup<"customer" | "cash">
             legend="Bill to"
@@ -175,12 +233,23 @@ export function InvoicePage() {
             </>
           ) : (
             <>
-              <SelectField label="Buyer's state" options={stateOptions} value={form.cash_state} onChange={(e) => set({ cash_state: e.target.value })} />
+              <SelectField
+                ref={cashStateRef}
+                label="Buyer's state"
+                options={stateOptions}
+                value={form.cash_state}
+                onChange={(e) => {
+                  set({ cash_state: e.target.value });
+                  setCashStateMissing(false);
+                }}
+                hint="Needed for a cash sale: it decides the place of supply and the tax."
+                error={cashStateError}
+              />
               <Field label="Buyer's name (optional)" value={form.cash_name} onChange={(e) => set({ cash_name: e.target.value })} />
               <Field label="Buyer's address (optional)" value={form.cash_address} onChange={(e) => set({ cash_address: e.target.value })} />
             </>
           )}
-          <Field label="Invoice date" type="date" value={form.doc_date} onChange={(e) => set({ doc_date: e.target.value })} hint="Blank is today." />
+          <Field label="Invoice date" type="date" value={form.doc_date} onChange={(e) => set({ doc_date: e.target.value })} hint="Blank is today. The date is shown in the order your browser uses." />
 
           <h2>Items</h2>
           {form.lines.map((l, i) => (
@@ -190,7 +259,7 @@ export function InvoicePage() {
               </legend>
               {flags.noStock.has(l.product_id) && <p className="hint">No stock on hand for this product. You can still sell it; stock goes below zero until you add a purchase.</p>}
               {flags.priceNeeded.has(l.product_id) && /^0*(\.0*)?$/.test(l.unit_price.trim()) && <p className="hint">This product has no selling price yet. Enter a rate here, or set its price under <Link to={`/b/${businessId}/stock?only=price_needed`}>Stock</Link>.</p>}
-              <Field label="Quantity" inputMode="decimal" value={l.quantity} onChange={(e) => setLine(i, { quantity: e.target.value })} />
+              <Field label="Quantity" inputMode="decimal" value={l.quantity} onChange={(e) => setLine(i, { quantity: e.target.value })} hint={unitOf[l.product_id] ? `Unit: ${unitOf[l.product_id]}` : undefined} />
               <Field label="Rate (excl. GST)" inputMode="decimal" value={l.unit_price} onChange={(e) => setLine(i, { unit_price: e.target.value })} hint="Blank uses the product's sale rate." />
               <SelectField
                 label="Discount"
@@ -241,15 +310,34 @@ export function InvoicePage() {
           />
           {form.pos_override && <Field label="Why it differs" value={form.pos_reason} onChange={(e) => set({ pos_reason: e.target.value })} />}
 
-          <div className="actions">
-            <Button type="submit" busy={save.isPending} disabled={!dirty}>
+          <div className="actions sticky-actions">
+            <Button type="button" variant="primary" busy={save.isPending || finalize.isPending} disabled={Boolean(saved && !dirty && saved.ready === false)} onClick={createInvoice}>
+              {PRACTICE_ONLY ? "Create practice invoice" : "Create invoice"}
+            </Button>
+            <Button type="submit" variant="secondary" busy={save.isPending} disabled={!dirty}>
               Save draft
             </Button>
           </div>
         </form>
 
         {saved?.computation ? (
-          <Totals c={saved.computation} states={stateNames} />
+          <Totals c={saved.computation} states={stateNames} canLeave={!dirty} productOf={(n) => saved.lines?.[n - 1]?.product_id}
+            hsnFix={
+              canEditCatalog(business.role)
+                ? (_n, productId) => (
+                    <HsnFix
+                      businessId={businessId}
+                      productId={productId}
+                      productName={names[productId] ?? "this product"}
+                      onSaved={async () => {
+                        const fresh = await loaded.refetch();
+                        if (fresh.data) setSaved(fresh.data);
+                      }}
+                    />
+                  )
+                : undefined
+            }
+          />
         ) : (
           saved && (
             <p>
@@ -259,33 +347,16 @@ export function InvoicePage() {
         )}
         {dirty && saved && <p className="hint">Totals and checks are from your last save.</p>}
 
-        {saved && (
-          <section aria-label="Preview">
-            <Button type="button" busy={preview.start.isPending} disabled={dirty} onClick={() => preview.start.mutate()}>
-              Preview PDF
-            </Button>
-            {dirty && <p className="hint">Save first: the preview shows the saved draft.</p>}
-            {preview.start.error && <Banner tone="error">{errorText(preview.start.error)}</Banner>}
-            {preview.start.data && preview.forVersion === saved.version && !previewReady && preview.status.data?.status !== "failed" && <p aria-busy="true">Preparing the preview…</p>}
-            {preview.status.data?.status === "failed" && <Banner tone="error">The preview could not be made. Try again.</Banner>}
-            {previewReady && (
-              <p>
-                <a href={preview.status.data?.url ?? "#"} target="_blank" rel="noopener noreferrer">
-                  Open the preview (PDF)
-                </a>{" "}
-                <span className="hint">Draft, not a tax invoice.</span>
-              </p>
-            )}
-          </section>
-        )}
+        {saved && <PreviewPanel preview={preview} version={saved.version} dirty={dirty} />}
 
-        {saved && (
-          <section aria-label="Finalize">
-            <Button type="button" busy={finalize.isPending} disabled={dirty || saved.ready === false} onClick={() => finalize.mutate()}>
-              Finalize invoice
-            </Button>
-            {dirty && <p className="hint">Save first: the invoice is made from the saved draft.</p>}
-            {!dirty && saved.ready === false && <p className="hint">Fix the checks above, then save, before you finalize.</p>}
+        <section aria-label="Finalize">
+            <p className="hint">
+              {saved && saved.ready === false && !dirty
+                ? "Fix the checks above and save again to finalize."
+                : PRACTICE_ONLY
+                  ? "Create practice invoice saves your changes and makes a practice invoice with a PR- number: not for your customer, and locked once made."
+                  : "Create invoice saves your changes, gives the invoice its number and locks it; later changes need a credit note."}
+            </p>
             {finalizeWords && (
               <Banner tone="error">
                 {finalizeWords}
@@ -297,8 +368,7 @@ export function InvoicePage() {
                 )}
               </Banner>
             )}
-          </section>
-        )}
+        </section>
 
         {saved && (
           <div className="actions">

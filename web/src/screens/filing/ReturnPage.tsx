@@ -16,7 +16,10 @@ import { TopBar } from "../../kit/TopBar";
 import { ExportPanel } from "./ExportPanel";
 import { useAccept } from "./export";
 import { FiledPanel } from "./FiledPanel";
+import { Table13Panel } from "./Table13Panel";
 import { returnKey, useReturnDetail, useSectionRows, type SectionName } from "./returns";
+import { NoAccess } from "../../kit/NoAccess";
+import { Loading } from "../../kit/Loading";
 
 type Heads = components["schemas"]["Heads"];
 type Group = components["schemas"]["FindingGroupOut"];
@@ -218,7 +221,8 @@ export function ReturnPage() {
       </main>
     );
   }
-  if (!business || (detail.isError && detail.error.status === 404)) return <NotFound />;
+  if (!business) return <NotFound />;
+  if ((detail.isError && detail.error.status === 404)) return <NoAccess businessId={businessId} />;
   const d = detail.data;
   const groups = [...(d?.finding_groups ?? [])].sort((a, b) => (LEVEL[a.level]?.order ?? 9) - (LEVEL[b.level]?.order ?? 9) || a.code.localeCompare(b.code));
   const blocking = groups.filter((g) => g.level === "block").reduce((n, g) => n + g.count, 0);
@@ -230,7 +234,7 @@ export function ReturnPage() {
         <p className="step">
           <Link to={`/b/${businessId}/filing`}>Your GST filing</Link>
         </p>
-        {detail.isPending && <p aria-busy="true">Loading…</p>}
+        {detail.isPending && <Loading query={detail} />}
         {detail.isError && <Banner tone="error">We couldn't load this return. {errorText(detail.error)}</Banner>}
         {d && (
           <>
@@ -275,6 +279,7 @@ export function ReturnPage() {
                 </>
               )}
             </section>
+            {d.instance.form === "GSTR1" && d.instance.status !== "filed_locked" && canPrepareReturns(business.role) && <Table13Panel businessId={businessId} instanceId={instanceId} />}
             {d.export && d.instance.status !== "filed_locked" && <ExportPanel businessId={businessId} instanceId={instanceId} gate={d.export} fingerprint={d.fingerprint} periodLabel={d.instance.period_label} />}
             <FiledPanel businessId={businessId} instance={d.instance} role={business.role} />
             <section aria-labelledby="sections">

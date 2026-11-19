@@ -40,6 +40,9 @@
   value: "300"
   reason: "max length of a text field in a request body; input hygiene, not a tax rule"
 - path: app/src/app/modules/catalog/api_products.py
+  value: "1000"
+  reason: "ceiling on a name in a request body, above the 200 rule so the plain message wins; input hygiene"
+- path: app/src/app/modules/catalog/api_products.py
   value: "24"
   reason: "max length of a decimal string in a request body; input hygiene"
 - path: app/src/app/modules/catalog/api_products.py
@@ -360,3 +363,15 @@
 - path: app/src/app/modules/filing/plans.py
   value: "366"
   reason: "the longest plan period in days (a leap year), to refuse a nonsense days_left in a plan change preview; not a tax number"
+- path: app/src/app/modules/filing/table13.py
+  value: "5"
+  reason: "the offline tool's document nature code for a credit note (the master list of the GSTR-1 workbook, research gstr1-offline-json-structure section 3); a form code, not a tax number"
+- path: app/src/app/modules/filing/table13.py
+  value: "16"
+  reason: "the longest document number the portal takes in Table 13 (GSTR-1 FAQ Q31, rule 46); a field length, not a tax number"
+- path: app/src/app/modules/filing/api_table13.py
+  value: "99999999"
+  reason: "the largest count a request may carry for documents issued, to refuse nonsense; an input bound, not a tax number"
+- path: app/src/app/modules/filing/api_table13.py
+  value: "500"
+  reason: "the most Table 13 rows one request may carry; an input bound, not a tax number"

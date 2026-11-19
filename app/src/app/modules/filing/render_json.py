@@ -12,7 +12,8 @@ What is NOT verified against the portal, and what the test upload (T1 to T4) is 
   against any file or schema, and guesses where we do not remember: CDNUR `typ` and `pos`, no `inv_typ` or `rchrg` on B2CL,
   the system flags on notes), with the same flags as B2B. `unverified_tables` names them; the export must carry that to the
   screen and not offer the file as ready to upload while one is present (S4).
-- Tables 13 (documents issued) and 14 (tax collected by e-commerce operators) are not written: see `export_model.NOT_IN_FILE`.
+- Table 13 (documents issued) is written from the rows the person confirmed (`table13.py`) in the real file's layout, without `chksum`.
+  Table 14 (tax collected by e-commerce operators) is not written: see `export_model.NOT_IN_FILE`.
 - HSN rows carry no `desc`: we hold no official description text.
 - A monthly return only: `filing_typ` is "M" and a quarterly or IFF file raises `NotRenderable` in the model.
 """
@@ -25,6 +26,7 @@ from typing import Literal
 
 from platform_common.money import PAISE
 
+from . import table13
 from .export_model import ExportModel, HsnLine, Invoice, Item, Note
 
 FILING_TYPE = "M"
@@ -81,9 +83,22 @@ def _document(m: ExportModel, o: Options) -> dict:
         if m.hsn_b2c:
             hsn["hsn_b2c"] = [_hsn(n, r) for n, r in enumerate(m.hsn_b2c, 1)]
         doc["hsn"] = {**hsn, **_chk(o)}
+    if m.docs:
+        doc["doc_issue"] = _doc_issue(m.docs, o)
     if o.fil_dt is not None:
         doc["fil_dt"] = _day(o.fil_dt)
     return doc
+
+
+def _doc_issue(docs, o: Options) -> dict:
+    """Table 13 as the real file has it: all 12 nature slots in order, the unused ones with an empty `docs`, rows numbered from 1
+    within a nature, `net_issue` = `totnum` - `cancel`. Whether the portal needs the empty slots is unknown (test T-13c)."""
+    slots = []
+    for nature in table13.NATURES:
+        mine = [d for d in docs if d.nature == nature]
+        slots.append({"docs": [{"cancel": d.cancelled, "num": n, "totnum": d.total, "from": d.from_no, "to": d.to_no,
+                                "net_issue": d.net_issue} for n, d in enumerate(mine, 1)], "doc_num": nature})  # fmt: skip
+    return {**_flag(o, "flag", "N"), "doc_det": slots, **_chk(o)}
 
 
 def _flag(o: Options, key: str, value: str) -> dict:

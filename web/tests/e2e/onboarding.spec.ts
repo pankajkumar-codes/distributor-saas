@@ -35,7 +35,7 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   // the unit tests cover the warning words. The details and the frequency are both done.
   const setup = page.getByRole("region", { name: "Set up your business" });
   await expect(setup.getByText("3 of 6 done")).toBeVisible();
-  await expect(setup.getByText("Upcoming").first()).toBeVisible();
+  await expect(setup.getByRole("link", { name: "Invite your CA or a teammate" })).toBeVisible(); // the team screen exists now
   // Filing home (R1-M2): the server's deadlines, none confirmed yet, so each row says to check the portal.
   await page.getByRole("link", { name: "Open Filing home" }).click();
   await expect(page.getByRole("heading", { name: "Your GST filing" })).toBeVisible();
@@ -57,11 +57,13 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   await page.getByLabel("Credit days").fill("15");
   await noSeriousAxeFindings(page);
   await page.getByRole("button", { name: "Add customer" }).click();
-  await expect(page.getByRole("heading", { name: "Asha Stores" })).toBeVisible();
-  await page.getByRole("link", { name: "Customers" }).click();
+  await expect(page.getByRole("heading", { name: "Customers" })).toBeVisible(); // adding lands on the list
+  await expect(page.getByText("Added Asha Stores.")).toBeVisible();
   const customer = page.getByRole("row").filter({ hasText: "Asha Stores" });
   await expect(customer.getByText("Unregistered")).toBeVisible();
   await expect(customer.getByText("Maharashtra")).toBeVisible();
+  await expect(customer.getByRole("button", { name: "Archive Asha Stores" })).toBeVisible();
+  await expect(customer.getByRole("button", { name: "Delete Asha Stores" })).toBeVisible();
   const overflowC = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflowC).toBeLessThanOrEqual(0);
   await page.goto(homeUrl);
@@ -83,6 +85,9 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   await page.getByLabel("GST rate", { exact: true }).selectOption("18");
   await noSeriousAxeFindings(page);
   await page.getByRole("button", { name: "Add product" }).click();
+  await expect(page.getByRole("heading", { name: "Products" })).toBeVisible(); // adding lands on the list
+  await expect(page.getByText("Added Neem soap.")).toBeVisible();
+  await page.getByRole("link", { name: "Edit Neem soap" }).click();
   await expect(page.getByRole("heading", { name: "Neem soap" })).toBeVisible();
 
   // The owner marks the first rate confirmed in the rate history; the list then has no chip.
@@ -146,6 +151,10 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   // Business setup is one page: the filing frequency is on it already.
   await expect(page.getByRole("heading", { level: 2, name: "Filing frequency" })).toBeVisible();
   await expect(page.getByText(/^Every quarter \(QRMP\), from \d{2}-[A-Z][a-z]{2}-\d{4}\.$/)).toBeVisible();
+  // The current frequency is already chosen; Save frequency appears only once another one is picked.
+  await expect(page.getByRole("radio", { name: "Every quarter (QRMP)" })).toBeChecked();
+  await expect(page.getByRole("button", { name: "Save frequency" })).toHaveCount(0);
+  await page.getByRole("radio", { name: "Every month" }).check();
   await expect(page.getByRole("button", { name: "Save frequency" })).toBeVisible();
   await noSeriousAxeFindings(page);
   const overflow6 = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);

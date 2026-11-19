@@ -6,7 +6,7 @@ import { api, call } from "../../api/client";
 import { errorText, type ApiError } from "../../api/errors";
 import type { components } from "../../api/schema";
 import { useMyBusinesses } from "../../auth/useMyBusinesses";
-import { formatDateTimeIst } from "../../format/dates";
+import { formatDate, formatDateTimeIst } from "../../format/dates";
 import { Banner } from "../../kit/Banner";
 import { ErrorDetail } from "../../kit/ErrorDetail";
 import { Button } from "../../kit/Button";
@@ -14,6 +14,9 @@ import { Field } from "../../kit/Field";
 import { NotFound } from "../../kit/NotFound";
 import { SelectField } from "../../kit/SelectField";
 import { TopBar } from "../../kit/TopBar";
+import { warningText } from "../onboarding/warnings";
+import { NoAccess } from "../../kit/NoAccess";
+import { Loading } from "../../kit/Loading";
 
 type Page = components["schemas"]["AuditPageOut"];
 type Row = components["schemas"]["AuditRowOut"];
@@ -54,13 +57,79 @@ export function rowPath(href: string | null | undefined, businessId: string): st
   return known.test(rest) ? href : null;
 }
 
-/** "Reason or detail": the reason, then each detail as "key: value". */
+const MARKETPLACE: Record<string, string> = { amazon: "Amazon", flipkart: "Flipkart", meesho: "Meesho", own_invoices: "Own sales invoices" };
+const ROLE: Record<string, string> = { owner: "Owner", admin: "Admin", billing: "Billing", ca: "CA" };
+const BAND: Record<string, string> = { up_to_threshold: "up to the limit for quarterly filing (QRMP)", above_threshold: "above that limit" };
+const REGISTRATION: Record<string, string> = { gstin: "Registered with a GSTIN", enrolment: "Registered with an enrolment number" };
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+const words = (key: string) => {
+  const t = key.replace(/_/g, " ");
+  return t.charAt(0).toUpperCase() + t.slice(1);
+};
+const plainValue = (v: unknown): string => {
+  if (Array.isArray(v)) return v.map(plainValue).join(", ");
+  if (typeof v === "string" && ISO_DAY.test(v)) return formatDate(v);
+  if (typeof v === "string") return v;
+  return typeof v === "object" ? "" : String(v);
+};
+
+/**
+ * "Reason or detail": the reason, then what the entry recorded in plain words. The stored details are the data
+ * (ids, codes, lists); a reader, the owner or the CA, gets "Monthly filing from 01-Oct-2026", not
+ * `effective_from: 2026-10-01; frequency: monthly; warnings: ["outside_window"]`. Ids and counters stay out of view.
+ */
 export function detailText(row: Pick<Row, "reason" | "details">): string {
   const parts = row.reason ? [row.reason] : [];
-  for (const [k, v] of Object.entries(row.details ?? {}).sort(([a], [b]) => a.localeCompare(b))) {
-    if (v !== null && v !== undefined) parts.push(`${k}: ${typeof v === "object" ? JSON.stringify(v) : String(v)}`);
+  const d: Record<string, unknown> = Object.fromEntries(Object.entries(row.details ?? {}).filter(([, v]) => v !== null && v !== undefined));
+  const take = (k: string) => {
+    const v = d[k];
+    delete d[k];
+    return v;
+  };
+  // Pairs that read as one sentence.
+  if ("frequency" in d && "effective_from" in d) {
+    const f = String(take("frequency"));
+    const from = String(take("effective_from"));
+    parts.push(`${f === "monthly" ? "Monthly" : f === "quarterly" ? "Quarterly (QRMP)" : words(f)} filing from ${plainValue(from)}`);
   }
-  return parts.join("; ");
+  if ("rate" in d) {
+    const rate = String(take("rate"));
+    const from = take("valid_from");
+    parts.push(`GST rate ${rate}%${from ? ` from ${plainValue(from)}` : ""}`);
+  }
+  if ("from" in d && "to" in d) {
+    const [a, b] = [String(take("from")), String(take("to"))];
+    parts.push(`From ${ROLE[a] ?? words(a)} to ${ROLE[b] ?? words(b)}`);
+  }
+  if ("fy" in d && "band" in d) {
+    const [fy, band] = [String(take("fy")), String(take("band"))];
+    parts.push(`Turnover for FY ${fy}: ${BAND[band] ?? words(band)}`);
+  }
+  if (Array.isArray(d.enabled)) parts.push(`Marketplaces: ${(take("enabled") as unknown[]).map((m) => MARKETPLACE[String(m)] ?? words(String(m))).join(", ")}`);
+  if ("registration_kind" in d) parts.push(REGISTRATION[String(take("registration_kind"))] ?? "");
+  if (Array.isArray(d.warnings)) {
+    const w = (take("warnings") as string[]).map(warningText).join(" ");
+    if (w) parts.push(w);
+  }
+  if (Array.isArray(d.fields)) {
+    const f = (take("fields") as unknown[]).map((x) => String(x).replace(/_/g, " ")).join(", ");
+    if (f) parts.push(`Changed: ${f}`);
+  }
+  if ("role" in d) {
+    const r = String(take("role"));
+    parts.push(`Role: ${ROLE[r] ?? words(r)}`);
+  }
+  if ("code" in d) parts.push(`Code ${String(take("code"))}`);
+  // Anything else by its name, unless it is an id or an internal counter.
+  for (const [k, v] of Object.entries(d).sort(([a], [b]) => a.localeCompare(b))) {
+    if (k === "seq" || k === "previous_seq" || k.endsWith("_id") || k === "id") continue;
+    if (typeof v === "string" && UUID.test(v)) continue;
+    const t = plainValue(v);
+    if (t) parts.push(`${words(k)}: ${t}`);
+  }
+  return parts.filter(Boolean).join("; ");
 }
 
 /**
@@ -139,7 +208,9 @@ export function AuditPage() {
       </main>
     );
   }
-  if (!business || !canView || list.error?.status === 404) return <NotFound />;
+  if (!business) return <NotFound />;
+  if (!canView) return <NoAccess businessId={businessId} />;
+  if (list.error?.status === 404) return <NotFound />;
 
   const rows = list.data?.pages.flatMap((p) => p.items) ?? [];
   const people = (members.data?.members ?? []).map((m) => ({ value: m.user_id, label: m.name || m.email || "Former member" }));
@@ -212,7 +283,7 @@ export function AuditPage() {
             </Button>
           </Banner>
         )}
-        {list.isPending && <p aria-busy="true">Loading…</p>}
+        {list.isPending && <Loading query={list} />}
         {list.isSuccess && rows.length === 0 && <p>{narrowed ? "No entries match." : "No entries yet."}</p>}
 
         {rows.length > 0 && (

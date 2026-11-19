@@ -191,7 +191,7 @@ describe("GSTR-3B worksheet", () => {
 
   it("is a not-found page for billing, which the server refuses", async () => {
     open("billing");
-    expect(await screen.findByText("We couldn't find that page")).toBeInTheDocument();
+    expect(await screen.findByText("You don't have access to this page")).toBeInTheDocument();
     expect(sentTo(WS, "GET")).toHaveLength(0);
   });
 });

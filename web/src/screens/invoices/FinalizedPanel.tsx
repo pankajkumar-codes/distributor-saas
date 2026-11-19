@@ -6,6 +6,7 @@ import { formatDate } from "../../format/dates";
 import { formatRupees } from "../../format/money";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
+import { useSingleFlight } from "../../kit/singleFlight";
 import { useDocumentPdfRequest, type DocumentDetail } from "./useFinalize";
 
 /**
@@ -15,6 +16,7 @@ import { useDocumentPdfRequest, type DocumentDetail } from "./useFinalize";
 export function FinalizedPanel({ businessId, doc }: { businessId: string; doc: DocumentDetail }) {
   const queryClient = useQueryClient();
   const ask = useDocumentPdfRequest(businessId, doc.id, () => queryClient.invalidateQueries({ queryKey: ["b", businessId, "document", doc.id] }));
+  const once = useSingleFlight();
   const s = doc.pdf.status;
   const working = ask.isPending || s === "queued" || s === "rendering";
   return (
@@ -28,7 +30,7 @@ export function FinalizedPanel({ businessId, doc }: { businessId: string; doc: D
       <p>
         Dated {formatDate(doc.doc_date)} · Total <strong>{formatRupees(doc.doc_total)}</strong>
       </p>
-      <Button type="button" busy={working} onClick={() => ask.mutate()}>
+      <Button type="button" busy={working} onClick={() => once((done) => ask.mutate(undefined, { onSettled: done }))}>
         {doc.is_practice ? "Download practice PDF" : "Download PDF"}
       </Button>
       {ask.error && <Banner tone="error">{errorText(ask.error)}</Banner>}

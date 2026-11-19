@@ -53,6 +53,26 @@ def auth_env():
         c.execute(text(f"drop database {dbname} with (force)"))
 
 
+def end_sessions(admin):
+    """Ends every live session, e.g. the one sign-up opened, so a test can sign in as a second browser would not."""
+    with admin.begin() as c:
+        c.execute(text("update identity.sessions set revoked_at = now(), revoke_reason = 'signout' where revoked_at is null"))
+
+
+def add_live_session(admin, email=EMAIL):
+    """A second live session row, as data from before one-active-session would have, for the tests of what ends
+    every session. The public routes can no longer make two."""
+    with admin.begin() as c:
+        c.execute(
+            text(
+                "insert into identity.sessions (id, user_id, key_kind, key_value, auth_time, absolute_expires_at)"
+                " select gen_random_uuid(), id, 'sid', gen_random_uuid()::text, now(), now() + interval '30 days'"
+                " from identity.users where email = :e"
+            ),
+            {"e": email},
+        )
+
+
 def one(admin, sql, **params):
     with admin.connect() as c:
         return c.execute(text(sql), params).scalar()

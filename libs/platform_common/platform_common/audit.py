@@ -28,6 +28,9 @@ ALLOWED_DATA: dict[str, frozenset[str]] = {
     "auth.totp_removed_by_support": frozenset({"support_user_id"}),
     "auth.signout": frozenset(),
     "auth.signout_all": frozenset({"sessions"}),
+    # One active session per user: the person said yes to ending the other one (sessions = how many ended), or no.
+    "auth.session_replaced": frozenset({"sessions"}),
+    "auth.signin_declined": frozenset(),
     "business.create": frozenset({"registration_kind"}),
     # Business profile (LLD-1 §8.2, L1-13, L1-14).
     "business.profile_update": frozenset({"fields"}),
@@ -110,6 +113,8 @@ ALLOWED_DATA: dict[str, frozenset[str]] = {
     "filing.period_confirmation": frozenset({"kind", "period", "item", "confirmed"}),
     "filing.period_file_opened": frozenset({"kind", "period"}),
     "returns.filed": frozenset({"snapshot_id", "version", "changed_since_export"}),
+    # Table 13 (documents issued) confirmed for a return: its version and row counts. No document numbers.
+    "return.table13_confirmed": frozenset({"version", "rows", "counted"}),
     # A GSTR-3B worksheet (R1-M8b): its version, and for entries the save number and the field names that changed. The
     # amounts live in the insert-only worksheet tables, never in an audit row.
     "worksheet.built": frozenset({"version"}),

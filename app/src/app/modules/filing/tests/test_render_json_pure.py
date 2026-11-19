@@ -236,7 +236,7 @@ def test_an_iff_and_a_quarterly_return_are_not_rendered_with_a_plain_reason(inst
 
 
 def test_the_tables_left_out_of_the_file_are_named_for_the_screen():
-    assert len(em.NOT_IN_FILE) == 2 and "Table 13" in em.NOT_IN_FILE[0] and "Table 14" in em.NOT_IN_FILE[1]
+    assert len(em.NOT_IN_FILE) == 1 and "Table 14" in em.NOT_IN_FILE[0]  # Table 13 is in the file now
 
 
 def test_an_invoice_value_and_place_come_from_its_first_row_and_two_notes_do_not_merge():

@@ -18,7 +18,7 @@ Resolve these before the affected functionality is used for live financial trans
 11. Is CSV/Excel export sufficient for the first release, or is a specific connector commercially necessary?
 12. Expected number of tenants in year one and likely import/report volume?
 13. Monthly cloud budget range, including database, storage, backups, monitoring, and support?
-14. Preferred hosting region and any data residency or customer-contract requirements?
+14. Preferred hosting region and any data residency or customer-contract requirements? **Answered 2026-11-18: tenant data stays in India (D-094).** Follow-ups below.
 15. Who will operate production, handle incidents, and manage backups?
 
 ## P2 — Product expansion
@@ -100,7 +100,7 @@ POST /b already reads `identity.max_owned_businesses` (5, provisional; **Pankaj 
   - **Support staff.** They have no business, so their page is a new route, `/account/security`, not in LLD-1 §11.2. A support user without TOTP gets 404 from `/support/grants`; `/support` then checks `GET /me` and sends them to turn it on (L2-5) instead of showing not found.
   - **Support's removal screen.** `/support/totp-recovery` takes the account email, mails the code, then takes the code the person reads out (LLD-2 §6.3). Its words are the same whether or not the account exists, as the server's reply is. LLD-2 §6.3 puts it under `is_support` plus TOTP, not under a business grant, and it's built that way.
   - **Sign-in.** The sign-in code step shows the PO's "Lost your phone? Contact support." (RM2-29). There is no support contact address to link yet; **PO** to supply one.
-  - **The authenticator label** is the provisional `APP_NAME = "Business Hub"` (`web/src/brand.ts`) until the product name is decided (CEO and Pankaj). Accounts already enrolled keep the old label in their app.
+  - **The authenticator label** is `APP_NAME = "Kartaa"` (`web/src/brand.ts`), the product name decided by the CEO on 2026-11-18. Accounts enrolled before that keep the old label "Business Hub" in their app.
   - **Designer** to confirm the wording and the QR layout.
 - **Support users and memberships (AC2-14, done in S2-b).** Triggers refuse an active membership for a support user and refuse making a member into support, so a support user always reaches a business through a grant (TOTP required, read-only, every view audited), never as a member. Existing data: none in any environment yet.
 
@@ -263,7 +263,7 @@ Every row in `refdata/` is `provisional`. Before go-live:
 - **GSTR-3B worksheet (R1-M8b), CA items.** The worksheet is numbers to check and enter on the GST portal, never a filing; each figure resting on one of these is flagged "to be confirmed" in the product. (1) Credit notes are taken off 3.1(a) by default (GF-22); debit notes are not in the build yet, so their count carries over unsummed. (2) Marketplace sales and TCS in 3.1(a) and 3.1.1 are R1b; 3.1.1 says "Check on the GST portal". (3) Composition and UIN buyers in 3.2: the build has no buyer type, so those columns are zero with a flag until the CA says whether and how to ask for it. (4) Quarterly entry: the utility takes months only; whether the portal fills a quarter's Table 3 from GSTR-1 plus IFF, and the exact period string (GF-26); until answered a quarter worksheet is "numbers to check". (5) Table 3 lock scope and start period, and GSTR-1A corrections (GF-23). (6) Row labels and Table 4/5 codes come from utility V5.8 and must be checked against the live portal (GF-24). (7) "3.2 must not exceed 3.1(a)" is the utility's rule; it is a warning here, not a block (GF-28). (8) A real utility-exported 3B JSON is needed only if a 3B JSON is ever built (outside R1). (9) Pankaj: the worksheet uses the same payment gate as the GSTR-1 file (GF-29); that reading is the Product Owner's assumption, and `FREE_FOR_NOW` opens it today.
 - **Rows at a 0% rate in the 3B worksheet (R1-M8b).** The build has no nil-rated or exempt split, so a row at a 0 rate stays in 3.1(a) with a flag. Whether it belongs in 3.1(c) is a CA question; 3.1(c) and (e) show zero until uploads build them.
 
-- **GSTR-1 checks not built: C-08, C-14, C-15 (LLD-5 §6, decided 2026-11-18).** C-08 (data in a table while Table 13 is empty): Table 13 is deliberately not in the R1 file (`NOT_IN_FILE` in `export_model.py`), so the check would always block; it waits for R2 own invoicing, which issues the documents Table 13 lists. C-14 (a product rate on a line is not confirmed): uploaded rows carry no link to a catalog product, so there is nothing to look up; it waits for R2. C-15 (return near the point it can no longer be filed): the refdata key `filing.unfileable_warning` does not exist and the GC-24 section citation is an open GST-expert item (LLD-5 open item 7); we do not invent the period. C-06 (return not open) stays an export gate reason, not a finding.
+- **GSTR-1 checks not built: C-08, C-14, C-15 (LLD-5 §6, decided 2026-11-18).** C-08 (data in a table while Table 13 is empty): Table 13 is deliberately not in the R1 file (`NOT_IN_FILE` in `export_model.py`), so the check would always block; it waits for R2 own invoicing, which issues the documents Table 13 lists. **Superseded 2026-11-19 by `docs/TABLE13_SPEC.md` (D-099, proposed): Table 13 and C-08 are specified for R1 from confirmed rows, and the build is a separate PR.** C-14 (a product rate on a line is not confirmed): uploaded rows carry no link to a catalog product, so there is nothing to look up; it waits for R2. C-15 (return near the point it can no longer be filed): the refdata key `filing.unfileable_warning` does not exist and the GC-24 section citation is an open GST-expert item (LLD-5 open item 7); we do not invent the period. C-06 (return not open) stays an export gate reason, not a finding.
 - **C-17 rounding and cess (LLD-5 §6, R1-M8 follow-up 1).** The check compares each tax head with round half up of taxable value x rate (IGST at the rate, CGST and SGST each at half of it), as the spec's golden example does (1,339.39 at 9% gives 120.55). The spec says nothing about cess, so cess is not compared. Which figure the return should carry (ours or the tool's) is CA-2; until it is answered the finding is a warning marked for the CA.
 - **Emulator run is blocked on a permission, not on the emulator (R1-M11 prep, 2026-11-18).** The emulator exists and has crates for our services, but a trimmed scratch build and the Terraform provider mirror were each refused by the session's permission check. Pankaj (or the session owner) decides whether the scratch `cargo build` may run, or whether we use the `moto` fallback described in `docs/AWS_EMULATOR.md`. No emulator result exists yet.
 
@@ -276,8 +276,10 @@ Every row in `refdata/` is `provisional`. Before go-live:
 - **Web screens (R2-M2).** `/b/:id/purchases` (upload, business-type prompt, what waits) and `/b/:id/purchases/:draftId` (review) are built behind the invoicing flag, from the routes' own shape, not checked against mock v13 pixel by pixel. The new-item form has no cess switch yet (a new item is created with no cess), and the existing-product list shows the first 100 active products only.
 ## R2-M1 (business type)
 
-- **Business type before R2 invoicing: decided.** Optional at sign-up, required before invoicing (CEO, 2026-11-18, D-080); the server check is `require_business_type`. Still open: what the web shows a business that hits `business_type_required` (a link to Business setup is the plan; screens come with R2-M2 and later).
-- **Does a third choice or a rename belong on the list?** The list is exactly Distributor and Retail, the two words in Pankaj's R2 note. Anything else (wholesaler, manufacturer) is a new decision, not a wording change.
+- **Business type before R2 invoicing: decided, and reversed.** It is an optional multi-select that never blocks (CEO, 2026-11-18, D-095, which supersedes D-080). The web screens move to it in the follow-up web PR; until then the old prompts can still show, but the server no longer answers `business_type_required`.
+- **Free text for "Other".** Not built. Add a short text field only if the CA or Pankaj wants it.
+- **Migrator role must bypass RLS (check before the first RDS deploy).** The business-types backfill (and any later data migration on a FORCE RLS table) updates zero rows for a role without BYPASSRLS, silently. Migration `202611191400` logs a warning for such a role; it cannot refuse, because the CI migrator is one and the rows are invisible to it. Confirm what the real RDS migrator role is, and that it can bypass RLS, before the first deploy; if it cannot, run the backfill as a role that can.
+- **Dropping the old column and the one-word alias.** A later migration (destructive-migration approval from a named human needed), after the web app has moved.
 - **Plan choice by type.** The price list differs by business type (filing-only against invoicing). R1-M9 is a placeholder with "free for now", so nothing maps type to plan yet; that mapping is for the payments milestone.
 - **Changing the type later.** Allowed at any time with an audit row. Whether a change after sales invoices exist should warn or be refused is not decided; it matters only once R2 invoicing exists.
 
@@ -355,6 +357,22 @@ Three things only Pankaj can settle; none stops the build.
 2. **Token lifetime and limits.** A link lasts 7 days (`INVITE_EXPIRY_DAYS`), is single use, and a resend kills the old link; 20 invite mails per business per day. Both are product values, not tax rules. Recommendation: keep 7 days and 20 a day for launch; change only if real owners ask.
 3. **Role change rules as built.** Owner or admin changes a member's role between owner, admin and billing; only an owner may touch an owner; the last owner cannot be demoted; a CA's role changes only through a new invite (Product Owner rule RM-4.2); deactivate and reactivate need a reason; a deactivated person rejoins by reactivation or by accepting a new invite, which restores them with the invited role. Question: is it right that an admin may promote someone to admin? Recommendation: yes, keep.
 
+## One active session per user (2026-11-19)
+
+- Confirmation window: the "Yes" must come within 10 minutes of the sign-in (`auth.session_confirm_minutes`, provisional). Owner may want it shorter or longer.
+- Support accounts follow the same rule as everyone. A support person signed in on two machines is asked the same question.
+- The ended browser is not told at once: its access token (up to 5 minutes) is refused at its next call, and it then shows the session-timed-out screen. Instant sign-out would need a push channel, which is not built.
+- Live window (D-093): a session counts as active for this question only if used in the last 30 minutes (`auth.session_live_minutes`, provisional). Someone who leaves a tab idle for 30+ minutes and then signs in elsewhere is not asked; the idle tab is ended and shows the timed-out screen at its next call. Owner may want a different window.
+- Sessions that already exist before this release are left alone; a person with two old sessions is asked on their next sign-in only if one of them is still live.
+
+## India-only data (2026-11-18, D-094)
+
+- **API behind CloudFront? Decided (D-096): no.** The API moves to a regional API Gateway custom domain in Mumbai; Terraform and web are changed, nothing applied. What remains for Pankaj: choose the domain, so the sibling name `api.<domain>` and its ap-south-1 certificate can be created. Reasoning kept for the record: CloudFront is global: its edges and regional caches can sit outside India, and the API carries invoices, GST data, the Authorization header and the refresh cookie. Recommended: CloudFront for the public static files only, and the API on a regional API Gateway custom domain in ap-south-1 on a sibling name (`api.<domain>`; the refresh cookie and CORS need adjusting). Alternative: serve the static files from the same regional API, no CDN. CEO and Pankaj to confirm; affects the domain plan and costs a small amount.
+- **In-country Bedrock.** Is an in-country Anthropic model profile available in ap-south-1 or ap-south-2 and approved? Pankaj reads it from the AWS console (also open under D-077). If there is none, the picture reader stays off or uses the local OCR only (D-078).
+- **Support and developer access from outside India.** The rule covers storage and transfer by the system; whether a person viewing customer data from abroad counts is the CEO's call.
+- **Cognito.** Confirm at the first staging deploy that Cognito sends no email of its own and has no region-bound add-on (set `email_configuration` explicitly).
+- **Real sample data.** Where does Pankaj's real GSTR-1 zip sit today, and should it live only on his own machine? (Source: Staff 2 India-only audit, findings F1 to F10.)
+
 ## Release blockers (not R1 build blockers; Pankaj, 2026-11-17)
 These need Pankaj or his CA and do not stop building. Each must be done before production release.
 - **CA question sheet** (`team/program-lead/ca-question-sheet-v1.md`, CA-1 to CA-5 above and the platform treatment items): Pankaj takes it to his CA just before release.
@@ -363,6 +381,32 @@ These need Pankaj or his CA and do not stop building. Each must be done before p
 - **GST portal due-date calendar:** the calendar is national. The screenshot (or an official source) is still needed to confirm every GSTR-1 and GSTR-3B date and the full list of states in each quarterly GSTR-3B group; until then screens say "Check on the GST portal" and states we have no list for show no date.
 - **One test GSTR-1 upload to the portal** (files ready; Pankaj validates after everything is built and merged): sets `gstr1.portal_file.verified` only if the portal accepts it.
 - **Real AWS:** P-4 Lambda limit, P-5 paid plan before 2027-01-25 and staging spend approval (`team/ops/aws-requests-before-r1-m11.md`). Emulator testing first (D-075).
+
+## Invoice flow (2026-11-19)
+- **OQ-INV-1 (CA):** is an HSN mandatory on every sales invoice for this business, and with how many digits? The server rule stays as built until answered (`docs/INVOICE_FLOW.md`).
+- **OQ-INV-2 (owner):** may Create invoice skip the confirmation sheet (r1-invoice-screens I2) while all invoices are practice-only? The v14 mock skips it.
+
+## Table 13 documents issued (2026-11-19, issue #353, D-099 proposed)
+
+Full spec: `docs/TABLE13_SPEC.md`. Answers so far come from the AI CA and portal experts reading government documents, not a registered CA.
+
+- **T13-1 (human CA): do marketplace-issued invoice series count in the seller's Table 13?** Default: no, opt-in per series, labelled "Needs CA check". A marketplace-only seller must tick them or enter their own series, because the portal blocks Generate Summary otherwise.
+- **T13-2 (Pankaj's test upload): are `chksum`, system flags and empty `doc_issue` slots required?** Default: omit `chksum`, keep flags, write all 12 slots (as the real tool file did).
+- **T13-3 (test upload): which row checks does the portal apply?** Default: our own checks, not claimed as portal rules.
+- **T13-4 (human CA): does a quarterly filer's Table 13 cover the IFF months?** Default: yes.
+- **T13-5 (human CA): number reuse after cancel; one number under two natures.** Default: never reuse, one nature per number.
+- **T13-6 (build thread): does the import keep numbers of zero-value and cancelled marketplace rows?** Check before counting marketplace series. **Answered (build, #358):** no. Zero-value marketplace rows are staged as `skipped_zero` and never become confirmed documents, and marketplace documents are not in `filing.v_supply_lines`, so their numbers are never suggested. A seller adds a marketplace series as a manual row (counted or not). Suggesting them needs the marketplace import to keep those numbers, after T13-1 is answered.
+- **T13-7: debit notes, vouchers and challans.** Out of R1; manual rows allowed.
+
+## Ask bot (2026-11-19, `docs/ASK_BOT.md`)
+- **OQ-ASK-1 (owner):** may we reuse GST portal tutorial text (store derived chunks, show short passages with attribution)? Terms not read; the bot stays off for customers until answered.
+- **OQ-ASK-2 (owner):** allow a paid Bedrock model in Mumbai for generative answers, with a monthly cap (recommend USD 10)?
+- **OQ-ASK-3 (EM):** read the AWS console in ap-south-1 and ap-south-2 for in-region on-demand text models, price and access; Bedrock availability is unverified.
+- **OQ-ASK-4 (owner):** download the missing pack documents (offline tool guide and JSON schema, registration, payments, e-invoice and e-way bill). Per-topic deep links are verified by the portal expert (`team/gst-portal-expert/URLS.md`, 2026-11-20); a document with no verified row uses the index URL.
+- **OQ-ASK-5 (owner):** release placement (recommended: own track with R2), support contact, log retention (90 days), who sees the bot (all members). See the decision table in the spec.
+
+## B2C-large limit and quarterly return periods (2026-11-19, #362)
+- **OQ-B2CL-1 (CA or test upload):** the B2C-large limit (Rs 2.5 lakh up to July 2024, Rs 1 lakh from August 2024) is chosen by the return period. How the portal labels a quarterly return period is not stated in the documents; we assume the quarter's last month (a Jul-Sep 2024 return counts as September, so Rs 1 lakh, including a document dated 31 July 2024). Portal behaviour, needs a CA answer or a test-upload check. Low risk: affects only 2024 quarterly returns. Code: `gstr1_period_month` in `filing/periods.py`.
 
 ## Decision handling
 For each answer, update `docs/DECISIONS.md` with the decision, rationale, trade-offs, and approval status. Do not silently turn assumptions into requirements.

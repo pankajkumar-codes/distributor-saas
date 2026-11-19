@@ -75,7 +75,7 @@ services:
   api:
     <<: *api
     restart: unless-stopped
-    command: ["python", "-m", "uvicorn", "app.api:app", "--app-dir", "app/src", "--host", "0.0.0.0", "--port", "8000", "--log-level", "${UVICORN_LOG_LEVEL:-info}"]
+    command: ["python", "-m", "uvicorn", "app.api:asgi", "--app-dir", "app/src", "--host", "0.0.0.0", "--port", "8000", "--log-level", "${UVICORN_LOG_LEVEL:-info}"]
     depends_on:
       migrate: { condition: service_completed_successfully }
     healthcheck:

@@ -21,7 +21,6 @@ from typing import Literal
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
-from app.modules.business.interface import require_business_type  # business owns the rule
 from platform_common import audit
 from platform_common.errors import Conflict, Deny, Invalid
 from platform_common.ids import uuid7
@@ -260,7 +259,6 @@ def receive_confirmed_purchase_line(uow: UnitOfWork, line: ConfirmedPurchaseLine
     source_line_id): a retry returns the same ids with `already_received`. Call it only from
     the confirm step; nothing is received from a line the business has not confirmed.
     """
-    require_business_type(uow.tx)
     if (line.product_id is None) == (line.new_item is None):
         raise Invalid("product_or_new_item", "Give either an existing product or a new one, not both and not neither",
                       field="product_id")

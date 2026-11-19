@@ -1,3 +1,4 @@
+import { API_CREDENTIALS, API_ORIGIN } from "../api/origin";
 import { withAuthTimeout } from "../api/timeout";
 import { tokenStore } from "./tokenStore";
 
@@ -33,7 +34,22 @@ export const signedOutOnPurpose = () => leftOnPurpose;
 let hadSession = false;
 let timedOut = false;
 
+/**
+ * A plain cookie that says only "a session may exist here", no identity and no token. The refresh cookie is HttpOnly and
+ * scoped to /api/v1/auth, so the web server cannot see it; this hint lets it show the landing page at "/" to visitors and
+ * the app to people who are signed in. A stale hint costs one redirect to sign-in, which then clears it.
+ */
+function setSignedInHint(signedIn: boolean) {
+  try {
+    const secure = typeof location !== "undefined" && location.protocol === "https:" ? "; Secure" : "";
+    document.cookie = signedIn ? `kartaa_in=1; Path=/; Max-Age=${30 * 24 * 3600}; SameSite=Lax${secure}` : `kartaa_in=; Path=/; Max-Age=0; SameSite=Lax${secure}`;
+  } catch {
+    // no document (a test without one) or cookies blocked: the landing page is then shown at "/", which is harmless
+  }
+}
+
 function emit(signedIn: boolean, change: Change = "new") {
+  setSignedInHint(signedIn);
   if (signedIn) leftOnPurpose = false;
   listeners.forEach((listener) => listener(signedIn, change));
 }
@@ -97,9 +113,9 @@ async function refreshNow(background: boolean, rejected: string | null): Promise
   if (Date.now() - receivedAt < RECENT_MS && held && held !== rejected) return "ok";
   let response: Response;
   try {
-    response = await globalThis.fetch(window.location.origin + REFRESH, {
+    response = await globalThis.fetch(API_ORIGIN + REFRESH, {
       method: "POST",
-      credentials: "same-origin",
+      credentials: API_CREDENTIALS,
       headers: background ? { "X-Background": "1" } : {},
       // 20 s limit: a refresh that never answers would leave the app on "Loading" with no way out. If the server did
       // rotate the cookie and the answer was lost, the next refresh is refused as a reuse and the person signs in
@@ -190,9 +206,9 @@ async function askSignOut(token: string | null): Promise<boolean> {
   const abort = new AbortController();
   const timer = setTimeout(() => abort.abort(), SIGNOUT_TIMEOUT_MS);
   try {
-    const response = await globalThis.fetch(window.location.origin + SIGNOUT, {
+    const response = await globalThis.fetch(API_ORIGIN + SIGNOUT, {
       method: "POST",
-      credentials: "same-origin",
+      credentials: API_CREDENTIALS,
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       signal: abort.signal,
     });

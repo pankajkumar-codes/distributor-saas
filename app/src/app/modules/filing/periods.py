@@ -154,6 +154,21 @@ def filer_on(tx: Session, gstin: str, on: date) -> Literal["monthly", "qrmp"]:
     return "qrmp" if row.frequency == "quarterly" else "monthly"
 
 
+def gstr1_period_month(tx: Session, gstin: str, on: date) -> date:
+    """First day of the last month of the GSTR-1 return period a document dated `on` belongs to: its own month for
+    a monthly filer, the quarter's last month for QRMP. Dated rules that CBIC states "by return period" (the
+    B2C-large limit, #362) are looked up on this date, not on the document date. B2CL is never an IFF class, so
+    the return is always the GSTR-1 one. Without a filing frequency the document's own month is used. Ignores a
+    roll-forward out of a locked return (the document is classified before it is assigned).
+    ASSUMPTION (docs/OPEN_QUESTIONS.md OQ-B2CL-1): the portal labels a quarterly return period by its last month;
+    not stated in the documents, needs a CA answer or a test-upload check."""
+    month = date(on.year, on.month, 1)
+    row = filing_frequency_on(tx, gstin, quarter_start(on))
+    if row is not None and row.frequency == "quarterly":
+        return quarter_months(on)[-1]
+    return month
+
+
 def ensure_instances(tx: Session, gstin: str, on: date) -> list[ReturnInstance]:
     """Create `on`'s quarter's instances if missing (two callers at once both succeed:
     ON CONFLICT DO NOTHING) and return them, in period and form order."""

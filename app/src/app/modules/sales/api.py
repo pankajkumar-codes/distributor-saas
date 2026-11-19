@@ -17,7 +17,6 @@ from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi import status as http
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
-from app.modules.business.interface import require_business_type
 from app.modules.catalog.interface import movements_for_document
 from app.modules.filing import interface as filing
 from platform_common.clock import Clock, get_clock
@@ -34,13 +33,8 @@ from .compute import Computation
 router = APIRouter(tags=["sales"])
 
 
-def _business_type_chosen(uow: BusinessUoW) -> None:
-    """R2: invoicing needs the business type first (CEO); 409 business_type_required otherwise."""
-    require_business_type(uow.tx)
-
-
 # The permission check runs first, so a role without it still gets the plain 404.
-EDIT = [Depends(require(Permission.DOCUMENTS_CREATE)), Depends(_business_type_chosen)]
+EDIT = [Depends(require(Permission.DOCUMENTS_CREATE))]
 VIEW = [Depends(require(Permission.DOCUMENTS_VIEW))]
 
 Text = Annotated[str, Field(max_length=300)]
@@ -330,8 +324,15 @@ def create_draft(
 
 
 @router.get("/b/{business_id}/drafts/{draft_id}", response_model=DraftOut, dependencies=EDIT)
-def get_draft(draft_id: str, uow: BusinessUoW, response: Response):
-    return _etag(response, _out(drafts.get(uow, parse_id(draft_id))))
+def get_draft(draft_id: str, uow: BusinessUoW, response: Response, clock: Annotated[Clock, Depends(get_clock)]):
+    """Reading a draft checks it again as of today, so a fixed product, or a business setting changed
+    meanwhile, shows at once. Not a user edit: the version is unchanged. A draft that cannot be
+    computed (its customer was deleted) is returned as stored, so the page can open it and the buyer be changed."""
+    d = drafts.get(uow, parse_id(draft_id), lock=True)  # one version for the read, the check and the store
+    try:
+        return _etag(response, _out(*_computed_and_stored(uow, d, clock.today())))
+    except Invalid:
+        return _etag(response, _out(d))
 
 
 @router.put("/b/{business_id}/drafts/{draft_id}", response_model=DraftOut, dependencies=EDIT)

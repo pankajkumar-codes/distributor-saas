@@ -15,9 +15,11 @@ import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
 import { useReturns } from "../filing/returns";
 import { warningText } from "../onboarding/warnings";
+import { TEAM_MANAGERS } from "../team/TeamPage";
 import { AUDIT_VIEWERS } from "../settings/AuditPage";
 import { SUPPORT_VIEWERS } from "../settings/SupportPage";
 import { screenPath } from "./links";
+import { Loading } from "../../kit/Loading";
 
 type Home = components["schemas"]["HomeOut"];
 // LLD-6 §3. The API types it as a plain object until insights (S6) gives it a model.
@@ -100,6 +102,13 @@ export function HomePage() {
       <main className="page page-wide">
         <h1>{greeting(data?.greeting_name)}</h1>
         <p className="hint home-sub">Here is where your business stands today.</p>
+        {FEATURES.invoicing && canCreateDocuments(business.role) && (
+          <p className="home-actions">
+            <Link className="btn btn-primary" to={`/b/${businessId}/invoices/new`}>
+              New invoice
+            </Link>
+          </p>
+        )}
         {warnings.length > 0 && (
           <Banner>
             <p>Your business is saved. Please check:</p>
@@ -110,7 +119,7 @@ export function HomePage() {
             </ul>
           </Banner>
         )}
-        {home.isPending && <p aria-busy="true">Loading…</p>}
+        {home.isPending && <Loading query={home} />}
         {home.error && (
           <Banner tone="error">
             {errorText(home.error)}{" "}
@@ -180,6 +189,17 @@ export function HomePage() {
                 </ul>
               </section>
             )}
+            <nav className="card" aria-labelledby="catalog">
+              <h2 id="catalog">Products and customers</h2>
+              <ul className="list">
+                <li>
+                  <Link to={`/b/${businessId}/products`}>Products</Link>
+                </li>
+                <li>
+                  <Link to={`/b/${businessId}/customers`}>Customers</Link>
+                </li>
+              </ul>
+            </nav>
             {/* Until the app has its own navigation (Designer, OPEN_QUESTIONS), Home is the way in. */}
             {FEATURES.invoicing && canCreateDocuments(business.role) && (
               <nav className="card" aria-labelledby="sell">
@@ -249,6 +269,7 @@ export function HomePage() {
               <p className="hint">Change your business details, where you sell and how often you file.</p>
               <Link to={`/b/${businessId}/settings`}>Open Business setup</Link>
               <div className="home-links">
+                {TEAM_MANAGERS.has(business.role) && <Link to={`/b/${businessId}/settings/team`}>Your team</Link>}
                 {SUPPORT_VIEWERS.has(business.role) && <Link to={`/b/${businessId}/settings/support`}>Support access</Link>}
                 {AUDIT_VIEWERS.has(business.role) && <Link to={`/b/${businessId}/settings/audit`}>Audit log</Link>}
                 {business.role !== SUPPORT_ROLE && <Link to={`/b/${businessId}/settings/security`}>Two-step sign-in</Link>}

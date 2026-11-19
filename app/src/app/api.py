@@ -27,14 +27,51 @@ from app.modules.identity.providers import auth_provider
 from app.modules.filing.api import router as filing_router
 from app.modules.filing.api_period_files import router as period_files_router
 from app.modules.filing.api_period_gate import router as period_gate_router
+from app.modules.filing.api_table13 import router as table13_router
 from app.modules.filing.api_worksheet import router as worksheet_router
 from app.modules.refdata.api import router as refdata_router
 from platform_common.auth import debug_env
 from platform_common.errors import install_error_handlers
 from platform_common.jobs_api import router as jobs_router
+from platform_common.textcheck import RejectNul
 from platform_common.uow import set_principal_resolver
 
 API_PREFIX = "/api/v1"
+
+# Set on every response by the app itself, so they hold on the API Gateway endpoint (the API is not behind
+# CloudFront, D-094) and locally. An answer that already carries one keeps it. HSTS is harmless over plain
+# http (browsers ignore it there). The API returns JSON and files, never a page, so the CSP forbids everything.
+SECURITY_HEADERS = (
+    (b"x-content-type-options", b"nosniff"),
+    (b"strict-transport-security", b"max-age=31536000"),
+    (b"x-frame-options", b"DENY"),
+    (b"referrer-policy", b"no-referrer"),
+)
+API_CSP = (b"content-security-policy", b"default-src 'none'; frame-ancestors 'none'; base-uri 'none'")
+
+
+class SecurityHeaders:
+    """Pure ASGI middleware: add the headers above to every HTTP response, even an error or a 404."""
+
+    def __init__(self, inner):
+        self.inner = inner
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return await self.inner(scope, receive, send)
+        csp = scope.get("path", "").startswith(API_PREFIX)  # the dev-only /docs page needs its own scripts
+
+        async def send_with_headers(message):
+            if message["type"] == "http.response.start":
+                headers = list(message.get("headers", []))
+                have = {name.lower() for name, _ in headers}
+                for pair in (*SECURITY_HEADERS, *((API_CSP,) if csp else ())):
+                    if pair[0] not in have:
+                        headers.append(pair)
+                message = {**message, "headers": headers}
+            await send(message)
+
+        await self.inner(scope, receive, send_with_headers)
 
 
 @asynccontextmanager
@@ -48,6 +85,7 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="gst-app", root_path_in_servers=False, lifespan=lifespan)
+app.add_middleware(RejectNul)  # no NUL character in any query string or JSON body (#281)
 install_error_handlers(app)  # Deny -> 404, AppError -> its status, anything else -> 500 (LLD-0 §3.2)
 app.include_router(identity_router, prefix=API_PREFIX)
 app.include_router(auth_router, prefix=API_PREFIX)
@@ -66,6 +104,7 @@ app.include_router(filing_router, prefix=API_PREFIX)
 app.include_router(worksheet_router, prefix=API_PREFIX)
 app.include_router(period_files_router, prefix=API_PREFIX)
 app.include_router(period_gate_router, prefix=API_PREFIX)
+app.include_router(table13_router, prefix=API_PREFIX)
 app.include_router(uploads_router, prefix=API_PREFIX)
 app.include_router(purchases_router, prefix=API_PREFIX)
 app.include_router(refdata_router, prefix=API_PREFIX)
@@ -89,4 +128,40 @@ async def health():  # async: answered on the event loop, so it never waits for 
     return {"status": "ok"}
 
 
-handler = Mangum(app, lifespan="off")
+# The handlers take these two headers as optional so a missing one gets the API's own error
+# (for example idempotency_key_required) instead of a generic 422. They are
+# mandatory for callers, so the contract says required (#282).
+_REQUIRED_HEADERS = {"Idempotency-Key", "If-Match"}
+# Genuinely optional today: the first band for a year takes no If-Match, and a purchase draft's
+# confirm and discard work without a key (a key only makes a retry safe).
+_STAYS_OPTIONAL = {
+    ("put", "/api/v1/b/{business_id}/turnover-bands/{fy}", "If-Match"),
+    ("post", "/api/v1/b/{business_id}/purchase-drafts/{draft_id}/confirm", "Idempotency-Key"),
+    ("post", "/api/v1/b/{business_id}/purchase-drafts/{draft_id}/discard", "Idempotency-Key"),
+}
+
+
+def _openapi_with_required_headers() -> dict:
+    if app.openapi_schema:
+        return app.openapi_schema
+    schema = FastAPI.openapi(app)
+    canonical = {h.lower(): h for h in _REQUIRED_HEADERS}
+    for path, operations in schema["paths"].items():
+        for method, operation in operations.items():
+            for parameter in operation.get("parameters", []):
+                # A handler declared as `idempotency_key: str | None = Header(None)` is named in
+                # lowercase in the schema, so the match ignores case.
+                name = canonical.get(parameter["name"].lower())
+                if parameter.get("in") == "header" and name:
+                    parameter["required"] = (method, path, name) not in _STAYS_OPTIONAL
+    return schema
+
+
+app.openapi = _openapi_with_required_headers  # type: ignore[method-assign]
+
+
+# The whole app is wrapped, not added with add_middleware: Starlette answers an unhandled exception (the 500) in
+# a layer outside every added middleware, which would leave that response without the headers. Lambda and
+# uvicorn run `asgi`; `app` stays for the OpenAPI export and the tests of single routes.
+asgi = SecurityHeaders(app)
+handler = Mangum(asgi, lifespan="off")

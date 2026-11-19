@@ -1,5 +1,5 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useParams, useSearchParams } from "react-router-dom";
 
 import { api, call } from "../../api/client";
 import { errorText, type ApiError } from "../../api/errors";
@@ -10,9 +10,11 @@ import { canEditCatalog } from "../../auth/roles";
 import { Banner } from "../../kit/Banner";
 import { ErrorDetail } from "../../kit/ErrorDetail";
 import { Button } from "../../kit/Button";
+import { RowActions } from "../../kit/RowActions";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
 import { uniqueById, useUrlSearch } from "../../kit/lists";
+import { Loading } from "../../kit/Loading";
 
 type Page = components["schemas"]["CustomerPageOut"];
 type Status = "active" | "archived" | "all";
@@ -34,6 +36,7 @@ export function CustomersPage() {
   const businesses = useMyBusinesses();
   const business = businesses.data?.find((b) => b.business_id === businessId);
   const states = useStateCodes();
+  const added = (useLocation().state as { added?: string } | null)?.added;
   const status = (STATUSES.find((s) => s.value === params.get("status"))?.value ?? "active") as Status;
   const { search, setSearch, q } = useUrlSearch(params, setParams);
 
@@ -116,6 +119,7 @@ export function CustomersPage() {
           ))}
         </div>
 
+        {added && <Banner>Added {added}.</Banner>}
         {list.error && (
           <Banner tone="error">
             {errorText(list.error)}<ErrorDetail error={list.error} />{" "}
@@ -124,7 +128,7 @@ export function CustomersPage() {
             </Button>
           </Banner>
         )}
-        {list.isPending && <p aria-busy="true">Loading…</p>}
+        {list.isPending && <Loading query={list} />}
         {list.isSuccess && items.length === 0 && <p>{q || status !== "active" ? "No customers match." : canEditCatalog(business.role) ? "No customers yet. Add your first with New customer." : "No customers yet."}</p>}
 
         {items.length > 0 && (
@@ -135,6 +139,7 @@ export function CustomersPage() {
                 <th scope="col">GSTIN</th>
                 <th scope="col">Billing state</th>
                 <th scope="col">Credit days</th>
+                {canEditCatalog(business.role) && <th scope="col">Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -158,6 +163,31 @@ export function CustomersPage() {
                   <td data-label="GSTIN">{c.gstin ?? "Unregistered"}</td>
                   <td data-label="Billing state">{stateName(c.billing.state_code)}</td>
                   <td data-label="Credit days">{c.credit_days}</td>
+                  {canEditCatalog(business.role) && (
+                    <td data-label="Actions">
+                      <RowActions
+                        name={c.name}
+                        editTo={`/b/${businessId}/customers/${c.id}`}
+                        archived={c.status === "archived"}
+                        inUse={c.in_use}
+                        listKey={["b", businessId, "customers"]}
+                        archive={(a) =>
+                          call(() =>
+                            a
+                              ? api.POST("/api/v1/b/{business_id}/customers/{customer_id}/archive", { params: { path: { business_id: businessId, customer_id: c.id } } })
+                              : api.POST("/api/v1/b/{business_id}/customers/{customer_id}/unarchive", { params: { path: { business_id: businessId, customer_id: c.id } } }),
+                          )
+                        }
+                        remove={() =>
+                          call(() =>
+                            api.DELETE("/api/v1/b/{business_id}/customers/{customer_id}", {
+                              params: { path: { business_id: businessId, customer_id: c.id }, header: { "If-Match": String(c.version) } },
+                            }),
+                          )
+                        }
+                      />
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

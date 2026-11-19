@@ -128,17 +128,36 @@ def test_roles_and_other_businesses(shop):  # noqa: F811
     assert bad.status_code == 422
 
 
-def test_a_business_that_invoices_here_exports_gstr1_only_through_the_gate(shop):  # noqa: F811
+def test_a_business_with_own_invoices_exports_gstr1_only_through_the_gate(shop):  # noqa: F811
+    """D-095: the gate follows "own invoices exist" (finalized or practice), not the business type."""
     pg, biz = shop
     choose(pg, biz, "monthly")
-    seed(pg, "update business.profiles set business_type = 'retail' where business_id = :b", b=biz)
     inst = press_instances(pg, biz)
+
+    def export():
+        return pg.client.post(f"/api/v1/b/{biz}/returns/{inst}/exports", headers=as_user("alice"))
+
+    def gated(r):
+        return r.status_code == 409 and r.json()["error"]["code"] == "period_gate_closed"
+
+    # A marketplace seller is not gated (R1 behaviour), whatever types it chose.
+    seed(pg, "update business.profiles set business_types = array['retailer','online_seller'] where business_id = :b", b=biz)
+    assert not gated(export())
+    # The first own invoice of any kind closes it again; no business type is needed.
+    seed(pg, "update business.profiles set business_types = '{}' where business_id = :b", b=biz)
+    sale(pg, biz, "P-1", date(2026, 11, 3), practice=True)
+    assert gated(export())
+
+
+def test_a_finalized_own_invoice_also_puts_the_business_behind_the_gate(shop):  # noqa: F811
+    pg, biz = shop
+    choose(pg, biz, "monthly")
+    inst = press_instances(pg, biz)
+    assert pg.client.post(f"/api/v1/b/{biz}/returns/{inst}/exports", headers=as_user("alice")).json().get("error", {}).get(
+        "code") != "period_gate_closed"
+    sale(pg, biz, "INV-1", date(2026, 11, 3))
     closed = pg.client.post(f"/api/v1/b/{biz}/returns/{inst}/exports", headers=as_user("alice"))
     assert (closed.status_code, closed.json()["error"]["code"]) == (409, "period_gate_closed")
-    # a marketplace seller who chose no business type is not gated (R1 behaviour)
-    seed(pg, "update business.profiles set business_type = null where business_id = :b", b=biz)
-    free = pg.client.post(f"/api/v1/b/{biz}/returns/{inst}/exports", headers=as_user("alice"))
-    assert free.status_code != 409 or free.json()["error"]["code"] != "period_gate_closed"
 
 
 def press_instances(pg, biz) -> uuid.UUID:
