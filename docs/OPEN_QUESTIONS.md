@@ -414,5 +414,5 @@ For each answer, update `docs/DECISIONS.md` with the decision, rationale, trade-
 - **R3 remaining (open, no owner decision needed to build):** the period-files page (web/src/screens/periodfiles/FilePeriodPage.tsx) still says locking and marking filed from that page is "Upcoming"; the backend mark-filed, lock and unlock exist (R1-M8) and are used from each return screen, so wiring that page is a web-only follow-up. Live finalize (D-091) stays off; credit-note finalize is not built.
 
 ## Blank HSN for B2C when the seller is within the limit (2026-11-19, #344)
-- **OQ-HSN-1 (CA):** does Notification 78/2020-CT let a seller up to Rs 5 crore issue a tax invoice to an unregistered buyer with no HSN at all, or only with fewer digits? Built as a warning that says GSTR-1 needs the HSN (D-100). Answers OQ-INV-1 for the B2C case once confirmed.
+- **OQ-HSN-1 (CA):** does Notification 78/2020-CT let a seller up to Rs 5 crore issue a tax invoice to an unregistered buyer with no HSN at all, or only with fewer digits? Built as a warning that says GSTR-1 needs the HSN (D-101). Answers OQ-INV-1 for the B2C case once confirmed.
 - **OQ-HSN-2 (CA):** how a blank-HSN B2C line is reported in Table 12 before live numbering is turned on. Today the return blocks it (check C-01).

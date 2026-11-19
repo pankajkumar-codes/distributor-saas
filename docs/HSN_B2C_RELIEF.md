@@ -1,6 +1,6 @@
 # Blank HSN on an invoice line: warn for B2C when the seller is within the limit (#344)
 
-Status: specification and build for issue #344 (R2 backlog). Decision D-100 in `docs/DECISIONS.md`. The CA must confirm the reading before this goes to a paying business (OQ-HSN-1).
+Status: specification and build for issue #344 (R2 backlog). Decision D-101 in `docs/DECISIONS.md`. The CA must confirm the reading before this goes to a paying business (OQ-HSN-1).
 Sources: CA expert answers v2, "N-1 and H-1" (`team/program-lead/ca-answers-from-govt-docs-v2.md`) and v4 (refdata check, `hsn.min_digits_*` now `expert_confirmed`); Notification 78/2020-CT.
 
 ## 1. The rule
