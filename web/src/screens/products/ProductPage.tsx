@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type FormEvent } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { api, call } from "../../api/client";
 import { errorText, type ApiError } from "../../api/errors";
@@ -122,6 +122,9 @@ export function ProductPage() {
     enabled: Boolean(business) && !isNew,
   });
 
+  // Sent here from an invoice line that needs this product's HSN: offer the way back.
+  const fromState = (useLocation().state as { backTo?: unknown } | null)?.backTo;
+  const backTo = typeof fromState === "string" && fromState.startsWith(`/b/${businessId}/invoices/`) ? fromState : null;
   const [values, setValues] = useState<Values>(EMPTY);
   // The version the form's edits are against: the diff base and the If-Match. It moves only
   // with a save, or with the "someone changed this" banner when a reload brings a newer one.
@@ -314,6 +317,11 @@ export function ProductPage() {
           <Link to={`/b/${businessId}/products`}>Products</Link>
         </p>
         <h1>{isNew ? "New product" : base?.name}</h1>
+        {backTo && (
+          <p>
+            <Link to={backTo}>Back to your invoice</Link>
+          </p>
+        )}
         {base?.status === "archived" && <Banner>This product is archived. It isn't offered on new invoices.</Banner>}
         {stale && (
           <Banner tone="error">
@@ -333,7 +341,7 @@ export function ProductPage() {
             inputMode="numeric"
             value={values.hsn}
             onChange={set("hsn")}
-            hint={hint("hsn", "Digits only. You need it before invoicing; ask your CA if you're not sure.")}
+            hint={hint("hsn", "Digits only. You can leave it for now, but an invoice can't be created for this product until it has an HSN; ask your CA if you're not sure.")}
             error={errorFor("hsn")}
           />
           <SelectField

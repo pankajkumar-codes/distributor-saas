@@ -382,6 +382,10 @@ These need Pankaj or his CA and do not stop building. Each must be done before p
 - **One test GSTR-1 upload to the portal** (files ready; Pankaj validates after everything is built and merged): sets `gstr1.portal_file.verified` only if the portal accepts it.
 - **Real AWS:** P-4 Lambda limit, P-5 paid plan before 2027-01-25 and staging spend approval (`team/ops/aws-requests-before-r1-m11.md`). Emulator testing first (D-075).
 
+## Invoice flow (2026-11-19)
+- **OQ-INV-1 (CA):** is an HSN mandatory on every sales invoice for this business, and with how many digits? The server rule stays as built until answered (`docs/INVOICE_FLOW.md`).
+- **OQ-INV-2 (owner):** may Create invoice skip the confirmation sheet (r1-invoice-screens I2) while all invoices are practice-only? The v14 mock skips it.
+
 ## Decision handling
 For each answer, update `docs/DECISIONS.md` with the decision, rationale, trade-offs, and approval status. Do not silently turn assumptions into requirements.
 - **Turning live finalize on (CA, then CEO or Pankaj) (R3-M5, D-091):** a second refdata switch `sales.finalize.live` ships `"false"`; turn it on, after `sales.finalize.enabled`, only once the CA confirms the numbering scope (CA-1). Credit-note finalize is still not built (needs the credit-note treatment, CA).
