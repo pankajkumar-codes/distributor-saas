@@ -13,6 +13,7 @@ import { TopBar } from "../../kit/TopBar";
 import { useBuildWorksheet, useSaveEntries, useStartWorksheetPdf, useWorksheetExcel, useWorksheetPdfStatus, useWorksheet, type Outward, type Worksheet } from "./worksheet";
 import { HEAD_NAME, TABLES, typedHeads } from "./worksheetRows";
 import { NoAccess } from "../../kit/NoAccess";
+import { Loading } from "../../kit/Loading";
 
 const TAX_HEADS = ["igst", "cgst", "sgst", "cess"] as const;
 const NOT_BUILT = "Not built from your uploads yet. Check it on the GST portal.";
@@ -280,7 +281,7 @@ export function WorksheetPage() {
             </Banner>
           </>
         )}
-        {q.isPending && <p aria-busy="true">Loading…</p>}
+        {q.isPending && <Loading query={q} />}
         {q.isError && q.error.status !== 404 && <Banner tone="error">We couldn't load the worksheet. {errorText(q.error)}</Banner>}
         {ws && !ws.available && (
           <section className="card">

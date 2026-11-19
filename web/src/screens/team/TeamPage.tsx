@@ -13,6 +13,7 @@ import { SelectField } from "../../kit/SelectField";
 import { TopBar } from "../../kit/TopBar";
 import { useCancelInvite, useChangeRole, useInvite, useMembers, useResend, useSetActive, type InviteRole, type Member, type Role } from "./useTeam";
 import { NoAccess } from "../../kit/NoAccess";
+import { Loading } from "../../kit/Loading";
 
 // members.manage (docs/PERMISSIONS.md); the server answers anyone else 404.
 export const TEAM_MANAGERS = new Set(["owner", "admin"]);
@@ -182,7 +183,7 @@ export function TeamPage() {
             <ErrorDetail error={team.error} />
           </Banner>
         )}
-        {team.isPending && <p aria-busy="true">Loading…</p>}
+        {team.isPending && <Loading query={team} />}
         {team.data && (
           <>
             <section aria-labelledby="members-h">

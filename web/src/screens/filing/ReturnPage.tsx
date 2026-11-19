@@ -18,6 +18,7 @@ import { useAccept } from "./export";
 import { FiledPanel } from "./FiledPanel";
 import { returnKey, useReturnDetail, useSectionRows, type SectionName } from "./returns";
 import { NoAccess } from "../../kit/NoAccess";
+import { Loading } from "../../kit/Loading";
 
 type Heads = components["schemas"]["Heads"];
 type Group = components["schemas"]["FindingGroupOut"];
@@ -232,7 +233,7 @@ export function ReturnPage() {
         <p className="step">
           <Link to={`/b/${businessId}/filing`}>Your GST filing</Link>
         </p>
-        {detail.isPending && <p aria-busy="true">Loading…</p>}
+        {detail.isPending && <Loading query={detail} />}
         {detail.isError && <Banner tone="error">We couldn't load this return. {errorText(detail.error)}</Banner>}
         {d && (
           <>

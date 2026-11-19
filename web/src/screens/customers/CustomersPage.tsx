@@ -14,6 +14,7 @@ import { RowActions } from "../../kit/RowActions";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
 import { uniqueById, useUrlSearch } from "../../kit/lists";
+import { Loading } from "../../kit/Loading";
 
 type Page = components["schemas"]["CustomerPageOut"];
 type Status = "active" | "archived" | "all";
@@ -127,7 +128,7 @@ export function CustomersPage() {
             </Button>
           </Banner>
         )}
-        {list.isPending && <p aria-busy="true">Loading…</p>}
+        {list.isPending && <Loading query={list} />}
         {list.isSuccess && items.length === 0 && <p>{q || status !== "active" ? "No customers match." : canEditCatalog(business.role) ? "No customers yet. Add your first with New customer." : "No customers yet."}</p>}
 
         {items.length > 0 && (

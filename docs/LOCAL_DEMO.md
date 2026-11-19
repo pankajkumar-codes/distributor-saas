@@ -71,6 +71,20 @@ Install Docker Desktop (Mac) or Docker Engine with the Compose plugin (Linux), s
 
 It does the same things and prints the same box.
 
+### Trying finalize (practice numbers only)
+
+Finalizing an invoice (giving it a number) is **off in the product** until the CA confirms the numbering scope, so by default
+the Finalize button does nothing here either. To try it, start the demo with the switch:
+
+```bash
+./demo.sh --finalize       # Windows: .\demo.ps1 -Finalize
+```
+
+> **Practice only.** Finalize is switched on in this demo's own throwaway database and nowhere else. The numbers it gives
+> are practice numbers, not real invoice numbers, and are forgotten when the demo stops. The switch is not available in
+> staging or production configuration, and it stays off there until the CA answers (D-010, D-044, CA-1). Without the
+> flag the demo behaves as the product ships.
+
 ### Windows with WSL (an alternative that is partly verified)
 
 **Status, so you know what to trust:** `.\demo.ps1` is the simplest way and needs none of the steps below, but it has

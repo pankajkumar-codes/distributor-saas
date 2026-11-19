@@ -11,6 +11,7 @@ import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
 import { useCrosscheck } from "./useCrosscheck";
 import { NoAccess } from "../../kit/NoAccess";
+import { Loading } from "../../kit/Loading";
 
 const FIELD: Record<string, string> = {
   doc_date: "Invoice date",
@@ -63,7 +64,7 @@ export function CrosscheckPage() {
           <Link to={`/b/${businessId}/uploads`}>Upload your reports</Link>
         </p>
         <h1>{d && d.compared && open > 0 ? "PDF and Excel don't match everywhere" : "Cross-check"}</h1>
-        {check.isPending && <p aria-busy="true">Loading…</p>}
+        {check.isPending && <Loading query={check} />}
         {check.error && (
           <Banner tone="error">
             We couldn't run the cross-check. {errorText(check.error)}{" "}
