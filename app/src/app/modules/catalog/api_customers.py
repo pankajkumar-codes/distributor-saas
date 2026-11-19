@@ -17,7 +17,7 @@ from platform_common.paging import PageParams, page_params
 from platform_common.uow import BusinessUoW, parse_id
 
 from . import customers
-from .api_products import EDIT, VIEW, Text, Warning, _once
+from .api_products import EDIT, VIEW, Name, Text, Warning, _once
 
 router = APIRouter(tags=["catalog"])
 
@@ -35,7 +35,7 @@ class AddressIn(BaseModel):
 class CustomerIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    name: Text
+    name: Name
     gstin: Text | None = None
     billing: AddressIn = AddressIn()
     delivery_same_as_billing: bool = True
@@ -46,7 +46,7 @@ class CustomerIn(BaseModel):
 class CustomerPatch(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    name: Text | None = None
+    name: Name | None = None
     gstin: Text | None = None
     billing: AddressIn | None = None
     delivery_same_as_billing: bool | None = None
