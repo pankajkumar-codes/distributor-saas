@@ -132,6 +132,22 @@ describe("held rows screen", () => {
     expect(screen.getByText(/Row 2 of b2b-oct.csv: This file's preview has been closed/)).toBeInTheDocument();
   });
 
+  it("asks twice before leaving several rows out", async () => {
+    open();
+    server.reply(resolve("row-1"), decided(1, "set_aside", null, "Duplicates"));
+    server.reply(resolve("row-2"), decided(2, "set_aside", null, "Duplicates"));
+    await screen.findByText("Row 1 of b2b-oct.csv");
+    fireEvent.click(screen.getByRole("button", { name: "Select all 2" }));
+    const bulk = await screen.findByRole("form", { name: "Decide the selected rows" });
+    fireEvent.change(within(bulk).getByLabelText("What to do"), { target: { value: "set_aside" } });
+    fireEvent.change(within(bulk).getByLabelText("Note (why)"), { target: { value: "Duplicates" } });
+    fireEvent.click(within(bulk).getByRole("button", { name: "Leave 2 rows out" }));
+    expect(sent(resolve("row-1"))).toHaveLength(0);
+    fireEvent.click(await within(bulk).findByRole("button", { name: "Yes, leave 2 rows out" }));
+    await waitFor(() => expect(sent(resolve("row-2"))).toHaveLength(1));
+    expect(sent(resolve("row-1"))[0].body).toEqual({ action: "set_aside", note: "Duplicates" });
+  });
+
   it("shows a decided row as decided, with its note, and offers nothing more", async () => {
     open("owner", [row(1, { resolution: { action: "pick_state", note: "Pune office", at: "2026-11-19T10:00:00Z", value: "27" } })]);
     expect(await screen.findByText(/State picked/)).toBeInTheDocument();

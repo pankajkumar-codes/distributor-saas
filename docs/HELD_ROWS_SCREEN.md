@@ -5,7 +5,7 @@ Short UI spec. The API already exists (D-102, docs/MARKETPLACE_POS.md, docs/IMPO
 ## Where it lives
 
 - Route `/b/:businessId/uploads/runs/:runId/held`, title "Held rows". Reached from a file on the Upload page: a file whose run has undecided held rows shows "N rows held" and a "Review held rows" link (one per run; a zip makes several).
-- Visible to owner, admin and CA (`uploads.view`); billing gets the usual not-found. Only owner and admin can decide (`uploads.create`); a CA sees the rows read-only with "Only an owner or admin can decide these rows."
+- Visible to owner, admin and CA (`uploads.view`); billing sees the "no access" page. Only owner and admin can decide (`uploads.create`); a CA sees the rows read-only with "Only an owner or admin can decide these rows."
 
 ## What it shows
 
@@ -19,7 +19,7 @@ Short UI spec. The API already exists (D-102, docs/MARKETPLACE_POS.md, docs/IMPO
 - **Enter HSN** (`enter_hsn`): 4, 6 or 8 digits and a required note.
 - **Use as the file states it** (`accept`): only where the server offers it (shipped off); note required.
 - **Leave this row out** (`set_aside`): note required, and a second "Yes, leave it out" step that repeats the server's effect note, because it cannot be undone.
-- **Bulk**: tick rows of the same offered action. "Pick one state for N rows" (state and one note) and "Leave N rows out" (one note). Each row is its own decision call with its own idempotency key, sent one after another; the result says how many were done and lists any the server refused with its words. Rows already decided are not tickable.
+- **Bulk**: tick rows of the same offered action. "Pick one state for N rows" (state and one note) and "Leave N rows out" (one note, with a second "Yes, leave N rows out" step like a single row, because it cannot be undone). Each row is its own decision call with its own idempotency key, sent one after another; the result says how many were done and lists any the server refused with its words. Rows already decided are not tickable.
 
 ## States
 
