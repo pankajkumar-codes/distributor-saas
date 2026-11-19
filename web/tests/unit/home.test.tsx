@@ -112,6 +112,26 @@ describe("Home", () => {
     expect(within(sell).queryByRole("link", { name: "Purchase invoices" })).toBeNull();
   });
 
+  it("puts a primary New invoice button at the top, above every card, so it needs no scrolling", async () => {
+    server.reply(HOME, home());
+    open();
+    const buttons = await screen.findAllByRole("link", { name: "New invoice" });
+    const top = buttons.find((b) => b.classList.contains("btn-primary"))!;
+    expect(top).toHaveAttribute("href", "/b/b-1/invoices/new");
+    const firstCard = screen.getByRole("navigation", { name: "Products and customers" });
+    expect(top.compareDocumentPosition(firstCard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("shows no New invoice button to a role that cannot create invoices", async () => {
+    server = fakeApi();
+    server.reply(REFRESH, { status: 200, body: { access_token: "t", expires_in: 3600 } });
+    server.reply(ME, { status: 200, body: { businesses: [{ business_id: "b-1", display_name: "Vashi Essentials", gstin: null, role: "ca" }] } });
+    server.reply(HOME, home());
+    open();
+    await screen.findByRole("navigation", { name: "Products and customers" });
+    expect(screen.queryByRole("link", { name: "New invoice" })).toBeNull();
+  });
+
   it("links to Products and Customers from Home for every role", async () => {
     server.reply(HOME, home());
     open();
