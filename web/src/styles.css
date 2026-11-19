@@ -336,3 +336,5 @@ main:focus { outline: none; } /* the skip link moves focus here; the page itself
 @media (max-width: 600px) {
   .sticky-actions { position: sticky; bottom: 0; background: var(--bg); padding: 10px 0; z-index: 5; }
 }
+table.products td input:not([type="checkbox"]) { width: 9em; max-width: 100%; }
+table.products td select { max-width: 100%; }
