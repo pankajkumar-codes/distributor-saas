@@ -8,7 +8,7 @@ type Issue = components["schemas"]["IssueOut"];
 
 // Display only: every figure is the server's string; the page does no tax arithmetic.
 
-function Issues({ title, items, tone, canLeave }: { title: string; items: Issue[]; tone: "error" | "info"; canLeave: boolean }) {
+function Issues({ title, items, tone, canLeave, productOf }: { title: string; items: Issue[]; tone: "error" | "info"; canLeave: boolean; productOf?: (line: number) => string | undefined }) {
   const { businessId = "" } = useParams();
   const here = useLocation().pathname;
   if (items.length === 0) return null;
@@ -35,6 +35,21 @@ function Issues({ title, items, tone, canLeave }: { title: string; items: Issue[
                 )}
               </>
             )}
+            {(i.code === "hsn_missing" || i.code === "hsn_too_short") && i.line_no && productOf?.(i.line_no) && (
+              <>
+                {" "}
+                {canLeave ? (
+                  <>
+                    <Link to={`/b/${businessId}/products/${productOf(i.line_no)}`} state={{ backTo: here }}>
+                      Open the product
+                    </Link>{" "}
+                    (you'll come back to this invoice).
+                  </>
+                ) : (
+                  "Save your changes first, then you can open the product."
+                )}
+              </>
+            )}
             {i.code === "hsn_needs_turnover_band" && (
               <>
                 {" "}
@@ -58,13 +73,13 @@ function Issues({ title, items, tone, canLeave }: { title: string; items: Issue[
 }
 
 /** What the draft would be, as of its last save (the save response's computation). */
-export function Totals({ c, states, canLeave = true }: { c: Computation; states: Record<string, string>; canLeave?: boolean }) {
+export function Totals({ c, states, canLeave = true, productOf }: { c: Computation; states: Record<string, string>; canLeave?: boolean; productOf?: (line: number) => string | undefined }) {
   const heads: [string, string][] = c.is_inter_state
     ? [["IGST", c.igst_total]]
     : [["CGST", c.cgst_total], [c.utgst ? "UTGST" : "SGST", c.sgst_total]]; // fmt: skip
   return (
     <section aria-label="Totals">
-      <Issues title="Fix before finalizing" items={c.blocks} tone="error" canLeave={canLeave} />
+      <Issues title="Fix before finalizing" items={c.blocks} tone="error" canLeave={canLeave} productOf={productOf} />
       <Issues title="Please check" items={c.warnings} tone="info" canLeave={canLeave} />
       {c.pos_state_code && (
         <p>

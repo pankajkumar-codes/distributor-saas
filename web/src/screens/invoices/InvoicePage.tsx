@@ -276,7 +276,7 @@ export function InvoicePage() {
         </form>
 
         {saved?.computation ? (
-          <Totals c={saved.computation} states={stateNames} canLeave={!dirty} />
+          <Totals c={saved.computation} states={stateNames} canLeave={!dirty} productOf={(n) => saved.lines?.[n - 1]?.product_id} />
         ) : (
           saved && (
             <p>
