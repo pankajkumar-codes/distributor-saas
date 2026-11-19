@@ -10,6 +10,7 @@ import { Field } from "../../kit/Field";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
 import { codeAvailable, useActiveProducts, useConfirmDraft, useDiscardDraft, useDraft, type Confirmed, type Draft } from "./usePurchases";
+import { NoAccess } from "../../kit/NoAccess";
 
 type Category = "taxable" | "exempt" | "nil_rated" | "non_gst";
 const CATEGORIES: { value: Category; label: string }[] = [
@@ -132,7 +133,9 @@ export function ReviewPage() {
       </main>
     );
   }
-  if (!business || !canViewUploads(business.role) || draft.error?.status === 404) return <NotFound />;
+  if (!business) return <NotFound />;
+  if (!canViewUploads(business.role)) return <NoAccess businessId={businessId} />;
+  if (draft.error?.status === 404) return <NotFound />;
   return (
     <>
       <TopBar title={business.display_name} gstin={business.gstin} />

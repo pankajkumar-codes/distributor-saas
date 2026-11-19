@@ -77,7 +77,7 @@ describe("Accepting warnings", () => {
   it("is a not-found page for a role the server refuses, so nothing is offered", async () => {
     server.reply(DETAIL, { status: 404, body: { error: { code: "not_found", message: "Not found." } } });
     open("billing");
-    expect(await screen.findByText("We couldn't find that page")).toBeInTheDocument();
+    expect(await screen.findByText("You don't have access to this page")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Accept as shown" })).toBeNull();
   });
 });

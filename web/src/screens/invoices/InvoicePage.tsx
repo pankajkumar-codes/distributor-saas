@@ -22,6 +22,7 @@ import { CustomerPicker, ProductPicker } from "./Pickers";
 import { Totals } from "./Totals";
 import { useFinalize } from "./useFinalize";
 import { usePreview } from "./usePreview";
+import { NoAccess } from "../../kit/NoAccess";
 
 type Product = components["schemas"]["ProductOut"];
 
@@ -108,7 +109,9 @@ export function InvoicePage() {
   const flags = useStockFlags(businessId, Boolean(business));
 
   if (businesses.isPending) return <main className="page" aria-busy="true"><p>Loading…</p></main>;
-  if (!business || !canCreateDocuments(business.role) || loaded.error?.status === 404) return <NotFound />;
+  if (!business) return <NotFound />;
+  if (!canCreateDocuments(business.role)) return <NoAccess businessId={businessId} />;
+  if (loaded.error?.status === 404) return <NotFound />;
   if (loaded.error) return <main className="page"><Banner tone="error">{errorText(loaded.error)}</Banner></main>;
   if (!form) return <main className="page" aria-busy="true"><p>Loading…</p></main>;
 

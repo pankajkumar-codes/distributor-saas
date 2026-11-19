@@ -217,7 +217,7 @@ describe("upload page", () => {
 
   it("shows the not-found page to billing, as the server does", async () => {
     open("billing");
-    expect(await screen.findByRole("heading", { name: "We couldn't find that page" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "You don't have access to this page" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Upload your reports" })).toBeNull();
     expect(sent(BASE, "GET")).toHaveLength(0);
   });
