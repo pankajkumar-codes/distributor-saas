@@ -20,6 +20,21 @@ function Issues({ title, items, tone, canLeave }: { title: string; items: Issue[
           <li key={`${i.code}-${i.line_no ?? ""}-${n}`}>
             {i.line_no ? `Line ${i.line_no}: ` : ""}
             {i.fix}
+            {i.code === "business_not_ready" && (
+              <>
+                {" "}
+                {canLeave ? (
+                  <>
+                    <Link to={`/b/${businessId}/settings`} state={{ backTo: here }}>
+                      Open Business setup
+                    </Link>{" "}
+                    (you'll come back to this invoice).
+                  </>
+                ) : (
+                  "Save your changes first, then you can open Business setup."
+                )}
+              </>
+            )}
             {i.code === "hsn_needs_turnover_band" && (
               <>
                 {" "}

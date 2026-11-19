@@ -1,4 +1,4 @@
-// CloudFront viewer-request function for the web behaviour (not /api/*). Which file a path gets:
+// CloudFront viewer-request function for the web files (CloudFront serves no API, D-094). Which file a path gets:
 //
 //   /                      the Kartaa landing page for a visitor, the app's index.html for someone signed in
 //                          (the app sets the plain `kartaa_in=1` hint cookie while a session is live;

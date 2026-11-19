@@ -1,3 +1,4 @@
+import { API_CREDENTIALS, API_ORIGIN } from "../api/origin";
 import { withAuthTimeout } from "../api/timeout";
 import { tokenStore } from "./tokenStore";
 
@@ -112,9 +113,9 @@ async function refreshNow(background: boolean, rejected: string | null): Promise
   if (Date.now() - receivedAt < RECENT_MS && held && held !== rejected) return "ok";
   let response: Response;
   try {
-    response = await globalThis.fetch(window.location.origin + REFRESH, {
+    response = await globalThis.fetch(API_ORIGIN + REFRESH, {
       method: "POST",
-      credentials: "same-origin",
+      credentials: API_CREDENTIALS,
       headers: background ? { "X-Background": "1" } : {},
       // 20 s limit: a refresh that never answers would leave the app on "Loading" with no way out. If the server did
       // rotate the cookie and the answer was lost, the next refresh is refused as a reuse and the person signs in
@@ -205,9 +206,9 @@ async function askSignOut(token: string | null): Promise<boolean> {
   const abort = new AbortController();
   const timer = setTimeout(() => abort.abort(), SIGNOUT_TIMEOUT_MS);
   try {
-    const response = await globalThis.fetch(window.location.origin + SIGNOUT, {
+    const response = await globalThis.fetch(API_ORIGIN + SIGNOUT, {
       method: "POST",
-      credentials: "same-origin",
+      credentials: API_CREDENTIALS,
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       signal: abort.signal,
     });

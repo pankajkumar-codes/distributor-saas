@@ -34,6 +34,14 @@ provider "aws" {
 }
 
 variable "web_origins" { type = list(string) }
+variable "api_domain" {
+  type    = string
+  default = ""
+}
+variable "api_certificate_arn" {
+  type    = string
+  default = ""
+}
 variable "budget_alert_emails" { type = list(string) }
 variable "git_sha" {
   type    = string
@@ -48,6 +56,8 @@ module "stack" {
   source              = "../../modules/stack"
   env                 = "prod"
   web_origins         = var.web_origins
+  api_domain          = var.api_domain
+  api_certificate_arn = var.api_certificate_arn
   packages_dir        = "${path.root}/../../../build"
   git_sha             = var.git_sha
   mail_domain         = var.mail_domain
@@ -62,6 +72,8 @@ module "stack" {
 }
 
 output "api_endpoint" { value = module.stack.api_endpoint }
+output "api_origin" { value = module.stack.api_origin }
+output "api_regional_domain_name" { value = module.stack.api_regional_domain_name }
 output "user_pool_id" { value = module.stack.user_pool_id }
 output "user_pool_client_id" { value = module.stack.user_pool_client_id }
 output "migrator_function" { value = module.stack.migrator_function }
