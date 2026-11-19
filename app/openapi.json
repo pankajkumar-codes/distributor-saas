@@ -2592,6 +2592,134 @@
         "title": "DocRefOut",
         "type": "object"
       },
+      "DocRowIn": {
+        "additionalProperties": false,
+        "properties": {
+          "cancelled": {
+            "maximum": 99999999.0,
+            "minimum": 0.0,
+            "title": "Cancelled",
+            "type": "integer"
+          },
+          "counted": {
+            "default": true,
+            "title": "Counted",
+            "type": "boolean"
+          },
+          "from_no": {
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "From No",
+            "type": "string"
+          },
+          "manual": {
+            "default": false,
+            "title": "Manual",
+            "type": "boolean"
+          },
+          "nature": {
+            "maximum": 12.0,
+            "minimum": 1.0,
+            "title": "Nature",
+            "type": "integer"
+          },
+          "to_no": {
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "To No",
+            "type": "string"
+          },
+          "total_issued": {
+            "maximum": 99999999.0,
+            "minimum": 0.0,
+            "title": "Total Issued",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "nature",
+          "from_no",
+          "to_no",
+          "total_issued",
+          "cancelled"
+        ],
+        "title": "DocRowIn",
+        "type": "object"
+      },
+      "DocRowOut": {
+        "properties": {
+          "cancelled": {
+            "title": "Cancelled",
+            "type": "integer"
+          },
+          "counted": {
+            "title": "Counted",
+            "type": "boolean"
+          },
+          "from_no": {
+            "title": "From No",
+            "type": "string"
+          },
+          "manual": {
+            "title": "Manual",
+            "type": "boolean"
+          },
+          "missing": {
+            "title": "Missing",
+            "type": "integer"
+          },
+          "nature": {
+            "title": "Nature",
+            "type": "integer"
+          },
+          "nature_label": {
+            "title": "Nature Label",
+            "type": "string"
+          },
+          "needs_ca_check": {
+            "title": "Needs Ca Check",
+            "type": "boolean"
+          },
+          "net_issue": {
+            "title": "Net Issue",
+            "type": "integer"
+          },
+          "source": {
+            "enum": [
+              "own_live",
+              "uploaded_own",
+              "marketplace",
+              "manual"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "to_no": {
+            "title": "To No",
+            "type": "string"
+          },
+          "total_issued": {
+            "title": "Total Issued",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "nature",
+          "nature_label",
+          "from_no",
+          "to_no",
+          "total_issued",
+          "cancelled",
+          "net_issue",
+          "source",
+          "counted",
+          "manual",
+          "missing",
+          "needs_ca_check"
+        ],
+        "title": "DocRowOut",
+        "type": "object"
+      },
       "DocumentDetailOut": {
         "properties": {
           "cgst_total": {
@@ -10006,6 +10134,95 @@
         "title": "SupportGrants",
         "type": "object"
       },
+      "Table13In": {
+        "additionalProperties": false,
+        "properties": {
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/DocRowIn"
+            },
+            "maxItems": 500,
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "rows"
+        ],
+        "title": "Table13In",
+        "type": "object"
+      },
+      "Table13Out": {
+        "properties": {
+          "applies": {
+            "title": "Applies",
+            "type": "boolean"
+          },
+          "confirmed": {
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "confirmed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed At"
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "instance_id": {
+            "title": "Instance Id",
+            "type": "string"
+          },
+          "required": {
+            "title": "Required",
+            "type": "boolean"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/DocRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "stale": {
+            "title": "Stale",
+            "type": "boolean"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "instance_id",
+          "applies",
+          "required",
+          "confirmed",
+          "stale",
+          "version",
+          "confirmed_at",
+          "fingerprint",
+          "rows"
+        ],
+        "title": "Table13Out",
+        "type": "object"
+      },
       "Target": {
         "properties": {
           "href": {
@@ -17151,6 +17368,116 @@
           }
         },
         "summary": "Get Section",
+        "tags": [
+          "filing"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/returns/{instance_id}/table13": {
+      "get": {
+        "operationId": "get_table13_api_v1_b__business_id__returns__instance_id__table13_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "instance_id",
+            "required": true,
+            "schema": {
+              "title": "Instance Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Table13Out"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Table13",
+        "tags": [
+          "filing"
+        ]
+      },
+      "put": {
+        "operationId": "put_table13_api_v1_b__business_id__returns__instance_id__table13_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "instance_id",
+            "required": true,
+            "schema": {
+              "title": "Instance Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Table13In"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Table13Out"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Table13",
         "tags": [
           "filing"
         ]

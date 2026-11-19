@@ -23,7 +23,7 @@ from .gstr1 import Amounts
 from .periods import month_end
 
 # Tables a build can hold that the file does not carry yet; the screen tells the user to enter them on the portal.
-NOT_IN_FILE = ("Table 13 (documents issued)", "Table 14 (tax collected by e-commerce operators)")
+NOT_IN_FILE = ("Table 14 (tax collected by e-commerce operators)",)
 
 
 class NotRenderable(ValueError):
@@ -97,13 +97,14 @@ class ExportModel:
     cdnur: tuple[Note, ...] = ()
     hsn_b2b: tuple[HsnLine, ...] = ()
     hsn_b2c: tuple[HsnLine, ...] = ()
+    docs: tuple = ()  # Table 13: the counted `table13.DocRow`s the person confirmed; written once, in the last file
 
     @property
     def empty(self) -> bool:
         return not any((self.b2b, self.b2cl, self.b2cs, self.cdnr, self.cdnur, self.hsn_b2b, self.hsn_b2c))
 
 
-def export_model(build: ReturnBuild) -> ExportModel:
+def export_model(build: ReturnBuild, docs: tuple = ()) -> ExportModel:
     inst = build.instance
     if inst.form != "GSTR1":
         raise NotRenderable("A file for the portal is not available for this return yet.")
@@ -124,6 +125,7 @@ def export_model(build: ReturnBuild) -> ExportModel:
         cdnur=_notes(s.cdnur, with_ur=True),
         hsn_b2b=_hsn(s.hsn_b2b),
         hsn_b2c=_hsn(s.hsn_b2c),
+        docs=tuple(docs),
     )
 
 
@@ -203,6 +205,7 @@ def rows_in(model: ExportModel) -> int:
         + sum(len(n.items) for n in model.cdnur)
         + len(model.hsn_b2b)
         + len(model.hsn_b2c)
+        + len(model.docs)
     )
 
 
@@ -214,7 +217,7 @@ class _Doc(NamedTuple):  # one document on its way into a file
 
 
 def split(model: ExportModel, max_rows: int) -> list[ExportModel]:
-    """The model as one or more files of at most `max_rows` rows, cut only between documents. B2CS and HSN rows are
+    """The model as one or more files of at most `max_rows` rows, cut only between documents. B2CS, HSN and Table 13 rows are
     summaries of the whole return, so they appear once, in the last file (a file of their own if they do not fit with it)."""
     if max_rows < 1:
         raise ValueError("a file holds at least one row")
@@ -236,15 +239,15 @@ def split(model: ExportModel, max_rows: int) -> list[ExportModel]:
             used = 0
         groups[-1].append(d)
         used += d.rows
-    summary = len(model.b2cs) + len(model.hsn_b2b) + len(model.hsn_b2c)
+    summary = len(model.b2cs) + len(model.hsn_b2b) + len(model.hsn_b2c) + len(model.docs)
     if summary > max_rows:
         raise NotRenderable("The summary tables are longer than one file can hold, so no file can be made.")
     parts = [_part(model, g) for g in groups]
     if used + summary <= max_rows and groups[-1]:
         last = parts[-1]
-        parts[-1] = replace(last, b2cs=model.b2cs, hsn_b2b=model.hsn_b2b, hsn_b2c=model.hsn_b2c)
+        parts[-1] = replace(last, b2cs=model.b2cs, hsn_b2b=model.hsn_b2b, hsn_b2c=model.hsn_b2c, docs=model.docs)
     elif summary:
-        parts.append(replace(_part(model, []), b2cs=model.b2cs, hsn_b2b=model.hsn_b2b, hsn_b2c=model.hsn_b2c))
+        parts.append(replace(_part(model, []), b2cs=model.b2cs, hsn_b2b=model.hsn_b2b, hsn_b2c=model.hsn_b2c, docs=model.docs))
     return parts
 
 

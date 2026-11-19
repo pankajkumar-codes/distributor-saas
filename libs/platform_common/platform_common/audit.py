@@ -113,6 +113,8 @@ ALLOWED_DATA: dict[str, frozenset[str]] = {
     "filing.period_confirmation": frozenset({"kind", "period", "item", "confirmed"}),
     "filing.period_file_opened": frozenset({"kind", "period"}),
     "returns.filed": frozenset({"snapshot_id", "version", "changed_since_export"}),
+    # Table 13 (documents issued) confirmed for a return: its version and row counts. No document numbers.
+    "return.table13_confirmed": frozenset({"version", "rows", "counted"}),
     # A GSTR-3B worksheet (R1-M8b): its version, and for entries the save number and the field names that changed. The
     # amounts live in the insert-only worksheet tables, never in an audit row.
     "worksheet.built": frozenset({"version"}),

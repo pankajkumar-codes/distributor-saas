@@ -20,6 +20,7 @@ from platform_common.money import PAISE
 
 from app.modules.refdata import RefdataMissing, provenance_on, state_name, uqc_codes, value_on
 
+from . import table13
 from .build import ReturnBuild
 from .gstr1 import SupplyLine
 
@@ -248,6 +249,16 @@ def c11_iff_cap(tx: Session, b: ReturnBuild) -> list[Finding]:
                     _fp("C-11", str(taxable), str(cap), *refs), True)]
 
 
+def c08_documents_issued(tx: Session, b: ReturnBuild) -> list[Finding]:
+    """The portal will not generate the summary while Tables 4 to 10, 14 or 15 hold data and Table 13 is empty (spec section 4.5).
+    A gate, not a CA question: it fires for a monthly or quarterly GSTR-1 with data and no counted rows confirmed for this build
+    as it is now (never confirmed, nothing counted, or stale because a document in the period changed)."""
+    if b.instance.form != "GSTR1" or not table13.has_data(b) or table13.counted_rows(tx, b):
+        return []
+    return [Finding("C-08", "block", "The GST portal will not let you generate the summary until Table 13 (documents issued) is "
+                    "filled. Check the suggested rows and confirm them.", (), _fp("C-08", b.instance.id.hex, b.fingerprint))]
+
+
 # -- Own-invoice and arithmetic findings (decision 6: report-only, no tolerance chosen) ---------------------
 
 
@@ -296,7 +307,7 @@ def a4_number_in_two_years(tx: Session, b: ReturnBuild) -> list[Finding]:
 
 CHECKS: tuple[Callable[[Session, ReturnBuild], list[Finding]], ...] = (
     c01_missing_hsn, c02_customer_gstin, c03_document_number, c04_duplicate_number, c05_place_of_supply,
-    c07_b2b_without_hsn_summary, c09_reconciliation, c10_hsn_digits, c11_iff_cap, c12_negative_b2cs, c13_line_items,
+    c07_b2b_without_hsn_summary, c08_documents_issued, c09_reconciliation, c10_hsn_digits, c11_iff_cap, c12_negative_b2cs, c13_line_items,
     c16_provisional_values, c17_tool_recompute, c18_unit_not_listed,
     a1_tax_arithmetic, a2_heads_vs_place_of_supply, a3_cgst_sgst_differ, a4_number_in_two_years,
 )  # fmt: skip

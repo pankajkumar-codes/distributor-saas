@@ -32,7 +32,7 @@ from platform_common.uow import UnitOfWork
 from app.modules.identity.interface import member_role
 from app.modules.refdata import value_on
 
-from . import entitlement, periods, snapshots
+from . import entitlement, periods, snapshots, table13
 from .acceptance import accepted_set
 from .build import build_return
 from .checks import run_checks
@@ -89,7 +89,7 @@ def start(uow: UnitOfWork, instance_id: uuid.UUID) -> uuid.UUID:
     if gate.to_accept:
         raise Conflict("not_ready", "Some warnings still need you to accept them.")
     try:
-        model = export_model(build)
+        model = export_model(build, table13.counted_rows(uow.tx, build))
     except NotRenderable as exc:
         raise Conflict("not_renderable", str(exc)) from exc
     if model.empty:
@@ -162,7 +162,8 @@ def run(ctx: jobs.JobContext) -> dict:
     if not gate.ready:
         raise jobs.JobFailed("not_ready")
     try:
-        model = export_model(build)
+        docs = table13.counted_rows(tx, build)
+        model = export_model(build, docs)
     except NotRenderable as exc:
         raise jobs.JobFailed("not_renderable") from exc
     if model.empty:
@@ -170,7 +171,7 @@ def run(ctx: jobs.JobContext) -> dict:
     files = make_files(tx, model)
     ctx.progress(0, len(files))
 
-    snap = snapshots.write_snapshot(uow, inst, build, purpose="export", snapshot_id=sid)
+    snap = snapshots.write_snapshot(uow, inst, build, purpose="export", snapshot_id=sid, docs=docs)
     store_parts(uow, sid, files)
     relied = {accepted_key(f) for f in findings if f.level == "warn"}
     acceptance_ids = [
