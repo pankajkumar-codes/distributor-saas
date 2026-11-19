@@ -49,6 +49,8 @@ When it is ready you will see a green box that prints the exact address:
       password:  Seven-Lamps-42!
 ```
 
+That address opens the Kartaa landing page (the static site in `landing/`). Its **Sign in** button goes to `http://localhost:5173/signin` and **Sign up** to `/signup`. Someone who is already signed in who opens the address goes straight to their home instead (the app leaves a plain `kartaa_in` cookie while you are signed in, so the web server knows which to show). Real hosting of the landing page is separate and not set up.
+
 Open that address in your browser. Leave the PowerShell window open: **sign-up and password-reset codes
 appear in it** (the demo prints them instead of emailing them). **Team invitations are printed there too**: the demo sends no real email, so when you invite someone on the Team page the terminal shows `INVITATION for <email>` and the accept link. Open that link in a browser where you are signed out, sign in (or create an account) with the invited email, and press **Accept the invitation**. A person with no account creates it first, then opens the link again. The link is shown nowhere else: never on the Team page, never in the API log. Press Ctrl+C to stop watching for codes;
 the demo keeps running. `.\demo.ps1 codes` watches again.
