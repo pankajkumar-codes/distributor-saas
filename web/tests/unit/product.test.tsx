@@ -94,6 +94,28 @@ describe("a new product", () => {
     expect(new URL(server.sent.find((s) => s.path === RATES)!.url).searchParams.get("on")).toBe(todayIst());
   });
 
+  it("starts a fresh key when the server says the key belonged to a different request", async () => {
+    open("/b/b-1/products/new");
+    await screen.findByRole("option", { name: "Numbers (NOS)" });
+    const mismatch = { status: 409, body: { error: { code: "idempotency_mismatch", message: "This Idempotency-Key was already used for a different request" } } };
+    server.reply(LIST, mismatch, { status: 201, body: detail({ version: 1 }) });
+    server.reply(`GET ${LIST}`, { status: 200, body: { items: [detail({ version: 1 })], has_more: false } });
+    type("Product code", "SOAP-1");
+    type("Name", "Neem soap");
+    type("Unit", "NOS");
+    type("Sale rate per unit, excluding GST (₹)", "45");
+    server.reply(RATES, { status: 200, body: { on: todayIst(), rates: ["18"] } });
+    fireEvent.click(screen.getByRole("radio", { name: "Taxable" }));
+    await screen.findByRole("option", { name: "18%" });
+    type("GST rate", "18");
+    fireEvent.click(screen.getByRole("button", { name: "Add product" }));
+    await screen.findByRole("alert");
+    fireEvent.click(screen.getByRole("button", { name: "Add product" }));
+    expect(await screen.findByText("Added Neem soap.")).toBeInTheDocument();
+    const [first, second] = sent(LIST, "POST");
+    expect(second.headers.get("Idempotency-Key")).not.toBe(first.headers.get("Idempotency-Key"));
+  });
+
   it("drops the chosen rate when it isn't in force on the new date", async () => {
     open("/b/b-1/products/new");
     await screen.findByRole("option", { name: "Numbers (NOS)" });

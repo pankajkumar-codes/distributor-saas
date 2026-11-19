@@ -48,6 +48,9 @@ function InviteForm({ businessId }: { businessId: string }) {
           setRole("");
           formKey.reset();
         },
+        onError: (e) => {
+          if (e.code === "idempotency_mismatch") formKey.reset(); // the key was used by an earlier, different request: next press starts fresh
+        },
       },
     );
   };
