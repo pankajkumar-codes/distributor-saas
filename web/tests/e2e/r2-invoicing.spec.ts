@@ -87,7 +87,7 @@ test("R2: purchase, stock, price, practice invoice, PDF request", async ({ page 
   await page.getByLabel("Quantity").fill("3");
   await page.getByRole("button", { name: /^Save/ }).click();
   await expect(page.getByRole("heading", { name: "Draft invoice" })).toBeVisible();
-  await page.getByRole("button", { name: /^Create invoice/ }).click();
+  await page.getByRole("button", { name: /^Create (practice )?invoice/ }).click();
   await expect(page.getByRole("heading", { name: "Invoice issued" })).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText("Practice invoice.")).toBeVisible();
   await expect(page.getByText("It is not a tax invoice and is not in any GST return.")).toBeVisible();

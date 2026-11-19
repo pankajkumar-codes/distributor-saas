@@ -62,6 +62,53 @@ describe("a product with no HSN used on an invoice", () => {
   });
 });
 
+describe("fixing a missing HSN on the invoice itself", () => {
+  const P1 = "/api/v1/b/b-1/products/p-1";
+  const noHsn = { ...product, hsn: null, uqc: "NOS", barcode: null, tax_category: "taxable", has_cess: false, in_use: true, rate_on: null, rate_changed_within_warning_window: false, rates: [] };
+  const block = { code: "hsn_missing", fix: "Add the product's HSN code.", field: "lines[0].product_id", line_no: 1 };
+  const blocked = () => draft({ ready: false, computation: computation({ blocks: [block] }) });
+
+  it("saves the HSN to the product, then the server's fresh check clears and Create is enabled", async () => {
+    server.reply(P1, { status: 200, body: noHsn });
+    server.reply(`PATCH ${P1}`, { status: 200, body: { ...noHsn, hsn: "3304", version: 2 } });
+    server.reply(ONE, { status: 200, body: blocked() }, { status: 200, body: draft({ computation: computation() }) });
+    open("/b/b-1/invoices/d-1");
+    const box = await screen.findByLabelText("HSN for Aloe Vera Gel 200 ml");
+    expect(screen.getByRole("button", { name: "Create practice invoice" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save HSN" })).toBeDisabled(); // nothing typed yet
+    fireEvent.change(box, { target: { value: "3304" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save HSN" }));
+    await waitFor(() => expect(screen.queryByLabelText("HSN for Aloe Vera Gel 200 ml")).toBeNull());
+    const [patch] = sent(P1, "PATCH");
+    expect(patch.body).toEqual({ hsn: "3304" });
+    expect(patch.headers.get("If-Match")).toBe("1");
+    expect(screen.queryByText("Add the product's HSN code.")).toBeNull();
+    expect(screen.getByRole("button", { name: "Create practice invoice" })).toBeEnabled();
+  });
+
+  it("refuses an HSN that is not digits without asking the server", async () => {
+    server.reply(P1, { status: 200, body: noHsn });
+    server.reply(ONE, { status: 200, body: blocked() });
+    open("/b/b-1/invoices/d-1");
+    fireEvent.change(await screen.findByLabelText("HSN for Aloe Vera Gel 200 ml"), { target: { value: "33 04" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save HSN" }));
+    expect(await screen.findByText("That isn't a valid HSN: use digits only, with no spaces")).toBeInTheDocument();
+    expect(sent(P1, "PATCH")).toHaveLength(0);
+  });
+
+  it("keeps the check when the server still blocks it (e.g. too short) and shows the server's words", async () => {
+    server.reply(P1, { status: 200, body: noHsn });
+    server.reply(`PATCH ${P1}`, { status: 422, body: { error: { code: "hsn_invalid", message: "too short", fix: "That HSN is too short for this business.", field: "hsn" } } });
+    server.reply(ONE, { status: 200, body: blocked() });
+    open("/b/b-1/invoices/d-1");
+    fireEvent.change(await screen.findByLabelText("HSN for Aloe Vera Gel 200 ml"), { target: { value: "33" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save HSN" }));
+    expect(await screen.findByText("That HSN is too short for this business.")).toBeInTheDocument();
+    expect(screen.getByText(/Add the product's HSN code\./)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create practice invoice" })).toBeDisabled();
+  });
+});
+
 describe("a check that needs last year's turnover band", () => {
   it("links to the band field on Business setup, remembering which invoice to come back to", async () => {
     server.reply("/api/v1/b/b-1/products/p-1", { status: 200, body: product });
@@ -85,7 +132,7 @@ describe("a check that needs last year's turnover band", () => {
     window.history.back();
     await waitFor(() => expect(window.location.pathname).toBe("/b/b-1/invoices/d-1"));
     await waitFor(() => expect(screen.queryByText(/Tell us last year's turnover band/)).toBeNull());
-    expect(screen.getByRole("button", { name: "Create invoice" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Create practice invoice" })).toBeEnabled();
   });
 
   it("does not offer to leave while there are unsaved edits", async () => {
@@ -153,6 +200,25 @@ describe("the draft invoice form", () => {
     // The blank rate came back filled in by the server; the form shows it, so it is not "changed" and Finalize can be used.
     expect(screen.getByLabelText("Rate (excl. GST)")).toHaveValue("100.00");
     expect(screen.getByRole("button", { name: "Save draft" })).toBeDisabled();
+  });
+
+  it("starts a fresh create key when the server says the key belonged to a different request", async () => {
+    server.reply("/api/v1/b/b-1/customers", { status: 200, body: { items: [customer], has_more: false } });
+    server.reply("/api/v1/b/b-1/products", { status: 200, body: { items: [product], has_more: false } });
+    server.reply("/api/v1/b/b-1/products/p-1", { status: 200, body: product });
+    const mismatch = { status: 409, body: { error: { code: "idempotency_mismatch", message: "This Idempotency-Key was already used for a different request" } } };
+    server.reply(DRAFTS, mismatch, { status: 201, body: draft({ computation: computation() }) });
+    open("/b/b-1/invoices/new");
+    fireEvent.change(await screen.findByLabelText("Find a customer"), { target: { value: "sharma" } });
+    fireEvent.click(await screen.findByRole("button", { name: /Sharma Traders · 19AAAAA0000A1Z5/ }, { timeout: 3000 }));
+    fireEvent.change(screen.getByLabelText("Add a product"), { target: { value: "aloe" } });
+    fireEvent.click(await screen.findByRole("button", { name: /Aloe Vera Gel 200 ml · HSN 3304/ }, { timeout: 3000 }));
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+    await screen.findByRole("alert");
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+    expect(await screen.findByRole("heading", { name: "Draft invoice" })).toBeInTheDocument();
+    const [first, second] = sent(DRAFTS, "POST");
+    expect(second.headers.get("Idempotency-Key")).not.toBe(first.headers.get("Idempotency-Key"));
   });
 
   it("saves a change with the version it opened, and offers their version on a stale save", async () => {
@@ -359,7 +425,7 @@ describe("the form's body", () => {
   it("shows Finalize and why every invoice is a practice one, before anything is saved", async () => {
     open("/b/b-1/invoices/new");
     expect(await screen.findByText(/Practice mode\./)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Create invoice" })).toBeEnabled(); // it saves first, then creates
+    expect(screen.getByRole("button", { name: "Create practice invoice" })).toBeEnabled(); // it saves first, then creates
     expect(screen.getByRole("button", { name: "Save draft" })).toBeEnabled();
   });
 });
