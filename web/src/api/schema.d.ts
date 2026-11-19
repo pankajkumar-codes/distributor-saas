@@ -402,7 +402,7 @@ export interface paths {
         };
         /**
          * Get Document
-         * @description One finalized document as stored, where its PDF stands and how many stock movements it wrote. Read-only: nothing
+         * @description One finalized document as stored (header, buyer, lines with their tax split), where its PDF stands and how many stock movements it wrote. Read-only: nothing
          *     is queued; ask for the PDF with POST .../pdf.
          */
         get: operations["get_document_api_v1_b__business_id__documents__document_id__get"];
@@ -3432,8 +3432,17 @@ export interface components {
         };
         /** DocumentDetailOut */
         DocumentDetailOut: {
+            /** Amount In Words */
+            amount_in_words: string;
+            buyer: components["schemas"]["DocumentParty"] | null;
+            /** Cess Total */
+            cess_total: string;
             /** Cgst Total */
             cgst_total: string;
+            /** Charges Label */
+            charges_label: string | null;
+            /** Charges Total */
+            charges_total: string;
             /** Counterparty Name */
             counterparty_name: string | null;
             /** Customer Id */
@@ -3455,25 +3464,36 @@ export interface components {
             finalized_at: string;
             /** Fy */
             fy: string;
+            /** Gross Total */
+            gross_total: string;
             /** Gstin */
             gstin: string;
             /** Id */
             id: string;
             /** Igst Total */
             igst_total: string;
+            /** Invoice Discount */
+            invoice_discount: string;
             /** Is Inter State */
             is_inter_state: boolean;
             /** Is Practice */
             is_practice: boolean;
             /** Kind */
             kind: string;
+            /** Line Discount Total */
+            line_discount_total: string;
+            /** Lines */
+            lines: components["schemas"]["DocumentLineOut"][];
             pdf: components["schemas"]["DocumentPdfState"];
+            /** Place Of Supply */
+            place_of_supply: string | null;
             /** Pos State Code */
             pos_state_code: string;
             /** Round Off */
             round_off: string;
             /** Sgst Total */
             sgst_total: string;
+            ship_to: components["schemas"]["DocumentShipTo"] | null;
             /** Stock Movements */
             stock_movements: number;
             /** Supply Class */
@@ -3482,6 +3502,46 @@ export interface components {
             taxable_total: string;
             /** Utgst */
             utgst: boolean;
+        };
+        /**
+         * DocumentLineOut
+         * @description One stored line, as finalized: the page shows it and works out nothing.
+         */
+        DocumentLineOut: {
+            /** Description */
+            description: string;
+            /** Discount */
+            discount: string | null;
+            /** Gross */
+            gross: string;
+            /** Hsn */
+            hsn: string;
+            /** No */
+            no: string;
+            /** Quantity */
+            quantity: string;
+            /** Taxable */
+            taxable: string;
+            /** Taxes */
+            taxes: components["schemas"]["DocumentLineTax"][];
+            /** Total */
+            total: string;
+            /** Unit Price */
+            unit_price: string | null;
+            /** Uqc */
+            uqc: string;
+        };
+        /** DocumentLineTax */
+        DocumentLineTax: {
+            /** Amount */
+            amount: string;
+            /**
+             * Component
+             * @enum {string}
+             */
+            component: "CGST" | "SGST" | "UTGST" | "IGST";
+            /** Rate */
+            rate: string;
         };
         /**
          * DocumentOut
@@ -3536,6 +3596,17 @@ export interface components {
             /** Utgst */
             utgst: boolean;
         };
+        /** DocumentParty */
+        DocumentParty: {
+            /** Address */
+            address: string[];
+            /** Gstin */
+            gstin: string | null;
+            /** Name */
+            name: string | null;
+            /** State */
+            state: string | null;
+        };
         /** DocumentPdfRef */
         DocumentPdfRef: {
             /** Attempt */
@@ -3565,6 +3636,13 @@ export interface components {
             number: string;
             /** Section */
             section: string;
+        };
+        /** DocumentShipTo */
+        DocumentShipTo: {
+            /** Address */
+            address: string[];
+            /** State */
+            state: string | null;
         };
         /** DocumentsOut */
         DocumentsOut: {
