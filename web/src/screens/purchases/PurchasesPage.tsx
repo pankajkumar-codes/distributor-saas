@@ -7,6 +7,7 @@ import { Banner } from "../../kit/Banner";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
 import { useOpenDrafts, usePurchaseFiles, useSendPurchaseFile } from "./usePurchases";
+import { Loading } from "../../kit/Loading";
 
 /**
  * Purchase invoices (R2-M2): upload a supplier's invoice (a PDF, or a photo of a paper bill), then check what we read
@@ -72,7 +73,7 @@ export function PurchasesPage() {
           )}
 
           <h2>To check</h2>
-          {drafts.isPending && <p aria-busy="true">Loading…</p>}
+          {drafts.isPending && <Loading query={drafts} />}
           {drafts.error && <Banner tone="error">{errorText(drafts.error)}</Banner>}
           {drafts.data?.length === 0 && <p className="hint">Nothing waiting. Uploaded invoices appear here once they are read.</p>}
           <ul>

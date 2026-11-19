@@ -6,6 +6,7 @@ import { useAuthStatus } from "../../auth/AuthProvider";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { useAcceptInvite, useInvitePreview } from "./useTeam";
+import { Loading } from "../../kit/Loading";
 
 const ROLE_LABEL: Record<string, string> = { owner: "an owner", admin: "an admin", billing: "billing", ca: "a CA" };
 
@@ -60,7 +61,7 @@ export function AcceptInvitePage() {
   return (
     <main className="page">
       <h1>You have been invited</h1>
-      {preview.isPending && <p aria-busy="true">Loading…</p>}
+      {preview.isPending && <Loading query={preview} />}
       {preview.error?.status === 404 && (
         <Banner tone="error">
           This invitation isn't available to this account. It may have expired, been replaced by a newer one, or been sent to a different email address. Sign in with the

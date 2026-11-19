@@ -13,6 +13,7 @@ import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
 import { saleRateProblem } from "../products/saleRate";
 import { useSetPrice, useStockList, type Only, type StockItem } from "./useStock";
+import { Loading } from "../../kit/Loading";
 
 const FILTERS: { value: Only; label: string }[] = [
   { value: "no_stock", label: "No stock" },
@@ -111,7 +112,7 @@ export function StockPage() {
               </Button>
             </Banner>
           )}
-          {list.isPending && <p aria-busy="true">Loading…</p>}
+          {list.isPending && <Loading query={list} />}
           {list.isSuccess && items.length === 0 && <p>{q || only ? "No products match." : "No products yet. Confirm a purchase invoice or add a product to see stock here."}</p>}
           {items.length > 0 && (
             <table className="products">

@@ -13,6 +13,7 @@ import { OwnInvoicesCard } from "./OwnInvoicesCard";
 import { UploadCard } from "./UploadCard";
 import { useChannels } from "./useChannels";
 import { useCrosscheck } from "./useCrosscheck";
+import { Loading } from "../../kit/Loading";
 
 /**
  * Upload your reports (R1-M3, BRD GF-13). Every section is optional. Uploads belong to the
@@ -65,7 +66,7 @@ export function UploadsPage() {
         </p>
         <h1>Upload your reports</h1>
         <p className="hint">Every section is optional. Add what you have; you can come back and add more.</p>
-        {channels.isPending && <p aria-busy="true">Loading…</p>}
+        {channels.isPending && <Loading query={channels} />}
         {channels.error && (
           <Banner tone="error">
             We couldn't load where you sell. {errorText(channels.error)}{" "}
