@@ -6,7 +6,7 @@ export function NotFound() {
     <main className="page">
       <h1>We couldn't find that page</h1>
       <p>The link may be wrong, or it belongs to a business you don't have access to.</p>
-      <Link to="/signin">Go to sign-in</Link>
+      <Link to="/businesses">Go to your businesses</Link>
     </main>
   );
 }

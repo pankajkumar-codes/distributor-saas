@@ -216,7 +216,7 @@ describe("the draft invoice form", () => {
     server.reply(ME, mine("ca"));
     server.reply(STATES, states);
     open("/b/b-1/invoices/new");
-    expect(await screen.findByRole("heading", { name: "We couldn't find that page" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "You don't have access to this page" })).toBeInTheDocument();
     expect(screen.queryByLabelText("Find a customer")).toBeNull();
   });
 });

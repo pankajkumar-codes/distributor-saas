@@ -4,7 +4,7 @@ import { errorText } from "../../api/errors";
 import { formatDateTimeIst } from "../../format/dates";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
-import { acceptFor, settled, statusChip, statusText, wrongType, SECTIONS, type Section, type Upload } from "./sections";
+import { acceptFor, settled, sectionChip, statusText, wrongType, SECTIONS, type Section, type Upload } from "./sections";
 import { useStartUpload, useUpload, useUploads } from "./useUpload";
 
 type Props = {
@@ -60,11 +60,10 @@ export function UploadCard({ businessId, section, label, hint, canUpload, upload
         <h2 id={`${id}-h`}>{label}</h2>
         {(() => {
           // Only a real server state is shown: nothing while the list loads, and no claim if it failed.
-          const latest = upload ?? recent.data?.[0];
-          if (latest) {
-            const chip = statusChip(latest);
-            return <span className={`chip ${chip.tone}`.trim()}>{chip.label}</span>;
-          }
+          // The file just sent may be newer than the list, so it replaces its own row (or leads the list).
+          const rows = upload ? [upload, ...(recent.data ?? []).filter((u) => u.id !== upload.id)] : (recent.data ?? []);
+          const chip = sectionChip(rows);
+          if (chip) return <span className={`chip ${chip.tone}`.trim()}>{chip.label}</span>;
           if (recent.isSuccess) return <span className="chip">Nothing uploaded yet</span>;
           if (recent.isError) return <span className="chip">We couldn't load this</span>;
           return null;

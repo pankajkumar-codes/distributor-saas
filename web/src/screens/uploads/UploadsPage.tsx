@@ -13,6 +13,7 @@ import { OwnInvoicesCard } from "./OwnInvoicesCard";
 import { UploadCard } from "./UploadCard";
 import { useChannels } from "./useChannels";
 import { useCrosscheck } from "./useCrosscheck";
+import { NoAccess } from "../../kit/NoAccess";
 import { Loading } from "../../kit/Loading";
 
 /**
@@ -45,7 +46,8 @@ export function UploadsPage() {
     );
   }
   // The server answers anyone without uploads.view (billing, support-less others) with a 404.
-  if (!business || !canViewUploads(business.role)) return <NotFound />;
+  if (!business) return <NotFound />;
+  if (!canViewUploads(business.role)) return <NoAccess businessId={businessId} />;
 
   const follow = (section: string, uploadId: string | null) =>
     setParams((prev) => {
