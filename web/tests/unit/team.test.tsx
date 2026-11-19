@@ -31,8 +31,10 @@ describe("your team", () => {
     expect(await screen.findByText("Asha")).toBeInTheDocument();
     expect(screen.getByText(/ravi@example.com · Billing · Waiting/)).toBeInTheDocument();
     expect(screen.queryByText(/copy/i)).toBeNull(); // mail only: no copy-link option
+    expect(screen.getByText("Enter an email and choose a role to send the invitation.")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "ca@example.com" } });
     expect(screen.getByRole("button", { name: "Send invitation" })).toBeDisabled();
+    expect(screen.getByText("Choose a role to send the invitation.")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Role"), { target: { value: "ca" } });
     server.reply(`POST ${B}/invitations`, { status: 201, body: invite({ id: "i-2", email: "ca@example.com", role: "ca" }) });
     server.reply(`${B}/members`, team([member()], [invite({ id: "i-2", email: "ca@example.com", role: "ca" })]));

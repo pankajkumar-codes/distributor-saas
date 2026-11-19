@@ -58,9 +58,14 @@ function InviteForm({ businessId }: { businessId: string }) {
         <SelectField label="Role" placeholder="Choose a role" options={INVITE_ROLES} value={role} onChange={(e) => setRole(e.target.value as InviteRole | "")} />
         {invite.error && <Banner tone="error">{words(invite.error)}</Banner>}
         {sentTo && !invite.error && <Banner>Invitation sent to {sentTo}.</Banner>}
-        <Button type="submit" busy={invite.isPending} disabled={!email.trim() || !role}>
+        <Button type="submit" busy={invite.isPending} disabled={!email.trim() || !role} aria-describedby={!email.trim() || !role ? "invite-need" : undefined}>
           Send invitation
         </Button>
+        {(!email.trim() || !role) && (
+          <p className="hint" id="invite-need">
+            {!email.trim() && !role ? "Enter an email and choose a role to send the invitation." : !email.trim() ? "Enter an email to send the invitation." : "Choose a role to send the invitation."}
+          </p>
+        )}
       </form>
     </section>
   );
