@@ -74,7 +74,7 @@ describe("coming back from the product after fixing its HSN", () => {
     window.history.back();
     await waitFor(() => expect(window.location.pathname).toBe("/b/b-1/invoices/d-1"));
     await waitFor(() => expect(screen.queryByText(/Add the product's HSN code/)).toBeNull());
-    expect(screen.getByRole("button", { name: "Create invoice" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Create practice invoice" })).toBeEnabled();
     expect(screen.queryByText(/Fix the checks above/)).toBeNull();
   });
 });
@@ -86,7 +86,7 @@ describe("a blocked Create", () => {
     server.reply(ONE, { status: 200, body: draft({ ready: true, computation: computation({ blocks: [block] }) }) });
     server.reply(`${ONE}/finalize`, { status: 422, body: { error: { code: "finalize_blocked", message: "Fix these before finalizing.", blocks: [block] } } });
     open("/b/b-1/invoices/d-1");
-    fireEvent.click(await screen.findByRole("button", { name: "Create invoice" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Create practice invoice" }));
     await waitFor(() => expect(sent(`${ONE}/finalize`, "POST")).toHaveLength(1));
     expect(screen.queryByText("Fix these before finalizing.")).toBeNull();
     expect(screen.getByText(/Add the product's HSN code/)).toBeInTheDocument();
