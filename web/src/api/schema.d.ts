@@ -6707,8 +6707,8 @@ export interface operations {
     export_audit_log_api_v1_b__business_id__audit_log_exports_post: {
         parameters: {
             query?: never;
-            header?: {
-                "idempotency-key"?: string | null;
+            header: {
+                "idempotency-key": string | null;
             };
             path: {
                 business_id: string;
@@ -7587,8 +7587,8 @@ export interface operations {
     invite_api_v1_b__business_id__invitations_post: {
         parameters: {
             query?: never;
-            header?: {
-                "idempotency-key"?: string | null;
+            header: {
+                "idempotency-key": string | null;
             };
             path: {
                 business_id: string;

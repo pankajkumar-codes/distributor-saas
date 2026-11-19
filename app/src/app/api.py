@@ -108,11 +108,14 @@ def _openapi_with_required_headers() -> dict:
     if app.openapi_schema:
         return app.openapi_schema
     schema = FastAPI.openapi(app)
+    canonical = {h.lower(): h for h in _REQUIRED_HEADERS}
     for path, operations in schema["paths"].items():
         for method, operation in operations.items():
             for parameter in operation.get("parameters", []):
-                name = parameter["name"]
-                if parameter.get("in") == "header" and name in _REQUIRED_HEADERS:
+                # A handler declared as `idempotency_key: str | None = Header(None)` is named in
+                # lowercase in the schema, so the match ignores case.
+                name = canonical.get(parameter["name"].lower())
+                if parameter.get("in") == "header" and name:
                     parameter["required"] = (method, path, name) not in _STAYS_OPTIONAL
     return schema
 
