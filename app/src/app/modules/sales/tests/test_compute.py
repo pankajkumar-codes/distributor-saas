@@ -449,6 +449,7 @@ def test_document_blocks_and_warnings():
     c = compute(inp)
     assert [b.code for b in c.blocks] == ["business_not_ready", "einvoice_applies", "doc_date_future"]
     assert [w.code for w in c.warnings] == ["eway_bill_needed"]
+    assert c.blocks[0].fix == "Your business's address is missing."
     c = compute(
         ComputeInput(
             **{
@@ -568,3 +569,11 @@ def test_a_zero_price_warns_once_the_product_price_is_set_but_never_blocks():
     assert [(w.code, w.line_no) for w in c.warnings if w.code == "price_zero"] == [("price_zero", 1)]
     assert "price_not_set" not in [b.code for b in c.blocks]
 
+
+
+def test_business_not_ready_names_what_is_missing():
+    from app.modules.sales.compute.core import _business_not_ready_words as words
+
+    assert words(("gstin",)) == "Your business's GSTIN is missing."
+    assert words(("legal_name", "address")) == "Your business's legal name and address are missing."
+    assert words(("legal_name", "address", "gstin")) == "Your business's legal name, address and GSTIN are missing."
