@@ -47,6 +47,21 @@ const open = (path: string) => {
 };
 const sent = (path: string, method: string) => server.sent.filter((s) => s.path === path && s.method === method);
 
+describe("a product with no HSN used on an invoice", () => {
+  it("links the check to the product, which offers the way back to the invoice", async () => {
+    server.reply("/api/v1/b/b-1/products/p-1", { status: 200, body: { ...product, hsn: null, uqc: "NOS", barcode: null, tax_category: "taxable", has_cess: false, in_use: true, rate_on: null, rate_changed_within_warning_window: false, rates: [] } });
+    server.reply("/api/v1/b/b-1/units", { status: 200, body: [] });
+    const block = { code: "hsn_missing", fix: "Add the product's HSN code.", field: "lines[0].product_id", line_no: 1 };
+    server.reply(ONE, { status: 200, body: draft({ computation: computation({ blocks: [block] }) }) });
+    open("/b/b-1/invoices/d-1");
+    const link = await screen.findByRole("link", { name: "Open the product" });
+    expect(link).toHaveAttribute("href", "/b/b-1/products/p-1");
+    fireEvent.click(link);
+    expect(window.location.pathname).toBe("/b/b-1/products/p-1");
+    expect(await screen.findByRole("link", { name: "Back to your invoice" })).toHaveAttribute("href", "/b/b-1/invoices/d-1");
+  });
+});
+
 describe("a check that needs last year's turnover band", () => {
   it("links to the band field on Business setup, remembering which invoice to come back to", async () => {
     server.reply("/api/v1/b/b-1/products/p-1", { status: 200, body: product });
@@ -70,7 +85,7 @@ describe("a check that needs last year's turnover band", () => {
     window.history.back();
     await waitFor(() => expect(window.location.pathname).toBe("/b/b-1/invoices/d-1"));
     await waitFor(() => expect(screen.queryByText(/Tell us last year's turnover band/)).toBeNull());
-    expect(screen.getByRole("button", { name: "Finalize invoice" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Create invoice" })).toBeEnabled();
   });
 
   it("does not offer to leave while there are unsaved edits", async () => {
@@ -344,7 +359,7 @@ describe("the form's body", () => {
   it("shows Finalize and why every invoice is a practice one, before anything is saved", async () => {
     open("/b/b-1/invoices/new");
     expect(await screen.findByText(/Practice mode\./)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Finalize invoice" })).toBeDisabled();
-    expect(screen.getByText("Save the draft first: the invoice is made from the saved draft.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create invoice" })).toBeEnabled(); // it saves first, then creates
+    expect(screen.getByRole("button", { name: "Save draft" })).toBeEnabled();
   });
 });

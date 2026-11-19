@@ -112,6 +112,14 @@ describe("Home", () => {
     expect(within(sell).queryByRole("link", { name: "Purchase invoices" })).toBeNull();
   });
 
+  it("links to Products and Customers from Home for every role", async () => {
+    server.reply(HOME, home());
+    open();
+    const card = await screen.findByRole("navigation", { name: "Products and customers" });
+    expect(within(card).getByRole("link", { name: "Products" })).toHaveAttribute("href", "/b/b-1/products");
+    expect(within(card).getByRole("link", { name: "Customers" })).toHaveAttribute("href", "/b/b-1/customers");
+  });
+
   it("shows the Purchase invoices link in the Sell card to the owner", async () => {
     server.reply(HOME, home());
     open();

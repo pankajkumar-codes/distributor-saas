@@ -8,16 +8,22 @@ export type Document = components["schemas"]["DocumentOut"];
 type PdfRef = components["schemas"]["DocumentPdfRef"];
 export type DocumentDetail = components["schemas"]["DocumentDetailOut"];
 
-/** Issues the saved draft as a document. One key per draft and version, so a retry gives the same document. */
+/**
+ * Issues the saved draft as a document. One key per draft and version, so a retry gives the same document.
+ * `mutate({ draftId, version })` finalizes a draft that was only just saved (the page's own ids are then out of date).
+ */
 export function useFinalize(businessId: string, draftId: string, version: number | undefined, key: string, onDone: (doc: Document) => void) {
   const queryClient = useQueryClient();
-  return useMutation<Document, ApiError>({
-    mutationFn: () =>
-      call(() =>
+  return useMutation<Document, ApiError, { draftId: string; version: number } | void>({
+    mutationFn: (saved) => {
+      const id = saved ? saved.draftId : draftId;
+      const v = saved ? saved.version : version;
+      return call(() =>
         api.POST("/api/v1/b/{business_id}/drafts/{draft_id}/finalize", {
-          params: { path: { business_id: businessId, draft_id: draftId }, header: { "If-Match": String(version), "Idempotency-Key": key } },
+          params: { path: { business_id: businessId, draft_id: id }, header: { "If-Match": String(v), "Idempotency-Key": saved ? `finalize-${id}-${v}` : key } },
         }),
-      ),
+      );
+    },
     onSuccess: (doc) => {
       onDone(doc);
       queryClient.invalidateQueries({ queryKey: ["b", businessId, "drafts"] });
