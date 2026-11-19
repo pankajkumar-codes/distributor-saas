@@ -11731,7 +11731,7 @@
           {
             "in": "header",
             "name": "idempotency-key",
-            "required": false,
+            "required": true,
             "schema": {
               "anyOf": [
                 {
@@ -13346,7 +13346,7 @@
           {
             "in": "header",
             "name": "idempotency-key",
-            "required": false,
+            "required": true,
             "schema": {
               "anyOf": [
                 {
