@@ -142,6 +142,7 @@ footer .legal a { display: inline; }
   .lead { font-size: 16px; }
   .nav { padding: 10px 16px; } .nav .links { display: none; } .nav .in2 { gap: 8px; flex-wrap: wrap; } .nav .acts { margin-left: auto; }
   .nav .menu { display: block; order: 3; width: 100%; }
+  .nav { position: static; } /* the open menu is tall; do not let it cover the section you jumped to */
   .nav .acts .btn { min-height: 38px; padding: 0 12px; }
   .hero { padding-block: 36px 40px; }
   .hero .in2 { grid-template-columns: minmax(0, 1fr); gap: 28px; }
