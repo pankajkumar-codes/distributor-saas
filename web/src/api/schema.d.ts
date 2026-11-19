@@ -6635,8 +6635,8 @@ export interface operations {
     new_business_api_v1_b_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string | null;
             };
             path?: never;
             cookie?: never;
@@ -6878,8 +6878,8 @@ export interface operations {
     create_customer_api_v1_b__business_id__customers_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string | null;
             };
             path: {
                 business_id: string;
@@ -6947,8 +6947,8 @@ export interface operations {
     delete_customer_api_v1_b__business_id__customers__customer_id__delete: {
         parameters: {
             query?: never;
-            header?: {
-                "If-Match"?: string | null;
+            header: {
+                "If-Match": string | null;
             };
             path: {
                 customer_id: string;
@@ -6979,8 +6979,8 @@ export interface operations {
     update_customer_api_v1_b__business_id__customers__customer_id__patch: {
         parameters: {
             query?: never;
-            header?: {
-                "If-Match"?: string | null;
+            header: {
+                "If-Match": string | null;
             };
             path: {
                 customer_id: string;
@@ -7249,8 +7249,8 @@ export interface operations {
     create_draft_api_v1_b__business_id__drafts_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string | null;
             };
             path: {
                 business_id: string;
@@ -7318,8 +7318,8 @@ export interface operations {
     save_draft_api_v1_b__business_id__drafts__draft_id__put: {
         parameters: {
             query?: never;
-            header?: {
-                "If-Match"?: string | null;
+            header: {
+                "If-Match": string | null;
             };
             path: {
                 draft_id: string;
@@ -7356,8 +7356,8 @@ export interface operations {
     delete_draft_api_v1_b__business_id__drafts__draft_id__delete: {
         parameters: {
             query?: never;
-            header?: {
-                "If-Match"?: string | null;
+            header: {
+                "If-Match": string | null;
             };
             path: {
                 draft_id: string;
@@ -7388,9 +7388,9 @@ export interface operations {
     finalize_draft_api_v1_b__business_id__drafts__draft_id__finalize_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
-                "If-Match"?: string | null;
+            header: {
+                "Idempotency-Key": string | null;
+                "If-Match": string | null;
             };
             path: {
                 draft_id: string;
@@ -7519,8 +7519,8 @@ export interface operations {
     post_frequency_api_v1_b__business_id__filing_profile_frequency_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string | null;
             };
             path: {
                 business_id: string;
@@ -8265,8 +8265,8 @@ export interface operations {
     start_import_api_v1_b__business_id__product_imports_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string | null;
             };
             path: {
                 business_id: string;
@@ -8476,8 +8476,8 @@ export interface operations {
     create_product_api_v1_b__business_id__products_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string | null;
             };
             path: {
                 business_id: string;
@@ -8578,8 +8578,8 @@ export interface operations {
     delete_product_api_v1_b__business_id__products__product_id__delete: {
         parameters: {
             query?: never;
-            header?: {
-                "If-Match"?: string | null;
+            header: {
+                "If-Match": string | null;
             };
             path: {
                 product_id: string;
@@ -8610,8 +8610,8 @@ export interface operations {
     update_product_api_v1_b__business_id__products__product_id__patch: {
         parameters: {
             query?: never;
-            header?: {
-                "If-Match"?: string | null;
+            header: {
+                "If-Match": string | null;
             };
             path: {
                 product_id: string;
@@ -8680,8 +8680,8 @@ export interface operations {
     add_rate_api_v1_b__business_id__products__product_id__rates_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string | null;
             };
             path: {
                 product_id: string;
@@ -8829,8 +8829,8 @@ export interface operations {
     adjust_stock_api_v1_b__business_id__products__product_id__stock_adjustments_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string | null;
             };
             path: {
                 product_id: string;
@@ -8966,8 +8966,8 @@ export interface operations {
     patch_profile_api_v1_b__business_id__profile_patch: {
         parameters: {
             query?: never;
-            header?: {
-                "If-Match"?: string | null;
+            header: {
+                "If-Match": string | null;
             };
             path: {
                 business_id: string;
@@ -9217,8 +9217,8 @@ export interface operations {
     start_file_api_v1_b__business_id__purchase_files_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string | null;
             };
             path: {
                 business_id: string;
@@ -9922,8 +9922,8 @@ export interface operations {
     resolve_row_api_v1_b__business_id__rows__row_id__resolve_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string | null;
             };
             path: {
                 row_id: string;
@@ -9992,8 +9992,8 @@ export interface operations {
     confirm_run_api_v1_b__business_id__runs__run_id__confirm_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string | null;
             };
             path: {
                 run_id: string;
@@ -10167,8 +10167,8 @@ export interface operations {
     reverse_movement_api_v1_b__business_id__stock_movements__movement_id__reversals_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string | null;
             };
             path: {
                 movement_id: string;
@@ -10372,8 +10372,8 @@ export interface operations {
     start_bundle_api_v1_b__business_id__upload_bundles_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string | null;
             };
             path: {
                 business_id: string;
@@ -10613,8 +10613,8 @@ export interface operations {
     start_upload_api_v1_b__business_id__uploads_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string | null;
             };
             path: {
                 business_id: string;

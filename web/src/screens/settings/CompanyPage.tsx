@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 
 import { api, call } from "../../api/client";
 import { errorText, type ApiError } from "../../api/errors";
@@ -112,6 +112,14 @@ export function CompanyPage({ embedded = false }: { embedded?: boolean } = {}) {
   const [stale, setStale] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
   const latest = profile.data ?? null;
+  // Sent here from an invoice that needs last year's turnover band: offer the way back, and show the field.
+  const fromState = (useLocation().state as { backTo?: unknown } | null)?.backTo;
+  const backTo = typeof fromState === "string" && fromState.startsWith(`/b/${businessId}/invoices/`) ? fromState : null;
+  const hash = useLocation().hash;
+  const valuesReady = Boolean(values);
+  useEffect(() => {
+    if (hash === "#last-year-band" && valuesReady) document.getElementById("last-year-band")?.scrollIntoView?.({ block: "center" });
+  }, [hash, valuesReady]);
   // What the server has confirmed during the current save, write by write. If a later write
   // fails, the form moves to it, so a re-read can only show what other people changed.
   const confirmed = useRef<Profile | null>(null);
@@ -173,6 +181,7 @@ export function CompanyPage({ embedded = false }: { embedded?: boolean } = {}) {
     onSuccess: (out) => {
       queryClient.setQueryData(["b", businessId, "profile"], out.profile);
       queryClient.invalidateQueries({ queryKey: ["b", businessId, "home"] });
+      queryClient.invalidateQueries({ queryKey: ["b", businessId, "draft"] }); // a draft's checks depend on the bands
       queryClient.invalidateQueries({ queryKey: ["me", "businesses"] }); // the top bar shows the trade name
       setOpened(out.profile);
       setValues(valuesOf(out.profile));
@@ -253,6 +262,11 @@ export function CompanyPage({ embedded = false }: { embedded?: boolean } = {}) {
   return (
     <SetupFrame embedded={embedded} business={business}>
         <SetupTitle embedded={embedded} businessId={businessId} title="Business details" />
+        {backTo && (
+          <p>
+            <Link to={backTo}>Back to your invoice</Link>
+          </p>
+        )}
         {!opened.ready_for_documents.ok && opened.ready_for_documents.missing.length > 0 && (
           <Banner>
             Needed before your first invoice: {opened.ready_for_documents.missing.map((m) => MISSING[m] ?? m).join(", ")}.
@@ -336,6 +350,7 @@ export function CompanyPage({ embedded = false }: { embedded?: boolean } = {}) {
               onChange={(v) => edit({ ...values, this_band: v })}
               hint={theirHint("this_band") ?? "Ask your CA if you're not sure which applies."}
             />
+            <div id="last-year-band">
             <RadioGroup<Band>
               legend={`Turnover last financial year (FY ${lastFy})`}
               name="last_band"
@@ -347,6 +362,7 @@ export function CompanyPage({ embedded = false }: { embedded?: boolean } = {}) {
                 (values.last_band ? "This decides whether 4-digit HSN codes are enough on your invoices." : "Not set yet. This decides whether 4-digit HSN codes are enough on your invoices.")
               }
             />
+            </div>
           </fieldset>
           {canEdit && (
             <div className="actions">
