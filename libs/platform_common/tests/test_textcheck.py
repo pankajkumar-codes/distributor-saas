@@ -59,3 +59,11 @@ def test_json_over_one_megabyte_is_still_checked():
     r = client.post("/b", json={"reason": big + "\x00"})
     assert r.status_code == 422 and r.json()["error"]["code"] == "text_invalid"
     assert client.post("/b", json={"reason": big}).status_code == 200
+
+
+def test_a_plus_json_media_type_is_checked_like_json():
+    for media in ("application/vnd.api+json", "application/merge-patch+json", "application/json; charset=utf-8"):
+        r = client.post("/b", content=b'{"reason": "a\\u0000b"}', headers={"content-type": media})
+        assert r.status_code == 422 and r.json()["error"]["code"] == "text_invalid", media
+        ok = client.post("/b", content=b'{"reason": "fine"}', headers={"content-type": media})
+        assert ok.status_code == 200, media

@@ -53,7 +53,8 @@ def _body_kind(scope) -> str | None:
     for name, value in scope.get("headers", ()):
         if name == b"content-type":
             media = value.split(b";")[0].strip().lower()
-            if media == b"application/json":
+            # FastAPI parses application/json and any application/*+json (for example vnd.api+json) as JSON.
+            if media == b"application/json" or (media.startswith(b"application/") and media.endswith(b"+json")):
                 return "json"
             if media == b"application/x-www-form-urlencoded":
                 return "form"
