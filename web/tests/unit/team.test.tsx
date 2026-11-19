@@ -79,6 +79,20 @@ describe("your team", () => {
     expect(await screen.findByText("This person is already a member")).toBeInTheDocument();
   });
 
+  it("sends one email when Resend is pressed twice quickly", async () => {
+    server.reply(`${B}/members`, team([member()], [invite()]));
+    open("/b/b-1/settings/team");
+    await screen.findByText(/ravi@example.com/);
+    server.reply(`POST ${B}/invitations/i-1/resend`, { status: 200, body: invite() });
+    server.reply(`${B}/members`, team([member()], [invite()]));
+    const resend = screen.getByRole("button", { name: "Resend the invitation to ravi@example.com" });
+    fireEvent.click(resend);
+    fireEvent.click(resend);
+    await vi.waitFor(() => expect(server.paths()).toContain(`${B}/invitations/i-1/resend`));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(server.sent.filter((s) => s.method === "POST" && s.path === `${B}/invitations/i-1/resend`)).toHaveLength(1);
+  });
+
   it("resends and cancels a waiting invitation", async () => {
     server.reply(`${B}/members`, team([member()], [invite()]));
     open("/b/b-1/settings/team");

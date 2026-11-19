@@ -274,6 +274,21 @@ describe("editing a product", () => {
     expect(patch.headers.get("If-Match")).toBe("3");
   });
 
+  it("sends one request and shows Saved when Save is pressed twice quickly", async () => {
+    server.reply(ONE, { status: 200, body: detail() });
+    open("/b/b-1/products/p-1");
+    await screen.findByRole("heading", { name: "Neem soap" });
+    server.reply(`PATCH ${ONE}`, { status: 200, body: detail({ name: "Neem bath soap", version: 4 }) }, { status: 409, body: { error: { code: "stale_record", message: "changed" } } });
+    type("Name", "Neem bath soap");
+    const save = screen.getByRole("button", { name: "Save changes" });
+    fireEvent.click(save);
+    fireEvent.click(save);
+    expect(await screen.findByText(/Saved\. Invoices already finalized keep/)).toBeInTheDocument();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(sent(ONE, "PATCH")).toHaveLength(1);
+    expect(screen.getByText(/Saved\. Invoices already finalized keep/)).toBeInTheDocument();
+  });
+
   it("after someone else saved first, keeps the user's values beside theirs, then saves against their version", async () => {
     server.reply(ONE, { status: 200, body: detail() });
     open("/b/b-1/products/p-1");
