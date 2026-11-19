@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../../src/App";
 import { resetSessionForTests } from "../../src/auth/session";
-import { statusChip } from "../../src/screens/uploads/sections";
+import { sectionChip, statusChip } from "../../src/screens/uploads/sections";
 import { fakeApi } from "./fakeApi";
 
 const REFRESH = "/api/v1/auth/refresh";
@@ -237,6 +237,17 @@ describe("upload card status chip", () => {
     expect(chipOf("expired")).toEqual({ label: "Expired", tone: "chip-warn" });
   });
 
+  it("says how many files were read when there are several, newest first", () => {
+    const f = (status: string, id: string) => ({ ...base, id, status }) as never;
+    expect(sectionChip([])).toBeNull();
+    expect(sectionChip([f("rejected", "1")])).toEqual({ label: "Not read", tone: "chip-bad" });
+    // The newest failed but two earlier files were read: not "Not read".
+    expect(sectionChip([f("rejected", "3"), f("parsed", "2"), f("parsed", "1")])).toEqual({ label: "2 of 3 read", tone: "chip-warn" });
+    expect(sectionChip([f("parsed", "2"), f("parsed", "1")])).toEqual({ label: "All 2 read", tone: "chip-ok" });
+    expect(sectionChip([f("parsing", "2"), f("parsed", "1")])).toEqual({ label: "1 of 2 read", tone: "chip-info" });
+    expect(sectionChip([f("rejected", "2"), f("rejected", "1")])).toEqual({ label: "Not read", tone: "chip-bad" });
+  });
+
   it("says nothing uploaded only once the list has loaded empty", async () => {
     open();
     const amazon = await card("Amazon");
@@ -255,6 +266,21 @@ describe("upload card status chip", () => {
     const amazon = await card("Amazon");
     expect(await within(amazon).findByText("Read")).toBeInTheDocument();
     expect(within(amazon).queryByText("Nothing uploaded yet")).toBeNull();
+  });
+
+  it("shows how many Amazon files were read when the newest one was refused", async () => {
+    resetSessionForTests();
+    server = fakeApi();
+    server.reply(REFRESH, { status: 200, body: { access_token: "t", expires_in: 3600 } });
+    server.reply(ME, me("owner"));
+    server.reply(CHANNELS, channels());
+    const files = [upload("rejected", { id: "u-3" }), upload("parsed", { id: "u-2" }), upload("parsed", { id: "u-1" })];
+    server.reply(BASE, ...Array.from({ length: 8 }, () => ({ status: 200, body: { uploads: files } })));
+    window.history.replaceState(null, "", "/b/b-1/uploads");
+    render(<App />);
+    const amazon = await card("Amazon");
+    expect(await within(amazon).findByText("2 of 3 read")).toBeInTheDocument();
+    expect(within(amazon).queryByText("Not read")).toBeNull();
   });
 
   it("makes no empty claim while the list is loading or after it failed", async () => {
