@@ -147,3 +147,16 @@ def test_render_input_is_an_area_and_its_keys_are_the_renderer_s():
     for bad in ("render", "input", "render-", "-input", "render--input"):
         with pytest.raises(Deny):
             check_key(biz, f"{bad}/b/{biz}/{obj}")
+
+
+@pytest.mark.parametrize("text", ["é", "٣١٤", "\ud800", "aé.b"])
+def test_non_ascii_policy_signature_or_link_is_a_refusal_not_a_crash(store, text):
+    _, _, fields, data = post(store)
+    with pytest.raises(UploadRefused, match="signature"):
+        store.receive_post({**fields, "signature": text}, data)
+    with pytest.raises(UploadRefused, match="signature"):
+        store.receive_post({**fields, "policy": text}, data)
+    with pytest.raises(UploadRefused, match="signature"):
+        store.open_get(f"{text}.{text}")
+    with pytest.raises(UploadRefused, match="signature"):
+        store.open_get(text)

@@ -67,3 +67,28 @@ def test_a_plus_json_media_type_is_checked_like_json():
         assert r.status_code == 422 and r.json()["error"]["code"] == "text_invalid", media
         ok = client.post("/b", content=b'{"reason": "fine"}', headers={"content-type": media})
         assert ok.status_code == 200, media
+
+
+def _nested(depth: int, leaf: str = "1") -> bytes:
+    return b'{"reason": ' + b"[" * depth + leaf.encode() + b"]" * depth + b"}"
+
+
+def test_very_deep_json_is_422_not_a_crash():
+    for depth in (65, 500, 5_000, 200_000):  # past the guard's cap, then well past the recursion limit
+        r = client.post("/b", content=_nested(depth), headers={"content-type": "application/json"})
+        assert r.status_code == 422 and r.json()["error"]["code"] == "json_too_deep", depth
+
+
+def test_nesting_up_to_the_cap_is_still_checked_and_passes():
+    assert not client.post("/b", content=_nested(60), headers={"content-type": "application/json"}).json().get("error", {}).get("code") == "json_too_deep"
+    deep_nul = b'{"items": [' + b'{"a": ' * 20 + b'"x\\u0000"' + b"}" * 20 + b"]}"
+    r = client.post("/b", content=deep_nul, headers={"content-type": "application/json"})
+    assert r.status_code == 422 and r.json()["error"]["code"] == "text_invalid"
+
+
+def test_has_nul_walks_without_recursion():
+    value = "\x00"
+    for _ in range(50_000):
+        value = [value]
+    assert has_nul(value)
+    assert not has_nul([[]] * 3)
