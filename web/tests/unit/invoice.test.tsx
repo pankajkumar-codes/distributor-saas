@@ -177,6 +177,18 @@ describe("the draft invoice form", () => {
     expect(screen.getByText("Draft, not a tax invoice.")).toBeInTheDocument();
   });
 
+  it("says so, with a way to try again, when the preview status call fails", async () => {
+    server.reply(ONE, { status: 200, body: draft() });
+    server.reply("/api/v1/b/b-1/products/p-1", { status: 200, body: product });
+    server.reply(`${ONE}/preview`, { status: 202, body: { job_id: "j-1", draft_version: 1 } });
+    server.reply(`${ONE}/preview/j-1`, { status: 500, body: { error: { code: "internal", message: "x" } } });
+    open("/b/b-1/invoices/d-1");
+    await screen.findByText("Sharma Traders");
+    fireEvent.click(screen.getByRole("button", { name: "Preview PDF" }));
+    expect(await screen.findByRole("button", { name: "Try the preview again" })).toBeInTheDocument();
+    expect(screen.queryByText("Preparing the preview…")).toBeNull();
+  });
+
   it("after a save, a customer draft whose server-filled ship-to is the customer's own address is not dirty", async () => {
     const filled = { line1: "12 MG Road", line2: null, city: "Kolkata", pin: "700001", state_code: "19" }; // no "name": the server's copy
     server.reply(ONE, { status: 200, body: draft({ ship_to: filled, computation: computation() }) });

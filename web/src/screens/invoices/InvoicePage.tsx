@@ -293,7 +293,23 @@ export function InvoicePage() {
             </Button>
             {dirty && <p className="hint">Save first: the preview shows the saved draft.</p>}
             {preview.start.error && <Banner tone="error">{errorText(preview.start.error)}</Banner>}
-            {preview.start.data && preview.forVersion === saved.version && !previewReady && preview.status.data?.status !== "failed" && <p aria-busy="true">Preparing the preview…</p>}
+            {preview.start.data && preview.forVersion === saved.version && !previewReady && !preview.status.error && !preview.timedOut && preview.status.data?.status !== "failed" && <p aria-busy="true">Preparing the preview…</p>}
+            {preview.status.error && (
+              <Banner tone="error">
+                {errorText(preview.status.error)} Your draft is saved.{" "}
+                <Button type="button" variant="link" onClick={() => preview.start.mutate()}>
+                  Try the preview again
+                </Button>
+              </Banner>
+            )}
+            {preview.timedOut && (
+              <Banner tone="error">
+                The preview is taking longer than expected. Your draft is saved.{" "}
+                <Button type="button" variant="link" onClick={() => preview.start.mutate()}>
+                  Try the preview again
+                </Button>
+              </Banner>
+            )}
             {preview.status.data?.status === "failed" && <Banner tone="error">The preview could not be made. Try again.</Banner>}
             {previewReady && (
               <p>
