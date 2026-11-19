@@ -31,11 +31,11 @@ export function BusinessTypeField({
   const id = useId();
   const toggle = (t: BusinessType, on: boolean) => onChange(orderedTypes(on ? [...value, t] : value.filter((v) => v !== t)));
   return (
-    <fieldset className="field" aria-describedby={`${id}-hint`} aria-invalid={error ? true : undefined}>
+    <fieldset className="field">
       <legend>What best describes your business? (optional)</legend>
       {BUSINESS_TYPES.map((o) => (
-        <label key={o.value} style={{ display: "block" }}>
-          <input type="checkbox" checked={value.includes(o.value)} onChange={(e) => toggle(o.value, e.target.checked)} /> {o.label}
+        <label key={o.value} className="check-line">
+          <input type="checkbox" aria-describedby={`${id}-hint`} aria-invalid={error ? true : undefined} checked={value.includes(o.value)} onChange={(e) => toggle(o.value, e.target.checked)} /> {o.label}
         </label>
       ))}
       <p id={`${id}-hint`} className={error ? "error" : "hint"}>
