@@ -7,6 +7,7 @@ import { Banner } from "../../kit/Banner";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
 import { useReturns } from "./returns";
+import { NoAccess } from "../../kit/NoAccess";
 
 /**
  * How to enter the GSTR-3B worksheet on the GST portal (R1-M8b, W5c; mock `w3bg`). Nobody here has opened the live GSTR-3B
@@ -43,7 +44,8 @@ export function Portal3bGuidePage() {
       </main>
     );
   }
-  if (!business || !canViewReturns(business.role)) return <NotFound />;
+  if (!business) return <NotFound />;
+  if (!canViewReturns(business.role)) return <NoAccess businessId={businessId} />;
   const loading = now.isPending || (!found && now.isSuccess && before.isPending && before.fetchStatus !== "idle");
   if (loading) {
     return (

@@ -20,6 +20,7 @@ import { TopBar } from "../../kit/TopBar";
 import { RateHistory } from "./RateHistory";
 import { saleRateProblem } from "./saleRate";
 import { useGstRates } from "./useGstRates";
+import { NoAccess } from "../../kit/NoAccess";
 import { useFormKey } from "../../kit/formKey";
 
 type Detail = components["schemas"]["ProductDetailOut"];
@@ -247,7 +248,7 @@ export function ProductPage() {
   }
   if (!business || product.error?.status === 404) return <NotFound />;
   const canEdit = canEditCatalog(business.role);
-  if (isNew && !canEdit) return <NotFound />;
+  if (isNew && !canEdit) return <NoAccess businessId={businessId} />;
   // Any other failure to load is not an empty form: saving one would have nothing to edit against.
   if (!isNew && !opened && product.error) {
     return (

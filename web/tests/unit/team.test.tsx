@@ -130,9 +130,11 @@ describe("your team", () => {
     expect(screen.getByLabelText("Role for Ravi")).toBeInTheDocument();
   });
 
-  it("is the not-found page for billing and CA", async () => {
+  it("is the no-access page for billing and CA", async () => {
     open("/b/b-1/settings/team", "billing");
-    expect(await screen.findByText(/couldn't find that page/)).toBeInTheDocument();
+    expect(await screen.findByText(/You don't have access to this page/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Back to Home" })).toHaveAttribute("href", "/b/b-1/home");
+    expect(screen.queryByText("Go to sign-in")).toBeNull();
     expect(server.paths()).not.toContain(`${B}/members`);
   });
 });

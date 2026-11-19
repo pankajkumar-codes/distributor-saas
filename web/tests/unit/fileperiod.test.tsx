@@ -141,6 +141,6 @@ describe("file from your own invoices", () => {
     server.reply(REFRESH, { status: 200, body: { access_token: "t", expires_in: 3600 } });
     server.reply(ME, me("billing"), me("billing"));
     open();
-    expect(await screen.findByText(/couldn't find that page/)).toBeInTheDocument();
+    expect(await screen.findByText(/You don't have access to this page/)).toBeInTheDocument();
   });
 });

@@ -15,6 +15,7 @@ import { Button } from "../../kit/Button";
 import { Field } from "../../kit/Field";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
+import { NoAccess } from "../../kit/NoAccess";
 import { useFormKey } from "../../kit/formKey";
 
 type Customer = components["schemas"]["CustomerOut"];
@@ -170,7 +171,7 @@ export function CustomerPage() {
   }
   if (!business || customer.error?.status === 404) return <NotFound />;
   const canEdit = canEditCatalog(business.role);
-  if (isNew && !canEdit) return <NotFound />;
+  if (isNew && !canEdit) return <NoAccess businessId={businessId} />;
   // Any other failure to load is not an empty form: saving one would have nothing to edit against.
   if (!isNew && !opened && customer.error) {
     return (
