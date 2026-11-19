@@ -254,19 +254,14 @@ def test_no_value_reaches_the_audit_log(shop):  # noqa: F811
         assert secret not in rows
 
 
-def test_a_business_that_has_not_chosen_a_type_is_asked_to_first(plain_shop):  # noqa: F811
+def test_a_business_that_has_not_chosen_a_type_is_not_held_up(plain_shop):  # noqa: F811  (D-095)
     pg, biz, _ = plain_shop
     base = f"/api/v1/b/{biz}"
-    r = post(pg, f"{base}/purchase-files", {"file_name": "a.pdf", "size_bytes": 5}, key="k-type")
-    assert (r.status_code, r.json()["error"]["code"]) == (409, "business_type_required")
-    assert post(pg, f"{base}/purchase-files/{uuid.uuid4()}/complete").json()["error"]["code"] == "business_type_required"
+    assert post(pg, f"{base}/purchase-files", {"file_name": "a.pdf", "size_bytes": 5}, key="k-type").status_code == 201
     d = uuid.uuid4()
-    assert post(pg, f"{base}/purchase-drafts/{d}/confirm", {}).status_code in (409, 422)
-    assert post(pg, f"{base}/purchase-drafts/{d}/discard").json()["error"]["code"] == "business_type_required"
-    assert get(pg, f"{base}/purchase-drafts").status_code == 200  # reading stays open
-    with pg.owner.begin() as c:
-        c.execute(text("update business.profiles set business_type = 'distributor' where business_id = :b"), {"b": biz})
-    assert post(pg, f"{base}/purchase-files", {"file_name": "a.pdf", "size_bytes": 5}, key="k-type2").status_code == 201
+    for path in ("confirm", "discard"):  # no such draft: not found, never "choose a business type"
+        assert post(pg, f"{base}/purchase-drafts/{d}/{path}", {}).json()["error"]["code"] != "business_type_required"
+    assert get(pg, f"{base}/purchase-drafts").status_code == 200
 
 
 def test_confirming_creates_the_catalog_items_and_receives_the_stock_once(shop):  # noqa: F811

@@ -209,16 +209,14 @@ def test_another_business_sees_none_of_the_sale_out_and_cannot_finalize_it(shop)
     assert len(movements(pg)) == 1
 
 
-def test_sales_routes_need_the_business_type(pg):
+def test_sales_routes_do_not_need_a_business_type(pg):  # D-095: optional, never blocks
     biz = new_business(pg, "carol", business_type=None)
     base = f"/api/v1/b/{biz}"
-    replies = [
-        pg.client.get(f"{base}/drafts", headers=as_user("carol")),
-        pg.client.post(f"{base}/drafts", json={"lines": []}, headers={**as_user("carol"),
-                                                                    "Idempotency-Key": uuid.uuid4().hex}),
-    ]
-    assert [(r.status_code, r.json()["error"]["code"]) for r in replies] == [(409, "business_type_required")] * 2
-    # A member without the permission still gets the plain 404, not a hint about the type.
+    assert pg.client.get(f"{base}/drafts", headers=as_user("carol")).status_code == 200
+    made = pg.client.post(f"{base}/drafts", json={"lines": []}, headers={**as_user("carol"),
+                                                                       "Idempotency-Key": uuid.uuid4().hex})
+    assert made.status_code == 201, made.text
+    # A member without the permission still gets the plain 404.
     seed_member(pg, biz, "cathy", "ca")
     assert pg.client.get(f"{base}/drafts", headers=as_user("cathy")).status_code == 404
 

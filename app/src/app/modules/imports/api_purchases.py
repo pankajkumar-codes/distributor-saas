@@ -81,7 +81,6 @@ def _file_out(f: purchases.PurchaseFile) -> PurchaseFileOut:
 def start_file(body: PurchaseFileStartIn, request: Request, uow: BusinessUoW, clock: Annotated[Clock, Depends(get_clock)],
                idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None):
     """A purchase file and a presigned POST for exactly its key, type and declared size."""
-    purchases.require_business_type(uow)
     today = clock.today()
 
     def start():
@@ -102,7 +101,6 @@ def start_file(body: PurchaseFileStartIn, request: Request, uow: BusinessUoW, cl
              response_model=PurchaseJobRef, dependencies=CREATE)
 def complete_file(file_id: str, uow: BusinessUoW, clock: Annotated[Clock, Depends(get_clock)]):
     """The upload finished: check it is there, then queue the read. Calling it again returns the same job."""
-    purchases.require_business_type(uow)
     f = purchases.received(uow, parse_id(file_id), clock.today())
     return PurchaseJobRef(job_id=str(jobs.create(uow, import_jobs.PURCHASE_PARSE, natural_key=str(f.id))))
 
@@ -267,7 +265,6 @@ def confirm_draft(draft_id: str, body: PurchaseConfirmIn, uow: BusinessUoW, requ
                   idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None):
     """The business confirms the invoice with the values it checked on the review screen. Once; a second call is a
     conflict, not a second invoice. With an Idempotency-Key, a retry of the same request returns the first answer."""
-    purchases.require_business_type(uow)
     if idempotency_key is None:
         return _confirm(uow, draft_id, body, clock)
     return run_once(uow.tx, uow.principal.business_id, idempotency_key, method=request.method,
@@ -295,7 +292,6 @@ def _confirm(uow, draft_id: str, body: PurchaseConfirmIn, clock: Clock) -> Purch
 @router.post("/b/{business_id}/purchase-drafts/{draft_id}/discard", response_model=PurchaseDraftOut, dependencies=CREATE)
 def discard_draft(draft_id: str, uow: BusinessUoW, request: Request,
                   idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None):
-    purchases.require_business_type(uow)
     if idempotency_key is None:
         return _draft_out(purchases.discard(uow, parse_id(draft_id)))
     return run_once(uow.tx, uow.principal.business_id, idempotency_key, method=request.method,

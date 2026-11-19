@@ -27,6 +27,16 @@ variable "cdn_certificate_arn" {
   type    = string
   default = ""
 }
+variable "api_domain" {
+  description = "Custom domain for the API, a sibling of the web name (api.example.in), served by a regional API Gateway endpoint in Mumbai, not CloudFront (D-094). Empty until the domain is chosen: the API is then on its execute-api name, a different site from the web files, so sign-in's refresh cookie does not work. Set it before staging is used."
+  type        = string
+  default     = ""
+}
+variable "api_certificate_arn" {
+  description = "ACM certificate for api_domain, issued in ap-south-1, the same region as the API."
+  type        = string
+  default     = ""
+}
 variable "packages_dir" {
   description = "Directory holding app.zip and migrator.zip (scripts/build_lambda.sh) and renderer.zip (scripts/build_renderer.py)"
   type        = string
@@ -245,12 +255,14 @@ module "api" {
   jwt_audience        = [module.auth.client_id]
   function_name       = module.api_function.function_name
   function_invoke_arn = module.api_function.invoke_arn
+  domain_name         = var.api_domain
+  certificate_arn     = var.api_certificate_arn
 }
 
 module "cdn" {
   source              = "../cdn"
   name                = local.name
-  api_endpoint        = module.api.endpoint
+  api_origin          = module.api.origin
   aliases             = var.cdn_aliases
   acm_certificate_arn = var.cdn_certificate_arn
   # The presigned POST goes to the bucket's regional host (R1-M3), so the CSP names it.
@@ -495,6 +507,9 @@ resource "aws_budgets_budget" "monthly" {
 
 output "app_url" { value = "https://${module.cdn.domain_name}" }
 output "api_endpoint" { value = module.api.endpoint }
+output "api_origin" { value = module.api.origin }
+# Point api_domain at this name in DNS (empty until api_domain is set).
+output "api_regional_domain_name" { value = module.api.regional_domain_name }
 output "user_pool_id" { value = module.auth.user_pool_id }
 output "user_pool_client_id" { value = module.auth.client_id }
 output "migrator_function" { value = module.migrator.function_name }
