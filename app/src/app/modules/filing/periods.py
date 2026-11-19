@@ -159,7 +159,9 @@ def gstr1_period_month(tx: Session, gstin: str, on: date) -> date:
     a monthly filer, the quarter's last month for QRMP. Dated rules that CBIC states "by return period" (the
     B2C-large limit, #362) are looked up on this date, not on the document date. B2CL is never an IFF class, so
     the return is always the GSTR-1 one. Without a filing frequency the document's own month is used. Ignores a
-    roll-forward out of a locked return (the document is classified before it is assigned)."""
+    roll-forward out of a locked return (the document is classified before it is assigned).
+    ASSUMPTION (docs/OPEN_QUESTIONS.md OQ-B2CL-1): the portal labels a quarterly return period by its last month;
+    not stated in the documents, needs a CA answer or a test-upload check."""
     month = date(on.year, on.month, 1)
     row = filing_frequency_on(tx, gstin, quarter_start(on))
     if row is not None and row.frequency == "quarterly":
