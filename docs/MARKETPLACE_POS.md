@@ -37,7 +37,7 @@ Flipkart and Meesho files carry no separate Bill To column, so the rule cannot b
 - The row offers two actions: **Set aside** and **Pick the state**. It never offers Accept (`accept_allowed` false), because which state applies is a legal reading the user decides, not a data fix.
 - Picking the state takes a note, as every decision does, and a state from the refdata list; the file's row is never changed (the choice is stored beside it, as for `unknown_state`). Picking Bill To's state or Ship To's state is the user's judgement, with the note saying why.
 - GSTR-1: marketplace reports do not enter the return yet (their treatment is not confirmed, `imports.profile.<id>.treatment_confirmed`). When they do, a held row is left out of the return like every other held row, and a fixed row uses the picked state. Nothing here changes the return today.
-- Web: there is no held-row screen in the web app yet, so there is nothing to change on the page for the new reason. The API already returns its label, effect note, CA flag and actions to any client. The row review screen is a separate piece of work (tracked in a new issue).
+- Web: the held-row screen (#369, docs/HELD_ROWS_SCREEN.md) lists these rows, offers Pick the state and Leave this row out, and shows the "needs a CA check" note until OQ-POS-1/2 are answered.
 
 ## 5. Technical notes
 

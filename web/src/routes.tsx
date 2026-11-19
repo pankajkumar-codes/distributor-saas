@@ -14,6 +14,7 @@ import { ReviewPage } from "./screens/purchases/ReviewPage";
 import { FilePeriodPage } from "./screens/periodfiles/FilePeriodPage";
 import { PeriodFilesPage } from "./screens/periodfiles/PeriodFilesPage";
 import { UploadsPage } from "./screens/uploads/UploadsPage";
+import { HeldRowsPage } from "./screens/uploads/HeldRowsPage";
 import { CrosscheckPage } from "./screens/uploads/CrosscheckPage";
 import { HomePage } from "./screens/home/HomePage";
 import { BusinessPage } from "./screens/onboarding/BusinessPage";
@@ -56,6 +57,7 @@ export const routes: RouteObject[] = [
   { path: "/b/:businessId/filing/:instanceId", element: <PageTitle title="Your return"><RequireAuth><ReturnPage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/filing/:instanceId/portal-guide-3b", element: <PageTitle title="Enter GSTR-3B on the GST portal"><RequireAuth><Portal3bGuidePage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/uploads/crosscheck", element: <PageTitle title="Cross-check"><RequireAuth><CrosscheckPage /></RequireAuth></PageTitle> },
+  { path: "/b/:businessId/uploads/runs/:runId/held", element: <PageTitle title="Held rows"><RequireAuth><HeldRowsPage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/uploads", element: <PageTitle title="Upload your reports"><RequireAuth><UploadsPage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/customers", element: <PageTitle title="Customers"><RequireAuth><CustomersPage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/customers/new", element: <PageTitle title="New customer"><RequireAuth><CustomerPage /></RequireAuth></PageTitle> },
