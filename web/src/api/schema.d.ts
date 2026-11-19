@@ -2215,6 +2215,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/gstin-lookup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Gstin Lookup
+         * @description Only a GSTIN that passes the format and check-digit test is sent to the provider (`gstin_*` 422 otherwise). The reply
+         *     never says "verified": it is the provider's record, for the person to confirm.
+         */
+        post: operations["gstin_lookup_api_v1_gstin_lookup_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/health": {
         parameters: {
             query?: never;
@@ -4188,6 +4209,27 @@ export interface components {
             /** Rates */
             rates: string[];
         };
+        /** GstinLookupIn */
+        GstinLookupIn: {
+            /** Gstin */
+            gstin: string;
+        };
+        /** GstinLookupOut */
+        GstinLookupOut: {
+            address: components["schemas"]["LookupAddress"] | null;
+            /** Found */
+            found: boolean;
+            /** Gstin */
+            gstin: string;
+            /** Legal Name */
+            legal_name: string | null;
+            /** Source */
+            source: string;
+            /** Status */
+            status: string | null;
+            /** Trade Name */
+            trade_name: string | null;
+        };
         /** HSNRowOut */
         HSNRowOut: {
             /** Cess */
@@ -4515,6 +4557,19 @@ export interface components {
             quantity: string;
             /** Unit Price */
             unit_price: string;
+        };
+        /** LookupAddress */
+        LookupAddress: {
+            /** City */
+            city: string | null;
+            /** Line1 */
+            line1: string | null;
+            /** Line2 */
+            line2: string | null;
+            /** Pin */
+            pin: string | null;
+            /** State Code */
+            state_code: string | null;
         };
         /** MeMembership */
         MeMembership: {
@@ -11053,6 +11108,51 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
+            };
+        };
+    };
+    gstin_lookup_api_v1_gstin_lookup_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GstinLookupIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GstinLookupOut"];
+                };
+            };
+            /** @description not a well-formed GSTIN */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description rate_limited */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description lookup_off or lookup_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

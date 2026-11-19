@@ -21,6 +21,15 @@ Resolve these before the affected functionality is used for live financial trans
 14. Preferred hosting region and any data residency or customer-contract requirements? **Answered 2026-11-18: tenant data stays in India (D-094).** Follow-ups below.
 15. Who will operate production, handle incidents, and manage backups?
 
+## GSTIN lookup (#249, D-100)
+
+| Question | Provisional | Owner |
+|---|---|---|
+| Which vendor, at what price, under what contract | Masters India first, GSTZen or GSTVerify as fallback; off until chosen (`docs/GSTIN_LOOKUP.md`) | **Pankaj** (paid service) |
+| Does the vendor serve the request from India, and what are its data-processing terms (D-094) | Unconfirmed for every vendor | Pankaj, from the vendor in writing |
+| Vendor response shape: address lines, registration date, status words | Unknown until a sample is received; the adapter is written against it | Pankaj sends the sample |
+| Lookups per user per hour | 30 (refdata `business.gstin_lookup.per_user_per_hour`, provisional) | PO |
+
 ## P2 — Product expansion
 16. Should a tenant support multiple legal entities/GST registrations later?
 17. Multiple warehouses or stock locations?

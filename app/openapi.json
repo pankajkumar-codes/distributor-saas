@@ -4924,6 +4924,91 @@
         "title": "GstRatesOut",
         "type": "object"
       },
+      "GstinLookupIn": {
+        "additionalProperties": false,
+        "properties": {
+          "gstin": {
+            "maxLength": 40,
+            "title": "Gstin",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gstin"
+        ],
+        "title": "GstinLookupIn",
+        "type": "object"
+      },
+      "GstinLookupOut": {
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LookupAddress"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "found": {
+            "title": "Found",
+            "type": "boolean"
+          },
+          "gstin": {
+            "title": "Gstin",
+            "type": "string"
+          },
+          "legal_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Legal Name"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "trade_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trade Name"
+          }
+        },
+        "required": [
+          "found",
+          "gstin",
+          "legal_name",
+          "trade_name",
+          "status",
+          "address",
+          "source"
+        ],
+        "title": "GstinLookupOut",
+        "type": "object"
+      },
       "HSNRowOut": {
         "properties": {
           "cess": {
@@ -5937,6 +6022,74 @@
           "discount_value"
         ],
         "title": "LineOut",
+        "type": "object"
+      },
+      "LookupAddress": {
+        "properties": {
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "line1": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line1"
+          },
+          "line2": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line2"
+          },
+          "pin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pin"
+          },
+          "state_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State Code"
+          }
+        },
+        "required": [
+          "line1",
+          "line2",
+          "city",
+          "pin",
+          "state_code"
+        ],
+        "title": "LookupAddress",
         "type": "object"
       },
       "MeMembership": {
@@ -19907,6 +20060,47 @@
         "summary": "Complete Upload",
         "tags": [
           "imports"
+        ]
+      }
+    },
+    "/api/v1/gstin-lookup": {
+      "post": {
+        "description": "Only a GSTIN that passes the format and check-digit test is sent to the provider (`gstin_*` 422 otherwise). The reply\nnever says \"verified\": it is the provider's record, for the person to confirm.",
+        "operationId": "gstin_lookup_api_v1_gstin_lookup_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GstinLookupIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GstinLookupOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "not a well-formed GSTIN"
+          },
+          "429": {
+            "description": "rate_limited"
+          },
+          "503": {
+            "description": "lookup_off or lookup_unavailable"
+          }
+        },
+        "summary": "Gstin Lookup",
+        "tags": [
+          "business"
         ]
       }
     },

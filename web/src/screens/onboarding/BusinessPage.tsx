@@ -21,6 +21,8 @@ import { warningText } from "./warnings";
 
 type NewBusiness = components["schemas"]["NewBusinessProfile"];
 type Created = components["schemas"]["NewBusinessOut"];
+type Lookup = components["schemas"]["GstinLookupOut"];
+type Filled = Partial<Record<"legal_name" | "trade_name" | "line1" | "line2" | "city" | "pin", string>>;
 type Band = NewBusiness["turnover_band"];
 type Einvoice = NewBusiness["einvoice_history"];
 type Frequency = components["schemas"]["FrequencyIn"]["frequency"];
@@ -66,6 +68,39 @@ export function fieldError(error: ApiError, gstin: string): { field: string; tex
 }
 
 /**
+ * What the GSTIN lookup said, under the GSTIN field. Words only: nothing here stops the form, and "found" is never
+ * "verified" (we check the format and check digit; the lookup is a convenience). A lookup that is switched off says nothing.
+ */
+function LookupNote({ lookup, gstin }: { lookup: { isPending: boolean; isError: boolean; data?: Lookup; error: ApiError | null; variables?: string }; gstin: string }) {
+  if (!gstin || lookup.variables !== gstin) return null;
+  if (lookup.isPending) return <p className="hint" aria-busy="true">Looking up this GSTIN…</p>;
+  if (lookup.isError) {
+    const code = lookup.error?.code;
+    if (code === "lookup_off") return null;
+    return (
+      <Banner tone="info">
+        {code === "rate_limited"
+          ? "You've looked up a lot of GSTINs just now, so we paused the lookup. Type your details below."
+          : "We couldn't fetch your details right now. Type them below and carry on."}
+      </Banner>
+    );
+  }
+  if (!lookup.data) return null;
+  if (!lookup.data.found) {
+    return <Banner tone="info">We found no details for this GSTIN. Check the number, or type your details below.</Banner>;
+  }
+  return (
+    <Banner tone="info">
+      We filled in the details we found for this GSTIN{lookup.data.source === "demo" ? " (made-up demo details)" : ""}.
+      Check them against your GST certificate and change anything that is wrong.
+      {lookup.data.status && lookup.data.status.toLowerCase() !== "active"
+        ? ` The lookup shows this registration as "${lookup.data.status}". Check with your CA.`
+        : ""}
+    </Banner>
+  );
+}
+
+/**
  * /onboarding/business (M2 step 3). The GSTIN check here is a hint only, from the same
  * cases the server tests; POST /b decides. One Idempotency-Key per form for the business
  * and one for the frequency, so a retry or a double tap creates one of each (LLD-0 §3.8).
@@ -98,6 +133,37 @@ export function BusinessPage() {
   const [step, setStep] = useState<3 | 4>(3);
   const [platforms, setPlatforms] = useState<Channels>(NO_PLATFORMS);
 
+  // GSTIN lookup (#249): a well-formed GSTIN is looked up once, and what comes back fills only fields that are empty or
+  // still hold what an earlier lookup put there. It never blocks anything: any failure leaves the form as it was.
+  const asked = useRef("");
+  const autoFilled = useRef<Filled>({});
+  const lookup = useMutation<Lookup, ApiError, string>({
+    mutationFn: (g) => call(() => api.POST("/api/v1/gstin-lookup", { body: { gstin: g } })),
+    onSuccess: (out, g) => {
+      if (g !== asked.current || !out.found) return; // the person has moved on to another GSTIN
+      const next: Filled = {
+        legal_name: out.legal_name ?? undefined,
+        trade_name: out.trade_name ?? undefined,
+        line1: out.address?.line1 ?? undefined,
+        line2: out.address?.line2 ?? undefined,
+        city: out.address?.city ?? undefined,
+        pin: out.address?.pin ?? undefined,
+      };
+      const before = autoFilled.current;
+      const put = (key: keyof Filled, set: (f: (cur: string) => string) => void) => {
+        const value = next[key];
+        if (value) set((cur) => (cur.trim() === "" || cur === before[key] ? value : cur));
+      };
+      put("legal_name", setLegalName);
+      put("trade_name", setTradeName);
+      put("line1", setLine1);
+      put("line2", setLine2);
+      put("city", setCity);
+      put("pin", setPin);
+      autoFilled.current = next;
+    },
+  });
+
   const check = checkGstin(gstin);
   const stateName = (code: string | null) => states.data?.find((s) => s.code === code)?.name;
   const gstinStateUnknown = check.ok && states.isSuccess && !stateName(check.stateCode);
@@ -105,6 +171,12 @@ export function BusinessPage() {
   const addressStateShown = addressState || regState || "";
   const startsOn = quarterStartIst();
   const lastFy = previousFy(fyIst());
+
+  useEffect(() => {
+    if (kind !== "gstin" || !check.ok || gstinStateUnknown || check.normalised === asked.current) return;
+    asked.current = check.normalised;
+    lookup.mutate(check.normalised);
+  }, [kind, check.ok, check.normalised, gstinStateUnknown]);
 
   const finish = (id: string, warnings: string[]) => navigate(`/b/${id}/home`, { replace: true, state: { warnings } });
 
@@ -321,6 +393,7 @@ export function BusinessPage() {
                 hint={gstinHint}
                 error={gstinError}
               />
+              <LookupNote lookup={lookup} gstin={check.ok && !gstinStateUnknown ? check.normalised : ""} />
               <Button type="button" variant="link" onClick={() => setKind("enrolment")}>
                 Use enrolment number
               </Button>
