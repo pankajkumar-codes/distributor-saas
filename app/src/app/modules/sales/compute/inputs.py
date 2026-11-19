@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from app.modules.business.interface import (
     einvoice_status,
     get_profile,
+    hsn_b2c_relief,
     hsn_band_missing,
     hsn_min_digits,
     ready_for_documents,
@@ -45,6 +46,7 @@ def load_inputs(tx: Session, draft: DraftIn, lines: list[DraftLineIn], *, today:
             ready_missing=tuple(ready_for_documents(tx).missing),
             hsn_band_missing_fy=band_missing and band_missing.fy,
             hsn_min_digits_if_band_set=band_missing and band_missing.digits_if_up_to,
+            hsn_b2c_relief=hsn_b2c_relief(tx, on),
         )
         # Keep inside the try: it reads catalog refdata on doc_date too, so a date before
         # that rule's history is a 422 here rather than a 500 (Lead and Staff, #89).

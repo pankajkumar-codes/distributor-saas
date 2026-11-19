@@ -31,6 +31,12 @@ def min_digits_for(band: str | None, band_threshold: Decimal, rule_threshold: De
     return low if band == "up_to_threshold" and band_threshold <= rule_threshold else high
 
 
+def small_seller_for(band: str | None, band_threshold: Decimal, rule_threshold: Decimal) -> bool:
+    """True only when the preceding FY's band settles that turnover was up to the rule's threshold
+    (Notification 78/2020-CT). No band, or a band that doesn't settle it, is False: the strict answer."""
+    return band == "up_to_threshold" and band_threshold <= rule_threshold
+
+
 def _hsn_digits(tx: Session, on: date, band: str | None) -> int:
     return min_digits_for(
         band,
@@ -46,6 +52,18 @@ def hsn_min_digits(tx: Session, on: date) -> int:
     FY (the rule is on the preceding FY's turnover)."""
     band = turnover_band(tx, previous_fy(fy_of(on)))
     return _hsn_digits(tx, on, None if band is None else band.band)
+
+
+def hsn_b2c_relief(tx: Session, on: date) -> bool:
+    """Whether the seller is known to have had turnover up to the Notification 78/2020-CT limit in the FY
+    before `on`'s, so an invoice to an unregistered buyer needs no HSN digit count (docs/HSN_B2C_RELIEF.md).
+    False when the band is not set: the stricter rule applies until the business sets it."""
+    band = turnover_band(tx, previous_fy(fy_of(on)))
+    return small_seller_for(
+        None if band is None else band.band,
+        value_on(tx, "business.turnover_band_threshold", on),
+        value_on(tx, "hsn.min_digits_aato_threshold", on),
+    )
 
 
 class HsnBandMissing(NamedTuple):

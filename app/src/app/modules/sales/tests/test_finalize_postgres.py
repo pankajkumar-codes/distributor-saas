@@ -113,6 +113,49 @@ def test_finalize_issues_a_practice_document_and_freezes_the_draft(shop):
         assert tuple(series) == ("practice", "PR-", 4)
 
 
+def set_last_year_band(pg, biz, band: str):
+    """Last year's turnover band, as test setup (new_business sets only this year's)."""
+    from datetime import date
+
+    from app.modules.business.fiscal import fy_of, previous_fy
+
+    with pg.owner.connect() as c:
+        c.execute(
+            text("insert into business.turnover_bands (business_id, fy, band, set_by) values (:b, :fy, :band, :u)"),
+            {"b": biz, "fy": previous_fy(fy_of(date.today())), "band": band, "u": user_id(pg.owner, "alice")},
+        )
+
+
+def test_a_blank_hsn_to_an_unregistered_buyer_finalizes_when_last_year_was_up_to_the_limit(shop):  # #344
+    pg, biz, _ = shop
+    switch(pg, True)
+    set_last_year_band(pg, biz, "up_to_threshold")
+    p = make_product(pg, biz, hsn=None)
+    r = create(pg, biz, draft_body(p, cash_buyer={"state_code": "19"}))
+    assert r.status_code == 201, r.text
+    d = r.json()
+    assert d["ready"] is True and d["computation"]["blocks"] == []
+    assert [w["code"] for w in d["computation"]["warnings"] if w["code"].startswith("hsn")] == ["hsn_missing_b2c"]
+    doc = fin(pg, biz, d)
+    assert doc.status_code == 200, doc.text
+    assert scalar(pg.owner, "select hsn from sales.document_lines") == ""  # stored as it was, never invented
+
+
+def test_a_blank_hsn_still_blocks_for_a_registered_buyer_or_an_unset_or_above_band(shop):  # #344
+    pg, biz, _ = shop
+    switch(pg, True)
+    p = make_product(pg, biz, hsn=None)
+    cash = create(pg, biz, draft_body(p, cash_buyer={"state_code": "19"})).json()
+    assert cash["ready"] is False  # last year's band is not set: the stricter rule
+    assert [b["code"] for b in cash["computation"]["blocks"]] == ["hsn_missing"]
+    set_last_year_band(pg, biz, "up_to_threshold")
+    registered = create(pg, biz, draft_body(p, customer_id=make_customer(pg, biz))).json()
+    assert registered["ready"] is False  # a buyer with a GSTIN: still a block
+    assert [b["code"] for b in registered["computation"]["blocks"]] == ["hsn_missing"]
+    refused = fin(pg, biz, registered)
+    assert refused.status_code == 422 and counts(pg)[:2] == (0, 0)
+
+
 def test_the_same_draft_twice_gives_one_document(shop):  # AC4-3
     pg, biz, _ = shop
     switch(pg, True)

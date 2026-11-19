@@ -92,7 +92,7 @@ def warnings(p: Product, rate_confirmed: bool | None) -> list[dict]:
     """Shown on M8; none blocks a save (§4). `rate_confirmed` is None when no rate is in force."""
     out = []
     if p.hsn is None:
-        out.append({"code": "hsn_missing", "field": "hsn", "message": "Missing HSN: add it before invoicing"})
+        out.append({"code": "hsn_missing", "field": "hsn", "message": "Missing HSN: add it before invoicing a buyer with a GSTIN; GSTR-1 needs it too"})
     if p.tax_category == "taxable" and rate_confirmed is False:
         out.append({"code": "rate_unconfirmed", "field": "rate",
                     "message": "GST rate not confirmed with your CA"})
