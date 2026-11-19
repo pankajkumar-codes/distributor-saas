@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { errorText, type ApiError } from "../../api/errors";
@@ -12,6 +12,7 @@ import { NotFound } from "../../kit/NotFound";
 import { SelectField } from "../../kit/SelectField";
 import { TopBar } from "../../kit/TopBar";
 import { useCancelInvite, useChangeRole, useInvite, useMembers, useResend, useSetActive, type InviteRole, type Member, type Role } from "./useTeam";
+import { useFormKey } from "../../kit/formKey";
 
 // members.manage (docs/PERMISSIONS.md); the server answers anyone else 404.
 export const TEAM_MANAGERS = new Set(["owner", "admin"]);
@@ -29,21 +30,21 @@ function InviteForm({ businessId }: { businessId: string }) {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<InviteRole | "">("");
   const [name, setName] = useState("");
-  const key = useRef(crypto.randomUUID()); // one send per fill of the form, however many times it is pressed
+  const formKey = useFormKey(`invite:${businessId}`); // one send per fill of the form, however many times it is pressed
   const [sentTo, setSentTo] = useState<string | null>(null);
   const invite = useInvite(businessId);
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!role) return;
     invite.mutate(
-      { email: email.trim(), role, display_name: name.trim() || undefined, key: key.current },
+      { email: email.trim(), role, display_name: name.trim() || undefined, key: formKey.current() },
       {
         onSuccess: (sent) => {
           setSentTo(sent.email);
           setEmail("");
           setName("");
           setRole("");
-          key.current = crypto.randomUUID();
+          formKey.reset();
         },
       },
     );
