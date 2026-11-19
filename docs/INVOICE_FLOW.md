@@ -3,6 +3,8 @@
 Status: proposed, for the owner's review. Mocks: `docs/mocks/seller-portal-mocks-v14.html` (Home, New invoice, Invoice created). Last updated 2026-11-19.
 Scope: the sales invoice screen (BH-4, BH-5), its entry points, the missing-HSN case, and the PDF preview. No numbering or tax rule changes here; invoice numbering stays off until the CA confirms (D-010), so every invoice is a practice invoice.
 
+Note: requirement ids (BH-2, BH-4a to BH-4e, BH-11), L-7 and the screen ids in `r1-invoice-screens` (I1 to I3) refer to the BRD and product files in the project folder, not to files in this repo.
+
 ## 1. What the owner reported (2026-11-19)
 
 1. Home has no direct way to Products and Customers.
