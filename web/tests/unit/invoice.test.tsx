@@ -62,6 +62,53 @@ describe("a product with no HSN used on an invoice", () => {
   });
 });
 
+describe("fixing a missing HSN on the invoice itself", () => {
+  const P1 = "/api/v1/b/b-1/products/p-1";
+  const noHsn = { ...product, hsn: null, uqc: "NOS", barcode: null, tax_category: "taxable", has_cess: false, in_use: true, rate_on: null, rate_changed_within_warning_window: false, rates: [] };
+  const block = { code: "hsn_missing", fix: "Add the product's HSN code.", field: "lines[0].product_id", line_no: 1 };
+  const blocked = () => draft({ ready: false, computation: computation({ blocks: [block] }) });
+
+  it("saves the HSN to the product, then the server's fresh check clears and Create is enabled", async () => {
+    server.reply(P1, { status: 200, body: noHsn });
+    server.reply(`PATCH ${P1}`, { status: 200, body: { ...noHsn, hsn: "3304", version: 2 } });
+    server.reply(ONE, { status: 200, body: blocked() }, { status: 200, body: draft({ computation: computation() }) });
+    open("/b/b-1/invoices/d-1");
+    const box = await screen.findByLabelText("HSN for Aloe Vera Gel 200 ml");
+    expect(screen.getByRole("button", { name: "Create practice invoice" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save HSN" })).toBeDisabled(); // nothing typed yet
+    fireEvent.change(box, { target: { value: "3304" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save HSN" }));
+    await waitFor(() => expect(screen.queryByLabelText("HSN for Aloe Vera Gel 200 ml")).toBeNull());
+    const [patch] = sent(P1, "PATCH");
+    expect(patch.body).toEqual({ hsn: "3304" });
+    expect(patch.headers.get("If-Match")).toBe("1");
+    expect(screen.queryByText("Add the product's HSN code.")).toBeNull();
+    expect(screen.getByRole("button", { name: "Create practice invoice" })).toBeEnabled();
+  });
+
+  it("refuses an HSN that is not digits without asking the server", async () => {
+    server.reply(P1, { status: 200, body: noHsn });
+    server.reply(ONE, { status: 200, body: blocked() });
+    open("/b/b-1/invoices/d-1");
+    fireEvent.change(await screen.findByLabelText("HSN for Aloe Vera Gel 200 ml"), { target: { value: "33 04" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save HSN" }));
+    expect(await screen.findByText("That isn't a valid HSN: use digits only, with no spaces")).toBeInTheDocument();
+    expect(sent(P1, "PATCH")).toHaveLength(0);
+  });
+
+  it("keeps the check when the server still blocks it (e.g. too short) and shows the server's words", async () => {
+    server.reply(P1, { status: 200, body: noHsn });
+    server.reply(`PATCH ${P1}`, { status: 422, body: { error: { code: "hsn_invalid", message: "too short", fix: "That HSN is too short for this business.", field: "hsn" } } });
+    server.reply(ONE, { status: 200, body: blocked() });
+    open("/b/b-1/invoices/d-1");
+    fireEvent.change(await screen.findByLabelText("HSN for Aloe Vera Gel 200 ml"), { target: { value: "33" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save HSN" }));
+    expect(await screen.findByText("That HSN is too short for this business.")).toBeInTheDocument();
+    expect(screen.getByText(/Add the product's HSN code\./)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create practice invoice" })).toBeDisabled();
+  });
+});
+
 describe("a check that needs last year's turnover band", () => {
   it("links to the band field on Business setup, remembering which invoice to come back to", async () => {
     server.reply("/api/v1/b/b-1/products/p-1", { status: 200, body: product });
