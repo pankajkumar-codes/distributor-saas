@@ -146,6 +146,24 @@ export function InvoicePage() {
     }
     save.mutate(form);
   };
+  // One press: save what is on screen (if anything changed), then finalize that saved version. A failed save or
+  // finalize leaves the draft saved and says why.
+  const createInvoice = async () => {
+    if (form.buyer === "cash" && !form.cash_state) {
+      setCashStateMissing(true);
+      cashStateRef.current?.focus();
+      return;
+    }
+    let target = saved;
+    if (dirty || !target) {
+      try {
+        target = await save.mutateAsync(form);
+      } catch {
+        return; // the save error is shown beside the form
+      }
+    }
+    finalize.mutate({ draftId: target.id, version: target.version });
+  };
   const setLine = (i: number, patch: Partial<Form["lines"][number]>) => set({ lines: form.lines.map((l, n) => (n === i ? { ...l, ...patch } : l)) });
   const pickProduct = (p: Product) => set({ lines: [...form.lines, { ...newLine(), product_id: p.id, name: p.name }] });
   const finalizeError = finalize.error;
@@ -269,7 +287,10 @@ export function InvoicePage() {
           {form.pos_override && <Field label="Why it differs" value={form.pos_reason} onChange={(e) => set({ pos_reason: e.target.value })} />}
 
           <div className="actions">
-            <Button type="submit" busy={save.isPending} disabled={!dirty}>
+            <Button type="button" variant="primary" busy={save.isPending || finalize.isPending} disabled={Boolean(saved && !dirty && saved.ready === false)} onClick={createInvoice}>
+              Create invoice
+            </Button>
+            <Button type="submit" variant="secondary" busy={save.isPending} disabled={!dirty}>
               Save draft
             </Button>
           </div>
@@ -307,15 +328,10 @@ export function InvoicePage() {
         )}
 
         <section aria-label="Finalize">
-            <Button type="button" busy={finalize.isPending} disabled={!saved || dirty || saved.ready === false} onClick={() => finalize.mutate()}>
-              Finalize invoice
-            </Button>
             <p className="hint">
-              {dirty
-                ? "Save the draft first: the invoice is made from the saved draft."
-                : saved && saved.ready === false
-                  ? "Fix the checks above and save again to finalize."
-                  : "Finalizing gives the invoice its number and locks it; later changes need a credit note."}
+              {saved && saved.ready === false && !dirty
+                ? "Fix the checks above and save again to finalize."
+                : "Create invoice saves your changes, gives the invoice its number and locks it; later changes need a credit note."}
             </p>
             {finalizeWords && (
               <Banner tone="error">
