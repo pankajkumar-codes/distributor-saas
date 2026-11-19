@@ -15,6 +15,7 @@ import { NotFound } from "../../kit/NotFound";
 import { SelectField } from "../../kit/SelectField";
 import { TopBar } from "../../kit/TopBar";
 import { warningText } from "../onboarding/warnings";
+import { Loading } from "../../kit/Loading";
 
 type Page = components["schemas"]["AuditPageOut"];
 type Row = components["schemas"]["AuditRowOut"];
@@ -279,7 +280,7 @@ export function AuditPage() {
             </Button>
           </Banner>
         )}
-        {list.isPending && <p aria-busy="true">Loading…</p>}
+        {list.isPending && <Loading query={list} />}
         {list.isSuccess && rows.length === 0 && <p>{narrowed ? "No entries match." : "No entries yet."}</p>}
 
         {rows.length > 0 && (

@@ -13,6 +13,7 @@ import { NotFound } from "../../kit/NotFound";
 import { RadioGroup } from "../../kit/RadioGroup";
 import { SetupFrame, SetupTitle } from "./SetupFrame";
 import { warningText } from "../onboarding/warnings";
+import { Loading } from "../../kit/Loading";
 
 type Profile = components["schemas"]["FilingProfileOut"];
 type Changed = components["schemas"]["FrequencyOut"];
@@ -115,7 +116,7 @@ export function FilingPage({ embedded = false }: { embedded?: boolean } = {}) {
             </Button>
           </Banner>
         )}
-        {profile.isPending && <p aria-busy="true">Loading…</p>}
+        {profile.isPending && <Loading query={profile} />}
 
         {data && !data.gstin && (
           <Banner>

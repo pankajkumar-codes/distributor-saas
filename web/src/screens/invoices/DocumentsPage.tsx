@@ -12,6 +12,7 @@ import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
+import { Loading } from "../../kit/Loading";
 
 type Page = components["schemas"]["DocumentsOut"];
 const SIZE = 25;
@@ -41,7 +42,7 @@ export function DocumentsPage() {
         </p>
         <h1>Issued invoices</h1>
         {list.error && <Banner tone="error">{errorText(list.error)}</Banner>}
-        {list.isPending && <p aria-busy="true">Loading…</p>}
+        {list.isPending && <Loading query={list} />}
         {list.isSuccess && docs.length === 0 && <p>No invoices issued yet. Finalize a draft to see it here.</p>}
         {docs.length > 0 && (
           <table className="products">

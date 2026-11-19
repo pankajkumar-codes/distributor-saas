@@ -8,6 +8,7 @@ import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
 import { FinalizedPanel } from "./FinalizedPanel";
 import { useDocument } from "./useFinalize";
+import { Loading } from "../../kit/Loading";
 
 /** One issued invoice, read from the server, so the PDF is there after a reload or on another day. */
 export function DocumentPage() {
@@ -26,7 +27,7 @@ export function DocumentPage() {
         </p>
         <h1>Invoice issued</h1>
         {doc.error && <Banner tone="error">{errorText(doc.error)}</Banner>}
-        {doc.isPending && <p aria-busy="true">Loading…</p>}
+        {doc.isPending && <Loading query={doc} />}
         {doc.data && <FinalizedPanel businessId={businessId} doc={doc.data} />}
       </main>
     </>
