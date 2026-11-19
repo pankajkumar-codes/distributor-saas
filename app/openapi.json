@@ -2349,7 +2349,7 @@
             "title": "Gstin"
           },
           "name": {
-            "maxLength": 300,
+            "maxLength": 1000,
             "title": "Name",
             "type": "string"
           }
@@ -2531,7 +2531,7 @@
           "name": {
             "anyOf": [
               {
-                "maxLength": 300,
+                "maxLength": 1000,
                 "type": "string"
               },
               {
@@ -7213,7 +7213,7 @@
             "title": "Hsn"
           },
           "name": {
-            "maxLength": 300,
+            "maxLength": 1000,
             "title": "Name",
             "type": "string"
           },
@@ -7438,7 +7438,7 @@
           "name": {
             "anyOf": [
               {
-                "maxLength": 300,
+                "maxLength": 1000,
                 "type": "string"
               },
               {
