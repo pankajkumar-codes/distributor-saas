@@ -395,3 +395,88 @@ describe("helpers", () => {
     expect(quarterStartIst(new Date(Date.UTC(2026, 5, 15)))).toBe("2026-04-01");
   });
 });
+
+describe("GSTIN lookup (#249): fills the form, never blocks it", () => {
+  const LOOKUP = "/api/v1/gstin-lookup";
+  const found = (over: Record<string, unknown> = {}) => ({
+    status: 200,
+    body: {
+      found: true, gstin: GSTIN, legal_name: "Demo Traders Pvt Ltd", trade_name: "Demo Traders", status: "Active", source: "demo",
+      address: { line1: "12 Sample Road", line2: "Demo Market", city: "Mumbai", pin: "400001", state_code: "27" }, ...over,
+    },
+  });
+
+  it("fills empty fields from a well-formed GSTIN and says where they came from", async () => {
+    server.reply(LOOKUP, found());
+    await open();
+    type("GSTIN", GSTIN);
+    await waitFor(() => expect(screen.getByLabelText("Legal name (as on GST certificate)")).toHaveValue("Demo Traders Pvt Ltd"));
+    expect(screen.getByLabelText("Trade name (optional)")).toHaveValue("Demo Traders");
+    expect(screen.getByLabelText("City or town")).toHaveValue("Mumbai");
+    expect(screen.getByLabelText("PIN code")).toHaveValue("400001");
+    expect(screen.getByText(/made-up demo details/)).toBeInTheDocument();
+    expect(screen.queryByText(/verified/i)).toBeNull();
+    expect(sentTo(LOOKUP)).toHaveLength(1);
+    expect(sentTo(LOOKUP)[0].body).toEqual({ gstin: GSTIN });
+  });
+
+  it("keeps what the person already typed, and lets them type over what it filled", async () => {
+    server.reply(LOOKUP, found());
+    await open();
+    type("Legal name (as on GST certificate)", "My own name");
+    type("GSTIN", GSTIN);
+    await waitFor(() => expect(screen.getByLabelText("City or town")).toHaveValue("Mumbai"));
+    expect(screen.getByLabelText("Legal name (as on GST certificate)")).toHaveValue("My own name");
+    type("City or town", "Pune");
+    expect(screen.getByLabelText("City or town")).toHaveValue("Pune");
+  });
+
+  it("does not ask for a GSTIN that is not well formed", async () => {
+    await open();
+    type("GSTIN", "27AAPFU0939F1ZX");
+    type("GSTIN", "27AAPFU");
+    expect(sentTo(LOOKUP)).toHaveLength(0);
+  });
+
+  it("warns when the lookup shows a registration that is not active, without stopping", async () => {
+    server.reply(LOOKUP, found({ status: "Cancelled" }));
+    await open();
+    type("GSTIN", GSTIN);
+    expect(await screen.findByText(/shows this registration as "Cancelled"/)).toBeInTheDocument();
+  });
+
+  it("says plainly when nothing was found, and leaves the form alone", async () => {
+    server.reply(LOOKUP, { status: 200, body: { found: false, gstin: GSTIN, legal_name: null, trade_name: null, status: null, address: null, source: "demo" } });
+    await open();
+    type("GSTIN", GSTIN);
+    expect(await screen.findByText(/found no details for this GSTIN/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Legal name (as on GST certificate)")).toHaveValue("");
+  });
+
+  it("carries on by hand when the lookup fails, is limited, or is off", async () => {
+    server.reply(LOOKUP, { status: 503, body: { error: { code: "lookup_unavailable", message: "x" } } });
+    await open();
+    type("GSTIN", GSTIN);
+    expect(await screen.findByText(/couldn't fetch your details right now/)).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+    type("GSTIN", "19AAPFU0939F1ZS");
+    server.reply(LOOKUP, { status: 429, body: { error: { code: "rate_limited", message: "x" } }, headers: { "Retry-After": "60" } });
+    type("GSTIN", "");
+    type("GSTIN", "19AAPFU0939F1ZS");
+    expect(await screen.findByText(/paused the lookup/)).toBeInTheDocument();
+  });
+
+  it("says nothing when the lookup is switched off, and the form still submits", async () => {
+    server.reply(LOOKUP, { status: 503, body: { error: { code: "lookup_off", message: "x" } } });
+    await open();
+    fillGstinBusiness();
+    await waitFor(() => expect(sentTo(LOOKUP)).toHaveLength(1));
+    expect(screen.queryByText(/couldn't fetch/)).toBeNull();
+    server.reply(CREATE, created());
+    server.reply(FREQUENCY, chosen());
+    server.reply(ME, me);
+    submitAll();
+    await screen.findByRole("heading", { name: HOME });
+    expect(sentTo(CREATE)[0].body).toMatchObject({ legal_name: "Vashi Essentials Pvt Ltd" });
+  });
+});

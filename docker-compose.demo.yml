@@ -12,6 +12,7 @@ x-api: &api
   environment: &api-env
     PLATFORM_ENV: local
     DEMO_READERS: "1"
+    GSTIN_LOOKUP_PROVIDER: fake  # made-up details for a valid GSTIN at sign-up (docs/GSTIN_LOOKUP.md); never real data
     DATABASE_URL: postgresql+psycopg://app_rw:local-only@db:5432/saas
     LOCAL_OBJECTS_DIR: /srv/build/objects
     DEMO_API: http://api:8000

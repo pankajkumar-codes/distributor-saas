@@ -8,6 +8,7 @@ from mangum import Mangum
 from app import runtime
 from app.home.api import router as home_router
 from app.modules.business.api import router as business_router
+from app.modules.business.api_lookup import router as gstin_lookup_router
 from app.modules.catalog.api_customers import router as customers_router
 from app.modules.catalog.api_imports import router as product_imports_router
 from app.modules.catalog.api_products import router as products_router
@@ -94,6 +95,7 @@ app.include_router(support_router, prefix=API_PREFIX)
 app.include_router(grants_router, prefix=API_PREFIX)
 app.include_router(team_router, prefix=API_PREFIX)
 app.include_router(business_router, prefix=API_PREFIX)
+app.include_router(gstin_lookup_router, prefix=API_PREFIX)
 app.include_router(home_router, prefix=API_PREFIX)
 app.include_router(product_imports_router, prefix=API_PREFIX)  # before products: /products/import-template
 app.include_router(products_router, prefix=API_PREFIX)

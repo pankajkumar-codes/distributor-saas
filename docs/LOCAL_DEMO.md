@@ -149,6 +149,14 @@ so you create a business through the sign-up page.
 - The own-invoice Excel reader is real (R1-M5). Its sample is read, previewed and can be confirmed into documents (R1-M7, step 14 below). The PDF reader arrives in R1-M6. Confirming Amazon, Flipkart or Meesho files is refused on purpose, until the CA settles how their rows are treated.
 - Retention (clean-up of old uploads) is switched off, as it ships.
 
+## 3b. Trying the GSTIN lookup on sign-up
+
+The demo runs a **fake** lookup (made-up details, never real data). Sign up as yourself, and on "Your business and GST" type any
+well-formed GSTIN, for example `19AAPFU0939F1ZS`: the legal name, trade name and address fill with "Demo Traders ..." and a line says
+they are made-up demo details. Type over any of them, or ignore them. A GSTIN whose 13th character is `9` finds nothing, `8` shows a
+cancelled registration, `7` makes the lookup fail with a plain message; the form works by hand in every case. A real provider is not
+connected: see docs/GSTIN_LOOKUP.md.
+
 ## 4. Test guide for R1-M3 (uploading your reports)
 
 Sample files are in the **`demo\samples`** folder (`demo/samples`). Use the ready-made account for steps 1 to 12:
