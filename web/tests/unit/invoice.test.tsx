@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../../src/App";
@@ -190,6 +190,91 @@ describe("the draft invoice form", () => {
     const link = await screen.findByRole("link", { name: "Open the preview (PDF)" });
     expect(link).toHaveAttribute("href", "https://files.example/p.pdf");
     expect(screen.getByText("Draft, not a tax invoice.")).toBeInTheDocument();
+  });
+
+  describe("the preview states", () => {
+    const PREVIEW = `${ONE}/preview`;
+    const opened = async () => {
+      server.reply(ONE, { status: 200, body: draft() });
+      server.reply("/api/v1/b/b-1/products/p-1", { status: 200, body: product });
+      open("/b/b-1/invoices/d-1");
+      await screen.findByText("Sharma Traders");
+    };
+    const press = () => fireEvent.click(screen.getByRole("button", { name: "Preview PDF" }));
+    const started = { status: 202, body: { job_id: "j-1", draft_version: 1 } };
+    const gone = { status: 401, body: { error: { code: "session_invalid", message: "Sign in" } } };
+
+    it("starts with only the button", async () => {
+      await opened();
+      expect(screen.getByRole("button", { name: "Preview PDF" })).toBeEnabled();
+      expect(screen.queryByText("Preparing the preview…")).toBeNull();
+      expect(screen.queryByRole("link", { name: "Open the preview (PDF)" })).toBeNull();
+    });
+
+    it("refreshes an expired token during polling and carries on to the link", async () => {
+      await opened();
+      server.reply(PREVIEW, started);
+      server.reply(`${PREVIEW}/j-1`, { status: 200, body: { status: "queued" } }, gone, { status: 200, body: { status: "ready", url: "https://files.example/p.pdf" } });
+      server.reply(REFRESH, { status: 200, body: { access_token: "t2", expires_in: 3600 } });
+      press();
+      expect(await screen.findByText("Preparing the preview…")).toBeInTheDocument();
+      expect(await screen.findByRole("link", { name: "Open the preview (PDF)" }, { timeout: 6000 })).toHaveAttribute("href", "https://files.example/p.pdf");
+      expect(window.location.pathname).toBe("/b/b-1/invoices/d-1");
+    });
+
+    it("says the session ended, keeps the draft on screen, and signs in again back to the same draft", async () => {
+      await opened();
+      server.reply(PREVIEW, started);
+      server.reply(`${PREVIEW}/j-1`, gone);
+      server.reply(REFRESH, { status: 503 }); // the refresh could not settle it: the 401 stays
+      press();
+      expect(await screen.findByText(/Your session has ended\. Your draft is saved\./)).toBeInTheDocument();
+      expect(screen.queryByText("Preparing the preview…")).toBeNull();
+      expect(screen.getByText("Sharma Traders")).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Sign in again" }));
+      await waitFor(() => expect(window.location.pathname).toBe("/signin"));
+      expect(window.location.search).toBe(`?next=${encodeURIComponent("/b/b-1/invoices/d-1")}`);
+    });
+
+    it("shows an error with Try again when the status cannot be read, instead of staying on Preparing", async () => {
+      await opened();
+      server.reply(PREVIEW, started, started);
+      server.reply(`${PREVIEW}/j-1`, { status: 503 }, { status: 503 }, { status: 503 }, { status: 200, body: { status: "ready", url: "https://files.example/p.pdf" } });
+      press();
+      expect(await screen.findByText(/Something went wrong on our side/, undefined, { timeout: 6000 })).toBeInTheDocument();
+      expect(screen.queryByText("Preparing the preview…")).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+      expect(await screen.findByRole("link", { name: "Open the preview (PDF)" })).toBeInTheDocument();
+    });
+
+    it("after 30 seconds of preparing says it is slow, and Try again looks again", async () => {
+      await opened();
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      try {
+        server.reply(PREVIEW, started, started);
+        server.reply(`${PREVIEW}/j-1`, ...Array.from({ length: 40 }, () => ({ status: 200, body: { status: "rendering" } }))); // the job never finishes
+        press();
+        expect(await screen.findByText("Preparing the preview…")).toBeInTheDocument();
+        await act(async () => {
+          vi.advanceTimersByTime(29_000);
+        });
+        expect(screen.queryByText(/taking longer than usual/)).toBeNull();
+        await act(async () => {
+          vi.advanceTimersByTime(2_000);
+        });
+        expect(screen.getByText(/taking longer than usual/)).toBeInTheDocument();
+        expect(screen.queryByText("Preparing the preview…")).toBeNull();
+        const looks = () => server.sent.filter((x) => x.path === `${PREVIEW}/j-1`).length;
+        const before = looks();
+        fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+        await waitFor(() => expect(looks()).toBeGreaterThan(before));
+        expect(sent(PREVIEW, "POST")).toHaveLength(2); // asked again for the same saved version
+        expect(screen.queryByText(/taking longer than usual/)).toBeNull(); // and the 30 seconds start over
+        expect(screen.getByText("Preparing the preview…")).toBeInTheDocument();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 
   it("after a save, a customer draft whose server-filled ship-to is the customer's own address is not dirty", async () => {

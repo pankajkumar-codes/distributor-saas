@@ -21,6 +21,7 @@ import { useStockFlags } from "../stock/useStock";
 import { CustomerPicker, ProductPicker } from "./Pickers";
 import { Totals } from "./Totals";
 import { useFinalize } from "./useFinalize";
+import { PreviewPanel } from "./PreviewPanel";
 import { usePreview } from "./usePreview";
 import { NoAccess } from "../../kit/NoAccess";
 
@@ -172,7 +173,6 @@ export function InvoicePage() {
     : finalizeError.status === 404
       ? "Finalizing isn't switched on for your business yet. Your draft is saved."
       : finalizeError.fix ?? (finalizeError.message || errorText(finalizeError));
-  const previewReady = preview.status.data?.status === "ready" && preview.forVersion === saved?.version;
 
   return (
     <>
@@ -307,25 +307,7 @@ export function InvoicePage() {
         )}
         {dirty && saved && <p className="hint">Totals and checks are from your last save.</p>}
 
-        {saved && (
-          <section aria-label="Preview">
-            <Button type="button" busy={preview.start.isPending} disabled={dirty} onClick={() => preview.start.mutate()}>
-              Preview PDF
-            </Button>
-            {dirty && <p className="hint">Save first: the preview shows the saved draft.</p>}
-            {preview.start.error && <Banner tone="error">{errorText(preview.start.error)}</Banner>}
-            {preview.start.data && preview.forVersion === saved.version && !previewReady && preview.status.data?.status !== "failed" && <p aria-busy="true">Preparing the preview…</p>}
-            {preview.status.data?.status === "failed" && <Banner tone="error">The preview could not be made. Try again.</Banner>}
-            {previewReady && (
-              <p>
-                <a href={preview.status.data?.url ?? "#"} target="_blank" rel="noopener noreferrer">
-                  Open the preview (PDF)
-                </a>{" "}
-                <span className="hint">Draft, not a tax invoice.</span>
-              </p>
-            )}
-          </section>
-        )}
+        {saved && <PreviewPanel preview={preview} version={saved.version} dirty={dirty} />}
 
         <section aria-label="Finalize">
             <p className="hint">
