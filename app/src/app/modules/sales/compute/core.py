@@ -344,6 +344,16 @@ def _classify(inp: ComputeInput, inter: bool | None, doc_total: Decimal):
     return "B2CL" if inter and doc_total > inp.rules.b2cl_threshold else "B2CS"
 
 
+_BUSINESS_PART = {"legal_name": "legal name", "address": "address", "gstin": "GSTIN"}
+
+
+def _business_not_ready_words(missing: tuple[str, ...]) -> str:
+    """Say which of the business's own details are missing (the buyer's details are never the cause)."""
+    parts = [_BUSINESS_PART.get(m, m) for m in missing]
+    listed = parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " and " + parts[-1]
+    return f"Your business's {listed} {'is' if len(parts) == 1 else 'are'} missing."
+
+
 def _document_checks(inp: ComputeInput, checks: _Checks, doc_total: Decimal, supply_class) -> None:
     b, rules = inp.buyer, inp.rules
     if not b.gstin and doc_total >= rules.unregistered_address_threshold:  # Rule 46(e), G9
@@ -354,7 +364,7 @@ def _document_checks(inp: ComputeInput, checks: _Checks, doc_total: Decimal, sup
                 field="ship_to",
             )
     if inp.seller.ready_missing:
-        checks.block("business_not_ready", "Add your address first.", field="business")
+        checks.block("business_not_ready", _business_not_ready_words(inp.seller.ready_missing), field="business")
     if supply_class == "B2B" and inp.seller.einvoice_status == "applies":  # L4-4
         checks.block(
             "einvoice_applies",

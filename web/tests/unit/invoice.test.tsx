@@ -85,6 +85,20 @@ describe("a check that needs last year's turnover band", () => {
   });
 });
 
+describe("a check that says the business's own details are missing", () => {
+  it("links to Business setup and shows one plain line under Finalize", async () => {
+    server.reply("/api/v1/b/b-1/products/p-1", { status: 200, body: product });
+    const block = { code: "business_not_ready", fix: "Your business's GSTIN is missing.", field: "business" };
+    server.reply(ONE, { status: 200, body: draft({ ready: false, computation: computation({ blocks: [block] }) }) });
+    open("/b/b-1/invoices/d-1");
+    expect(await screen.findByText(/Your business's GSTIN is missing/)).toBeInTheDocument();
+    const link = screen.getByRole("link", { name: "Open Business setup" });
+    expect(link).toHaveAttribute("href", "/b/b-1/settings");
+    expect(screen.getByText("Fix the checks above and save again to finalize.")).toBeInTheDocument();
+    expect(screen.queryByText(/After Save draft/)).toBeNull();
+  });
+});
+
 describe("a cash sale without the buyer's state", () => {
   it("says to choose the state beside the field and sends nothing", async () => {
     server.reply("/api/v1/b/b-1/products/p-1", { status: 200, body: product });
@@ -282,6 +296,6 @@ describe("the form's body", () => {
     open("/b/b-1/invoices/new");
     expect(await screen.findByText(/Practice mode\./)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Finalize invoice" })).toBeDisabled();
-    expect(screen.getByText(/Finalize gives the invoice its number and locks it/)).toBeInTheDocument();
+    expect(screen.getByText("Save the draft first: the invoice is made from the saved draft.")).toBeInTheDocument();
   });
 });

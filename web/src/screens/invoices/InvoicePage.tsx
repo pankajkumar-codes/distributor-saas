@@ -318,9 +318,13 @@ export function InvoicePage() {
             <Button type="button" busy={finalize.isPending} disabled={!saved || dirty || saved.ready === false} onClick={() => finalize.mutate()}>
               Finalize invoice
             </Button>
-            <p className="hint">After Save draft: Finalize gives the invoice its number and locks it; changes after that need a credit note.</p>
-            {dirty && <p className="hint">Save the draft first: the invoice is made from the saved draft.</p>}
-            {!dirty && saved && saved.ready === false && <p className="hint">Fix the checks above, then save, before you finalize.</p>}
+            <p className="hint">
+              {dirty
+                ? "Save the draft first: the invoice is made from the saved draft."
+                : saved && saved.ready === false
+                  ? "Fix the checks above and save again to finalize."
+                  : "Finalizing gives the invoice its number and locks it; later changes need a credit note."}
+            </p>
             {finalizeWords && (
               <Banner tone="error">
                 {finalizeWords}
