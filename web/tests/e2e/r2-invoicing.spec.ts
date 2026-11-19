@@ -91,6 +91,17 @@ test("R2: purchase, stock, price, practice invoice, PDF request", async ({ page 
   await expect(page.getByRole("heading", { name: "Invoice issued" })).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText("Practice invoice.")).toBeVisible();
   await expect(page.getByText("It is not a tax invoice and is not in any GST return.")).toBeVisible();
+  // The issued page shows the buyer, the line with its tax split and the totals, and fits the screen.
+  await expect(page.getByText("Practice · not for customers")).toBeVisible();
+  await expect(page.getByText("Asha Stores").first()).toBeVisible();
+  const line = page.getByRole("row").filter({ hasText: "Neem soap" });
+  await expect(line).toContainText("HSN 340111");
+  await expect(line).toContainText("3 NOS");
+  await expect(line).toContainText("CGST");
+  await expect(line).toContainText("SGST");
+  await expect(page.getByRole("heading", { name: "Totals" })).toBeVisible();
+  await expect(page.getByText("Taxable value", { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await noSeriousAxeFindings(page);
 
   // The PDF is asked for in the background; the button survives a reload.

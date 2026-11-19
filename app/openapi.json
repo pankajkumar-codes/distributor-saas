@@ -2722,8 +2722,41 @@
       },
       "DocumentDetailOut": {
         "properties": {
+          "amount_in_words": {
+            "title": "Amount In Words",
+            "type": "string"
+          },
+          "buyer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DocumentParty"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cess_total": {
+            "title": "Cess Total",
+            "type": "string"
+          },
           "cgst_total": {
             "title": "Cgst Total",
+            "type": "string"
+          },
+          "charges_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Charges Label"
+          },
+          "charges_total": {
+            "title": "Charges Total",
             "type": "string"
           },
           "counterparty_name": {
@@ -2785,6 +2818,10 @@
             "title": "Fy",
             "type": "string"
           },
+          "gross_total": {
+            "title": "Gross Total",
+            "type": "string"
+          },
           "gstin": {
             "title": "Gstin",
             "type": "string"
@@ -2795,6 +2832,10 @@
           },
           "igst_total": {
             "title": "Igst Total",
+            "type": "string"
+          },
+          "invoice_discount": {
+            "title": "Invoice Discount",
             "type": "string"
           },
           "is_inter_state": {
@@ -2809,8 +2850,30 @@
             "title": "Kind",
             "type": "string"
           },
+          "line_discount_total": {
+            "title": "Line Discount Total",
+            "type": "string"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentLineOut"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
           "pdf": {
             "$ref": "#/components/schemas/DocumentPdfState"
+          },
+          "place_of_supply": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Place Of Supply"
           },
           "pos_state_code": {
             "title": "Pos State Code",
@@ -2823,6 +2886,16 @@
           "sgst_total": {
             "title": "Sgst Total",
             "type": "string"
+          },
+          "ship_to": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DocumentShipTo"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "stock_movements": {
             "title": "Stock Movements",
@@ -2864,10 +2937,131 @@
           "round_off",
           "doc_total",
           "finalized_at",
+          "buyer",
+          "ship_to",
+          "place_of_supply",
+          "lines",
+          "gross_total",
+          "line_discount_total",
+          "invoice_discount",
+          "charges_total",
+          "charges_label",
+          "cess_total",
+          "amount_in_words",
           "pdf",
           "stock_movements"
         ],
         "title": "DocumentDetailOut",
+        "type": "object"
+      },
+      "DocumentLineOut": {
+        "description": "One stored line, as finalized: the page shows it and works out nothing.",
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "discount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discount"
+          },
+          "gross": {
+            "title": "Gross",
+            "type": "string"
+          },
+          "hsn": {
+            "title": "Hsn",
+            "type": "string"
+          },
+          "no": {
+            "title": "No",
+            "type": "string"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "string"
+          },
+          "taxable": {
+            "title": "Taxable",
+            "type": "string"
+          },
+          "taxes": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentLineTax"
+            },
+            "title": "Taxes",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "string"
+          },
+          "unit_price": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit Price"
+          },
+          "uqc": {
+            "title": "Uqc",
+            "type": "string"
+          }
+        },
+        "required": [
+          "no",
+          "description",
+          "hsn",
+          "quantity",
+          "uqc",
+          "unit_price",
+          "gross",
+          "discount",
+          "taxable",
+          "taxes",
+          "total"
+        ],
+        "title": "DocumentLineOut",
+        "type": "object"
+      },
+      "DocumentLineTax": {
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "string"
+          },
+          "component": {
+            "enum": [
+              "CGST",
+              "SGST",
+              "UTGST",
+              "IGST"
+            ],
+            "title": "Component",
+            "type": "string"
+          },
+          "rate": {
+            "title": "Rate",
+            "type": "string"
+          }
+        },
+        "required": [
+          "component",
+          "rate",
+          "amount"
+        ],
+        "title": "DocumentLineTax",
         "type": "object"
       },
       "DocumentOut": {
@@ -3012,6 +3206,58 @@
         "title": "DocumentOut",
         "type": "object"
       },
+      "DocumentParty": {
+        "properties": {
+          "address": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Address",
+            "type": "array"
+          },
+          "gstin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gstin"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State"
+          }
+        },
+        "required": [
+          "name",
+          "gstin",
+          "address",
+          "state"
+        ],
+        "title": "DocumentParty",
+        "type": "object"
+      },
       "DocumentPdfRef": {
         "properties": {
           "attempt": {
@@ -3110,6 +3356,34 @@
           "number"
         ],
         "title": "DocumentRef",
+        "type": "object"
+      },
+      "DocumentShipTo": {
+        "properties": {
+          "address": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Address",
+            "type": "array"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State"
+          }
+        },
+        "required": [
+          "address",
+          "state"
+        ],
+        "title": "DocumentShipTo",
         "type": "object"
       },
       "DocumentsOut": {
@@ -12815,7 +13089,7 @@
     },
     "/api/v1/b/{business_id}/documents/{document_id}": {
       "get": {
-        "description": "One finalized document as stored, where its PDF stands and how many stock movements it wrote. Read-only: nothing\nis queued; ask for the PDF with POST .../pdf.",
+        "description": "One finalized document as stored (header, buyer, lines with their tax split), where its PDF stands and how many stock movements it wrote. Read-only: nothing\nis queued; ask for the PDF with POST .../pdf.",
         "operationId": "get_document_api_v1_b__business_id__documents__document_id__get",
         "parameters": [
           {

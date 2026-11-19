@@ -6,6 +6,7 @@ Made-up data. Skipped unless PG_ADMIN_URL points at a disposable server.
 """
 
 import json
+from decimal import Decimal
 import uuid
 from datetime import timedelta
 
@@ -178,6 +179,11 @@ def test_a_reload_finds_the_document_its_pdf_state_and_its_stock_movements(shop)
     body = one.json()
     assert body["id"] == doc["id"] and body["is_practice"] is True and body["doc_number"] == doc["doc_number"]
     assert body["stock_movements"] == 1  # one line, one sale_out
+    assert len(body["lines"]) == 1 and body["buyer"]["name"] and body["place_of_supply"]
+    line = body["lines"][0]
+    assert line["description"] and line["hsn"] and line["taxes"]  # stored lines carry their tax split
+    assert line["total"] == str(Decimal(line["taxable"]) + sum(Decimal(t["amount"]) for t in line["taxes"]))
+    assert body["amount_in_words"] and body["gross_total"] and body["charges_total"] == "0.00"
     assert body["pdf"] == {"status": "none", "job_id": None, "attempt": None, "url": None, "error_code": None}
     job_id = _ask(pg, biz, doc).json()["job_id"]
     assert _get(pg, biz, doc["id"]).json()["pdf"]["status"] == "queued"
