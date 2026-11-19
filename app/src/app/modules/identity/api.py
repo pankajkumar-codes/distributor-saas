@@ -129,6 +129,9 @@ class TenantIn(BaseModel):
     name: str = Field(min_length=1, max_length=200)
 
 
+UNNAMED = "Unnamed business"  # a business row may have no name yet (#280)
+
+
 class TenantOut(BaseModel):
     id: uuid.UUID
     name: str
@@ -181,7 +184,7 @@ def my_tenants(
         .where(Membership.user_id == me(session), Membership.status == MembershipStatus.active)
         .order_by(Business.name)
     ).all()
-    return [TenantOut(id=t.id, name=t.name, role=role) for t, role in rows]
+    return [TenantOut(id=t.id, name=t.name or UNNAMED, role=role) for t, role in rows]
 
 
 @router.get("/tenants/{tenant_id}", response_model=TenantOut)
@@ -193,4 +196,4 @@ def get_tenant(
     tid = parse_id(tenant_id)
     membership = active_membership(session, tid)
     tenant = session.get(Business, tid)
-    return TenantOut(id=tenant.id, name=tenant.name, role=membership.role)
+    return TenantOut(id=tenant.id, name=tenant.name or UNNAMED, role=membership.role)
