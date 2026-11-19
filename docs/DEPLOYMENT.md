@@ -40,7 +40,7 @@ Compare:
 - Vendor lock-in.
 
 ## Current state (D-040)
-AWS in Mumbai (`ap-south-1`) is chosen (TD-1). The Terraform under `infra/` and the
+AWS in Mumbai (`ap-south-1`) is chosen (TD-1). **Tenant data stays in India (D-094):** only `ap-south-1` and `ap-south-2` are used for anything that holds tenant data; CI enforces it (`scripts/ci_checks/india_only.py`). The Terraform under `infra/` and the
 manual workflow `.github/workflows/deploy-staging.yml` are written but **not applied**:
 no AWS resource exists until Pankaj decides on staging, and the first staging deploy needs
 the CEO's approval (TD-20, TD-21). How to deploy and test: `docs/TESTING.md` §3.
