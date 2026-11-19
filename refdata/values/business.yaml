@@ -22,7 +22,9 @@
   kind: tax
   valid_from: 2021-01-01
   source_url: https://taxinformation.cbic.gov.in/content/html/tax_repository/gst/rules/cgst_rules/active/chapter8/rule61a_v1.00.html
-  source_title: "CGST Rules 2017, rule 61A(1): QRMP for a registered person with aggregate turnover up to five crore rupees in the preceding financial year (inserted by Notification 82/2020-CT dated 10-11-2020)"
-  last_checked: 2026-11-03
-  status: provisional
-  note: "The ₹5 crore figure was not re-read on the CBIC page in this session (UNVERIFIED); GST expert to confirm. valid_from = QRMP start 01-01-2021, as qrmp.option_window.*."
+  source_title: "GST Council Circular 143/13/2020-GST dated 10-11-2020 (QRMP scheme: registered person with aggregate turnover up to five crore rupees in the preceding financial year); CGST Rules 2017, rule 61A(1), inserted by Notification 82/2020-CT dated 10-11-2020"
+  last_checked: 2026-11-19
+  status: expert_confirmed
+  confirmed_by: "GST CA expert, v4 answers (source Circular 143/13/2020-GST); issue #362"
+  confirmed_on: 2026-11-19
+  note: "Up to five crore rupees aggregate turnover in the preceding financial year. valid_from = QRMP start 01-01-2021, as qrmp.option_window.*."

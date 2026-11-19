@@ -75,6 +75,8 @@
   valid_from: 2020-10-01
   valid_to: null
   source_url: https://gstcouncil.gov.in/sites/default/files/2024-05/notfctn-70-central-tax-english-2020.pdf
-  source_title: "Notf 70/2020-CT (30-09-2020): 'any preceding financial year from 2017-18 onwards'"
-  last_checked: 2026-10-24
-  status: provisional
+  source_title: "CGST Rules 2017, rule 46(s): 'aggregate turnover in any preceding financial year from 2017-18 onwards' (origin: Notf 70/2020-CT, 30-09-2020)"
+  last_checked: 2026-11-19
+  status: expert_confirmed
+  confirmed_by: "GST CA expert, v4 answers (refdata-provisional-check-hsn-einvoice-v1); issue #362"
+  confirmed_on: 2026-11-19
