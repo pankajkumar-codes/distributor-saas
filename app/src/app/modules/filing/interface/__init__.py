@@ -9,6 +9,7 @@ from ..periods import (
     ReturnInstance,
     assert_period_open,
     ensure_instances,
+    gstr1_period_month,
     instances_between,
     target_return_instance,
 )
@@ -45,6 +46,7 @@ __all__ = [
     "build_return",
     "build_sections",
     "ensure_instances",
+    "gstr1_period_month",
     "instances_between",
     "reconciliation_gap",
     "run_checks",

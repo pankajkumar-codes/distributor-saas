@@ -27,7 +27,7 @@ from decimal import Decimal, InvalidOperation
 from sqlalchemy import text
 
 from app.modules.business.interface import fy_of, hsn_band_missing, hsn_min_digits
-from app.modules.filing.interface import assert_period_open, target_return_instance
+from app.modules.filing.interface import assert_period_open, gstr1_period_month, target_return_instance
 from app.modules.refdata import first_valid_from, state_codes, value_on
 from platform_common import audit
 from platform_common.auth import debug_env
@@ -478,7 +478,8 @@ def _insert_document(uow: UnitOfWork, doc: documents.Doc, run_id: uuid.UUID, tod
         original_found = found is not None
         original_class = None if found is None else found.supply_class
     cls = documents.supply_class(doc.kind, doc.buyer_gstin, doc.inter_state, doc.total,
-                                 value_on(uow.tx, "gstr1.b2cl_threshold", doc.date), original_class)
+                                 value_on(uow.tx, "gstr1.b2cl_threshold", gstr1_period_month(uow.tx, doc.gstin, doc.date)),
+                                 original_class)
     inst = None
     if cls is not None:  # a debit note has no return yet
         inst = target_return_instance(uow.tx, doc.gstin, "credit_note" if doc.kind == "credit_note" else "invoice",

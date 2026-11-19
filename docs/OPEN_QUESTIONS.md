@@ -405,6 +405,9 @@ Full spec: `docs/TABLE13_SPEC.md`. Answers so far come from the AI CA and portal
 - **OQ-ASK-4 (owner):** download the missing pack documents (offline tool guide and JSON schema, registration, payments, e-invoice and e-way bill). Per-topic deep links are verified by the portal expert (`team/gst-portal-expert/URLS.md`, 2026-11-20); a document with no verified row uses the index URL.
 - **OQ-ASK-5 (owner):** release placement (recommended: own track with R2), support contact, log retention (90 days), who sees the bot (all members). See the decision table in the spec.
 
+## B2C-large limit and quarterly return periods (2026-11-19, #362)
+- **OQ-B2CL-1 (CA or test upload):** the B2C-large limit (Rs 2.5 lakh up to July 2024, Rs 1 lakh from August 2024) is chosen by the return period. How the portal labels a quarterly return period is not stated in the documents; we assume the quarter's last month (a Jul-Sep 2024 return counts as September, so Rs 1 lakh, including a document dated 31 July 2024). Portal behaviour, needs a CA answer or a test-upload check. Low risk: affects only 2024 quarterly returns. Code: `gstr1_period_month` in `filing/periods.py`.
+
 ## Decision handling
 For each answer, update `docs/DECISIONS.md` with the decision, rationale, trade-offs, and approval status. Do not silently turn assumptions into requirements.
 - **Turning live finalize on (CA, then CEO or Pankaj) (R3-M5, D-091):** a second refdata switch `sales.finalize.live` ships `"false"`; turn it on, after `sales.finalize.enabled`, only once the CA confirms the numbering scope (CA-1). Credit-note finalize is still not built (needs the credit-note treatment, CA).
