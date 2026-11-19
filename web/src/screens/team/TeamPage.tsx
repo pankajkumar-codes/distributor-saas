@@ -14,6 +14,7 @@ import { TopBar } from "../../kit/TopBar";
 import { useCancelInvite, useChangeRole, useInvite, useMembers, useResend, useSetActive, type InviteRole, type Member, type Role } from "./useTeam";
 import { NoAccess } from "../../kit/NoAccess";
 import { useFormKey } from "../../kit/formKey";
+import { useSingleFlight } from "../../kit/singleFlight";
 import { Loading } from "../../kit/Loading";
 
 // members.manage (docs/PERMISSIONS.md); the server answers anyone else 404.
@@ -158,6 +159,7 @@ export function TeamPage() {
   const team = useMembers(businessId, allowed);
   const resend = useResend(businessId);
   const cancel = useCancelInvite(businessId);
+  const once = useSingleFlight();
 
   if (businesses.isPending) {
     return (
@@ -209,7 +211,7 @@ export function TeamPage() {
                       {i.status !== "cancelled" && i.status !== "accepted" && (
                         <>
                           {i.status === "pending" && (
-                            <Button type="button" variant="link" disabled={resend.isPending} onClick={() => resend.mutate(i.id)} aria-label={`Resend the invitation to ${i.email}`}>
+                            <Button type="button" variant="link" disabled={resend.isPending} onClick={() => once((done) => resend.mutate(i.id, { onSettled: done }))} aria-label={`Resend the invitation to ${i.email}`}>
                               Resend
                             </Button>
                           )}{" "}

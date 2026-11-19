@@ -22,6 +22,7 @@ import { saleRateProblem } from "./saleRate";
 import { useGstRates } from "./useGstRates";
 import { NoAccess } from "../../kit/NoAccess";
 import { useFormKey } from "../../kit/formKey";
+import { useSingleFlight } from "../../kit/singleFlight";
 
 type Detail = components["schemas"]["ProductDetailOut"];
 type Category = components["schemas"]["ProductIn"]["tax_category"];
@@ -174,6 +175,7 @@ export function ProductPage() {
     setTheirFields([]);
   };
 
+  const once = useSingleFlight();
   const save = useMutation<Detail, ApiError>({
     mutationFn: () => {
       if (isNew) {
@@ -300,7 +302,7 @@ export function ProductPage() {
       setRateMissing(true);
       return;
     }
-    save.mutate();
+    once((done) => save.mutate(undefined, { onSettled: done }));
   };
   const otherError = error && !formField(error.field) ? error : (archive.error ?? remove.error);
 

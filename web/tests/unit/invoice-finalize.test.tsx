@@ -62,6 +62,19 @@ describe("a sales invoice from the catalog", () => {
     expect(link).toHaveAttribute("href", "https://files.example/p.pdf");
   });
 
+  it("asks for the PDF once when the button is pressed twice quickly", async () => {
+    server.reply(`GET ${B}/documents/doc-1`, { status: 200, body: { ...doc, stock_movements: 1, pdf: { status: "none" } } });
+    server.reply(`POST ${B}/documents/doc-1/pdf`, { status: 202, body: { job_id: "j-1", attempt: 1 } });
+    window.history.replaceState(null, "", "/b/b-1/documents/doc-1");
+    render(<App />);
+    const button = await screen.findByRole("button", { name: "Download practice PDF" });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    await vi.waitFor(() => expect(server.sent.filter((s) => s.method === "POST" && s.path === `${B}/documents/doc-1/pdf`)).toHaveLength(1));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(server.sent.filter((s) => s.method === "POST" && s.path === `${B}/documents/doc-1/pdf`)).toHaveLength(1);
+  });
+
   it("shows a PDF that is already ready when the invoice is opened later", async () => {
     server.reply(`GET ${B}/documents/doc-1`, { status: 200, body: { ...doc, stock_movements: 1, pdf: { status: "ready", job_id: "j-1", attempt: 1, url: "https://files.example/p.pdf" } } });
     window.history.replaceState(null, "", "/b/b-1/documents/doc-1");
