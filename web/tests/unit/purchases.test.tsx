@@ -12,7 +12,6 @@ const REFRESH = "/api/v1/auth/refresh";
 const ME = "/api/v1/me/businesses";
 const B = "/api/v1/b/b-1";
 const me = (role = "owner") => ({ status: 200, body: { businesses: [{ business_id: "b-1", display_name: "Vashi Essentials", gstin: "19ABCDE1234F1Z5", role }] } });
-const profile = (business_type: string | null) => ({ status: 200, body: { business_id: "b-1", business_type, version: 7 } });
 const draft = (over: Record<string, unknown> = {}) => ({
   id: "d-1", file_id: "f-1", file_name: "bill.pdf", ordinal: 1, reader: "pdf_text_v1", pages: [1], doc_type: "Invoice",
   supplier_gstin: "19ABCDE1234F1ZX", doc_number: "SUP-1", doc_date: "03-07-2026", invoice_total: "236.00", unclear: [], decision: null,
@@ -35,26 +34,16 @@ const open = (path: string) => {
 };
 
 describe("purchase invoices", () => {
-  it("asks for the business type first and saves it with the profile version", async () => {
-    server.reply(`${B}/profile`, profile(null));
-    open("/b/b-1/purchases");
-    expect(await screen.findByRole("heading", { name: "First, what kind of business is this?" })).toBeInTheDocument();
-    expect(screen.queryByLabelText(/Choose an invoice/)).toBeNull();
-    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
-    fireEvent.click(screen.getByLabelText("Retail"));
-    server.reply(`PATCH ${B}/profile`, { status: 200, body: { profile: { business_id: "b-1", business_type: "retail", version: 8 }, warnings: [] } });
-    server.reply(`GET ${B}/profile`, profile("retail"));
+  it("takes uploads without asking for a business type", async () => {
     server.reply(`${B}/purchase-files`, { status: 200, body: { files: [], has_more: false } });
     server.reply(`${B}/purchase-drafts`, { status: 200, body: { drafts: [], has_more: false } });
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    open("/b/b-1/purchases");
     expect(await screen.findByLabelText(/Choose an invoice/)).toBeInTheDocument();
-    const patch = server.sent.find((s) => s.method === "PATCH")!;
-    expect(patch.headers.get("If-Match")).toBe("7");
-    expect(patch.body).toEqual({ business_type: "retail" });
+    expect(screen.queryByText(/what kind of business/)).toBeNull();
+    expect(server.paths()).not.toContain(`${B}/profile`);
   });
 
   it("lists what waits for a check and the files, once a type is chosen", async () => {
-    server.reply(`${B}/profile`, profile("distributor"));
     server.reply(`${B}/purchase-files`, { status: 200, body: { files: [{ id: "f-9", file_name: "photo.jpg", size_bytes: 9, kind: "image", status: "rejected", reject_reason: "not_an_image", reject_message: "This file isn't a photo we can keep.", created_at: "2026-11-18T10:00:00Z" }], has_more: false } });
     server.reply(`${B}/purchase-drafts`, { status: 200, body: { drafts: [draft(), draft({ id: "d-2", reader: "none", doc_number: null })], has_more: false } });
     open("/b/b-1/purchases");

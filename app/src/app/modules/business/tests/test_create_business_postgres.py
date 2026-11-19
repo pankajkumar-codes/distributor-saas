@@ -80,16 +80,20 @@ def test_a_retry_with_the_same_key_returns_the_first_answer_and_creates_nothing(
     assert create(pg.client, sub="bob", key="k1").json()["business_id"] != first.json()["business_id"]
 
 
-def test_business_type_is_optional_at_sign_up_and_stored_when_sent(pg):  # R2-M1
+def test_business_types_are_optional_at_sign_up_and_stored_when_sent(pg):  # R2-M1, D-095
+    q = "select business_types from business.profiles where business_id = :b"
     r = create(pg.client)  # BODY has none: an R1-style filing-only business
     assert r.status_code == 201, r.text
-    assert scalar(pg.owner, "select business_type from business.profiles where business_id = :b",
-                  b=r.json()["business_id"]) is None
-    r = create(pg.client, sub="bob", body={**BODY, "business_type": "retail"})
+    assert scalar(pg.owner, q, b=r.json()["business_id"]) == []
+    # Several, in any order and with a repeat: stored once each, in the fixed order.
+    r = create(pg.client, sub="bob", body={**BODY, "business_types": ["online_seller", "retailer", "retailer"]})
     assert r.status_code == 201, r.text
-    assert scalar(pg.owner, "select business_type from business.profiles where business_id = :b",
-                  b=r.json()["business_id"]) == "retail"
-    refused = create(pg.client, sub="carol", body={**BODY, "business_type": "salon"})
+    assert scalar(pg.owner, q, b=r.json()["business_id"]) == ["retailer", "online_seller"]
+    # The one-word field of R2-M1 still works for a release: retail is now retailer.
+    r = create(pg.client, sub="dave", body={**BODY, "business_type": "retail"})
+    assert r.status_code == 201, r.text
+    assert scalar(pg.owner, q, b=r.json()["business_id"]) == ["retailer"]
+    refused = create(pg.client, sub="carol", body={**BODY, "business_types": ["salon"]})
     assert refused.status_code == 422
 
 

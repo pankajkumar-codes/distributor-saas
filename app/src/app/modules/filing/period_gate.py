@@ -148,13 +148,22 @@ def open_file(uow: UnitOfWork, kind: str, start: date, today: date) -> Gate:
     return gate
 
 
+def invoices_in_portal(tx) -> bool:
+    """True once the business has an own invoice here: a finalized one (sales.v_filing_lines) or a practice one
+    (sales.v_practice_documents). Both views are security_invoker, so this reads the bound business only."""
+    return bool(tx.execute(text(
+        "select exists (select 1 from sales.v_filing_lines where business_id = nullif(current_setting("
+        "'app.tenant_id', true), '')::uuid) or exists (select 1 from sales.v_practice_documents where business_id ="
+        " nullif(current_setting('app.tenant_id', true), '')::uuid)")).scalar())
+
+
 def assert_open_for_instance(uow: UnitOfWork, instance, today: date) -> None:
-    """The file of a return is made only through the gate, for a business that invoices in our portal (it has chosen a
-    business type). A marketplace seller who never chose one files as in R1. GSTR-3B has no file here, so it is not gated."""
+    """The file of a return is made only through the gate, for a business that invoices in our portal (it has own
+    invoices, finalized or practice, D-095). A marketplace seller with none files as in R1, whatever its business type.
+    GSTR-3B has no file here, so it is not gated."""
     if instance.form not in ("GSTR1", "IFF"):
         return
-    profile = get_profile(uow.tx)
-    if profile is None or profile.business_type is None:
+    if not invoices_in_portal(uow.tx):
         return
     kind = "month" if instance.period_start.month == instance.period_end.month else "quarter"
     if not status(uow, kind, instance.period_start, today).can_file:

@@ -47,6 +47,58 @@ const open = (path: string) => {
 };
 const sent = (path: string, method: string) => server.sent.filter((s) => s.path === path && s.method === method);
 
+describe("a check that needs last year's turnover band", () => {
+  it("links to the band field on Business setup, remembering which invoice to come back to", async () => {
+    server.reply("/api/v1/b/b-1/products/p-1", { status: 200, body: product });
+    const block = { code: "hsn_needs_turnover_band", fix: "Tell us last year's turnover band (FY 2025-26) to use 4-digit HSN codes. Until then, HSN codes need at least 6 digits.", field: "business.turnover_band", line_no: 1 };
+    server.reply(ONE, { status: 200, body: draft({ computation: computation({ blocks: [block] }) }) });
+    open("/b/b-1/invoices/d-1");
+    const link = await screen.findByRole("link", { name: "Set last year's turnover band" });
+    expect(link).toHaveAttribute("href", "/b/b-1/settings#last-year-band");
+    fireEvent.click(link);
+    expect(window.location.pathname).toBe("/b/b-1/settings");
+    expect(window.history.state?.usr?.backTo).toBe("/b/b-1/invoices/d-1");
+  });
+
+  it("shows the server's fresh checks when the user comes back, so Finalize is no longer held", async () => {
+    server.reply("/api/v1/b/b-1/products/p-1", { status: 200, body: product });
+    const block = { code: "hsn_needs_turnover_band", fix: "Tell us last year's turnover band (FY 2025-26) to use 4-digit HSN codes.", field: "business.turnover_band", line_no: 1 };
+    server.reply(ONE, { status: 200, body: draft({ computation: computation({ blocks: [block] }) }) }, { status: 200, body: draft({ computation: computation() }) });
+    open("/b/b-1/invoices/d-1");
+    fireEvent.click(await screen.findByRole("link", { name: "Set last year's turnover band" }));
+    await waitFor(() => expect(window.location.pathname).toBe("/b/b-1/settings"));
+    window.history.back();
+    await waitFor(() => expect(window.location.pathname).toBe("/b/b-1/invoices/d-1"));
+    await waitFor(() => expect(screen.queryByText(/Tell us last year's turnover band/)).toBeNull());
+    expect(screen.getByRole("button", { name: "Finalize invoice" })).toBeEnabled();
+  });
+
+  it("does not offer to leave while there are unsaved edits", async () => {
+    server.reply("/api/v1/b/b-1/products/p-1", { status: 200, body: product });
+    const block = { code: "hsn_needs_turnover_band", fix: "Tell us last year's turnover band (FY 2025-26) to use 4-digit HSN codes.", field: "business.turnover_band", line_no: 1 };
+    server.reply(ONE, { status: 200, body: draft({ computation: computation({ blocks: [block] }) }) });
+    open("/b/b-1/invoices/d-1");
+    await screen.findByRole("link", { name: "Set last year's turnover band" });
+    fireEvent.change(screen.getByLabelText("Quantity"), { target: { value: "11" } });
+    expect(screen.queryByRole("link", { name: "Set last year's turnover band" })).toBeNull();
+    expect(screen.getByText(/Save your changes first/)).toBeInTheDocument();
+  });
+});
+
+describe("a cash sale without the buyer's state", () => {
+  it("says to choose the state beside the field and sends nothing", async () => {
+    server.reply("/api/v1/b/b-1/products/p-1", { status: 200, body: product });
+    open("/b/b-1/invoices/new");
+    fireEvent.click(await screen.findByLabelText("Cash sale (no GSTIN)"));
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+    expect(await screen.findByText("Choose the buyer's state for a cash sale.")).toBeInTheDocument();
+    expect(sent(DRAFTS, "POST")).toHaveLength(0);
+    expect(screen.getByLabelText("Buyer's state")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByText("Choose the buyer's state for a cash sale.")).toHaveAttribute("role", "alert");
+    expect(document.activeElement).toBe(screen.getByLabelText("Buyer's state")); // focus goes to the field to fix
+  });
+});
+
 describe("the draft invoice form", () => {
   it("creates a draft once, with the picked customer and product, and shows the server's totals and checks", async () => {
     server.reply("/api/v1/b/b-1/customers", { status: 200, body: { items: [customer], has_more: false } });
@@ -180,50 +232,14 @@ describe("the form's body", () => {
     expect(f.lines[0]).toMatchObject({ key: "l-1", name: "Gel", quantity: "10", unit_price: "100.00" });
   });
 
-  describe("business type", () => {
-    const PROFILE = "/api/v1/b/b-1/profile";
-    const profile = (business_type: string | null) => ({ status: 200, body: { version: 5, business_type } });
-    const refused = { status: 409, body: { error: { code: "business_type_required", message: "Choose Distributor or Retail in Business setup first" } } };
-
-    it("asks for the business type before the form when it is missing, and saves it through the profile call", async () => {
-      server.reply(PROFILE, profile(null));
-      server.reply(`PATCH ${PROFILE}`, { status: 200, body: { profile: { version: 6, business_type: "retail" }, warnings: [] } });
-      open("/b/b-1/invoices/new");
-      expect(await screen.findByRole("heading", { name: "Choose your business type to start invoicing" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Save business type" })).toBeDisabled();
-      fireEvent.change(screen.getByLabelText("Business type"), { target: { value: "retail" } });
-      fireEvent.click(screen.getByRole("button", { name: "Save business type" }));
-      await waitFor(() => expect(screen.queryByRole("heading", { name: "Choose your business type to start invoicing" })).toBeNull());
-      const [patch] = sent(PROFILE, "PATCH");
-      expect(patch.headers.get("If-Match")).toBe("5");
-      expect(patch.body).toEqual({ business_type: "retail" });
-    });
-
-    it("keeps the form when a save is refused, asks inline, then saves the draft as typed", async () => {
-      server.reply(PROFILE, profile(null));
-      server.reply(`PATCH ${PROFILE}`, { status: 200, body: { profile: { version: 6, business_type: "distributor" }, warnings: [] } });
-      server.reply(DRAFTS, refused, { status: 201, body: draft() });
-      open("/b/b-1/invoices/new");
-      fireEvent.change(await screen.findByLabelText("Invoice date"), { target: { value: "2026-11-09" } });
-      fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
-      fireEvent.change(await screen.findByLabelText("Business type"), { target: { value: "distributor" } });
-      expect(screen.getByLabelText("Invoice date")).toHaveValue("2026-11-09"); // nothing typed is lost
-      fireEvent.click(screen.getByRole("button", { name: "Save and save my draft" }));
-      expect(await screen.findByRole("heading", { name: "Draft invoice" })).toBeInTheDocument();
-      expect(sent(DRAFTS, "POST")).toHaveLength(2);
-    });
-
-    it("tells billing, who cannot change the profile, who can", async () => {
-      server = fakeApi(); // a fresh one: the owner reply queued in beforeEach would be read first
-      server.reply(REFRESH, { status: 200, body: { access_token: "t", expires_in: 3600 } });
-      server.reply(ME, mine("billing"));
-      server.reply(STATES, states);
-      server.reply(DRAFTS, refused);
-      open("/b/b-1/invoices/new");
-      fireEvent.click(await screen.findByRole("button", { name: "Save draft" }));
-      expect(await screen.findByText(/Ask the owner or an admin to choose Distributor or Retail/)).toBeInTheDocument();
-      expect(sent(PROFILE, "GET")).toHaveLength(0);
-    });
+  it("never asks for a business type, and saves a draft without one", async () => {
+    server.reply(DRAFTS, { status: 201, body: draft() });
+    open("/b/b-1/invoices/new");
+    fireEvent.change(await screen.findByLabelText("Invoice date"), { target: { value: "2026-11-09" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+    expect(await screen.findByRole("heading", { name: "Draft invoice" })).toBeInTheDocument();
+    expect(screen.queryByText(/business type/i)).toBeNull();
+    expect(sent("/api/v1/b/b-1/profile", "GET")).toHaveLength(0);
   });
 
   it("shows Finalize and why every invoice is a practice one, before anything is saved", async () => {
