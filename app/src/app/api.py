@@ -91,4 +91,33 @@ async def health():  # async: answered on the event loop, so it never waits for 
     return {"status": "ok"}
 
 
+# The handlers take these two headers as optional so a missing one gets the API's own error
+# (for example idempotency_key_required) instead of a generic 422. They are
+# mandatory for callers, so the contract says required (#282).
+_REQUIRED_HEADERS = {"Idempotency-Key", "If-Match"}
+# Genuinely optional today: the first band for a year takes no If-Match, and a purchase draft's
+# confirm and discard work without a key (a key only makes a retry safe).
+_STAYS_OPTIONAL = {
+    ("put", "/api/v1/b/{business_id}/turnover-bands/{fy}", "If-Match"),
+    ("post", "/api/v1/b/{business_id}/purchase-drafts/{draft_id}/confirm", "Idempotency-Key"),
+    ("post", "/api/v1/b/{business_id}/purchase-drafts/{draft_id}/discard", "Idempotency-Key"),
+}
+
+
+def _openapi_with_required_headers() -> dict:
+    if app.openapi_schema:
+        return app.openapi_schema
+    schema = FastAPI.openapi(app)
+    for path, operations in schema["paths"].items():
+        for method, operation in operations.items():
+            for parameter in operation.get("parameters", []):
+                name = parameter["name"]
+                if parameter.get("in") == "header" and name in _REQUIRED_HEADERS:
+                    parameter["required"] = (method, path, name) not in _STAYS_OPTIONAL
+    return schema
+
+
+app.openapi = _openapi_with_required_headers  # type: ignore[method-assign]
+
+
 handler = Mangum(app, lifespan="off")
