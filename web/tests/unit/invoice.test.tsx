@@ -308,6 +308,23 @@ describe("the draft invoice form", () => {
       expect(screen.queryByRole("link", { name: "Open the preview (PDF)" })).toBeNull();
     });
 
+    it("offers its own Try again when the render failed, and looks again", async () => {
+      await opened();
+      server.reply(PREVIEW, started, started);
+      server.reply(`${PREVIEW}/j-1`, { status: 200, body: { status: "failed" } }, { status: 200, body: { status: "ready", url: "https://files.example/p.pdf" } });
+      press();
+      expect(await screen.findByText(/The preview could not be made/)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+      expect(await screen.findByRole("link", { name: "Open the preview (PDF)" })).toHaveAttribute("href", "https://files.example/p.pdf");
+      expect(sent(PREVIEW, "POST")).toHaveLength(2);
+    });
+
+    it("explains in practice terms what Create does", async () => {
+      await opened();
+      expect(screen.getByText(/Create practice invoice saves your changes and makes a practice invoice/)).toBeInTheDocument();
+      expect(screen.queryByText(/Create invoice saves your changes/)).toBeNull();
+    });
+
     it("refreshes an expired token during polling and carries on to the link", async () => {
       await opened();
       server.reply(PREVIEW, started);

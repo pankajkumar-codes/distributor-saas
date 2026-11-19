@@ -353,7 +353,9 @@ export function InvoicePage() {
             <p className="hint">
               {saved && saved.ready === false && !dirty
                 ? "Fix the checks above and save again to finalize."
-                : "Create invoice saves your changes, gives the invoice its number and locks it; later changes need a credit note."}
+                : PRACTICE_ONLY
+                  ? "Create practice invoice saves your changes and makes a practice invoice with a PR- number: not for your customer, and locked once made."
+                  : "Create invoice saves your changes, gives the invoice its number and locks it; later changes need a credit note."}
             </p>
             {finalizeWords && (
               <Banner tone="error">
