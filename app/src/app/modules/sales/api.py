@@ -518,7 +518,52 @@ class DocumentPdfState(BaseModel):
     error_code: str | None = None
 
 
+class DocumentParty(BaseModel):
+    name: str | None
+    gstin: str | None
+    address: list[str]  # lines, in order; may be empty
+    state: str | None  # "West Bengal (19)"
+
+
+class DocumentShipTo(BaseModel):
+    address: list[str]
+    state: str | None
+
+
+class DocumentLineTax(BaseModel):
+    component: Literal["CGST", "SGST", "UTGST", "IGST"]
+    rate: str
+    amount: str
+
+
+class DocumentLineOut(BaseModel):
+    """One stored line, as finalized: the page shows it and works out nothing."""
+
+    no: str
+    description: str
+    hsn: str
+    quantity: str
+    uqc: str
+    unit_price: str | None
+    gross: str
+    discount: str | None
+    taxable: str
+    taxes: list[DocumentLineTax]
+    total: str  # the line's taxable value plus its own stored tax amounts
+
+
 class DocumentDetailOut(DocumentOut):
+    buyer: DocumentParty | None  # the bill-to as at finalize; null if none was recorded
+    ship_to: DocumentShipTo | None
+    place_of_supply: str | None
+    lines: list[DocumentLineOut]
+    gross_total: str
+    line_discount_total: str
+    invoice_discount: str
+    charges_total: str
+    charges_label: str | None
+    cess_total: str
+    amount_in_words: str
     pdf: DocumentPdfState
     stock_movements: int  # the stock-out rows this invoice wrote, one per line; 0 if it wrote none
 
@@ -537,8 +582,9 @@ def list_documents(uow: BusinessUoW, page: Annotated[PageParams, Depends(page_pa
 
 @router.get("/b/{business_id}/documents/{document_id}", response_model=DocumentDetailOut, dependencies=VIEW)
 def get_document(document_id: str, uow: BusinessUoW):
-    """One finalized document as stored, where its PDF stands and how many stock movements it wrote. Read-only: nothing
+    """One finalized document as stored (header, buyer, lines with their tax split), where its PDF stands and how many stock movements it wrote. Read-only: nothing
     is queued; ask for the PDF with POST .../pdf."""
     did = parse_id(document_id)
     doc = finalize.get_document(uow, did)
-    return {**_document(doc), "pdf": document_pdf.current(uow, did), "stock_movements": movements_for_document(uow.tx, did)}
+    return {**_document(doc), **document_pdf.view(uow.tx, uow.principal.business_id, did),
+            "pdf": document_pdf.current(uow, did), "stock_movements": movements_for_document(uow.tx, did)}
