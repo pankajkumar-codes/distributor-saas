@@ -151,6 +151,10 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   // Business setup is one page: the filing frequency is on it already.
   await expect(page.getByRole("heading", { level: 2, name: "Filing frequency" })).toBeVisible();
   await expect(page.getByText(/^Every quarter \(QRMP\), from \d{2}-[A-Z][a-z]{2}-\d{4}\.$/)).toBeVisible();
+  // The current frequency is already chosen; Save frequency appears only once another one is picked.
+  await expect(page.getByRole("radio", { name: "Every quarter (QRMP)" })).toBeChecked();
+  await expect(page.getByRole("button", { name: "Save frequency" })).toHaveCount(0);
+  await page.getByRole("radio", { name: "Every month" }).check();
   await expect(page.getByRole("button", { name: "Save frequency" })).toBeVisible();
   await noSeriousAxeFindings(page);
   const overflow6 = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);

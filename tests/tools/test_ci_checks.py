@@ -81,3 +81,35 @@ def test_the_clock_rule_fails_on_the_planted_file(tmp_path):
                           str(target)], capture_output=True, text=True)
     assert out.returncode == 1
     assert out.stdout.count("TID251") == 4
+
+
+india_only = _script("india_only")
+
+
+def test_india_only_fails_on_the_planted_file_and_passes_on_the_clean_one():
+    root = FIXTURES / "india_only"
+    found = {what for _, _, what in india_only.check(root, ["planted.tf"], allowed={})}
+    assert found == {"region eu-west-1 is outside India", "multi-region key", "S3 replication",
+                     "cross-region or global inference profile"}
+    assert india_only.check(root, ["clean.tf"], allowed={}) == []
+
+
+def test_india_only_allows_a_named_exception_only_for_that_file_and_region():
+    root = FIXTURES / "india_only"
+    allowed = {("planted.tf", "eu-west-1"): "test"}
+    assert "region eu-west-1 is outside India" not in {w for _, _, w in india_only.check(root, ["planted.tf"], allowed=allowed)}
+    assert any(w.startswith("region") for _, _, w in india_only.check(root, ["planted.tf"], allowed={("other.tf", "eu-west-1"): "x"}))
+
+
+def test_india_only_passes_on_the_repository():
+    names = india_only.tracked()
+    assert names and india_only.check(ROOT, names) == []
+    assert india_only.unused_allowances(ROOT, names) == []
+
+
+def test_every_function_role_is_refused_calls_outside_india():
+    """D-094: the function module attaches a Deny on aws:RequestedRegion for anything but the two Indian regions."""
+    text = (ROOT / "infra" / "modules" / "function" / "main.tf").read_text()
+    assert 'resource "aws_iam_role_policy" "india_only"' in text
+    assert '"aws:RequestedRegion" = ["ap-south-1", "ap-south-2"]' in text
+    assert 'Effect = "Deny"' in text
