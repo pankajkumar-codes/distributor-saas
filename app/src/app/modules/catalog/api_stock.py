@@ -2,8 +2,7 @@
 
 The stock list, a product's movements, a count correction (adjustment) and a reversal.
 Quantities travel as decimal strings with 3 decimals; dates as YYYY-MM-DD. POSTs take an
-Idempotency-Key. Every route first checks the business has chosen its type (R2 rule): 409
-business_type_required otherwise. Setting the selling price per 1 qty is the existing
+Idempotency-Key. Business type never gates a stock route (D-095). Setting the selling price per 1 qty is the existing
 PATCH /products/{id} (sale_rate, If-Match). Nothing here ever blocks a sale: "no stock" is
 information, not a refusal.
 """
@@ -15,7 +14,6 @@ from fastapi import APIRouter, Depends, Header, Query, Request
 from fastapi import status as http
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.modules.business.interface import require_business_type
 from platform_common.clock import Clock, get_clock
 from platform_common.idempotency import run_once
 from platform_common.paging import PageParams, page_params
@@ -115,7 +113,6 @@ def list_stock(
     status: Literal["active", "archived", "all"] = "active",
     only: Literal["no_stock", "price_needed"] | None = None,
 ):
-    require_business_type(uow.tx)
     rows, more = inventory.stock_page(uow, q=q, status=status, only=only, limit=page.limit, offset=page.offset)
     return {"items": [_item(r) for r in rows], "has_more": more}
 
@@ -124,7 +121,6 @@ def list_stock(
             dependencies=VIEW)
 def list_movements(product_id: str, uow: BusinessUoW, page: Annotated[PageParams, Depends(page_params)],
                    practice: bool | None = None):
-    require_business_type(uow.tx)
     rows, more = inventory.movements(uow, parse_id(product_id), limit=page.limit, offset=page.offset,
                                      practice=practice)
     return {"items": [_movement(m) for m in rows], "has_more": more}
@@ -140,7 +136,6 @@ def adjust_stock(
     clock: Annotated[Clock, Depends(get_clock)],
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ):
-    require_business_type(uow.tx)
     pid = parse_id(product_id)
 
     def adjust():
@@ -160,7 +155,6 @@ def reverse_movement(
     clock: Annotated[Clock, Depends(get_clock)],
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ):
-    require_business_type(uow.tx)
     mid = parse_id(movement_id)
 
     def reverse():

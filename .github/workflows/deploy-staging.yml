@@ -22,6 +22,9 @@ name: deploy-staging
 #   AWS_DEPLOY_ROLE_ARN   the OIDC role this workflow assumes
 #   TF_STATE_BUCKET       the state_bucket output of infra/bootstrap
 #   STAGING_WEB_ORIGINS   JSON list, the app origin first, e.g. ["https://app.example.in"]
+#   STAGING_API_DOMAIN    the API's own name, a sibling of the app's, e.g. api.example.in (regional API Gateway in
+#                         Mumbai, not CloudFront: D-094). The web build calls https://<this>.
+#   STAGING_API_CERT_ARN  ACM certificate for it, issued in ap-south-1
 #   BUDGET_ALERT_EMAILS   JSON list of addresses for budget and alarm emails
 
 on:
@@ -40,6 +43,8 @@ env:
   TF_IN_AUTOMATION: "1"
   TF_VAR_git_sha: ${{ github.sha }}
   TF_VAR_web_origins: ${{ vars.STAGING_WEB_ORIGINS }}
+  TF_VAR_api_domain: ${{ vars.STAGING_API_DOMAIN }}
+  TF_VAR_api_certificate_arn: ${{ vars.STAGING_API_CERT_ARN }}
   TF_VAR_budget_alert_emails: ${{ vars.BUDGET_ALERT_EMAILS }}
   PLAN_PREFIX: s3://${{ vars.TF_STATE_BUCKET }}/plans/staging/${{ github.run_id }}
 
@@ -55,7 +60,7 @@ jobs:
         shell: bash
     steps:
       - name: Refuse without the setup
-        if: vars.AWS_DEPLOY_ROLE_ARN == '' || vars.TF_STATE_BUCKET == '' || vars.STAGING_WEB_ORIGINS == '' || vars.BUDGET_ALERT_EMAILS == ''
+        if: vars.AWS_DEPLOY_ROLE_ARN == '' || vars.TF_STATE_BUCKET == '' || vars.STAGING_WEB_ORIGINS == '' || vars.STAGING_API_DOMAIN == '' || vars.STAGING_API_CERT_ARN == '' || vars.BUDGET_ALERT_EMAILS == ''
         run: |
           echo "A repository variable listed at the top of this workflow is not set; nothing to deploy to." >&2
           exit 1
@@ -81,6 +86,8 @@ jobs:
           make renderer-zip PY=python
       - name: Build web files
         working-directory: web
+        env:
+          VITE_API_ORIGIN: https://${{ vars.STAGING_API_DOMAIN }}
         run: npm ci && npm run build
       # The landing page is built after `npm ci` in web/ (it takes its two fonts from there) and is checked:
       # no scripts, no inline styles, no third-party URLs (landing/README.md).

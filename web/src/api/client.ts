@@ -3,13 +3,15 @@ import createClient from "openapi-fetch";
 import { endSession, refreshSession } from "../auth/session";
 import { tokenStore } from "../auth/tokenStore";
 import { toApiError, type ApiError } from "./errors";
+import { API_CREDENTIALS, API_ORIGIN } from "./origin";
 import { isAuthPath, READ_TIMEOUT_MS, withAuthTimeout } from "./timeout";
 import type { paths } from "./schema";
 
-// Typed from app/openapi.json (`npm run gen:api`). Same origin only: the API is served
-// under /api on the app's own domain, so the refresh cookie never crosses sites.
+// Typed from app/openapi.json (`npm run gen:api`). The API is on its own name in the same site as the app
+// (api.<domain>, see origin.ts), so the SameSite=Strict refresh cookie is still sent.
 export const api = createClient<paths>({
-  baseUrl: window.location.origin,
+  baseUrl: API_ORIGIN,
+  credentials: API_CREDENTIALS,
   // Looked up per call, so tests can stub the global fetch.
   fetch: async (request) => {
     try {

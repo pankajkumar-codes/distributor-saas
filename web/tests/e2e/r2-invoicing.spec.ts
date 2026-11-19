@@ -19,7 +19,7 @@ async function createDistributor(page: Page) {
   await page.getByLabel("Address line 1").fill("12 Market Road");
   await page.getByLabel("City or town").fill("Pune");
   await page.getByLabel("PIN code").fill("411001");
-  await page.getByLabel("Business type (optional)").selectOption("distributor");
+  await page.getByRole("checkbox", { name: "Distributor" }).check();
   await page.getByRole("button", { name: "Continue" }).click();
   await page.getByRole("checkbox", { name: "Amazon" }).check();
   await page.getByRole("radio", { name: "Quarterly (QRMP)" }).check();

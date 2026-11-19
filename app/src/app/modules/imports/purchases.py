@@ -23,7 +23,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.modules.catalog.interface import (ConfirmedPurchaseLine, NewCatalogItem, product_for_line,
                                            receive_confirmed_purchase_line)
-from app.modules.business.interface import check_gstin, fy_of, gstin_message, require_business_type as _require_type
+from app.modules.business.interface import check_gstin, fy_of, gstin_message
 from app.modules.refdata import value_on
 from platform_common import audit, storage
 from platform_common.clock import get_clock
@@ -156,12 +156,6 @@ class Confirmed:
     created_at: datetime
     received: tuple = ()  # per line: (line_no, product_id, created_product, price_needed), set at confirm
     warnings: tuple = ()  # (line_no, code): things worth a second look that never block the confirm
-
-
-def require_business_type(uow: UnitOfWork) -> None:
-    """R2 is for distributors and retailers: the business says which before it uses purchases. The shared check in
-    business refuses with 409 business_type_required, which the screen turns into a prompt."""
-    _require_type(uow.tx)
 
 
 def _business(uow: UnitOfWork) -> uuid.UUID:
