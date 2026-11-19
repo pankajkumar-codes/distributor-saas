@@ -14,6 +14,7 @@ import { RowActions } from "../../kit/RowActions";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
 import { uniqueById, useUrlSearch } from "../../kit/lists";
+import { Loading } from "../../kit/Loading";
 
 type Page = components["schemas"]["ProductPageOut"];
 type Product = components["schemas"]["ProductOut"];
@@ -158,7 +159,7 @@ export function ProductsPage() {
             </Button>
           </Banner>
         )}
-        {list.isPending && <p aria-busy="true">Loading…</p>}
+        {list.isPending && <Loading query={list} />}
         {list.isSuccess && items.length === 0 && (
           <p>{narrowed ? "No products match." : canEditCatalog(business.role) ? "No products yet. Add your first with New product." : "No products yet."}</p>
         )}

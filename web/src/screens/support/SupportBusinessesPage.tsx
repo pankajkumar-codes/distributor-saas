@@ -11,6 +11,7 @@ import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
 import { useMe } from "../../auth/useMe";
 import { msUntilFirst } from "../settings/SupportPage";
+import { Loading } from "../../kit/Loading";
 
 type Grants = components["schemas"]["SupportGrants"];
 
@@ -59,7 +60,7 @@ export function SupportBusinessesPage() {
         <p className="hint">
           Owners give support read-only access for a limited time. Every page you open goes into that business's audit log.
         </p>
-        {grants.isPending && <p aria-busy="true">Loading…</p>}
+        {grants.isPending && <Loading query={grants} />}
         {grants.error && (
           <Banner tone="error">
             {errorText(grants.error)}{" "}
