@@ -164,3 +164,37 @@ def test_a_b2b_file_naming_two_sellers_has_no_single_gstin():
     headers = fx.B2C_HEADERS + fx.B2B_EXTRA
     content = fx.csv_bytes(headers, [fx.sale("1"), fx.sale("2", gstin=fx.OTHER)])
     assert B2B.gstin(table(content, "MTR_B2B-JULY.csv")) == "MIXED"
+
+
+# -- #345: Bill To against Ship To ---------------------------------------------------------
+STATES = {"19": "19", "west bengal": "19", "27": "27", "maharashtra": "27"}
+
+
+def b2b_verdicts(context):
+    result = parsed(B2B, fx.b2b_bill_ship_differ(), "MTR_B2B-JULY-2026-9.csv")
+    return {r.normalized["shipment_item_id"]: B2B.classify(r, context) for r in result.rows if r.normalized}
+
+
+def test_a_b2b_row_whose_ship_to_state_is_not_the_bill_to_state_is_held():
+    v = b2b_verdicts({"state_codes": STATES})
+    assert v["ITEM-21"] == (StagedRowStatus.held, "bill_ship_diff")  # Bill To 27, Ship To West Bengal
+    assert v["ITEM-22"] == (StagedRowStatus.held, "bill_ship_diff")  # a Ship To state we cannot match: never guess
+    assert v["ITEM-23"] is None  # the same state: Ship To is the place of supply
+
+
+def test_a_state_code_in_the_ship_to_column_counts_as_the_state():
+    n = {"buyer_gstin": fx.OTHER, "ship_to_state": "27"}
+    assert amazon._bill_ship_differ(n, STATES) is False
+    assert amazon._bill_ship_differ({**n, "ship_to_state": "19"}, STATES) is True
+
+
+def test_without_a_bill_to_state_or_the_state_list_the_row_is_read_as_before():
+    assert amazon._bill_ship_differ({"buyer_gstin": None, "ship_to_state": "West Bengal"}, STATES) is False
+    assert amazon._bill_ship_differ({"buyer_gstin": "99ZZZZ", "ship_to_state": "West Bengal"}, STATES) is False
+    assert amazon._bill_ship_differ({"buyer_gstin": fx.OTHER, "ship_to_state": "West Bengal"}, None) is False
+
+
+def test_a_b2c_row_is_never_held_for_bill_ship():
+    result = parsed(B2C, fx.b2c_good())
+    assert all(B2C.classify(r, {"state_codes": STATES}) != (StagedRowStatus.held, "bill_ship_diff")
+               for r in result.rows if r.normalized)

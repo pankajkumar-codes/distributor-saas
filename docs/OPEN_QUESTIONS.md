@@ -425,3 +425,7 @@ For each answer, update `docs/DECISIONS.md` with the decision, rationale, trade-
 ## Blank HSN for B2C when the seller is within the limit (2026-11-19, #344)
 - **OQ-HSN-1 (CA):** does Notification 78/2020-CT let a seller up to Rs 5 crore issue a tax invoice to an unregistered buyer with no HSN at all, or only with fewer digits? Built as a warning that says GSTR-1 needs the HSN (D-101). Answers OQ-INV-1 for the B2C case once confirmed.
 - **OQ-HSN-2 (CA):** how a blank-HSN B2C line is reported in Table 12 before live numbering is turned on. Today the return blocks it (check C-01).
+
+## Marketplace place of supply (2026-11-19, #345)
+- **OQ-POS-1 (CA):** confirm holding a marketplace row when Bill To and Ship To are in different states, and how the user decides it (D-102). Built with Pick the state and a note; no third-party question is asked.
+- **OQ-POS-2 (CA or a real file):** does a real Flipkart or Meesho report carry a Bill To column? Today neither does, so the rule applies to Amazon B2B only.

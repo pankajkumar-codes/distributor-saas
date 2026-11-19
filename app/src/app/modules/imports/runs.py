@@ -24,7 +24,7 @@ COUNT_KEYS = ROW_STATUSES
 # A value fix names the field it fills; each is offered only on the hold reason that is missing that value.
 FIX_ACTION = {"hsn": "enter_hsn", "state": "pick_state"}
 FIX_FIELD = {"enter_hsn": "hsn", "pick_state": "state"}
-FIX_REASON = {"enter_hsn": "blank_hsn", "pick_state": "unknown_state"}
+FIX_REASON = {"enter_hsn": ("blank_hsn",), "pick_state": ("unknown_state", "bill_ship_diff")}
 SKIPPED_ZERO_LABEL = "Zero value: nothing to file."
 
 
@@ -151,7 +151,7 @@ def allowed_actions(uow: UnitOfWork, status: str, reason: str | None, run_status
                  "effect_note": _words(uow, "imports.action.set_aside.effect_note", today)}]
     if status != "held" or run_status != "staged" or reason not in HOLD_REASONS:
         return []
-    actions = ["set_aside"] + [a for a, r in FIX_REASON.items() if r == reason]
+    actions = ["set_aside"] + [a for a, r in FIX_REASON.items() if reason in r]
     if bool(value_on(uow.tx, f"imports.held.{reason}.accept_allowed", today)):
         actions.append("accept")
     return [{"action": a, "label": _words(uow, f"imports.action.{a}.label", today),
