@@ -9,6 +9,7 @@ import { formatRupees } from "../../format/money";
 import { Banner } from "../../kit/Banner";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
+import { Loading } from "../../kit/Loading";
 
 type Plan = components["schemas"]["InvoicingPlanOut"];
 
@@ -45,7 +46,7 @@ export function PlanPage() {
         </p>
         <h1>Invoicing plan</h1>
         {plan.error && <Banner tone="error">{errorText(plan.error)}</Banner>}
-        {plan.isPending && <p aria-busy="true">Loading…</p>}
+        {plan.isPending && <Loading query={plan} />}
         {p && (
           <>
             <section aria-labelledby="free-count">
