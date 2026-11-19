@@ -74,7 +74,7 @@ describe("fixing a missing HSN on the invoice itself", () => {
     server.reply(ONE, { status: 200, body: blocked() }, { status: 200, body: draft({ computation: computation() }) });
     open("/b/b-1/invoices/d-1");
     const box = await screen.findByLabelText("HSN for Aloe Vera Gel 200 ml");
-    expect(screen.getByRole("button", { name: "Create invoice" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Create practice invoice" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Save HSN" })).toBeDisabled(); // nothing typed yet
     fireEvent.change(box, { target: { value: "3304" } });
     fireEvent.click(screen.getByRole("button", { name: "Save HSN" }));
@@ -83,7 +83,7 @@ describe("fixing a missing HSN on the invoice itself", () => {
     expect(patch.body).toEqual({ hsn: "3304" });
     expect(patch.headers.get("If-Match")).toBe("1");
     expect(screen.queryByText("Add the product's HSN code.")).toBeNull();
-    expect(screen.getByRole("button", { name: "Create invoice" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Create practice invoice" })).toBeEnabled();
   });
 
   it("refuses an HSN that is not digits without asking the server", async () => {
@@ -105,7 +105,7 @@ describe("fixing a missing HSN on the invoice itself", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save HSN" }));
     expect(await screen.findByText("That HSN is too short for this business.")).toBeInTheDocument();
     expect(screen.getByText(/Add the product's HSN code\./)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Create invoice" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Create practice invoice" })).toBeDisabled();
   });
 });
 
