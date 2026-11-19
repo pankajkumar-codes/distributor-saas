@@ -10,6 +10,7 @@ import { Button } from "../../kit/Button";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
 import { useCrosscheck } from "./useCrosscheck";
+import { NoAccess } from "../../kit/NoAccess";
 
 const FIELD: Record<string, string> = {
   doc_date: "Invoice date",
@@ -49,7 +50,8 @@ export function CrosscheckPage() {
       </main>
     );
   }
-  if (!business || !allowed) return <NotFound />;
+  if (!business) return <NotFound />;
+  if (!allowed) return <NoAccess businessId={businessId} />;
   const d = check.data;
   const open = d ? d.mismatches.length + d.only_in_excel.length + d.only_in_pdf.length : 0;
 

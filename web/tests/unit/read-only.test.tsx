@@ -86,7 +86,7 @@ describe("a read-only role", () => {
   it.each(["/b/b-1/customers/new", "/b/b-1/products/new", "/b/b-1/products/import"])("gets not found on %s", async (path) => {
     server.reply(ME, as("ca"));
     open(path);
-    expect(await screen.findByRole("heading", { name: "We couldn't find that page" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "You don't have access to this page" })).toBeInTheDocument();
   });
 
   it("sees the product list without New product or Import", async () => {

@@ -16,6 +16,7 @@ import { useReturnDetail } from "../filing/returns";
 import { finishedPeriods, type PeriodKind } from "./periods";
 import { useConfirm, useGate, useNoSales, useOpenFile, type Gate, type GateItem } from "./useGate";
 import { useFilingProfile } from "./usePeriodFiles";
+import { NoAccess } from "../../kit/NoAccess";
 
 const ITEM_TEXT: Record<GateItem, string> = {
   purchases_uploaded: "I have uploaded all my purchase invoices for this period",
@@ -141,7 +142,8 @@ export function FilePeriodPage() {
       </main>
     );
   }
-  if (!business || !allowed) return <NotFound />;
+  if (!business) return <NotFound />;
+  if (!allowed) return <NoAccess businessId={businessId} />;
   const g = gate.data;
   const reasons = (g?.reasons ?? []).map((r) => REASON_TEXT[r] ?? "Not ready yet.");
   const opened = g?.gstr1_returns ?? [];

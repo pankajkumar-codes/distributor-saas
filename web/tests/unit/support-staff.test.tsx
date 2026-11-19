@@ -69,7 +69,7 @@ describe("support staff reading filing (returns.view)", () => {
   it("keeps billing turned away from Filing home, without asking for the list", async () => {
     server.reply(ME, { status: 200, body: { businesses: [{ business_id: "b-1", display_name: "Vashi Essentials", gstin: null, role: "billing" }] } });
     open("/b/b-1/filing");
-    expect(await screen.findByText("We couldn't find that page")).toBeInTheDocument();
+    expect(await screen.findByText("You don't have access to this page")).toBeInTheDocument();
     expect(server.paths()).not.toContain(RETURNS);
   });
 });

@@ -78,7 +78,7 @@ describe("own invoices cross-check", () => {
 
   it("is not there for a role that cannot view uploads, and asks the server for nothing", async () => {
     open("/b/b-1/uploads/crosscheck", "billing");
-    expect(await screen.findByText(/couldn't find that page/i)).toBeInTheDocument();
+    expect(await screen.findByText(/You don't have access to this page/i)).toBeInTheDocument();
     expect(server.sent.filter((s) => s.path === CROSS)).toHaveLength(0);
   });
 });

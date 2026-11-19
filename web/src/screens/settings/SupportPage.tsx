@@ -13,6 +13,7 @@ import { Button } from "../../kit/Button";
 import { Field } from "../../kit/Field";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
+import { NoAccess } from "../../kit/NoAccess";
 
 type Grant = components["schemas"]["GrantOut"];
 type Grants = components["schemas"]["GrantsOut"];
@@ -103,7 +104,9 @@ export function SupportPage() {
       </main>
     );
   }
-  if (!business || !canView || grants.error?.status === 404) return <NotFound />;
+  if (!business) return <NotFound />;
+  if (!canView) return <NoAccess businessId={businessId} />;
+  if (grants.error?.status === 404) return <NotFound />;
 
   const list = grants.data?.grants ?? [];
   const active = list.find((g) => g.status === "active");

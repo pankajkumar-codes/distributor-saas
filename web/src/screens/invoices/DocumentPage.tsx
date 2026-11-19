@@ -8,6 +8,7 @@ import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
 import { FinalizedPanel } from "./FinalizedPanel";
 import { useDocument } from "./useFinalize";
+import { NoAccess } from "../../kit/NoAccess";
 
 /** One issued invoice, read from the server, so the PDF is there after a reload or on another day. */
 export function DocumentPage() {
@@ -16,7 +17,9 @@ export function DocumentPage() {
   const business = businesses.data?.find((b) => b.business_id === businessId);
   const doc = useDocument(businessId, documentId);
   if (businesses.isPending) return <main className="page" aria-busy="true"><p>Loading…</p></main>;
-  if (!business || !canCreateDocuments(business.role) || doc.error?.status === 404) return <NotFound />;
+  if (!business) return <NotFound />;
+  if (!canCreateDocuments(business.role)) return <NoAccess businessId={businessId} />;
+  if (doc.error?.status === 404) return <NotFound />;
   return (
     <>
       <TopBar title={business.display_name} gstin={business.gstin} />

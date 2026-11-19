@@ -17,6 +17,7 @@ import { ExportPanel } from "./ExportPanel";
 import { useAccept } from "./export";
 import { FiledPanel } from "./FiledPanel";
 import { returnKey, useReturnDetail, useSectionRows, type SectionName } from "./returns";
+import { NoAccess } from "../../kit/NoAccess";
 
 type Heads = components["schemas"]["Heads"];
 type Group = components["schemas"]["FindingGroupOut"];
@@ -218,7 +219,8 @@ export function ReturnPage() {
       </main>
     );
   }
-  if (!business || (detail.isError && detail.error.status === 404)) return <NotFound />;
+  if (!business) return <NotFound />;
+  if ((detail.isError && detail.error.status === 404)) return <NoAccess businessId={businessId} />;
   const d = detail.data;
   const groups = [...(d?.finding_groups ?? [])].sort((a, b) => (LEVEL[a.level]?.order ?? 9) - (LEVEL[b.level]?.order ?? 9) || a.code.localeCompare(b.code));
   const blocking = groups.filter((g) => g.level === "block").reduce((n, g) => n + g.count, 0);

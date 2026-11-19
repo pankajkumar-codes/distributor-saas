@@ -9,6 +9,7 @@ import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
 import { useChannels } from "../uploads/useChannels";
 import { useReturns, type ReturnRow } from "./returns";
+import { NoAccess } from "../../kit/NoAccess";
 
 const PLATFORMS: [string, string][] = [
   ["amazon", "Amazon"],
@@ -81,7 +82,8 @@ export function FilingHomePage() {
       </main>
     );
   }
-  if (!business || !may) return <NotFound />;
+  if (!business) return <NotFound />;
+  if (!may) return <NoAccess businessId={businessId} />;
 
   const notSet = now.isSuccess && now.data.filing_frequency === null; // the server sends an empty list, not an error
   // Last year's rows only while something is still open there (a late March or Q4 return).

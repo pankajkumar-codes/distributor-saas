@@ -7,6 +7,7 @@ import { Banner } from "../../kit/Banner";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
 import { useOpenDrafts, usePurchaseFiles, useSendPurchaseFile } from "./usePurchases";
+import { NoAccess } from "../../kit/NoAccess";
 
 /**
  * Purchase invoices (R2-M2): upload a supplier's invoice (a PDF, or a photo of a paper bill), then check what we read
@@ -35,7 +36,8 @@ export function PurchasesPage() {
       </main>
     );
   }
-  if (!business || !allowed) return <NotFound />;
+  if (!business) return <NotFound />;
+  if (!allowed) return <NoAccess businessId={businessId} />;
   const mayUpload = canUpload(business.role);
 
   return (

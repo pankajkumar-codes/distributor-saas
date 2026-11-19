@@ -123,7 +123,7 @@ describe("A return (read-only)", () => {
   it("is a not-found page for a 404, such as a billing user or another business's id", async () => {
     server.reply(DETAIL, { status: 404, body: { error: { code: "not_found", message: "Not found." } } });
     open("billing");
-    expect(await screen.findByText("We couldn't find that page")).toBeInTheDocument();
+    expect(await screen.findByText("You don't have access to this page")).toBeInTheDocument();
   });
 
   it("links to the return from the filing home for an owner, and billing cannot see the filing page", async () => {
@@ -141,7 +141,7 @@ describe("A return (read-only)", () => {
         await screen.findByText("October 2026");
         expect(screen.queryAllByRole("link", { name: "Review the draft" }).length).toBeGreaterThan(0); // the fixture answers both years with one row
       } else {
-        await screen.findByText(/couldn't find that page/); // returns.view: billing is turned away, and nothing was fetched
+        await screen.findByText(/You don't have access to this page/); // returns.view: billing is turned away, and nothing was fetched
         expect(server.sent.some((s) => s.path.endsWith("/returns"))).toBe(false);
       }
       view.unmount();
