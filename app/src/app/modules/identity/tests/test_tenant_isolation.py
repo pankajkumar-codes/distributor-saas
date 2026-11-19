@@ -83,3 +83,19 @@ def test_debug_user_upsert_refuses_outside_local_and_test(client, monkeypatch, e
     monkeypatch.setenv("PLATFORM_ENV", env)
     with main._factory()() as s, pytest.raises(RuntimeError, match="local or test"):
         main.debug_user_id(s, ALICE)
+
+
+def test_a_nul_in_the_business_name_is_422_not_500(client):
+    r = client.post("/api/v1/identity/tenants", json={"name": "Bad\x00Name"}, headers=as_user(ALICE))
+    assert r.status_code == 422
+
+
+def test_a_business_with_no_name_still_lists_and_opens(client):
+    tid = make_tenant(client, ALICE, "Alice Co")
+    with main._factory()() as s:
+        s.get(Business, uuid.UUID(tid)).name = None
+        s.commit()
+    listed = client.get("/api/v1/identity/tenants", headers=as_user(ALICE))
+    one = client.get(f"/api/v1/identity/tenants/{tid}", headers=as_user(ALICE))
+    assert listed.status_code == one.status_code == 200
+    assert listed.json()[0]["name"] == one.json()["name"] == main.UNNAMED

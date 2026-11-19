@@ -122,6 +122,7 @@ def test_a_gstin_whose_first_two_digits_are_no_state_is_refused(shop):
         ({"credit_days": -1}, "credit_days_invalid"),
         ({"credit_days": 366}, "credit_days_invalid"),
         ({"name": "   "}, "name_invalid"),
+        ({"name": "x" * 400}, "name_invalid"),  # past the app limit of 200, under the framework guard: plain message
         ({"delivery_same_as_billing": False}, "state_code_required"),
         ({"delivery": {"city": "Mumbai"}}, "delivery_not_allowed"),
         ({"name": "Sharma\nStores"}, "text_invalid"),

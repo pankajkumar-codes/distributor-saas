@@ -283,6 +283,9 @@ ol.steps > li::before { content: counter(s); position: absolute; left: 0; top: 1
 .kartaa-mark { display: block; flex: none; }
 .brand .wordmark { font-family: var(--display); font-weight: 600; font-size: 22px; letter-spacing: -0.01em; line-height: 1; }
 
+/* A member card inside a .list keeps the card's own padding (the plain list-row padding made it flush to the edge). */
+.list li.card { padding: 14px 18px; border-bottom: 1px solid var(--line); }
+.list li.card li { padding: 2px 0; border-bottom: 0; }
 /* File pickers: the browser's grey "Choose File" button takes the app's secondary button look. The input itself stays native, so keyboard, screen readers and dropping a file onto it keep working. */
 input[type="file"] { font: inherit; color: var(--muted, var(--ink)); max-width: 100%; }
 input[type="file"]::file-selector-button {
