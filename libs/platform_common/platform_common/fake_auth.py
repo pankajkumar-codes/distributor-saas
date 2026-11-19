@@ -44,6 +44,12 @@ ACCESS_SECONDS = 300
 CHALLENGE_SECONDS = 180
 
 
+def _same(a: str, b: str) -> bool:
+    """Constant-time equality for text. compare_digest on two str raises TypeError for a non-ASCII one, which a
+    caller-supplied code or password can be, so compare the UTF-8 bytes (a lone surrogate, which JSON can carry, included)."""
+    return hmac.compare_digest(a.encode("utf-8", "surrogatepass"), b.encode("utf-8", "surrogatepass"))
+
+
 def _locked(method):
     """Run a method holding the provider's lock: a change and the save of it are one step, even with
     several requests in flight on the API's thread pool."""
@@ -174,7 +180,7 @@ class FakeAuthProvider:
     @_locked
     def initiate_auth(self, email: str, password: str) -> AuthResult:
         u = self.user(email)
-        if u is None or not hmac.compare_digest(u.password, password):
+        if u is None or not _same(u.password, password):
             raise AuthRefused("not_authorized")
         if u.totp_enabled:
             challenge = secrets.token_urlsafe(32)
@@ -195,7 +201,7 @@ class FakeAuthProvider:
             self._save()
             raise AuthRefused("challenge_expired")
         u = self._users[owner]
-        if not hmac.compare_digest(self.totp_code(u.totp_secret), code):
+        if not _same(self.totp_code(u.totp_secret), code):
             raise AuthRefused("totp_not_accepted", challenge=challenge)
         del self._challenges[challenge]
         self._save()
@@ -222,7 +228,7 @@ class FakeAuthProvider:
     @_locked
     def change_password(self, access_token: str, old: str, new: str) -> None:
         u = self._by_sub(self._sub_of(access_token))
-        if not hmac.compare_digest(u.password, old):
+        if not _same(u.password, old):
             raise AuthRefused("not_authorized")
         u.password = new
         self._save()
@@ -244,7 +250,7 @@ class FakeAuthProvider:
     @_locked
     def verify_totp(self, access_token: str, code: str) -> bool:
         u = self._by_sub(self._sub_of(access_token))
-        if u.totp_secret is None or not hmac.compare_digest(self.totp_code(u.totp_secret), code):
+        if u.totp_secret is None or not _same(self.totp_code(u.totp_secret), code):
             return False
         u.totp_enabled = True
         self._save()

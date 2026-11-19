@@ -203,3 +203,16 @@ def test_a_provider_without_the_demo_helper_prints_nothing(env):
     _, _, mail, _ = env
     demo_hint.print_two_step_code(Real(), mail, email=EMAIL)
     assert demo_codes(mail) == []
+
+
+def test_confirm_with_a_non_ascii_code_is_a_refusal_not_a_500(env):
+    """The local sign-in provider compared the code as text, and a non-ASCII one raised (#323)."""
+    client, idp, mail, admin = env
+    me = bearer(client)
+    secret = client.post("/api/v1/me/totp/setup", headers=me).json()["secret"]
+    for code in ("٣١٤١٥٩", "12é456"):
+        r = client.post("/api/v1/me/totp/confirm", json={"code": code}, headers=me)
+        assert r.status_code < 500 and r.status_code != 204, (code, r.status_code, r.text)
+    assert client.get("/api/v1/me", headers=me).json()["user"]["totp_enabled"] is False
+    ok = client.post("/api/v1/me/totp/confirm", json={"code": idp.totp_code(secret)}, headers=me)
+    assert ok.status_code == 204

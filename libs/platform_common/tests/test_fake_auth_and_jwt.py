@@ -242,3 +242,19 @@ def test_many_threads_signing_in_and_out_leave_a_readable_state_file(tmp_path):
     again = FakeAuthProvider(state_path=path)
     assert again.get_sub("asha@example.com") == p.get_sub("asha@example.com")
     assert len(again._refresh) == len(p._refresh) == 8 * 15
+
+
+NON_ASCII = ["é", "٣١٤١٥٩", "pässword", "\ud800"]  # the last is a lone surrogate, which a JSON body can carry
+
+
+@pytest.mark.parametrize("text", NON_ASCII)
+def test_non_ascii_text_is_refused_like_any_wrong_value_not_a_crash(idp, text):
+    with pytest.raises(AuthRefused) as e:
+        idp.initiate_auth("asha@example.com", text)
+    assert e.value.code == "not_authorized"
+    token = idp.initiate_auth("asha@example.com", "correct horse battery").access_token
+    with pytest.raises(AuthRefused) as e:
+        idp.change_password(token, text, "another long password")
+    assert e.value.code == "not_authorized"
+    idp.associate_totp(token)
+    assert idp.verify_totp(token, text) is False

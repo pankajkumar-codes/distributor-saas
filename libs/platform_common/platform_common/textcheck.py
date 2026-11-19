@@ -17,16 +17,40 @@ MAX_CHECKED_BODY = 10_000_000
 # No route takes multipart/form-data today (uploads go to the object store with a signed URL), and
 # test_no_route_reads_a_body_the_nul_guard_skips fails if one starts to, so a file part never has to be parsed here.
 
+# No request body here nests more than a handful of levels. A body that nests deeper is refused, so a long run of
+# brackets can neither exhaust the recursion limit (a 500) nor reach the handlers (#322).
+MAX_JSON_DEPTH = 64
+
 _REFUSAL = Invalid("text_invalid", "Remove hidden characters from the text and try again").body()
+_TOO_DEEP = Invalid("json_too_deep", "The request is nested too deeply").body()
 
 
 def has_nul(value) -> bool:
-    if isinstance(value, str):
-        return "\x00" in value
-    if isinstance(value, dict):
-        return any(has_nul(k) or has_nul(v) for k, v in value.items())
-    if isinstance(value, list):
-        return any(has_nul(v) for v in value)
+    """Whether any string, or any key, in a parsed JSON value holds a NUL. Walks with its own stack, so depth is no limit."""
+    stack = [value]
+    while stack:
+        item = stack.pop()
+        if isinstance(item, str):
+            if "\x00" in item:
+                return True
+        elif isinstance(item, dict):
+            for k, v in item.items():
+                stack.append(k)
+                stack.append(v)
+        elif isinstance(item, list):
+            stack.extend(item)
+    return False
+
+
+def too_deep(value, limit: int = MAX_JSON_DEPTH) -> bool:
+    stack = [(value, 1)]
+    while stack:
+        item, depth = stack.pop()
+        if isinstance(item, (dict, list)):
+            if depth > limit:
+                return True
+            children = item.values() if isinstance(item, dict) else item
+            stack.extend((child, depth + 1) for child in children if isinstance(child, (dict, list)))
     return False
 
 
@@ -39,13 +63,13 @@ class RejectNul:
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
-        bad = b"\x00" in unquote_to_bytes(scope.get("query_string", b""))
+        refusal = _REFUSAL if b"\x00" in unquote_to_bytes(scope.get("query_string", b"")) else None
         replay = None
         kind = _body_kind(scope)
-        if not bad and kind:
-            replay, bad = await _buffer(receive, kind)
-        if bad:
-            return await _respond(send)
+        if not refusal and kind:
+            replay, refusal = await _buffer(receive, kind)
+        if refusal:
+            return await _respond(send, refusal)
         return await self.app(scope, replay or receive, send)
 
 
@@ -66,7 +90,7 @@ async def _buffer(receive, kind):
     while True:
         message = await receive()
         if message["type"] != "http.request":
-            return receive, False
+            return receive, None
         chunks.append(message.get("body", b""))
         size += len(chunks[-1])
         if not message.get("more_body"):
@@ -79,18 +103,23 @@ async def _buffer(receive, kind):
         return {"type": "http.request", "body": sent, "more_body": False}
 
     if size > MAX_CHECKED_BODY:
-        return replay, False
+        return replay, None
     if kind == "form":
         # Fields are percent-encoded and a plus is a space; a NUL can only be %00 (or a raw byte).
-        return replay, b"\x00" in unquote_to_bytes(body.replace(b"+", b" "))
+        return replay, _REFUSAL if b"\x00" in unquote_to_bytes(body.replace(b"+", b" ")) else None
     try:
-        return replay, has_nul(json.loads(body))
+        value = json.loads(body)
+    except RecursionError:
+        return replay, _TOO_DEEP  # the parser's own limit: far deeper than any request here
     except ValueError:
-        return replay, False  # not JSON: the route's own validation answers
+        return replay, None  # not JSON: the route's own validation answers
+    if too_deep(value):
+        return replay, _TOO_DEEP
+    return replay, _REFUSAL if has_nul(value) else None
 
 
-async def _respond(send):
-    payload = json.dumps(_REFUSAL).encode()
+async def _respond(send, refusal):
+    payload = json.dumps(refusal).encode()
     await send({"type": "http.response.start", "status": 422,
                 "headers": [(b"content-type", b"application/json"), (b"content-length", str(len(payload)).encode())]})
     await send({"type": "http.response.body", "body": payload})
