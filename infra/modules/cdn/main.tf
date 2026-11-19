@@ -1,15 +1,20 @@
-# One origin for the browser (tech plan §3, HLD §4): CloudFront serves the web files
-# from a private bucket through Origin Access Control, and sends /api/* to the HTTP API
-# with caching off and the viewer's cookies, Origin and Authorization passed through.
-# That is what lets the SameSite=Strict refresh cookie work (TD-4b).
+# CloudFront serves the PUBLIC STATIC web files (and the landing page) from a private bucket through Origin
+# Access Control, and nothing else. The API is not behind it: CloudFront is a global network whose edges and
+# caches can sit outside India, and the API carries tenant data (D-094). The browser calls the API directly at
+# its own regional endpoint in Mumbai (infra/modules/api), a sibling name of this site so the
+# SameSite=Strict refresh cookie still works (TD-4b).
 #
 # The domain is not chosen yet (pending on Pankaj), so until `aliases` and an ACM
 # certificate in us-east-1 are given, the site is on the *.cloudfront.net name.
 
 variable "name" { type = string }
-variable "api_endpoint" {
-  description = "The HTTP API's https:// endpoint"
+variable "api_origin" {
+  description = "https:// origin the browser calls for the API (the API Gateway custom domain). The CSP names it in connect-src; the page is not allowed to call any other host."
   type        = string
+  validation {
+    condition     = can(regex("^https://[a-z0-9.-]+$", var.api_origin))
+    error_message = "api_origin must be an https:// origin with no path, port or wildcard."
+  }
 }
 variable "aliases" {
   type    = list(string)
@@ -38,10 +43,6 @@ variable "price_class" {
 data "aws_caller_identity" "current" {}
 
 data "aws_cloudfront_cache_policy" "optimized" { name = "Managed-CachingOptimized" }
-data "aws_cloudfront_cache_policy" "disabled" { name = "Managed-CachingDisabled" }
-# Every viewer header, cookie and query string except Host, which API Gateway needs to
-# be its own.
-data "aws_cloudfront_origin_request_policy" "all_but_host" { name = "Managed-AllViewerExceptHostHeader" }
 
 resource "aws_s3_bucket" "web" {
   bucket = "${var.name}-web-${data.aws_caller_identity.current.account_id}"
@@ -108,8 +109,7 @@ resource "aws_s3_bucket_policy" "web" {
 # Which file a path gets (viewer_request.js, tested by routing.test.mjs): "/" is the landing page for a
 # visitor and the app's index.html for someone signed in (the app's `kartaa_in` hint cookie); /styles.css and
 # /fonts/* are the landing page's files under _landing/; /signin, /signup and the app's other routes get
-# index.html. It runs on the web behaviour only: a distribution-wide error page would also turn the API's
-# JSON 404s into HTML. It runs before the cache lookup, so the two pages have separate cache entries.
+# index.html. It runs before the cache lookup, so the two pages have separate cache entries.
 resource "aws_cloudfront_function" "spa" {
   name    = "${var.name}-spa"
   runtime = "cloudfront-js-2.0"
@@ -120,7 +120,7 @@ resource "aws_cloudfront_function" "spa" {
 locals {
   # form-action does not fall back to default-src, so it is named as well as connect-src.
   upload_src = var.upload_origin == "" ? "" : " ${var.upload_origin}"
-  csp        = "default-src 'self'; img-src 'self' data: blob:; connect-src 'self'${local.upload_src}; frame-ancestors 'none'; base-uri 'none'; form-action 'self'${local.upload_src}"
+  csp        = "default-src 'self'; img-src 'self' data: blob:; connect-src 'self' ${var.api_origin}${local.upload_src}; frame-ancestors 'none'; base-uri 'none'; form-action 'self'${local.upload_src}"
 }
 
 # LLD-1 §11.5.
@@ -165,17 +165,6 @@ resource "aws_cloudfront_distribution" "this" {
     origin_access_control_id = aws_cloudfront_origin_access_control.web.id
   }
 
-  origin {
-    origin_id   = "api"
-    domain_name = replace(var.api_endpoint, "https://", "")
-    custom_origin_config {
-      http_port              = 80
-      https_port             = 443
-      origin_protocol_policy = "https-only"
-      origin_ssl_protocols   = ["TLSv1.2"]
-    }
-  }
-
   default_cache_behavior {
     target_origin_id           = "web"
     viewer_protocol_policy     = "redirect-to-https"
@@ -188,18 +177,6 @@ resource "aws_cloudfront_distribution" "this" {
       event_type   = "viewer-request"
       function_arn = aws_cloudfront_function.spa.arn
     }
-  }
-
-  ordered_cache_behavior {
-    path_pattern               = "/api/*"
-    target_origin_id           = "api"
-    viewer_protocol_policy     = "https-only"
-    allowed_methods            = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
-    cached_methods             = ["GET", "HEAD"]
-    compress                   = true
-    cache_policy_id            = data.aws_cloudfront_cache_policy.disabled.id
-    origin_request_policy_id   = data.aws_cloudfront_origin_request_policy.all_but_host.id
-    response_headers_policy_id = aws_cloudfront_response_headers_policy.security.id
   }
 
   restrictions {
