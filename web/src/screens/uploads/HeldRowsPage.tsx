@@ -279,6 +279,7 @@ function BulkBar({ businessId, runId, chosen, total, states, onAll, onNone, onDo
   const [problem, setProblem] = useState<string>();
   const [result, setResult] = useState<{ done: number; failed: { row: HeldRow; message: string }[] }>();
   const [busy, setBusy] = useState(false);
+  const [sure, setSure] = useState(false);
   const decide = useDecide(businessId, runId);
   const keys = useRef(new Map<string, string>());
   const every = (a: string) => chosen.length > 0 && chosen.every((r) => r.allowed_actions.some((x) => x.action === a));
@@ -292,6 +293,8 @@ function BulkBar({ businessId, runId, chosen, total, states, onAll, onNone, onDo
     if (!note.trim()) return setProblem("Add a note saying why.");
     if (note.length > NOTE_MAX) return setProblem(`Keep the note to ${NOTE_MAX} characters.`);
     setProblem(undefined);
+    if (effective === "set_aside" && !sure) return setSure(true);
+    setSure(false);
     setBusy(true);
     const failed: { row: HeldRow; message: string }[] = [];
     let done = 0;
@@ -333,7 +336,7 @@ function BulkBar({ businessId, runId, chosen, total, states, onAll, onNone, onDo
         <form onSubmit={submit} noValidate aria-label="Decide the selected rows">
           <div className="field">
             <label htmlFor="bulk-action">What to do</label>
-            <select id="bulk-action" value={effective} onChange={(e) => setAction(e.target.value as "pick_state" | "set_aside")}>
+            <select id="bulk-action" value={effective} onChange={(e) => { setAction(e.target.value as "pick_state" | "set_aside"); setSure(false); }}>
               {canPick && <option value="pick_state">Pick one state for the selected rows</option>}
               {canAside && <option value="set_aside">Leave the selected rows out</option>}
             </select>
@@ -342,7 +345,7 @@ function BulkBar({ businessId, runId, chosen, total, states, onAll, onNone, onDo
           <Field label="Note (why)" value={note} maxLength={NOTE_MAX} onChange={(e) => setNote(e.target.value)} error={problem} />
           {effective === "set_aside" && <p className="hint">Leaving rows out cannot be undone: to bring one back, discard this file and upload it again.</p>}
           <Button type="submit" variant={effective === "set_aside" ? "danger" : "primary"} busy={busy}>
-            {effective === "pick_state" ? `Use this state for ${chosen.length} row${chosen.length === 1 ? "" : "s"}` : `Leave ${chosen.length} row${chosen.length === 1 ? "" : "s"} out`}
+            {effective === "pick_state" ? `Use this state for ${chosen.length} row${chosen.length === 1 ? "" : "s"}` : sure ? `Yes, leave ${chosen.length} row${chosen.length === 1 ? "" : "s"} out` : `Leave ${chosen.length} row${chosen.length === 1 ? "" : "s"} out`}
           </Button>
         </form>
       )}
