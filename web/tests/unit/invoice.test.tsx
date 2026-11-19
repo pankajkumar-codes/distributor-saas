@@ -85,6 +85,20 @@ describe("a check that needs last year's turnover band", () => {
   });
 });
 
+describe("a cash sale without the buyer's state", () => {
+  it("says to choose the state beside the field and sends nothing", async () => {
+    server.reply("/api/v1/b/b-1/products/p-1", { status: 200, body: product });
+    open("/b/b-1/invoices/new");
+    fireEvent.click(await screen.findByLabelText("Cash sale (no GSTIN)"));
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+    expect(await screen.findByText("Choose the buyer's state for a cash sale.")).toBeInTheDocument();
+    expect(sent(DRAFTS, "POST")).toHaveLength(0);
+    expect(screen.getByLabelText("Buyer's state")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByText("Choose the buyer's state for a cash sale.")).toHaveAttribute("role", "alert");
+    expect(document.activeElement).toBe(screen.getByLabelText("Buyer's state")); // focus goes to the field to fix
+  });
+});
+
 describe("the draft invoice form", () => {
   it("creates a draft once, with the picked customer and product, and shows the server's totals and checks", async () => {
     server.reply("/api/v1/b/b-1/customers", { status: 200, body: { items: [customer], has_more: false } });

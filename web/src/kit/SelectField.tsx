@@ -1,4 +1,4 @@
-import { useId, type SelectHTMLAttributes } from "react";
+import { useId, type Ref, type SelectHTMLAttributes } from "react";
 
 type Option = { value: string; label: string };
 type Props = SelectHTMLAttributes<HTMLSelectElement> & {
@@ -7,6 +7,7 @@ type Props = SelectHTMLAttributes<HTMLSelectElement> & {
   placeholder?: string;
   hint?: string;
   error?: string;
+  ref?: Ref<HTMLSelectElement>; // React 19: a function component takes `ref` as a prop; it lands on the <select> through the spread
 };
 
 /** A labelled select, with its hint and inline error read out like Field's. */
@@ -30,7 +31,7 @@ export function SelectField({ label, options, placeholder = "Choose…", hint, e
         </p>
       )}
       {error && (
-        <p id={`${id}-error`} className="error">
+        <p id={`${id}-error`} className="error" role="alert">
           {error}
         </p>
       )}
