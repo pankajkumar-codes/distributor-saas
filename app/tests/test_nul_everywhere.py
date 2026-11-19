@@ -77,3 +77,12 @@ def test_no_route_reads_a_body_the_nul_guard_skips():
         if kind not in checked
     ]
     assert not offenders, offenders
+
+
+def test_deeply_nested_json_on_a_real_route_is_422_not_500():
+    """The guard walked the body recursively and a long run of brackets became a 500 on every JSON route (#322)."""
+    client = TestClient(app, raise_server_exceptions=False)
+    for depth in (100, 5_000, 200_000):
+        body = b'{"name": ' + b"[" * depth + b"]" * depth + b"}"
+        r = client.post("/api/v1/b", content=body, headers={"content-type": "application/json"})
+        assert r.status_code == 422 and r.json()["error"]["code"] == "json_too_deep", (depth, r.status_code)
