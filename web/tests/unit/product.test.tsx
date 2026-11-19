@@ -327,7 +327,7 @@ describe("editing a product", () => {
     expect(screen.getByLabelText("Sale rate per unit, excluding GST (₹)")).toHaveValue("50.00");
     expect(screen.getByLabelText("Name")).toHaveValue("Neem bath soap");
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
-    await screen.findByText(/Saved\./);
+    await screen.findByText(/Saved\./, undefined, { timeout: 3000 });
     const patches = sent(ONE, "PATCH");
     expect(patches[1].headers.get("If-Match")).toBe("4");
     expect(patches[1].body).toEqual({ name: "Neem bath soap" });

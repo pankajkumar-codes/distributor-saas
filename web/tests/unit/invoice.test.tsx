@@ -132,7 +132,7 @@ describe("a check that needs last year's turnover band", () => {
     window.history.back();
     await waitFor(() => expect(window.location.pathname).toBe("/b/b-1/invoices/d-1"));
     await waitFor(() => expect(screen.queryByText(/Tell us last year's turnover band/)).toBeNull());
-    expect(screen.getByRole("button", { name: "Create invoice" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Create practice invoice" })).toBeEnabled();
   });
 
   it("does not offer to leave while there are unsaved edits", async () => {
@@ -200,6 +200,25 @@ describe("the draft invoice form", () => {
     // The blank rate came back filled in by the server; the form shows it, so it is not "changed" and Finalize can be used.
     expect(screen.getByLabelText("Rate (excl. GST)")).toHaveValue("100.00");
     expect(screen.getByRole("button", { name: "Save draft" })).toBeDisabled();
+  });
+
+  it("starts a fresh create key when the server says the key belonged to a different request", async () => {
+    server.reply("/api/v1/b/b-1/customers", { status: 200, body: { items: [customer], has_more: false } });
+    server.reply("/api/v1/b/b-1/products", { status: 200, body: { items: [product], has_more: false } });
+    server.reply("/api/v1/b/b-1/products/p-1", { status: 200, body: product });
+    const mismatch = { status: 409, body: { error: { code: "idempotency_mismatch", message: "This Idempotency-Key was already used for a different request" } } };
+    server.reply(DRAFTS, mismatch, { status: 201, body: draft({ computation: computation() }) });
+    open("/b/b-1/invoices/new");
+    fireEvent.change(await screen.findByLabelText("Find a customer"), { target: { value: "sharma" } });
+    fireEvent.click(await screen.findByRole("button", { name: /Sharma Traders · 19AAAAA0000A1Z5/ }, { timeout: 3000 }));
+    fireEvent.change(screen.getByLabelText("Add a product"), { target: { value: "aloe" } });
+    fireEvent.click(await screen.findByRole("button", { name: /Aloe Vera Gel 200 ml · HSN 3304/ }, { timeout: 3000 }));
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+    await screen.findByRole("alert");
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+    expect(await screen.findByRole("heading", { name: "Draft invoice" })).toBeInTheDocument();
+    const [first, second] = sent(DRAFTS, "POST");
+    expect(second.headers.get("Idempotency-Key")).not.toBe(first.headers.get("Idempotency-Key"));
   });
 
   it("saves a change with the version it opened, and offers their version on a stale save", async () => {
@@ -406,7 +425,7 @@ describe("the form's body", () => {
   it("shows Finalize and why every invoice is a practice one, before anything is saved", async () => {
     open("/b/b-1/invoices/new");
     expect(await screen.findByText(/Practice mode\./)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Create invoice" })).toBeEnabled(); // it saves first, then creates
+    expect(screen.getByRole("button", { name: "Create practice invoice" })).toBeEnabled(); // it saves first, then creates
     expect(screen.getByRole("button", { name: "Save draft" })).toBeEnabled();
   });
 });
