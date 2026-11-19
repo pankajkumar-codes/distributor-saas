@@ -11,6 +11,8 @@ import pytest
 
 @pytest.fixture()
 def aws(monkeypatch):
+    for name in ("AWS_REGION", "AWS_DEFAULT_REGION", "AWS_ENDPOINT_URL"):
+        monkeypatch.delenv(name, raising=False)
     built = []
 
     class Config:
@@ -36,7 +38,7 @@ def aws(monkeypatch):
     monkeypatch.delitem(sys.modules, "platform_common.aws")
 
 
-EXPECTED = {"connect_timeout": 2, "read_timeout": 5, "retries": {"mode": "standard", "total_max_attempts": 3}}
+EXPECTED = {"region_name": "ap-south-1", "connect_timeout": 2, "read_timeout": 5, "retries": {"mode": "standard", "total_max_attempts": 3}}
 
 
 def test_every_client_gets_the_shared_config(aws):
@@ -50,6 +52,40 @@ def test_every_client_gets_the_shared_config(aws):
     for service, kwargs in built:
         want = {**EXPECTED, "s3": {"addressing_style": "virtual"}} if service == "s3" else EXPECTED
         assert kwargs["config"].kwargs == want, service
+
+
+def test_every_client_is_pinned_to_the_configured_indian_region(aws, monkeypatch):
+    module, built = aws
+    monkeypatch.setenv("AWS_REGION", "ap-south-2")
+    module.cognito_client()
+    module.bedrock_client()
+    assert [(s, k["config"].kwargs["region_name"]) for s, k in built] == [("cognito-idp", "ap-south-2"), ("bedrock-runtime", "ap-south-2")]
+
+
+@pytest.mark.parametrize("name", ["AWS_REGION", "AWS_DEFAULT_REGION"])
+def test_a_region_outside_india_stops_client_building(aws, monkeypatch, name):
+    module, built = aws
+    monkeypatch.setenv(name, "eu-west-1")
+    with pytest.raises(Exception, match="stays in"):
+        module.cognito_client()
+    with pytest.raises(Exception, match="stays in"):
+        module.SqsQueue("https://sqs.example/q")
+    assert built == []
+
+
+def test_an_endpoint_override_must_be_this_computer_or_an_indian_host(aws, monkeypatch):
+    module, built = aws
+    monkeypatch.setenv("AWS_ENDPOINT_URL", "https://127.0.0.1:9297")
+    module.cognito_client()
+    monkeypatch.setenv("AWS_ENDPOINT_URL", "https://sqs.ap-south-1.amazonaws.com")
+    module.cognito_client()
+    monkeypatch.setenv("AWS_ENDPOINT_URL", "https://sqs.us-east-1.amazonaws.com")
+    with pytest.raises(Exception, match="points outside India"):
+        module.cognito_client()
+    monkeypatch.setenv("AWS_ENDPOINT_URL", "https://example.com")
+    with pytest.raises(Exception, match="points outside India"):
+        module.cognito_client()
+    assert len(built) == 2
 
 
 def test_a_client_passed_in_is_used_as_is(aws):

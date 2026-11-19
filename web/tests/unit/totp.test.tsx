@@ -55,8 +55,8 @@ const posts = (path: string) => server.sent.filter((s) => s.path === path && s.m
 
 describe("the key for the authenticator app", () => {
   it("names the app and the account, and is drawn from the server's secret only", () => {
-    expect(otpauthUri(SECRET, "a+b@x.in", "Business Hub")).toBe(
-      `otpauth://totp/Business%20Hub:a%2Bb%40x.in?secret=${SECRET}&issuer=Business%20Hub`,
+    expect(otpauthUri(SECRET, "a+b@x.in", "Kartaa")).toBe(
+      `otpauth://totp/Kartaa:a%2Bb%40x.in?secret=${SECRET}&issuer=Kartaa`,
     );
     expect(grouped("ABCDEFGHIJ")).toBe("ABCD EFGH IJ");
   });
