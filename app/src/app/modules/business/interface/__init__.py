@@ -22,6 +22,7 @@ from ..fiscal import (
     fy_quarters,
     gstin_state,
     is_fy,
+    previous_fy,
     quarter_months,
     quarter_start,
 )
@@ -86,6 +87,7 @@ __all__ = [
     "hsn_band_missing",
     "hsn_min_digits",
     "lock_gstin",
+    "previous_fy",
     "quarter_months",
     "quarter_start",
     "ready_for_documents",

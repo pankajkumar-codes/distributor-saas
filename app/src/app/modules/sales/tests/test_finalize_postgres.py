@@ -117,7 +117,7 @@ def set_last_year_band(pg, biz, band: str):
     """Last year's turnover band, as test setup (new_business sets only this year's)."""
     from datetime import date
 
-    from app.modules.business.fiscal import fy_of, previous_fy
+    from app.modules.business.interface import fy_of, previous_fy
 
     with pg.owner.connect() as c:
         c.execute(

@@ -143,13 +143,13 @@ describe("fixing a missing HSN on the invoice itself", () => {
 describe("a missing HSN on an invoice to a buyer without a GSTIN (#344)", () => {
   const P1 = "/api/v1/b/b-1/products/p-1";
   const noHsn = { ...product, hsn: null, uqc: "NOS", barcode: null, tax_category: "taxable", has_cess: false, in_use: true, rate_on: null, rate_changed_within_warning_window: false, rates: [] };
-  const warning = { code: "hsn_missing_b2c", fix: "This product has no HSN code. You can still make this invoice because it is for a buyer without a GSTIN. Add the HSN before you file GSTR-1; the return needs it.", field: "lines.0.product_id", line_no: 1 };
+  const warning = { code: "hsn_missing_b2c", fix: "This product has no HSN code. This invoice is for a buyer without a GSTIN and your turnover last year was within the small-business limit, so we allow it. Ask your CA to confirm, and add the HSN before you file GSTR-1; the return needs it.", field: "lines.0.product_id", line_no: 1 };
 
   it("shows it as a warning, keeps Create enabled and still offers the HSN box", async () => {
     server.reply(P1, { status: 200, body: noHsn });
     server.reply(ONE, { status: 200, body: draft({ ready: true, computation: computation({ warnings: [warning] }) }) });
     open("/b/b-1/invoices/d-1");
-    expect(await screen.findByText(/You can still make this invoice because it is for a buyer without a GSTIN/)).toBeInTheDocument();
+    expect(await screen.findByText(/so we allow it\. Ask your CA to confirm/)).toBeInTheDocument();
     expect(screen.getByText("Please check")).toBeInTheDocument();
     expect(screen.queryByText("Fix before finalizing")).toBeNull();
     expect(screen.getByRole("button", { name: "Create practice invoice" })).toBeEnabled();

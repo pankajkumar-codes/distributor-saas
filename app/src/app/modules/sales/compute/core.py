@@ -270,8 +270,9 @@ def _line_checks(i: int, line: LineIn, inp: ComputeInput, checks: _Checks) -> De
         if relief:
             checks.warn(
                 "hsn_missing_b2c",
-                "This product has no HSN code. You can still make this invoice because it is for a buyer without"
-                " a GSTIN. Add the HSN before you file GSTR-1; the return needs it.",
+                "This product has no HSN code. This invoice is for a buyer without a GSTIN and your turnover last year"
+                " was within the small-business limit, so we allow it. Ask your CA to confirm, and add the HSN before"
+                " you file GSTR-1; the return needs it.",
                 f"{at}.product_id",
                 n,
             )
@@ -297,8 +298,9 @@ def _line_checks(i: int, line: LineIn, inp: ComputeInput, checks: _Checks) -> De
     elif len(hsn) < inp.seller.hsn_min_digits and relief:
         checks.warn(
             "hsn_short_b2c",
-            f"This HSN has fewer than {inp.seller.hsn_min_digits} digits. You can still make this invoice because"
-            " it is for a buyer without a GSTIN. Check the code before you file GSTR-1.",
+            f"This HSN has fewer than {inp.seller.hsn_min_digits} digits. This invoice is for a buyer without a GSTIN"
+            " and your turnover last year was within the small-business limit, so we allow it. Ask your CA to confirm,"
+            " and check the code before you file GSTR-1.",
             f"{at}.product_id",
             n,
         )

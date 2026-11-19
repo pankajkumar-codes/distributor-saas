@@ -25,8 +25,8 @@ Sources: CA expert answers v2, "N-1 and H-1" (`team/program-lead/ca-answers-from
 
 ## 3. What the user sees
 
-- Invoice screen, "Please check" (not "Fix before finalizing"): "This product has no HSN code. You can still make this invoice because it is for a buyer without a GSTIN. Add the HSN before you file GSTR-1; the return needs it." The inline "HSN for <product>" box stays on the line, so adding it is one step. Create stays enabled.
-- A short code: "This HSN has fewer than N digits. You can still make this invoice because it is for a buyer without a GSTIN. Check the code before you file GSTR-1."
+- Invoice screen, "Please check" (not "Fix before finalizing"): "This product has no HSN code. This invoice is for a buyer without a GSTIN and your turnover last year was within the small-business limit, so we allow it. Ask your CA to confirm, and add the HSN before you file GSTR-1; the return needs it." The wording says the rule is allowed pending the CA, because OQ-HSN-1 is open, and does not quote the limit. The inline "HSN for <product>" box stays on the line, so adding it is one step. Create stays enabled.
+- A short code: "This HSN has fewer than N digits. This invoice is for a buyer without a GSTIN and your turnover last year was within the small-business limit, so we allow it. Ask your CA to confirm, and check the code before you file GSTR-1."
 - Product page warning: "Missing HSN: add it before invoicing a buyer with a GSTIN; GSTR-1 needs it too."
 - B2B invoice: unchanged ("Add the product's HSN code.", a block).
 
