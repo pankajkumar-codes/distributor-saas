@@ -4,6 +4,7 @@
 
  .DESCRIPTION
   .\demo.ps1            start the demo (about 5 minutes the first time) and show sign-up codes here
+  .\demo.ps1 -Finalize  start with finalize switched on, so an invoice can be finalized (numbers are PRACTICE only)
   .\demo.ps1 stop       stop it and forget everything it held
   .\demo.ps1 codes      show the sign-up codes again (Ctrl+C leaves the demo running)
   .\demo.ps1 check      quick health check: is each piece up, and does the page answer
@@ -19,7 +20,8 @@
 #>
 param(
     [Parameter(Position = 0)][string]$Command = "start",
-    [Parameter(Position = 1, ValueFromRemainingArguments = $true)][string[]]$Rest
+    [Parameter(Position = 1, ValueFromRemainingArguments = $true)][string[]]$Rest,
+    [switch]$Finalize
 )
 
 Set-Location -Path $PSScriptRoot
@@ -78,6 +80,12 @@ switch ($Command.ToLower()) {
         Dc run --rm seed
         if ($LASTEXITCODE -ne 0) { Stop-Here "Setting up the demo business failed." "Run '.\demo.ps1 stop' and try again." }
         Wait-Open
+        if ($Finalize) {
+            Get-Content -Raw "demo\enable-finalize.sql" | Dc exec -T db psql -U postgres -d saas -v ON_ERROR_STOP=1 *> $null
+            if ($LASTEXITCODE -ne 0) { Stop-Here "Switching finalize on failed." "Run '.\demo.ps1 stop' and start again without -Finalize." }
+            Say "Finalize is ON in this demo. Numbers it gives are PRACTICE only, not real invoice numbers." Yellow
+            Say "They stay off everywhere else until the CA confirms the numbering scope." Yellow
+        }
         Write-Host ""
         Say "==================================================================" Green
         Say "  The demo is ready.  Open this in your browser:" Green
