@@ -397,6 +397,7 @@ Full spec: `docs/TABLE13_SPEC.md`. Answers so far come from the AI CA and portal
 - **T13-5 (human CA): number reuse after cancel; one number under two natures.** Default: never reuse, one nature per number.
 - **T13-6 (build thread): does the import keep numbers of zero-value and cancelled marketplace rows?** Check before counting marketplace series.
 - **T13-7: debit notes, vouchers and challans.** Out of R1; manual rows allowed.
+
 ## Ask bot (2026-11-19, `docs/ASK_BOT.md`)
 - **OQ-ASK-1 (owner):** may we reuse GST portal tutorial text (store derived chunks, show short passages with attribution)? Terms not read; the bot stays off for customers until answered.
 - **OQ-ASK-2 (owner):** allow a paid Bedrock model in Mumbai for generative answers, with a monthly cap (recommend USD 10)?
