@@ -35,7 +35,14 @@ export function PreviewPanel({ preview, version, dirty }: { preview: ReturnType<
           </Button>
         </Banner>
       )}
-      {state === "failed" && <Banner tone="error">The preview could not be made. Try again.</Banner>}
+      {state === "failed" && (
+        <Banner tone="error">
+          The preview could not be made.{" "}
+          <Button type="button" variant="link" onClick={preview.retry}>
+            Try again
+          </Button>
+        </Banner>
+      )}
       {state === "error" && preview.error && (
         <Banner tone="error">
           {errorText(preview.error)}{" "}

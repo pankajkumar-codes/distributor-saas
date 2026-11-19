@@ -62,6 +62,37 @@ describe("a product with no HSN used on an invoice", () => {
   });
 });
 
+describe("coming back from the product after fixing its HSN", () => {
+  it("shows the draft's fresh checks, so Create is enabled again with nothing else to do", async () => {
+    server.reply("/api/v1/b/b-1/products/p-1", { status: 200, body: { ...product, hsn: null, uqc: "NOS", barcode: null, tax_category: "taxable", has_cess: false, in_use: true, rate_on: null, rate_changed_within_warning_window: false, rates: [] } });
+    server.reply("/api/v1/b/b-1/units", { status: 200, body: [] });
+    const block = { code: "hsn_missing", fix: "Add the product's HSN code.", field: "lines[0].product_id", line_no: 1 };
+    server.reply(ONE, { status: 200, body: draft({ ready: false, computation: computation({ blocks: [block] }) }) }, { status: 200, body: draft({ ready: true, computation: computation() }) });
+    open("/b/b-1/invoices/d-1");
+    fireEvent.click(await screen.findByRole("link", { name: "Open the product" }));
+    await waitFor(() => expect(window.location.pathname).toBe("/b/b-1/products/p-1"));
+    window.history.back();
+    await waitFor(() => expect(window.location.pathname).toBe("/b/b-1/invoices/d-1"));
+    await waitFor(() => expect(screen.queryByText(/Add the product's HSN code/)).toBeNull());
+    expect(screen.getByRole("button", { name: "Create practice invoice" })).toBeEnabled();
+    expect(screen.queryByText(/Fix the checks above/)).toBeNull();
+  });
+});
+
+describe("a blocked Create", () => {
+  it("lists the checks once, without a second generic banner", async () => {
+    const block = { code: "hsn_missing", fix: "Add the product's HSN code.", field: "lines[0].product_id", line_no: 1 };
+    server.reply("/api/v1/b/b-1/products/p-1", { status: 200, body: product });
+    server.reply(ONE, { status: 200, body: draft({ ready: true, computation: computation({ blocks: [block] }) }) });
+    server.reply(`${ONE}/finalize`, { status: 422, body: { error: { code: "finalize_blocked", message: "Fix these before finalizing.", blocks: [block] } } });
+    open("/b/b-1/invoices/d-1");
+    fireEvent.click(await screen.findByRole("button", { name: "Create practice invoice" }));
+    await waitFor(() => expect(sent(`${ONE}/finalize`, "POST")).toHaveLength(1));
+    expect(screen.queryByText("Fix these before finalizing.")).toBeNull();
+    expect(screen.getByText(/Add the product's HSN code/)).toBeInTheDocument();
+  });
+});
+
 describe("fixing a missing HSN on the invoice itself", () => {
   const P1 = "/api/v1/b/b-1/products/p-1";
   const noHsn = { ...product, hsn: null, uqc: "NOS", barcode: null, tax_category: "taxable", has_cess: false, in_use: true, rate_on: null, rate_changed_within_warning_window: false, rates: [] };
@@ -275,6 +306,23 @@ describe("the draft invoice form", () => {
       expect(screen.getByRole("button", { name: "Preview PDF" })).toBeEnabled();
       expect(screen.queryByText("Preparing the preview…")).toBeNull();
       expect(screen.queryByRole("link", { name: "Open the preview (PDF)" })).toBeNull();
+    });
+
+    it("offers its own Try again when the render failed, and looks again", async () => {
+      await opened();
+      server.reply(PREVIEW, started, started);
+      server.reply(`${PREVIEW}/j-1`, { status: 200, body: { status: "failed" } }, { status: 200, body: { status: "ready", url: "https://files.example/p.pdf" } });
+      press();
+      expect(await screen.findByText(/The preview could not be made/)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+      expect(await screen.findByRole("link", { name: "Open the preview (PDF)" })).toHaveAttribute("href", "https://files.example/p.pdf");
+      expect(sent(PREVIEW, "POST")).toHaveLength(2);
+    });
+
+    it("explains in practice terms what Create does", async () => {
+      await opened();
+      expect(screen.getByText(/Create practice invoice saves your changes and makes a practice invoice/)).toBeInTheDocument();
+      expect(screen.queryByText(/Create invoice saves your changes/)).toBeNull();
     });
 
     it("refreshes an expired token during polling and carries on to the link", async () => {
