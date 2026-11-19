@@ -20,6 +20,6 @@ describe("the browser tab title", () => {
     window.history.replaceState(null, "", path);
     render(<App />);
     await screen.findByRole("heading", { level: 1, name: heading });
-    expect(document.title).toBe(`${title} · Business Hub`);
+    expect(document.title).toBe(`${title} · Kartaa`);
   });
 });

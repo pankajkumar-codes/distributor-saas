@@ -50,24 +50,30 @@ export function InvoicePage() {
     queryKey: ["b", businessId, "draft", draftId],
     enabled: Boolean(business && draftId),
     staleTime: Infinity, // the page moves it on each save; a re-read is the stale banner's choice
+    refetchOnMount: "always", // coming back from another page (e.g. Business setup) shows the server's checks as they are now
     queryFn: () => call(() => api.GET("/api/v1/b/{business_id}/drafts/{draft_id}", { params: { path } })),
   });
   const ids = [...new Set((form?.lines ?? loaded.data?.lines ?? []).map((l) => l.product_id))];
-  const names = Object.fromEntries(
-    useQueries({
-      queries: ids.map((id) => ({
-        queryKey: ["b", businessId, "product", id],
-        staleTime: 5 * 60_000,
-        queryFn: () => call(() => api.GET("/api/v1/b/{business_id}/products/{product_id}", { params: { path: { business_id: businessId, product_id: id } } })),
-      })),
-    }).flatMap((q, i) => (q.data ? [[ids[i], (q.data as Product).name]] : [])),
-  ) as Record<string, string>;
+  const productQueries = useQueries({
+    queries: ids.map((id) => ({
+      queryKey: ["b", businessId, "product", id],
+      staleTime: 5 * 60_000,
+      queryFn: () => call(() => api.GET("/api/v1/b/{business_id}/products/{product_id}", { params: { path: { business_id: businessId, product_id: id } } })),
+    })),
+  });
+  const names = Object.fromEntries(productQueries.flatMap((q, i) => (q.data ? [[ids[i], (q.data as Product).name]] : []))) as Record<string, string>;
+  const unitOf = Object.fromEntries(productQueries.flatMap((q, i) => (q.data ? [[ids[i], (q.data as Product).uqc]] : []))) as Record<string, string | undefined>;
 
   useEffect(() => {
     if (loaded.data && !saved) {
       setSaved(loaded.data);
       setForm(formOf(loaded.data));
     }
+  }, [loaded.data, saved]);
+  // The server recomputes a draft's checks whenever it is read (e.g. after the turnover band was set on Business setup).
+  // The same version read again carries fresh checks; take them, leaving what the user has typed alone.
+  useEffect(() => {
+    if (loaded.data && saved && loaded.data !== saved && loaded.data.id === saved.id && loaded.data.version === saved.version) setSaved(loaded.data);
   }, [loaded.data, saved]);
 
   const save = useMutation<Draft, ApiError, Form>({
@@ -184,7 +190,7 @@ export function InvoicePage() {
               <Field label="Buyer's address (optional)" value={form.cash_address} onChange={(e) => set({ cash_address: e.target.value })} />
             </>
           )}
-          <Field label="Invoice date" type="date" value={form.doc_date} onChange={(e) => set({ doc_date: e.target.value })} hint="Blank is today." />
+          <Field label="Invoice date" type="date" value={form.doc_date} onChange={(e) => set({ doc_date: e.target.value })} hint="Blank is today. The date is shown in the order your browser uses." />
 
           <h2>Items</h2>
           {form.lines.map((l, i) => (
@@ -194,7 +200,7 @@ export function InvoicePage() {
               </legend>
               {flags.noStock.has(l.product_id) && <p className="hint">No stock on hand for this product. You can still sell it; stock goes below zero until you add a purchase.</p>}
               {flags.priceNeeded.has(l.product_id) && /^0*(\.0*)?$/.test(l.unit_price.trim()) && <p className="hint">This product has no selling price yet. Enter a rate here, or set its price under <Link to={`/b/${businessId}/stock?only=price_needed`}>Stock</Link>.</p>}
-              <Field label="Quantity" inputMode="decimal" value={l.quantity} onChange={(e) => setLine(i, { quantity: e.target.value })} />
+              <Field label="Quantity" inputMode="decimal" value={l.quantity} onChange={(e) => setLine(i, { quantity: e.target.value })} hint={unitOf[l.product_id] ? `Unit: ${unitOf[l.product_id]}` : undefined} />
               <Field label="Rate (excl. GST)" inputMode="decimal" value={l.unit_price} onChange={(e) => setLine(i, { unit_price: e.target.value })} hint="Blank uses the product's sale rate." />
               <SelectField
                 label="Discount"
@@ -253,7 +259,7 @@ export function InvoicePage() {
         </form>
 
         {saved?.computation ? (
-          <Totals c={saved.computation} states={stateNames} />
+          <Totals c={saved.computation} states={stateNames} canLeave={!dirty} />
         ) : (
           saved && (
             <p>
