@@ -55,6 +55,11 @@ if (process.argv.includes("--check")) {
   if (/https?:\/\/(?!www\.w3\.org\/2000\/svg)/i.test(all)) problems.push("an absolute http(s) URL (third-party fonts, scripts or links)");
   if (/<style\b|\sstyle\s*=|\son[a-z]+\s*=/i.test(html)) problems.push("inline style or event-handler code (the production Content-Security-Policy blocks it)");
   if (/\{\{/.test(html)) problems.push("an unfilled placeholder");
+  // Heading levels must not skip (axe "heading-order"), and the skip link says what the app's says.
+  const levels = [...html.matchAll(/<h([1-6])\b/gi)].map((m) => Number(m[1]));
+  if (levels[0] !== 1 || levels.slice(1).some((l, i) => l - levels[i] > 1)) problems.push("heading levels that skip (e.g. h2 followed by h4)");
+  if (!html.includes(">Skip to main content</a>")) problems.push('a skip link that does not read "Skip to main content" (the app uses the same words)');
+  if (!/<details class="menu">[\s\S]*href="#pricing"/.test(html)) problems.push("no phone menu with the section links");
   if (problems.length) {
     console.error("landing check failed: " + problems.join("; "));
     process.exit(1);
