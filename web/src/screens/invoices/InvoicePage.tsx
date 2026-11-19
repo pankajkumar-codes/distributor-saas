@@ -6,7 +6,7 @@ import { api, call } from "../../api/client";
 import { errorText, type ApiError } from "../../api/errors";
 import type { components } from "../../api/schema";
 import { useStateCodes } from "../../api/useStateCodes";
-import { canCreateDocuments } from "../../auth/roles";
+import { canCreateDocuments, canEditCatalog } from "../../auth/roles";
 import { useMyBusinesses } from "../../auth/useMyBusinesses";
 import { formatRupees } from "../../format/money";
 import { Banner } from "../../kit/Banner";
@@ -19,6 +19,7 @@ import { TopBar } from "../../kit/TopBar";
 import { blankForm, draftIn, formOf, newLine, sameForm, type Draft, type Form } from "./draftForm";
 import { useStockFlags } from "../stock/useStock";
 import { CustomerPicker, ProductPicker } from "./Pickers";
+import { HsnFix } from "./HsnFix";
 import { Totals } from "./Totals";
 import { useFinalize } from "./useFinalize";
 import { PreviewPanel } from "./PreviewPanel";
@@ -297,7 +298,23 @@ export function InvoicePage() {
         </form>
 
         {saved?.computation ? (
-          <Totals c={saved.computation} states={stateNames} canLeave={!dirty} productOf={(n) => saved.lines?.[n - 1]?.product_id} />
+          <Totals c={saved.computation} states={stateNames} canLeave={!dirty} productOf={(n) => saved.lines?.[n - 1]?.product_id}
+            hsnFix={
+              canEditCatalog(business.role)
+                ? (_n, productId) => (
+                    <HsnFix
+                      businessId={businessId}
+                      productId={productId}
+                      productName={names[productId] ?? "this product"}
+                      onSaved={async () => {
+                        const fresh = await loaded.refetch();
+                        if (fresh.data) setSaved(fresh.data);
+                      }}
+                    />
+                  )
+                : undefined
+            }
+          />
         ) : (
           saved && (
             <p>
