@@ -85,7 +85,7 @@ describe("a check that needs last year's turnover band", () => {
     window.history.back();
     await waitFor(() => expect(window.location.pathname).toBe("/b/b-1/invoices/d-1"));
     await waitFor(() => expect(screen.queryByText(/Tell us last year's turnover band/)).toBeNull());
-    expect(screen.getByRole("button", { name: "Finalize invoice" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Create invoice" })).toBeEnabled();
   });
 
   it("does not offer to leave while there are unsaved edits", async () => {
@@ -274,7 +274,7 @@ describe("the form's body", () => {
   it("shows Finalize and why every invoice is a practice one, before anything is saved", async () => {
     open("/b/b-1/invoices/new");
     expect(await screen.findByText(/Practice mode\./)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Finalize invoice" })).toBeDisabled();
-    expect(screen.getByText("Save the draft first: the invoice is made from the saved draft.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create invoice" })).toBeEnabled(); // it saves first, then creates
+    expect(screen.getByRole("button", { name: "Save draft" })).toBeEnabled();
   });
 });

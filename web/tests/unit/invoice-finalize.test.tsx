@@ -41,7 +41,7 @@ describe("a sales invoice from the catalog", () => {
     open();
     expect(await screen.findByText(/No stock on hand for this product. You can still sell it/)).toBeInTheDocument();
     expect(screen.getByText(/has no selling price yet/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Finalize invoice" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Create invoice" })).toBeEnabled();
   });
 
   it("finalizes a practice invoice, opens it, says so, and downloads its PDF", async () => {
@@ -50,7 +50,7 @@ describe("a sales invoice from the catalog", () => {
     server.reply(`GET ${B}/documents/doc-1`, { status: 200, body: detail({ status: "none" }) }, { status: 200, body: detail({ status: "ready", job_id: "j-1", attempt: 1, url: "https://files.example/p.pdf" }) });
     server.reply(`POST ${B}/documents/doc-1/pdf`, { status: 202, body: { job_id: "j-1", attempt: 1 } });
     open();
-    fireEvent.click(await screen.findByRole("button", { name: "Finalize invoice" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Create invoice" }));
     expect(await screen.findByText("Invoice PI-2026-27-0001")).toBeInTheDocument();
     expect(window.location.pathname).toBe("/b/b-1/documents/doc-1");
     expect(screen.getByText(/not a tax invoice/)).toBeInTheDocument();
@@ -60,6 +60,27 @@ describe("a sales invoice from the catalog", () => {
     fireEvent.click(screen.getByRole("button", { name: "Download practice PDF" }));
     const link = await screen.findByRole("link", { name: "Open the PDF" });
     expect(link).toHaveAttribute("href", "https://files.example/p.pdf");
+  });
+
+  it("saves unsaved changes and then creates the invoice from the saved version, in one press", async () => {
+    server.reply(`PUT ${ONE}`, { status: 200, body: draft({ version: 3 }) });
+    server.reply(`POST ${ONE}/finalize`, { status: 200, body: doc });
+    server.reply(`GET ${B}/documents/doc-1`, { status: 200, body: { ...doc, stock_movements: 1, pdf: { status: "none" } } });
+    open();
+    fireEvent.change(await screen.findByLabelText("Quantity"), { target: { value: "11" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create invoice" }));
+    expect(await screen.findByText("Invoice PI-2026-27-0001")).toBeInTheDocument();
+    expect(server.sent.find((s) => s.path === ONE && s.method === "PUT")!.headers.get("If-Match")).toBe("2");
+    expect(server.sent.find((s) => s.path === `${ONE}/finalize`)!.headers.get("If-Match")).toBe("3");
+  });
+
+  it("does not create the invoice when the save is refused", async () => {
+    server.reply(`PUT ${ONE}`, { status: 422, body: { error: { code: "invalid", message: "Check the quantity" } } });
+    open();
+    fireEvent.change(await screen.findByLabelText("Quantity"), { target: { value: "0" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create invoice" }));
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(server.sent.filter((s) => s.path === `${ONE}/finalize`)).toHaveLength(0);
   });
 
   it("asks for the PDF once when the button is pressed twice quickly", async () => {
@@ -95,14 +116,14 @@ describe("a sales invoice from the catalog", () => {
   it("says finalizing is not switched on when the server answers not found", async () => {
     server.reply(`POST ${ONE}/finalize`, { status: 404, body: { error: { code: "not_found", message: "" } } });
     open();
-    fireEvent.click(await screen.findByRole("button", { name: "Finalize invoice" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Create invoice" }));
     expect(await screen.findByText(/Finalizing isn't switched on for your business yet/)).toBeInTheDocument();
   });
 
   it("points to the plan when the free invoices are used", async () => {
     server.reply(`POST ${ONE}/finalize`, { status: 402, body: { error: { code: "invoice_plan_required", message: "Choose the plan" } } });
     open();
-    fireEvent.click(await screen.findByRole("button", { name: "Finalize invoice" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Create invoice" }));
     expect(await screen.findByRole("link", { name: "See the invoicing plan" })).toHaveAttribute("href", "/b/b-1/settings/plan");
   });
 });
