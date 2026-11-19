@@ -140,8 +140,11 @@ class LocalObjectStore:
         return body, _b64(hmac.new(self._secret, body.encode(), hashlib.sha256).digest())
 
     def _verify(self, body: str, signature: str) -> dict:
-        expected = _b64(hmac.new(self._secret, body.encode(), hashlib.sha256).digest())
-        if not hmac.compare_digest(expected, signature or ""):
+        # Both come from the caller. compare_digest on two str raises for non-ASCII text, and a lone surrogate (which a form or
+        # URL can carry) fails to encode, so work in bytes with surrogatepass and let any such value be a bad signature.
+        raw = body.encode("utf-8", "surrogatepass")
+        expected = _b64(hmac.new(self._secret, raw, hashlib.sha256).digest())
+        if not hmac.compare_digest(expected.encode(), (signature or "").encode("utf-8", "surrogatepass")):
             raise UploadRefused("signature")
         doc = json.loads(_unb64(body))
         if datetime.fromisoformat(doc["expires_at"]) <= self.clock.now():
