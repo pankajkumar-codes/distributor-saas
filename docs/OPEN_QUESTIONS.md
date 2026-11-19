@@ -386,6 +386,13 @@ These need Pankaj or his CA and do not stop building. Each must be done before p
 - **OQ-INV-1 (CA):** is an HSN mandatory on every sales invoice for this business, and with how many digits? The server rule stays as built until answered (`docs/INVOICE_FLOW.md`).
 - **OQ-INV-2 (owner):** may Create invoice skip the confirmation sheet (r1-invoice-screens I2) while all invoices are practice-only? The v14 mock skips it.
 
+## Ask bot (2026-11-19, `docs/ASK_BOT.md`)
+- **OQ-ASK-1 (owner):** may we reuse GST portal tutorial text (store derived chunks, show short passages with attribution)? Terms not read; the bot stays off for customers until answered.
+- **OQ-ASK-2 (owner):** allow a paid Bedrock model in Mumbai for generative answers, with a monthly cap (recommend USD 10)?
+- **OQ-ASK-3 (EM):** read the AWS console in ap-south-1 and ap-south-2 for in-region on-demand text models, price and access; Bedrock availability is unverified.
+- **OQ-ASK-4 (owner):** save the tutorial index page as HTML into the project folder so verified deep links can be filled in; download the missing pack documents (offline tool guide and JSON schema, registration, payments, e-invoice and e-way bill).
+- **OQ-ASK-5 (owner):** release placement (recommended: own track with R2), support contact, log retention (90 days), who sees the bot (all members). See the decision table in the spec.
+
 ## Decision handling
 For each answer, update `docs/DECISIONS.md` with the decision, rationale, trade-offs, and approval status. Do not silently turn assumptions into requirements.
 - **Turning live finalize on (CA, then CEO or Pankaj) (R3-M5, D-091):** a second refdata switch `sales.finalize.live` ships `"false"`; turn it on, after `sales.finalize.enabled`, only once the CA confirms the numbering scope (CA-1). Credit-note finalize is still not built (needs the credit-note treatment, CA).

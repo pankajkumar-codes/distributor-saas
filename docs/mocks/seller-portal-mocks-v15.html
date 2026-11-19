@@ -1,0 +1,426 @@
+<title>Seller Portal R1 Mocks v15</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600&display=swap">
+<style>
+/* Layout: slim top nav + one centred column per screen; same tokens as v11 so the look carries over */
+:root{
+  --bg:#F4F4F0;--surface:#FFFFFF;--sunk:#ECEBE5;--line:#DEDCD4;--ink:#1A1D21;--muted:#585D63;
+  --accent:#0F5F57;--accent-ink:#FFFFFF;--accent-soft:#E2EFEC;--gst:#2C4A86;--gst-ink:#FFFFFF;--gst-soft:#E6ECF7;
+  --ok:#1E6B3A;--ok-soft:#E1F0E5;--warn:#7A4106;--warn-soft:#FBEFD8;--bad:#9E1C14;--bad-soft:#FBE6E3;
+  --display:'Fraunces',Georgia,serif;--body:'Hanken Grotesk',system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141716;--surface:#1C201F;--sunk:#232826;--line:#323836;--ink:#ECEEEB;--muted:#A3AAA6;
+  --accent:#5FB8AC;--accent-ink:#0E1513;--accent-soft:#1E3330;--gst:#93AEE6;--gst-ink:#10172A;--gst-soft:#1F2638;
+  --ok:#7CCB95;--ok-soft:#1C2E22;--warn:#E8B467;--warn-soft:#33281A;--bad:#F09A90;--bad-soft:#3A201D;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141716;--surface:#1C201F;--sunk:#232826;--line:#323836;--ink:#ECEEEB;--muted:#A3AAA6;
+  --accent:#5FB8AC;--accent-ink:#0E1513;--accent-soft:#1E3330;--gst:#93AEE6;--gst-ink:#10172A;--gst-soft:#1F2638;
+  --ok:#7CCB95;--ok-soft:#1C2E22;--warn:#E8B467;--warn-soft:#33281A;--bad:#F09A90;--bad-soft:#3A201D;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.top{background:var(--surface);border-bottom:1px solid var(--line);padding-block:10px}
+.top .in2{max-width:1000px;margin:0 auto;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto}
+.mark{width:32px;height:32px;border-radius:9px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-weight:700}
+.nav{display:flex;gap:2px;flex-wrap:wrap}
+.nav button{border:0;background:none;padding:8px 11px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;color:var(--muted)}
+.nav button:hover{background:var(--sunk)}
+.nav button[aria-current=page]{background:var(--accent-soft);color:var(--accent);font-weight:700}
+.ctlbar{background:var(--sunk);border-bottom:1px solid var(--line);padding-block:8px;font-size:12px;color:var(--muted)}
+.ctlbar .in2{max-width:1000px;margin:0 auto;display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.seg{display:inline-flex;background:var(--surface);border-radius:9px;padding:3px;gap:2px;flex-wrap:wrap}
+.seg button{border:0;background:none;padding:5px 10px;border-radius:7px;font-weight:600;cursor:pointer;color:var(--muted);font-size:12px}
+.seg button[aria-pressed=true]{background:var(--accent);color:var(--accent-ink)}
+main{max-width:1000px;margin:0 auto;padding-block:26px 80px}
+body.phone main,body.phone .top .in2,body.phone .ctlbar .in2{max-width:390px}
+body.phone{background:var(--sunk)}
+body.phone main{background:var(--bg);box-shadow:0 0 0 1px var(--line);padding-inline:16px}
+h1{font-family:var(--display);font-weight:600;font-size:30px;line-height:1.15;margin:0;text-wrap:balance}
+h2{font-size:18px;margin:0;text-wrap:balance}h3{font-size:15px;margin:0}p{margin:0}
+.sub{color:var(--muted);margin-top:6px;max-width:66ch}
+.stack{display:flex;flex-direction:column;gap:16px}.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}.between{justify-content:space-between}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+body.phone .grid2,body.phone .grid3{grid-template-columns:minmax(0,1fr)}
+@media (max-width:700px){.grid2,.grid3{grid-template-columns:minmax(0,1fr)}h1{font-size:24px}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px 20px;min-width:0}
+.label{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.big{font-size:24px;font-weight:700}
+.chip{display:inline-flex;align-items:center;height:24px;padding:0 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.ok{background:var(--ok-soft);color:var(--ok)}.warn{background:var(--warn-soft);color:var(--warn)}.bad{background:var(--bad-soft);color:var(--bad)}.info{background:var(--gst-soft);color:var(--gst)}.mute{background:var(--sunk);color:var(--muted)}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:0 18px;border-radius:10px;border:0;background:var(--accent);color:var(--accent-ink);font-weight:600;cursor:pointer}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.btn2{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:0 14px;border-radius:10px;border:1.5px solid var(--line);background:var(--surface);font-weight:600;cursor:pointer;font-size:14px}
+.link{background:none;border:0;padding:0;color:var(--accent);font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field>label,.flabel{font-size:13px;font-weight:600}
+.inp{height:42px;border:1.5px solid var(--line);border-radius:9px;padding:0 12px;background:var(--surface);color:var(--ink);font:inherit;width:100%;min-width:0}
+.inp[disabled]{background:var(--sunk);color:var(--muted);cursor:not-allowed}
+.hint{font-size:13px;color:var(--muted)}.oktxt{font-size:13px;color:var(--ok);font-weight:600}
+.banner{display:flex;gap:10px;padding:12px 16px;border-radius:10px;font-size:14px;align-items:flex-start}
+.banner.info{background:var(--gst-soft);color:var(--gst)}.banner.warn{background:var(--warn-soft);color:var(--warn)}.banner.ok{background:var(--ok-soft);color:var(--ok)}.banner.bad{background:var(--bad-soft);color:var(--bad)}
+.opt{display:flex;gap:12px;align-items:flex-start;padding:14px;border:1.5px solid var(--line);border-radius:10px;background:var(--surface);cursor:pointer;text-align:left;width:100%}
+.opt[aria-pressed=true]{border-color:var(--accent);background:var(--accent-soft)}
+.opt.off{cursor:not-allowed;background:var(--sunk);color:var(--muted)}
+.radio{width:18px;height:18px;border-radius:50%;border:2px solid var(--muted);flex:none;margin-top:2px}
+.opt[aria-pressed=true] .radio{border:6px solid var(--accent)}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font-size:12px;font-weight:600;color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--line);background:var(--sunk);white-space:nowrap}
+td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}tr:last-child td{border-bottom:0}
+td.r,th.r{text-align:right}
+.diff{background:var(--warn-soft);font-weight:700;color:var(--warn);border-radius:4px;padding:1px 5px}
+.progress{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.progress span{height:5px;border-radius:3px;background:var(--line)}.progress span.on{background:var(--accent)}
+.drop{border:2px dashed var(--line);border-radius:10px;padding:18px;text-align:center;background:var(--bg);display:flex;flex-direction:column;gap:4px;align-items:center}
+.step{display:grid;grid-template-columns:32px minmax(0,1fr);gap:12px;padding:14px 0;border-bottom:1px solid var(--line)}.step:last-child{border-bottom:0}
+.dot{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:700;background:var(--gst-soft);color:var(--gst)}
+.dot.done{background:var(--ok);color:var(--surface)}
+.up{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;background:var(--sunk);color:var(--muted);padding:2px 7px;border-radius:6px;border:1px solid var(--line)}
+.src{font-size:12px;color:var(--muted);border-top:1px dashed var(--line);padding-top:8px}
+.note{font-size:12px;color:var(--muted);background:var(--sunk);border-radius:8px;padding:8px 12px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:12px 16px;border-radius:10px;font-weight:600;z-index:20;max-width:calc(100% - 32px)}
+.idx button.card{text-align:left;cursor:pointer;font:inherit;color:inherit}
+.idx button.card:hover{border-color:var(--accent)}
+pre.json{margin:0;background:var(--sunk);border-radius:8px;padding:12px;font-size:12px;overflow-x:auto;line-height:1.5}
+/* ===== v15: Ask Kartaa help bot (floating button + panel), see docs/ASK_BOT.md ===== */
+.ask-fab{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px) + var(--ask-lift,0px));z-index:40;min-height:48px;padding:0 18px 0 14px;border-radius:999px;border:0;background:var(--accent);color:var(--accent-ink);font-weight:600;display:inline-flex;gap:8px;align-items:center;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.22)}
+.ask-fab[hidden],.ask-panel[hidden]{display:none}
+.ask-panel{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px) + var(--ask-lift,0px));z-index:41;width:380px;max-width:calc(100vw - 32px);height:min(560px,calc(100dvh - 110px));background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 36px rgba(0,0,0,.28);display:flex;flex-direction:column;overflow:hidden}
+.ask-head{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.ask-head .t{margin-right:auto}.ask-head .t b{display:block;font-size:15px}.ask-head .t span{font-size:12px;color:var(--muted)}
+.ask-ic{width:40px;height:40px;border-radius:9px;border:0;background:none;cursor:pointer;display:grid;place-items:center;color:var(--muted)}.ask-ic:hover{background:var(--sunk)}
+.ask-body{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px;background:var(--bg)}
+.ask-me{align-self:flex-end;max-width:85%;background:var(--accent);color:var(--accent-ink);padding:9px 13px;border-radius:14px 14px 4px 14px;font-size:14px}
+.ask-bot{align-self:flex-start;max-width:94%;background:var(--surface);border:1px solid var(--line);padding:11px 13px;border-radius:14px 14px 14px 4px;font-size:14px;display:flex;flex-direction:column;gap:9px}
+.ask-bot.err{background:var(--bad-soft);border-color:transparent;color:var(--bad)}
+.ask-src{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.ask-read{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 12px;border-radius:9px;border:1.5px solid var(--accent);color:var(--accent);font-weight:600;text-decoration:none;font-size:14px;align-self:flex-start;background:var(--surface);cursor:pointer}
+.ask-read.main{background:var(--accent);color:var(--accent-ink)}
+.ask-fb{display:flex;gap:4px;align-items:center;font-size:12px;color:var(--muted)}.ask-fb button{border:1px solid var(--line);background:var(--surface);border-radius:8px;min-height:32px;min-width:40px;cursor:pointer}
+.ask-chips{display:flex;flex-wrap:wrap;gap:8px}.ask-chips button{border:1.5px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 12px;font-size:13px;cursor:pointer;text-align:left}
+.ask-foot{border-top:1px solid var(--line);padding:10px 12px;background:var(--surface);display:flex;flex-direction:column;gap:6px}
+.ask-foot .r{display:flex;gap:8px}.ask-foot input{flex:1;height:44px;border:1.5px solid var(--line);border-radius:10px;padding:0 12px;font:inherit;background:var(--surface);color:var(--ink);min-width:0}.ask-foot input:disabled{background:var(--sunk)}
+.ask-foot .btn{min-height:44px}.ask-note{font-size:11.5px;color:var(--muted)}
+.ask-dots span{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--muted);margin-right:4px;animation:askd 1.2s infinite}.ask-dots span:nth-child(2){animation-delay:.2s}.ask-dots span:nth-child(3){animation-delay:.4s}
+@keyframes askd{0%,80%,100%{opacity:.25}40%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.ask-dots span{animation:none}}
+body.phone .ask-fab{right:calc(50% - 195px + 16px)}
+body.phone .ask-panel{right:calc(50% - 195px);width:390px;max-width:100vw;bottom:0;height:calc(100dvh - 56px);border-radius:16px 16px 0 0}
+@media (max-width:700px){.ask-panel{right:0;left:0;width:auto;max-width:none;bottom:0;height:calc(100dvh - 56px);border-radius:16px 16px 0 0}}
+@media print{.ask-fab,.ask-panel{display:none}}
+</style>
+
+<div class="top wrap"><div class="in2">
+  <div class="brand"><div class="mark" aria-hidden="true">VE</div><div><b>Vaashi Essentials</b><br><span class="hint num">GSTIN 19XXXXX0000X1Z5</span></div></div>
+  <nav class="nav" id="nav" aria-label="Main"></nav>
+</div></div>
+<div class="ctlbar wrap"><div class="in2">
+  <b>Mocks v15 · v14 + Ask Kartaa help bot (docs/ASK_BOT.md)</b>
+  <span>Filing <span class="seg" id="s-freq"><button data-v="q" aria-pressed="false">Quarterly</button><button data-v="m" aria-pressed="true">Monthly</button></span></span>
+  <span>Own invoices <span class="seg" id="s-inv"><button data-v="both" aria-pressed="true">PDF + Excel</button><button data-v="xl" aria-pressed="false">Excel only</button><button data-v="pdf" aria-pressed="false">PDF only</button></span></span>
+  <span>Width <span class="seg" id="s-w"><button data-v="desk" aria-pressed="true">Desktop</button><button data-v="phone" aria-pressed="false">Phone</button></span></span>
+  <span>Invoice preview <span class="seg" id="s-pv"><button data-pv="idle" aria-pressed="true">Idle</button><button data-pv="slow" aria-pressed="false">Slow</button><button data-pv="sess" aria-pressed="false">Session ended</button></span></span><span>Ask Kartaa <span class="seg" id="s-ask"><button data-ask="off" aria-pressed="false">Flag off</button><button data-ask="closed" aria-pressed="true">Button</button><button data-ask="welcome" aria-pressed="false">Welcome</button><button data-ask="short" aria-pressed="false">Short answer</button><button data-ask="long" aria-pressed="false">Long answer</button><button data-ask="product" aria-pressed="false">Product</button><button data-ask="none" aria-pressed="false">Not covered</button><button data-ask="loading" aria-pressed="false">Loading</button><button data-ask="slow" aria-pressed="false">Slow</button><button data-ask="err" aria-pressed="false">Error</button><button data-ask="offline" aria-pressed="false">Offline</button><button data-ask="limit" aria-pressed="false">Limit</button><button data-ask="sess" aria-pressed="false">Session ended</button></span></span><span class="chip warn">Sample data</span>
+</div></div>
+<main class="wrap" id="main"></main>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const S={view:'index',freq:'m',inv:'both',w:'desk',ob:1,plats:{amazon:true,flipkart:true,meesho:false,own:true},resolved:0,paid:false,plan:'m',type:'—',itc:{igst:12000,cgst:4000,sgst:4000,rev:0,pmt:0},itcSet:true,iv:{buyer:'customer',hsn:false,prev:'idle',tried:false}};
+const $=s=>document.querySelector(s);
+const NAV=[['index','Index'],['dash','Dashboard (v14)'],['invoice','New invoice (v14)'],['invdone','Invoice created (v14)'],['signup','Sign-up'],['home','Filing home'],['uploads','Uploads'],['verify','Cross-check'],['summary','Summary & pay'],['guide','Guide & JSON'],['w3b','GSTR-3B worksheet'],['w3bg','3B guide'],['setup','Business setup']];
+function toast(t){const e=$('#toast');e.textContent=t;e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>e.hidden=true,2600)}
+const F=()=>S.freq==='q'?'quarter':'month';
+const per=()=>S.freq==='q'?'Jul–Sep 2026':'October 2026';
+const info='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" style="flex:none"><circle cx="12" cy="12" r="9"/><path d="M12 8v.01M12 11v5"/></svg>';
+const dateTag='<span class="chip info" title="Date comes from the R1-M0 dates table">Confirmed on GST portal</span>';
+const sampleNote='<div class="note">Sample dates. In the product every date shows its GST portal source page and the day we last checked it. If a date can’t be confirmed, the row says “Check on the GST portal” and shows no date.</div>';
+const platOpts=(on)=>['amazon:Amazon','flipkart:Flipkart','meesho:Meesho','own:Own sales invoices'].map(x=>{const[k,n]=x.split(':');return `<button class="opt" data-plat="${k}" aria-pressed="${!!S.plats[k]}"><span class="radio" style="border-radius:4px"></span><span><b>${n}</b>${k==='own'?'<br><span class="hint">Invoices you make yourself, as PDF and/or Excel</span>':''}</span></button>`}).join('');
+const anyPlat=()=>Object.values(S.plats).some(Boolean);
+const platErr=()=>anyPlat()?'':'<span class="hint" style="color:var(--bad);font-weight:600">Pick at least one to continue.</span>';
+const typeField=`<div class="field"><label for="bt">Business type <span class="up">Upcoming</span></label><select class="inp" id="bt" disabled><option>Distributor / retail business</option></select><span class="hint">Invoicing for distributors and retailers is coming soon. You can’t pick this yet; filing works without it.</span></div>`;
+const freqOpts=`<div class="grid2"><button class="opt" data-freq="m" aria-pressed="${S.freq==='m'}"><span class="radio"></span><span><b>Monthly</b><br><span class="hint">GSTR-1 and GSTR-3B every month</span></span></button><button class="opt" data-freq="q" aria-pressed="${S.freq==='q'}"><span class="radio"></span><span><b>Quarterly (QRMP)</b><br><span class="hint">GSTR-1 and GSTR-3B every quarter</span></span></button></div>`;
+
+const V={};
+V.index=()=>`<div class="stack" style="gap:22px">
+<div><h1>Release 1 mocks, v15</h1><p class="sub">Web only. Business self sign-up, platforms and filing frequency, uploads, deadlines, a pay-at-the-end summary, the guide with a ready-to-upload GSTR-1 JSON, and (new in v13) a GSTR-3B worksheet: outward supplies computed from the same uploads, ITC typed in by the user. We don’t file for the user. Use the bar above to switch filing frequency, which own-invoice files were uploaded, and phone width. All names, GSTINs and amounts are sample data. Today in the mock is Thu 12 Nov 2026.</p></div>
+<div class="grid3 idx">${[['dash','v14 · Home with direct links','Products, Customers, Invoices and a New invoice button'],['invoice','v14 · New invoice (one screen)','Create is the primary button; missing HSN fixed on the line; preview states'],['invdone','v14 · Invoice created','Download PDF, copy link, same-customer repeat'],['signup','1 · Sign-up and onboarding','Email, code, business profile, platforms, filing frequency, greyed “Upcoming” business type'],['home','2 · Filing home','GSTR-1 and GSTR-3B deadlines per period, and “File for this period”'],['uploads','3 · Uploads','Every section optional: Amazon, Flipkart, Meesho, own sales invoices (PDF and/or Excel)'],['verify','4 · Cross-check','PDF against Excel: differences highlighted so the user can fix them'],['summary','5 · Summary and pay','Brief business summary, plan, pay to unlock'],['guide','6 · Guide and JSON','Step-by-step portal upload guide and the GSTR-1 JSON download'],['w3b','7 · GSTR-3B worksheet (new)','Outward supplies from your uploads, your ITC entered by hand, tax payable before and after ITC, all figures marked sample or to be confirmed'],['w3bg','8 · 3B portal guide (new)','Step-by-step: enter the worksheet figures in GSTR-3B on the GST portal'],['setup','9 · Business setup','Change frequency, platforms and details any time']].map(x=>`<button class="card" data-go="${x[0]}"><b>${x[1]}</b><div class="hint" style="margin-top:4px">${x[2]}</div></button>`).join('')}</div>
+<div class="card stack"><h2>Rules these mocks follow</h2><ul class="hint" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px">
+<li>Every upload section is optional. Own sales invoices need at least one of PDF or Excel.</li>
+<li>Both PDF and Excel uploaded: we cross-check and highlight differences to fix.</li>
+<li>Excel only: show “Upload your invoices and we can validate”. Once invoices are uploaded, that note is hidden.</li>
+<li>Deadlines show only dates confirmed from the GST portal; otherwise “Check on the GST portal”.</li>
+<li>No trial and no upfront charge. The user sees a summary, pays on the last page, then gets the guide and JSON. Prices are plus 18% GST on our fee.</li>
+<li>Frequency and platforms can be changed any time in Business setup. The business-type field is greyed out with an “Upcoming” tag in sign-up and in setup.</li>
+<li>GSTR-3B worksheet (v13): outward supplies are computed from the same uploads; ITC is typed in by the user (we don’t read GSTR-2B in R1). It is a worksheet to copy from, not a filed return.</li><li>Any 3B figure or rule not yet confirmed from official or CA sources shows a “To be confirmed” tag. Nothing is guessed.</li><li>Nothing here connects to the GST portal or files a return.</li></ul></div>
+<div class="card stack"><h2>Open placeholders</h2><div class="tablewrap" style="border:0"><table><thead><tr><th>Placeholder</th><th>Owner</th></tr></thead><tbody>
+<tr><td>Portal-confirmed GSTR-1 and GSTR-3B dates</td><td>R1-M0 dates table</td></tr>
+<tr><td>Flipkart and Meesho report names and download steps</td><td>Research</td></tr>
+<tr><td>Payment provider and wording for our own GST invoice on the fee</td><td>Pankaj (D3, D6)</td></tr>
+<tr><td>Portal upload steps in the guide, checked against the live portal</td><td>R1-M10</td></tr>
+<tr><td>Exact GSTR-1 JSON fields</td><td>R1-M0, official GSTN format</td></tr><tr><td>GSTR-3B: table layout per the official GSTR-3B form and Offline Utility, ITC set-off order, how marketplace TCS credit is shown, QRMP monthly payments (PMT-06), and the GSTR-1-locked outward values</td><td>GST expert + CA (GC-23)</td></tr></tbody></table></div></div></div>`;
+
+V.signup=()=>{
+const t=['Create your account','Check your email','Your business','Where you sell and how you file'][S.ob-1];
+const bodies=[
+`<div class="field"><label for="em">Work email</label><input class="inp" id="em" type="email" value="pankaj@example.in"></div><div class="field"><label for="pw">Password</label><input class="inp" id="pw" type="password" value="xxxxxxxxxxxx"></div><p class="hint">We email a 6-digit code to confirm your address.</p>`,
+`<p>Enter the code we sent to <b>pankaj@example.in</b>.</p><div class="row">${[4,8,1,9,'',''].map((d,i)=>`<input class="inp num" style="width:44px;text-align:center;font-size:20px;font-weight:700;padding:0" value="${d}" aria-label="Digit ${i+1}">`).join('')}</div><p class="hint">The code works for 10 minutes. <button class="link">Send a new code</button></p>`,
+`<div class="field"><label for="gs">GSTIN</label><input class="inp num" id="gs" value="19XXXXX0000X1Z5"><span class="oktxt">Format and check digit look right. State code 19 = West Bengal.</span></div>
+<div class="grid2"><div class="field"><label for="ln">Legal name (as on GST certificate)</label><input class="inp" id="ln" value="Vaashi Essentials"></div><div class="field"><label for="tn">Trade name (optional)</label><input class="inp" id="tn"></div></div>
+<div class="field"><label for="ad">Principal place of business</label><input class="inp" id="ad" value="12 Park Street, Kolkata 700016"></div>
+<div class="grid2"><div class="field"><label for="tb">Last financial year turnover (optional)</label><select class="inp" id="tb"><option>Up to ₹5 crore</option><option>Above ₹5 crore</option></select></div>${typeField}</div>`,
+`<div class="field"><span class="flabel">Which platforms do you sell on?</span><div class="grid2" style="gap:10px">${platOpts()}</div><span class="hint">Tick every one that applies. At least one is needed. You can change this later.</span>${platErr()}</div>
+<div class="field"><span class="flabel">How often do you file GST?</span>${freqOpts}<span class="hint">This sets the deadlines we show. It doesn’t change anything on the GST portal.</span></div>`];
+return `<div class="stack" style="max-width:720px"><div><div class="label">Step ${S.ob} of 4</div><h1 style="margin-top:6px">${t}</h1></div>
+<div class="progress">${[1,2,3,4].map(i=>`<span class="${i<=S.ob?'on':''}"></span>`).join('')}</div>
+<div class="card stack">${bodies[S.ob-1]}</div>
+<div class="row">${S.ob>1?'<button class="btn2" id="ob-back">Back</button>':''}<button class="btn" id="ob-next" ${S.ob===4&&!anyPlat()?'disabled':''}>${['Email me a code','Confirm code','Continue','Finish and see my filing home'][S.ob-1]}</button></div></div>`};
+
+V.home=()=>{const q=S.freq==='q';
+const rows=q?[['Jul–Sep 2026','Ended 30 Sep','GSTR-1','13 Oct 2026','Past due, not prepared','bad',true],['Jul–Sep 2026','','GSTR-3B','22 Oct 2026','Past due, not prepared','bad',true],['Oct–Dec 2026','Ends 31 Dec','GSTR-1','Check on the GST portal','Period not ended','mute',false]]
+:[['October 2026','Ended 31 Oct','GSTR-1','11 Nov 2026','Prepare now','warn',true],['October 2026','','GSTR-3B','20 Nov 2026','Prepare now','warn',true],['November 2026','Ends 30 Nov','GSTR-1','Check on the GST portal','Period not ended','mute',false]];
+return `<div class="stack" style="gap:20px"><div><h1>Your GST filing</h1><p class="sub">${q?'Quarterly':'Monthly'} filer. Choose a period, upload what you have, and get the file to upload on the GST portal.</p></div>
+<div class="banner info">${info}<span>R1 prepares your files and a guide. You file on the GST portal yourself.</span></div>
+<div class="card stack"><div class="row between"><h2>Deadlines</h2><span class="hint">${q?'Quarterly (QRMP)':'Monthly'} · <button class="link" data-go="setup">Change</button></span></div>
+<div class="tablewrap" style="border:0"><table><thead><tr><th>Period</th><th>Return</th><th>Due date</th><th>Status</th><th></th></tr></thead><tbody>
+${rows.map(r=>`<tr><td><b>${r[0]}</b><div class="hint">${r[1]}</div></td><td>${r[2]}</td><td class="num">${r[3].startsWith('Check')?'<span class="hint">'+r[3]+'</span>':r[3]+' '+dateTag}</td><td><span class="chip ${r[5]}">${r[4]}</span></td><td>${r[2]==='GSTR-1'?`<button class="btn2" ${r[6]?'':'disabled'} data-go="uploads">${r[6]?'File for this period':'Opens after period ends'}</button>`:`<button class="btn2" ${r[6]?'':'disabled'} data-go="w3b">${r[6]?'Open 3B worksheet':'Opens after period ends'}</button>`}</td></tr>`).join('')}</tbody></table></div>${sampleNote}</div>
+<div class="card stack"><h2>${per()}: what you can add</h2><div class="grid2">
+<div><div class="label">Platforms</div><p>Amazon, Flipkart</p></div><div><div class="label">Own sales invoices</div><p>${S.inv==='both'?'PDF and Excel uploaded':S.inv==='xl'?'Excel uploaded':'PDF uploaded'}</p></div></div>
+<div class="row"><button class="btn" data-go="uploads">Continue to uploads</button></div></div></div>`};
+
+function invStatus(){return S.inv==='both'?'<span class="chip ok">PDF + Excel</span>':S.inv==='xl'?'<span class="chip info">Excel only</span>':'<span class="chip info">PDF only</span>'}
+V.uploads=()=>{
+const pl=[['amazon','Amazon','MTR B2C and B2B reports','amazon_tax_oct26.csv · 1,284 rows','warn','7 rows on hold'],['flipkart','Flipkart','[report name from research]','flipkart_gst_oct26.xlsx · 538 rows','ok','Saved'],['meesho','Meesho','[report name from research]','','mute','Not selected']];
+const xl=S.inv!=='pdf', pdf=S.inv!=='xl';
+return `<div class="stack" style="gap:20px"><div><h1>Upload for ${per()}</h1><p class="sub">Every section is optional. Add what you have; nothing is saved until you check the preview.</p></div>
+<div class="card stack"><h2>Marketplace reports</h2><div class="grid3">${pl.filter(p=>S.plats[p[0]]||p[0]==='meesho').map(p=>`<div class="card stack" style="background:var(--bg)"><div class="row between"><h3>${p[1]}</h3><span class="chip ${S.plats[p[0]]?p[4]:'mute'}">${S.plats[p[0]]?p[5]:'Not selected'}</span></div><div class="hint">${p[2]}</div>${S.plats[p[0]]?`<div class="hint num">${p[3]}</div><button class="link" style="align-self:flex-start" data-toast="Held rows keep waiting here until you fix them.">${p[4]==='warn'?'Fix 7 held rows':'See preview'}</button>`:`<div class="hint">Add Meesho in <button class="link" data-go="setup">Business setup</button> if you sell there.</div>`}</div>`).join('')}</div></div>
+<div class="card stack"><div class="row between"><h2>Your own sales invoices</h2>${invStatus()}</div>
+<p class="hint">Upload invoices as PDF, as an Excel sheet, or both. At least one is needed for this section. If you upload both, we compare them and show differences.</p>
+<div class="grid2"><div class="stack" style="gap:8px"><b>PDF invoices</b>${pdf?`<div class="hint num">24 PDFs · 24 read · 2 need a look</div>`:`<label class="drop" for="f1"><b>Drop PDF invoices here</b><span class="hint">Several at once, up to 20 MB each</span><input type="file" id="f1" multiple hidden></label>`}</div>
+<div class="stack" style="gap:8px"><b>Excel sheet</b>${xl?`<div class="hint num">invoices_oct26.xlsx · 26 rows · 26 read</div>`:`<label class="drop" for="f2"><b>Drop your Excel sheet here</b><button class="link" type="button" data-toast="Template download is part of R1-M5.">Download the template</button><input type="file" id="f2" hidden></label>`}</div></div>
+${S.inv==='xl'?`<div class="banner warn"><span><b>Upload your invoices and we can validate.</b> With your PDF invoices we check every row of this sheet against the invoice itself.</span></div>`:''}
+${S.inv==='both'?`<div class="banner warn"><span><b>${4-S.resolved>0?4-S.resolved+' differences':'All differences fixed'}</b> between your PDFs and your Excel sheet. <button class="link" data-go="verify">Review and fix</button></span></div>`:''}
+${S.inv==='pdf'?`<div class="note">PDF only: figures come from the PDFs. Add an Excel sheet any time to cross-check them.</div>`:''}
+</div>
+<div class="row"><button class="btn" data-go="summary">Continue to summary</button><button class="btn2" data-go="home">Back</button></div></div>`};
+
+const DIFFS=[['INV-0412','Taxable value','₹12,500.00','₹12,000.00'],['INV-0423','GST rate','12%','18%'],['INV-0419','Invoice present','In Excel','Missing in PDFs'],['INV-0430','Invoice present','Missing in Excel','In PDF']];
+V.verify=()=>{
+if(S.inv!=='both')return `<div class="stack" style="max-width:700px"><h1>Cross-check</h1><div class="card stack"><p>The cross-check runs when you upload both PDF invoices and an Excel sheet. You currently have ${S.inv==='xl'?'Excel only':'PDF only'}.</p><button class="btn2" style="align-self:flex-start" data-go="uploads">Back to uploads</button></div></div>`;
+return `<div class="stack" style="gap:20px"><div><h1>PDF and Excel don’t match everywhere</h1><p class="sub">We compared 26 invoices. 22 match. Pick which value is right for each difference; the highlighted cell is where they disagree.</p></div>
+<div class="banner ${S.resolved>=4?'ok':'warn'}">${info}<span>${S.resolved>=4?'All differences fixed. You can continue.':(4-S.resolved)+' of 4 differences still need a choice. You can continue, but unresolved rows stay out of your GSTR-1 file.'}</span></div>
+<div class="tablewrap"><table><thead><tr><th>Invoice</th><th>What differs</th><th>PDF says</th><th>Excel says</th><th>Your choice</th></tr></thead><tbody>
+${DIFFS.map((d,i)=>`<tr><td class="num"><b>${d[0]}</b></td><td>${d[1]}</td><td class="num">${d[3]!=='In PDF'&&d[3]!=='Missing in PDFs'?`<span class="diff">${d[3]}</span>`:`<span class="diff">${d[3]==='In PDF'?'Present':'Missing'}</span>`}</td><td class="num"><span class="diff">${d[2]==='In Excel'?'Present':d[2]==='Missing in Excel'?'Missing':d[2]}</span></td><td>${i<S.resolved?'<span class="chip ok">Fixed</span>':`<div class="row" style="gap:6px"><button class="btn2" data-fix="1">Use PDF</button><button class="btn2" data-fix="1">Use Excel</button></div>`}</td></tr>`).join('')}</tbody></table></div>
+<div class="row"><button class="btn" data-go="summary">Continue to summary</button><button class="btn2" data-go="uploads">Back to uploads</button></div></div>`};
+
+V.summary=()=>{const m=S.plan==='m';const fee=m?499:1499;const gst=(fee*0.18).toFixed(2);const tot=(fee*1.18).toFixed(2);
+const fmt=n=>'₹'+Number(n).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+return `<div class="stack" style="gap:20px"><div><h1>Your business summary</h1><p class="sub">A quick look at what we read for ${per()} before you pay. Nothing has been charged.</p></div>
+<div class="grid2"><div class="card stack"><h2>Vaashi Essentials</h2><div class="stack" style="gap:6px"><div class="row between"><span class="hint">GSTIN</span><span class="num">19XXXXX0000X1Z5</span></div><div class="row between"><span class="hint">Filing</span><span>${S.freq==='q'?'Quarterly':'Monthly'}</span></div><div class="row between"><span class="hint">Period</span><span>${per()}</span></div><div class="row between"><span class="hint">Platforms</span><span>Amazon, Flipkart</span></div></div></div>
+<div class="card stack"><h2>What we read</h2><div class="stack num" style="gap:6px"><div class="row between"><span>Marketplace rows</span><span>1,822 (7 on hold)</span></div><div class="row between"><span>Own invoices</span><span>26</span></div><div class="row between"><span>Taxable value</span><span><b>₹5,55,000.00</b></span></div><div class="row between"><span>Tax</span><span><b>₹99,900.00</b></span></div></div>${S.inv==='both'&&S.resolved<4?'<div class="banner warn"><span>'+(4-S.resolved)+' invoice differences are still open.</span></div>':''}</div></div>
+<div class="card stack"><h2>Pay to unlock your guide and GSTR-1 JSON</h2><div class="grid2"><button class="opt" data-plan="m" aria-pressed="${m}"><span class="radio"></span><span><b>Monthly · ₹499</b><br><span class="hint">Paid each month</span></span></button><button class="opt" data-plan="q" aria-pressed="${!m}"><span class="radio"></span><span><b>Quarterly · ₹1,499</b><br><span class="hint">Paid each quarter</span></span></button></div>
+<div class="stack num" style="gap:4px"><div class="row between"><span>Plan fee</span><span>${fmt(fee)}</span></div><div class="row between"><span>GST at 18% on our fee</span><span>${fmt(gst)}</span></div><div class="row between"><b>You pay</b><b>${fmt(tot)}</b></div></div>
+<p class="hint">No refunds if you cancel; the service runs to the end of the paid period. You can change plan later and see prorated prices first.</p>
+<div class="row"><button class="btn" id="pay">Pay ${fmt(tot)} and unlock</button><button class="btn2" data-go="uploads">Back</button></div>
+<div class="note">Payment provider and the wording of our own GST invoice for this fee are still to be decided (D3, D6). The button is a mock.</div></div></div>`};
+
+V.guide=()=>{
+if(!S.paid)return `<div class="stack" style="max-width:700px"><h1>Guide and GSTR-1 JSON</h1><div class="card stack"><p>This page unlocks after payment on the summary page.</p><button class="btn" style="align-self:flex-start" data-go="summary">Go to summary</button></div></div>`;
+return `<div class="stack" style="gap:20px"><div><h1>Your GSTR-1 for ${per()} is ready</h1><p class="sub">Follow the steps to upload this file on the GST portal. We don’t file for you.</p></div>
+<div class="banner ok"><span>Payment received. Receipt sent to pankaj@example.in.</span></div>
+<div class="card stack"><div class="row between"><div><h2>GSTR-1 JSON</h2><div class="hint num">GSTR1_19XXXXX0000X1Z5_${S.freq==='q'?'Q2-2026':'102026'}.json · 214 KB</div></div><button class="btn" data-toast="Download works in the built product.">Download JSON</button></div>
+<div class="row"><span class="chip ok">Checked against GSTN format</span><span class="chip warn">2 items need CA check</span></div>
+<details><summary class="link">Preview the first lines</summary><pre class="json">{ "gstin": "19XXXXX0000X1Z5",
+  "fp": "${S.freq==='q'?'122026':'102026'}",
+  "b2b": [ { "ctin": "27XXXXX1111X1Z2", "inv": [ … ] } ],
+  "b2cs": [ … ], "hsn": { … } }</pre></details></div>
+<div class="banner info">${info}<span>Next: your <button class="link" data-go="w3b">GSTR-3B worksheet</button> for the same period.</span></div>
+<div class="card stack"><h2>Upload it on the GST portal</h2><div class="steps">
+${['Download the JSON file above and keep it somewhere easy to find.','Sign in to the GST portal with your own login.','Open Returns Dashboard, choose '+per()+', and open GSTR-1.','Choose to prepare it offline, then upload the JSON file.','Check the summary on the portal against the totals on this page.','Submit and file with your usual signature or OTP. Come back and tell us when it’s filed.'].map((s,i)=>`<div class="step"><span class="dot">${i+1}</span><span>${s}</span></div>`).join('')}</div>
+<div class="note">Draft wording. Each step is checked against the current portal screens in R1-M10 before launch.</div></div></div>`};
+
+
+const rs=n=>'₹'+Number(n).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+const tbc='<span class="chip warn" title="Rule or format not yet confirmed from official or CA sources">To be confirmed</span>';
+const smp='<span class="chip mute">Sample</span>';
+// sample outward supplies, from the same uploads as the GSTR-1 (taxable 5,55,000.00; tax 99,900.00; seller state 19)
+const OUT={taxable:555000,igst:62100,cgst:18900,sgst:18900,cess:0};
+const num=v=>{const x=parseFloat(v);return isFinite(x)&&x>0?x:0};
+V.w3b=()=>{
+const q=S.freq==='q',I=S.itc;
+const itc={igst:num(I.igst),cgst:num(I.cgst),sgst:num(I.sgst)},rev=num(I.rev),pmt=num(I.pmt);
+// Mock arithmetic: same-head subtraction only. The real set-off order (IGST credit against CGST/SGST etc.) is "to be confirmed".
+const net=h=>Math.max(0,OUT[h]-itc[h]);const excess=h=>Math.max(0,itc[h]-OUT[h]);
+const payTot=net('igst')+net('cgst')+net('sgst');
+const inp=(k,l)=>`<div class="field"><label for="i-${k}">${l}</label><input class="inp num" id="i-${k}" data-itc="${k}" inputmode="decimal" value="${I[k]||''}" placeholder="0.00"></div>`;
+return `<div class="stack" style="gap:20px"><div><h1>GSTR-3B worksheet for ${per()}</h1><p class="sub">Figures to copy into GSTR-3B on the GST portal. Outward supplies come from the files you uploaded. Input tax credit (ITC) is what <b>you</b> enter from your GSTR-2B. We don’t file the return.</p></div>
+<div class="banner warn">${info}<span><b>Sample figures.</b> Table layout and row names follow the official GSTR-3B Excel utility (V5.8, downloaded from the GST portal). Which of your rows go in which line, the set-off order and the lock rules are still being confirmed with the GST expert and CA. Rows marked “To be confirmed” can change before launch.</span></div>
+${S.inv==='both'&&S.resolved<4?`<div class="banner warn"><span>${4-S.resolved} invoice differences are still open, so these totals may change. <button class="link" data-go="verify">Review and fix</button></span></div>`:''}
+<div class="card stack"><div class="row between"><h2>1 · Outward supplies and tax (Table 3.1)</h2>${smp}</div>
+<p class="hint">Worked out from the same rows as your GSTR-1 file, so the two returns agree. ${tbc} Which rows go in which line, and how GSTR-1-locked values appear on the portal.</p>
+<div class="tablewrap"><table><thead><tr><th>Nature of supply</th><th class="r">Taxable value</th><th class="r">IGST</th><th class="r">CGST</th><th class="r">SGST/UTGST</th><th class="r">Cess</th></tr></thead><tbody>
+<tr><td><b>(a)</b> Outward taxable supplies (other than zero rated, nil rated, exempt)</td><td class="r num">${rs(OUT.taxable)}</td><td class="r num">${rs(OUT.igst)}</td><td class="r num">${rs(OUT.cgst)}</td><td class="r num">${rs(OUT.sgst)}</td><td class="r num">${rs(0)}</td></tr>
+<tr><td><b>(b)</b> Outward taxable supplies (zero rated)</td><td class="r num" colspan="5"><span class="hint">None found in your uploads</span></td></tr>
+<tr><td><b>(c)</b> Other outward supplies (nil rated, exempt)</td><td class="r num" colspan="5"><span class="hint">None found in your uploads</span></td></tr>
+<tr><td><b>(d)</b> Inward supplies (liable to reverse charge)</td><td class="r" colspan="5"><span class="hint">Not computed from uploads. Enter on the portal if you have any.</span> ${tbc}</td></tr>
+<tr><td><b>(e)</b> Non-GST outward supplies</td><td class="r" colspan="5"><span class="hint">None found in your uploads</span></td></tr>
+<tr><td><b>Total outward tax</b></td><td class="r num"><b>${rs(OUT.taxable)}</b></td><td class="r num"><b>${rs(OUT.igst)}</b></td><td class="r num"><b>${rs(OUT.cgst)}</b></td><td class="r num"><b>${rs(OUT.sgst)}</b></td><td class="r num"><b>${rs(0)}</b></td></tr></tbody></table></div>
+<div class="label" style="margin-top:4px">3.1.1 Supplies notified under section 9(5)</div><div class="tablewrap"><table><tbody><tr><td><b>(i)</b> Taxable supplies on which the e-commerce operator pays tax under 9(5) <span class="hint">(filled by the operator, not you)</span></td><td class="r"><span class="hint">Not for you to fill</span></td></tr><tr><td><b>(ii)</b> Taxable supplies you made through an e-commerce operator, on which the operator pays tax under 9(5)</td><td class="r"><span class="hint">None found in your uploads</span> ${tbc}</td></tr></tbody></table></div>
+<div class="src">Source: ${per()} uploads · Amazon 1,284 rows, Flipkart 538 rows, own invoices 26. Tax total ${rs(OUT.igst+OUT.cgst+OUT.sgst)} matches the summary page. <button class="link" data-go="summary">See summary</button></div></div>
+<div class="card stack"><div class="row between"><h2>2 · Inter-state supplies from 3.1(a), by place of supply (Table 3.2)</h2>${smp}</div>
+<div class="tablewrap" style="border:0"><table><thead><tr><th>Place of supply</th><th class="r">To unregistered: taxable value</th><th class="r">IGST</th><th class="r">To composition dealers</th><th class="r">To UIN holders</th></tr></thead><tbody>
+<tr><td>27-Maharashtra</td><td class="r num">${rs(180000)}</td><td class="r num">${rs(32400)}</td><td class="r hint">None</td><td class="r hint">None</td></tr><tr><td>29-Karnataka</td><td class="r num">${rs(110000)}</td><td class="r num">${rs(19800)}</td><td class="r hint">None</td><td class="r hint">None</td></tr><tr><td>07-Delhi</td><td class="r num">${rs(55000)}</td><td class="r num">${rs(9900)}</td><td class="r hint">None</td><td class="r hint">None</td></tr></tbody></table></div>
+<span class="hint">Columns follow the official utility. Which sales count as supplies to unregistered buyers (and whether any fall under composition or UIN) is ${tbc.replace('<span','<span style="vertical-align:middle"')} with the GST expert.</span></div>
+<div class="card stack"><div class="row between"><h2>3 · Your input tax credit (Table 4)</h2><span class="chip info">You enter this</span></div>
+<p class="hint">Open GSTR-2B on the GST portal and type the totals here. We don’t read GSTR-2B in this release, and we never fill ITC for you.</p>
+${S.itcSet?'':'<div class="banner info"><span>ITC is blank. Until you enter it, “Left to pay in cash” below equals the full outward tax.</span></div>'}
+<div class="grid3"><div class="label" style="grid-column:1/-1">4(A)(5) All other ITC</div>${inp('igst','IGST (₹)')}${inp('cgst','CGST (₹)')}${inp('sgst','SGST/UTGST (₹)')}</div>
+<div class="grid2">${inp('rev','4(B) ITC reversed, total (₹, optional)')}<div class="field"><span class="flabel">Other Table 4 lines</span><span class="hint">4(A)(1)–(4) imports, reverse charge and ISD credit, and 4(D) other details are not in this worksheet. Enter them on the portal if they apply to you. ${tbc}</span></div></div>
+<div class="row"><button class="btn2" data-itcreset="1">Clear ITC</button><span class="hint">Numbers update when you leave a field. The sample ITC above is only an example.</span></div></div>
+<div class="card stack"><div class="row between"><h2>4 · Payment of tax (Table 6, non reverse charge)</h2>${smp}</div>
+<div class="tablewrap"><table><thead><tr><th>Head</th><th class="r">Tax payable</th><th class="r">Paid through ITC</th><th class="r">Left to pay in cash</th><th class="r">Excess ITC</th></tr></thead><tbody>
+${[['igst','IGST'],['cgst','CGST'],['sgst','SGST/UTGST']].map(([k,n])=>`<tr><td>${n}</td><td class="r num">${rs(OUT[k])}</td><td class="r num">${rs(itc[k])}</td><td class="r num"><b>${rs(net(k))}</b></td><td class="r num">${excess(k)>0?'<span class="diff">'+rs(excess(k))+'</span>':rs(0)}</td></tr>`).join('')}
+<tr><td><b>Total</b></td><td class="r num"><b>${rs(OUT.igst+OUT.cgst+OUT.sgst)}</b></td><td class="r num"><b>${rs(itc.igst+itc.cgst+itc.sgst)}</b></td><td class="r num"><b>${rs(payTot)}</b></td><td class="r"></td></tr></tbody></table></div>
+<div class="banner warn">${info}<span><b>Estimate only.</b> This simple view takes each head’s ITC off the same head. The order in which credit can be used across IGST, CGST and SGST, and any limits on it, are ${tbc.replace('<span','<span style="vertical-align:middle"')}. The portal’s own set-off decides the cash you pay. Reversed ITC (${rs(rev)}) is shown but not yet included in the estimate.</span></div>
+${q?`<div class="stack" style="gap:8px"><div class="field" style="max-width:340px"><label for="i-pmt">Tax already paid in the first two months of the quarter (₹, optional)</label><input class="inp num" id="i-pmt" data-itc="pmt" inputmode="decimal" value="${I.pmt||''}" placeholder="0.00"></div><span class="hint">Quarterly filers may pay monthly through challan PMT-06. How those payments are set against this return is ${tbc}.</span>${pmt>0?`<div class="row between num"><span>Estimated balance after those payments</span><b>${rs(Math.max(0,payTot-pmt))}</b></div>`:''}</div>`:''}
+<div class="note">The portal’s Table 6 also has columns for tax paid by TDS/TCS, interest (Table 5.1) and late fee, and a reverse-charge block. We don’t work out interest or late fees in this release; you see and pay those on the portal. ${tbc}</div>
+<div class="note">Marketplace TCS credit (tax collected at source by Amazon, Flipkart and Meesho) is not netted above (the portal has a “Tax paid TDS/TCS” column). How it is shown and used is ${tbc.replace('<span','<span style="vertical-align:middle"')} with the CA.</div></div>
+<div class="row"><button class="btn" data-go="w3bg">Next: enter these on the GST portal</button><button class="btn2" data-toast="Download works in the built product (PDF and Excel copy of this worksheet).">Download worksheet</button><button class="btn2" data-go="home">Back to filing home</button></div></div>`};
+
+V.w3bg=()=>`<div class="stack" style="gap:20px;max-width:760px"><div><h1>Enter GSTR-3B on the GST portal</h1><p class="sub">Use your worksheet for ${per()}. You file on the GST portal yourself.</p></div>
+<div class="banner info">${info}<span>Do this after your GSTR-1 is filed. The GSTR-3B outward figures on the portal follow your filed GSTR-1, so they should match this worksheet.</span> ${tbc}</div>
+<div class="card stack"><div class="steps">
+${['Sign in to the GST portal with your own login.','Open Returns Dashboard, choose '+per()+', and open GSTR-3B.','Check the outward supplies the portal already shows against Table 1 of your worksheet. If they differ, stop and look at your GSTR-1 first.','Enter your input tax credit in Table 4 from the “Your ITC” box on your worksheet.','Check the tax payable on the portal. The portal works out the final cash amount; ours is an estimate.','Pay any balance, then submit and file with your usual signature or OTP.'].map((s,i)=>`<div class="step"><span class="dot">${i+1}</span><span>${s}</span></div>`).join('')}</div>
+<div class="note">Draft wording. Step order and screen names are checked against the live portal before launch, in the same milestone as the GSTR-1 guide. The official GSTR-3B Excel utility also produces a JSON for the portal’s “Prepare Offline” upload, for Tables 3.1, 3.1.1 and 3.2 only. Whether we offer that JSON in a later release is not decided.</div></div>
+<div class="row"><button class="btn2" data-go="w3b">Back to worksheet</button></div></div>`;
+
+V.setup=()=>`<div class="stack" style="gap:20px;max-width:760px"><div><h1>Business setup</h1><p class="sub">Change how you file or where you sell at any time. Deadlines update straight away.</p></div>
+<div class="card stack"><h2>Business details</h2><div class="grid2"><div class="field"><label for="s1">Legal name</label><input class="inp" id="s1" value="Vaashi Essentials"></div><div class="field"><label for="s2">GSTIN</label><input class="inp num" id="s2" value="19XXXXX0000X1Z5" disabled></div></div>${typeField}</div>
+<div class="card stack"><h2>Where you sell</h2><div class="grid2" style="gap:10px">${platOpts()}</div><span class="hint">At least one is needed.</span>${platErr()}</div>
+<div class="card stack"><h2>GST filing frequency</h2>${freqOpts}<div class="banner info">${info}<span>Changing this changes the periods and deadlines shown. Uploads already made stay with their period. To change frequency on the GST portal itself, follow the portal’s rules.</span></div></div>
+<div class="row"><button class="btn" data-toast="Saved. Deadlines updated." ${anyPlat()?'':'disabled'}>Save changes</button></div></div>`;
+
+/* ===== v14: invoice flow, from the Tally comparison (team/product/invoice-flow-v14.md; docs/INVOICE_FLOW.md) ===== */
+V.dash=()=>`<div class="stack" style="gap:20px">
+<div class="row between"><div><h1>Home</h1><p class="sub">Everything you do most often is one click away.</p></div>
+<button class="btn" data-go="invoice" style="min-height:48px;font-size:16px">+ New invoice</button></div>
+<div class="grid3">
+<button class="card stack" data-go="invoice" style="text-align:left;cursor:pointer"><span class="label">Sell</span><h2>New invoice</h2><span class="hint">Customer, items, create. Under a minute for repeat customers.</span></button>
+<button class="card stack" data-toast="Opens the Products list (R2)." style="text-align:left;cursor:pointer"><span class="label">Catalogue</span><h2>Products</h2><span class="hint">12 products · 2 need an HSN code</span></button>
+<button class="card stack" data-toast="Opens the Customers list (R2)." style="text-align:left;cursor:pointer"><span class="label">People</span><h2>Customers</h2><span class="hint">8 customers</span></button>
+</div>
+<div class="grid2"><div class="card stack"><div class="row between"><h2>Invoices</h2><button class="link" data-toast="Opens the Invoices list.">See all</button></div>
+<div class="hint">1 draft waiting · 3 practice invoices this month</div><button class="btn2" data-go="invoice" style="align-self:flex-start">Continue draft PR-DRAFT-04</button></div>
+<div class="card stack"><div class="row between"><h2>GST Filing</h2><button class="link" data-go="home">Open</button></div><div class="hint">GSTR-1 for October 2026: check the date on the GST portal.</div></div></div>
+<div class="note">v14: Products, Customers and Invoices are first-level destinations on Home and in the top bar, not buried in setup. “New invoice” is the one primary button, always visible (BH-4a).</div></div>`;
+
+V.invoice=()=>{const v=S.iv;const hsnBad=!v.hsn;
+ const hsnBlock=hsnBad?`<div class="banner warn" id="hsnbox"><span>${info}</span><div class="stack" style="gap:8px;flex:1"><div><b>Rose Hair Oil 200ml has no HSN code, so the invoice cannot be created yet.</b> Add it here; it is also saved on the product. Check with your CA if unsure.</div>
+<div class="row"><input class="inp num" style="max-width:180px" placeholder="HSN code" aria-label="HSN code" ${v.tried?'':'value=""'}><button class="btn2" data-iv="hsn">Save HSN</button><button class="link" data-toast="Opens the product (R2).">Open product</button></div><span class="hint">We never choose the code for you. Check it with your CA if unsure.</span></div></div>`:`<div class="banner ok"><span>${info}</span><span>HSN saved on Rose Hair Oil 200ml. You can create the invoice.</span></div>`;
+ const pv={idle:`<button class="btn2" data-iv="prev">Preview PDF</button>`,
+  gen:`<button class="btn2" disabled>Preparing preview…</button><span class="hint" aria-live="polite">Usually under 10 seconds.</span>`,
+  ready:`<button class="btn2" data-toast="Opens the PDF in a new tab. Marked DRAFT, not a tax invoice.">Open preview (PDF)</button><span class="oktxt">Ready. Marked DRAFT.</span>`,
+  slow:`<div class="banner warn"><span>${info}</span><span>This is taking longer than usual (over 30 seconds). Your invoice is safe. <button class="link" data-iv="prev">Try again</button> or create the invoice and download the PDF from it later.</span></div>`,
+  sess:`<div class="banner bad"><span>${info}</span><div class="stack" style="gap:6px"><span><b>Your session ended, so we stopped the preview.</b> Nothing you typed is lost: this draft is saved.</span><div class="row"><button class="btn2" data-iv="resign">Sign in again</button><span class="hint">You come straight back to this invoice and the preview restarts.</span></div></div></div>`}[v.prev];
+ return `<div class="stack" style="gap:18px"><div><h1>New invoice</h1><p class="sub">One screen. Customer, items, create.</p></div>
+<div class="banner info"><span>${info}</span><span><b>Practice mode.</b> Invoice numbering is not approved by your CA yet, so this makes a practice invoice (PR- number). Not for your customer, and never in GST Filing.</span></div>
+<div class="card stack"><h2>1 · Customer</h2><div class="row"><button class="opt" data-iv="cust" aria-pressed="${v.buyer==='customer'}" style="width:auto"><span class="radio"></span><b>A customer</b></button><button class="opt" data-iv="cash" aria-pressed="${v.buyer==='cash'}" style="width:auto"><span class="radio"></span><b>Cash sale</b></button></div>
+${v.buyer==='customer'?`<div class="field"><label for="c1">Find a customer</label><input class="inp" id="c1" value="Asha Traders · 19XXXXX1111X1Z2"></div><button class="link" style="align-self:flex-start" data-toast="Inline mini-form: name, state, optional GSTIN. Saves to Customers.">+ New customer here</button>`:`<div class="field"><label for="c2">Buyer’s state</label><select class="inp" id="c2"><option>19 West Bengal</option></select><span class="hint">Needed for a cash sale: it decides the tax split.</span></div>`}</div>
+<div class="card stack"><h2>2 · Items</h2><div class="tablewrap"><table><thead><tr><th>Item</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Tax</th><th class="r">Amount</th></tr></thead><tbody>
+<tr><td>Aloe Gel 500ml<br><span class="hint">HSN on file · 18%</span></td><td class="r num">10</td><td class="r num">₹180.00</td><td class="r num">₹324.00</td><td class="r num">₹2,124.00</td></tr>
+<tr><td>Rose Hair Oil 200ml<br><span class="hint">${v.hsn?'HSN on file · 18%':'<span class="diff">No HSN</span> · 18%'}</span><br><span class="hint">No stock on hand. You can still sell it.</span></td><td class="r num">5</td><td class="r num">₹250.00</td><td class="r num">₹225.00</td><td class="r num">₹1,475.00</td></tr></tbody></table></div>
+<div class="field"><label for="p1">Add a product (name, code or barcode)</label><input class="inp" id="p1" placeholder="Type to search. Enter adds it."></div><button class="link" style="align-self:flex-start" data-toast="Inline mini-form: name, rate, GST %, HSN (optional), unit. Saves to Products.">+ New product here</button>
+${hsnBlock}</div>
+<div class="card stack"><h2>3 · Totals</h2><div class="stack num" style="gap:6px"><div class="row between"><span>Taxable value</span><span>₹3,050.00</span></div><div class="row between"><span>CGST 9% + SGST 9%</span><span>₹549.00</span></div><div class="row between"><b>Total</b><b>₹3,599.00</b></div><span class="hint">Three thousand five hundred ninety-nine rupees only. Place of supply: West Bengal.</span></div></div>
+<div class="card stack"><h2>Preview</h2><div class="row">${pv}</div></div>
+<div class="row" style="position:sticky;bottom:0;background:var(--bg);padding:12px 0;gap:12px">
+<button class="btn" data-iv="create" ${hsnBad?'disabled aria-describedby="whyoff"':''} style="min-height:48px;font-size:16px">Create practice invoice</button><button class="btn2" data-toast="Draft saved. Find it on Home and under Invoices.">Save draft</button><button class="link" data-go="dash">Cancel</button>
+${hsnBad?'<span class="hint" id="whyoff">Add the HSN code above to create this invoice.</span>':''}</div>
+<div class="note">v14: primary button is “Create invoice” (“Create practice invoice” while numbering is off). Save draft is secondary. The missing-HSN problem is fixed on the line, not by leaving the page. Preview states: idle, preparing, ready, slow, session ended.</div></div>`};
+
+V.invdone=()=>`<div class="stack" style="gap:18px"><div class="banner ok"><span>${info}</span><span><b>Practice invoice PR-0004 created.</b> Locked: later changes need a credit note. Stock below zero is allowed and shown on Stock.</span></div>
+<div class="card stack"><div class="row between"><h1>PR-0004</h1><span class="chip warn">Practice · not for customers</span></div><div class="hint">Asha Traders · ₹3,599.00 · 19 Nov 2026</div>
+<div class="row"><button class="btn" data-toast="Downloads the PDF, marked PRACTICE.">Download PDF</button><button class="btn2" data-toast="Copies an expiring link.">Copy link</button><button class="btn2" data-go="invoice">New invoice for the same customer</button><button class="link" data-go="dash">Back to Home</button></div></div></div>`;
+
+function render(){
+ $('#nav').innerHTML=NAV.map(n=>`<button data-go="${n[0]}" ${S.view===n[0]?'aria-current="page"':''}>${n[1]}</button>`).join('');
+ $('#main').innerHTML=V[S.view]();
+ document.body.classList.toggle('phone',S.w==='phone');
+ for(const [id,k] of [['s-freq','freq'],['s-inv','inv'],['s-w','w']])document.querySelectorAll('#'+id+' button').forEach(b=>b.setAttribute('aria-pressed',S[k]===b.dataset.v));
+ try{history.replaceState(null,'','#'+S.view)}catch(e){}
+}
+document.addEventListener('change',e=>{const k=e.target.dataset&&e.target.dataset.itc;if(!k)return;S.itc[k]=e.target.value;S.itcSet=true;render()});
+document.addEventListener('click',e=>{
+ const t=e.target.closest('button,[data-go]');if(!t)return;const d=t.dataset;
+ if(t.closest('#s-freq,#s-inv,#s-w')){const k=t.closest('#s-freq')?'freq':t.closest('#s-inv')?'inv':'w';S[k]=d.v;if(k==='inv'){S.resolved=0}return render()}
+ if(d.itcreset){S.itc={igst:0,cgst:0,sgst:0,rev:0,pmt:0};S.itcSet=false;return render()}
+ if(d.go){S.view=d.go;window.scrollTo(0,0);return render()}
+ if(d.toast)return toast(d.toast);
+ if(d.plat){S.plats[d.plat]=!S.plats[d.plat];return render()}
+ if(d.freq){S.freq=d.freq;return render()}
+ if(d.plan){S.plan=d.plan;return render()}
+ if(d.fix){S.resolved=Math.min(4,S.resolved+1);return render()}
+ if(t.disabled)return;if(t.id==='ob-next'){if(S.ob<4){S.ob++}else{S.view='home';S.ob=1;toast('Account created. Here is your filing home.')}return render()}
+ if(t.id==='ob-back'){S.ob--;return render()}
+ if(t.id==='pay'){S.paid=true;S.view='guide';toast('Payment received (mock).');return render()}
+});
+document.addEventListener('click',e=>{const b=e.target.closest('[data-iv]');if(!b)return;const k=b.dataset.iv,v=S.iv;
+ if(k==='hsn'){v.hsn=true;toast('HSN saved on the product.')}
+ if(k==='cust')v.buyer='customer';if(k==='cash')v.buyer='cash';
+ if(k==='prev'){v.prev='gen';render();setTimeout(()=>{if(S.iv.prev==='gen'){S.iv.prev='ready';render()}},1200);return}
+ if(k==='resign'){v.prev='gen';toast('Signed in. Back on your invoice.');render();setTimeout(()=>{if(S.iv.prev==='gen'){S.iv.prev='ready';render()}},1200);return}
+ if(k==='create'){S.view='invdone';window.scrollTo(0,0)}
+ render()});
+
+document.addEventListener('click',e=>{const b=e.target.closest('[data-pv]');if(!b)return;S.iv.prev=b.dataset.pv;S.view='invoice';document.querySelectorAll('#s-pv button').forEach(x=>x.setAttribute('aria-pressed',x===b));render()});
+const h=location.hash.slice(1);if(V[h])S.view=h;
+window.addEventListener('hashchange',()=>{const x=location.hash.slice(1);if(V[x]&&x!==S.view){S.view=x;render()}});
+render();
+</script>
+
+<button class="ask-fab" id="askfab" aria-haspopup="dialog" aria-expanded="false" aria-controls="askpanel" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>Ask Kartaa</button>
+<section class="ask-panel" id="askpanel" role="dialog" aria-labelledby="asktitle" aria-modal="false" hidden></section>
+<script>
+/* v15 Ask Kartaa. Mock only: no network, no model. Texts are samples; real answers come from retrieved passages (docs/ASK_BOT.md). */
+const A={st:'closed'};
+const GI='https://tutorial.gst.gov.in/userguide/returns/index.htm';
+const ext='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>';
+const fb='<div class="ask-fb">Helpful? <button aria-label="Yes, helpful">👍</button><button aria-label="No, not helpful">👎</button></div>';
+const me=t=>`<div class="ask-me">${t}</div>`;
+const bot=(t,extra='',cls='')=>`<div class="ask-bot ${cls}">${t}${extra}</div>`;
+const src=t=>`<div class="ask-src"><span class="chip info">GST portal guide</span>${t}</div>`;
+const read=(l,main)=>`<a class="ask-read ${main?'main':''}" href="${GI}" target="_blank" rel="noopener noreferrer">${l}${ext}</a>`;
+const BODY={
+ welcome:`<div class="ask-bot">Hi. Ask me how the GST portal works or how to use Kartaa. I keep answers short and point you to the GST portal guide when more is needed.</div><div class="ask-chips" aria-label="Try asking"><button>How do I file GSTR-1 on the portal?</button><button>What is the QRMP scheme?</button><button>Do I file GSTR-3B if I had no sales?</button><button>How does Kartaa read my Amazon report?</button></div>`,
+ short:me('Do I have to file GSTR-3B if I had no business this month?')+bot('Yes. Filing GSTR-3B is mandatory for normal and casual taxpayers even when there was no business in the period. You file it as a nil return.',src('FAQs: Form GSTR-3B, Q5')+read('Read more on GST portal')+fb),
+ long:me('How do I add invoices and file GSTR-1?')+bot('This takes several steps on the portal: sign in, open the Returns Dashboard, choose the period, add records table by table, generate the summary, then file with DSC or EVC. Kartaa gives you the ready GSTR-1 file to upload.',src('Manual: Form GSTR-1, sections A to J')+read('Read the full steps on GST portal',true)+fb),
+ product:me('Does Kartaa file my return for me?')+bot('No. Kartaa prepares your GSTR-1 file and a GSTR-3B worksheet from your uploads. You upload and file on the GST portal yourself.',`<div class="ask-src"><span class="chip ok">Kartaa help</span>Guide and GSTR-1 JSON</div><button class="ask-read" data-go="guide">Open Guide and JSON</button>`+fb),
+ none:me('What is the best way to save income tax?')+bot('I could not find this in the GST portal guides or Kartaa help. I only answer questions on those, and I can’t give tax or legal advice. Please ask your CA.',read('Browse GST portal guides')+'<button class="ask-read" data-toast="Support contact is a placeholder until set.">Contact support</button>'),
+ loading:me('What is IFF?')+bot('<span class="ask-dots" role="status" aria-label="Looking for an answer"><span></span><span></span><span></span></span>'),
+ slow:me('What is IFF?')+bot('<span class="ask-dots" role="status" aria-label="Still looking"><span></span><span></span><span></span></span> Still looking. This is taking longer than usual.','<button class="btn2" style="align-self:flex-start;min-height:40px">Cancel</button>'),
+ err:me('What is IFF?')+bot('Something went wrong on our side. Your question is saved in the box below.','<button class="btn2" style="align-self:flex-start;min-height:40px">Try again</button>','err'),
+ offline:me('What is IFF?')+bot('You are offline. Reconnect to ask. Your question will stay in the box.','','err'),
+ limit:bot('You have asked a lot of questions for now. You can ask again in about 20 minutes. Meanwhile you can browse the guides.',read('Browse GST portal guides'),'err'),
+ sess:bot('You were signed out. Sign in again to continue. Your question is kept in the box.','<button class="btn" style="align-self:flex-start;min-height:40px" data-toast="Sign-in page (existing).">Sign in</button>','err')
+};
+function askRender(){
+ const f=$('#askfab'),p=$('#askpanel'),st=A.st;
+ f.hidden=(st==='off');const open=!['off','closed'].includes(st);
+ f.setAttribute('aria-expanded',open);f.style.display=open?'none':'';
+ p.hidden=!open;
+ document.querySelectorAll('#s-ask button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.ask===st));
+ if(!open)return;
+ const dis=['offline','limit'].includes(st),val=['err','offline','sess'].includes(st)?'What is IFF?':'';
+ p.innerHTML=`<div class="ask-head"><div class="t"><b id="asktitle">Ask Kartaa</b><span>GST portal guides and how to use Kartaa</span></div><button class="ask-ic" aria-label="Start a new chat" title="New chat"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button><button class="ask-ic" data-ask="closed" aria-label="Close">✕</button></div>
+ <div class="ask-body" aria-live="polite">${BODY[st]}</div>
+ <div class="ask-foot"><div class="r"><input aria-label="Your question" placeholder="Ask a question" maxlength="500" value="${val}" ${dis?'disabled':''}><button class="btn" ${dis?'disabled':''}>Ask</button></div><div class="ask-note">Not tax or legal advice. Answers come from GST portal user guides and Kartaa help. Don’t type passwords, OTPs or GSTINs.</div></div>`;
+}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-ask],#askfab');if(!b)return;e.stopImmediatePropagation();A.st=b.id==='askfab'?'welcome':b.dataset.ask;askRender();if(b.id==='askfab'){const i=$('#askpanel input');i&&i.focus()}},true);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!['off','closed'].includes(A.st)){A.st='closed';askRender();$('#askfab').focus()}});
+const _r=render;render=function(){_r.apply(this,arguments);document.documentElement.style.setProperty('--ask-lift',S.view==='invoice'&&S.w==='phone'?'72px':'0px');askRender()};
+render();
+</script>
