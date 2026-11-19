@@ -63,3 +63,17 @@ def test_a_nul_is_refused_with_422(method, url, where, name):
     else:
         r = CLIENT.request(method, url, json={name: "a\x00b"})
     assert r.status_code == 422 and r.json()["error"]["code"] == "text_invalid", r.text
+
+
+def test_no_route_reads_a_body_the_nul_guard_skips():
+    """The guard checks JSON and url-encoded bodies. A route that takes multipart (or any other body type)
+    would let a NUL reach PostgreSQL as a 500, so adding one has to go through the guard first (#303)."""
+    checked = {"application/json", "application/x-www-form-urlencoded"}
+    offenders = [
+        f"{method.upper()} {path} {kind}"
+        for path, operations in app.openapi()["paths"].items()
+        for method, operation in operations.items()
+        for kind in operation.get("requestBody", {}).get("content", {})
+        if kind not in checked
+    ]
+    assert not offenders, offenders
