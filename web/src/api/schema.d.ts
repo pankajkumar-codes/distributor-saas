@@ -4549,6 +4549,8 @@ export interface components {
             address?: components["schemas"]["Address"] | null;
             /** Business Type */
             business_type?: ("distributor" | "retail") | null;
+            /** Business Types */
+            business_types?: ("retailer" | "wholesaler" | "distributor" | "manufacturer" | "online_seller" | "service_provider" | "other")[] | null;
             /**
              * Einvoice History
              * @enum {string}
@@ -5032,6 +5034,8 @@ export interface components {
             business_id: string;
             /** Business Type */
             business_type: ("distributor" | "retail") | null;
+            /** Business Types */
+            business_types: ("retailer" | "wholesaler" | "distributor" | "manufacturer" | "online_seller" | "service_provider" | "other")[];
             /** Einvoice History */
             einvoice_history: ("no" | "yes" | "not_sure") | null;
             /** Legal Name */
@@ -5054,6 +5058,8 @@ export interface components {
             address?: components["schemas"]["Address"] | null;
             /** Business Type */
             business_type?: ("distributor" | "retail") | null;
+            /** Business Types */
+            business_types?: ("retailer" | "wholesaler" | "distributor" | "manufacturer" | "online_seller" | "service_provider" | "other")[] | null;
             /** Einvoice History */
             einvoice_history?: ("no" | "yes" | "not_sure") | null;
             /** Legal Name */

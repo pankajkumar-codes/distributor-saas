@@ -67,9 +67,8 @@ def _email(raw: str) -> str:
 
 
 def _client_ip(request: Request) -> str:
-    # API Gateway's sourceIp, through Mangum. If CloudFront is ever put in front of
-    # /api, this becomes CloudFront's address and every per-IP bucket is shared by
-    # all users; read CloudFront-Viewer-Address then (infra review item).
+    # API Gateway's sourceIp, through Mangum. The API is not behind CloudFront (D-094); if a proxy is ever put
+    # in front of it, this becomes the proxy's address and every per-IP bucket is shared by all users.
     return request.client.host if request.client else "-"
 
 
