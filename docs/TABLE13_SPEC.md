@@ -42,7 +42,7 @@ Documents whose document date falls in the return period (period = document date
 
 ### 4.2 Natures
 
-R1 emits only nature `1` (invoices for outward supply) and `5` (credit note). Debit notes (`4`) are not in the file today (the build counts them and blocks export), so they are added when debit notes are. Receipt, payment and refund vouchers and delivery challans (`2`, `3`, `6` to `12`) have no document in the app; they stay `docs: []`, and a seller who issued any must enter the row by hand (section 5.3).
+R1 emits only nature `1` (invoices for outward supply) and `5` (credit note). Debit notes (`4`) are not in the file today (the build counts them and blocks export), so they are added when debit notes are. The other natures, as listed in the research file (template master list): `2` invoices for inward supply from an unregistered person, `3` revised invoice, `6` receipt voucher, `7` payment voucher, `8` refund voucher, `9` to `12` delivery challans (the research file does not say which of 9 to 12 is which). None of these has a document in the app; they stay `docs: []`, and a seller who issued any must enter the row by hand (section 5.3).
 
 ### 4.3 Deriving suggested rows
 
@@ -105,7 +105,7 @@ AC12. Money and counts use integers and Decimal only; no float anywhere in the b
 
 ## 8. Test cases
 
-Pure (no database): series key and range derivation for `INV/26-27/0001..0008` with one number missing (count 7, warning); two prefixes make two rows; mixed digit widths make two series; credit notes go to nature 5; 16-character limit and bad characters rejected; `cancel > totnum` rejected; overlapping ranges rejected; renderer golden test against the masked synthetic fixture `team/gst/fixtures/gstr1-offline-synthetic.json` (12 slots, key order, `net_issue`); rendering with empty natures.
+Pure (no database): series key and range derivation for `INV/26-27/0001..0008` with one number missing (count 7, warning); two prefixes make two rows; mixed digit widths make two series; credit notes go to nature 5; 16-character limit and bad characters rejected; `cancel > totnum` rejected; overlapping ranges rejected; renderer golden test against a masked synthetic fixture (the project-file copy `team/gst/fixtures/gstr1-offline-synthetic.json` is outside the repo, so the build commits its own masked copy with fake GSTINs and placeholder values) (12 slots, key order, `net_issue`); rendering with empty natures.
 
 Database-backed: practice documents excluded (AC4); marketplace row off by default and on after ticking (AC5); stale confirmation after a new document in the period (AC6); insert-only guard on the store (AC7); idempotent confirm (AC9); tenant isolation and role checks (AC8); snapshot `docs` equals the export (AC3, AC10); C-08 absent for a nil return (AC2).
 
