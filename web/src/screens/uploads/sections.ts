@@ -85,3 +85,18 @@ export function statusChip(u: Upload): { label: string; tone: string } {
       return { label: "Reading", tone: "chip-info" };
   }
 }
+
+/**
+ * The chip for a whole section. One file: that file's chip. Several: how many were read, so a later file that failed
+ * does not make the card say "Not read" about files that were. A file still being read keeps the card on Reading.
+ */
+export function sectionChip(uploads: Upload[]): { label: string; tone: string } | null {
+  if (uploads.length === 0) return null;
+  const latest = statusChip(uploads[0]);
+  if (uploads.length === 1) return latest;
+  const read = uploads.filter((u) => u.status === "parsed").length;
+  if (read === 0) return latest;
+  const reading = uploads.some((u) => !settled(u) && u.status !== "stored");
+  const label = read === uploads.length ? `All ${read} read` : `${read} of ${uploads.length} read`;
+  return { label, tone: read === uploads.length ? "chip-ok" : reading ? "chip-info" : "chip-warn" };
+}
