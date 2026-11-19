@@ -44,3 +44,18 @@ def test_ordinary_text_missing_values_and_non_json_pass_through():
     assert client.post("/b", json={"reason": "ok \\u0000 literal backslash text"}).status_code == 200
     assert client.post("/b", content=b"not json", headers={"content-type": "application/json"}).status_code == 422  # the route's own answer
     assert not has_nul({"a": ["b", 1, None]})
+
+
+def test_nul_in_a_url_encoded_form_is_422():
+    for raw in (b"a=b%00c", b"a%00=b", b"x=1&y=%00"):
+        r = client.post("/b", content=raw, headers={"content-type": "application/x-www-form-urlencoded"})
+        assert r.status_code == 422 and r.json()["error"]["code"] == "text_invalid", raw
+    ok = client.post("/b", content=b"a=b+c%20d", headers={"content-type": "application/x-www-form-urlencoded"})
+    assert ok.json().get("error", {}).get("code") != "text_invalid"  # the route's own answer, not the guard's
+
+
+def test_json_over_one_megabyte_is_still_checked():
+    big = "x" * 1_200_000
+    r = client.post("/b", json={"reason": big + "\x00"})
+    assert r.status_code == 422 and r.json()["error"]["code"] == "text_invalid"
+    assert client.post("/b", json={"reason": big}).status_code == 200
