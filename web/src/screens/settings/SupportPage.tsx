@@ -13,6 +13,7 @@ import { Button } from "../../kit/Button";
 import { Field } from "../../kit/Field";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
+import { Loading } from "../../kit/Loading";
 
 type Grant = components["schemas"]["GrantOut"];
 type Grants = components["schemas"]["GrantsOut"];
@@ -149,7 +150,7 @@ export function SupportPage() {
             </Button>
           </Banner>
         )}
-        {grants.isPending && <p aria-busy="true">Loading…</p>}
+        {grants.isPending && <Loading query={grants} />}
 
         {grants.data && active && (
           <section className="card" aria-labelledby="support-on">

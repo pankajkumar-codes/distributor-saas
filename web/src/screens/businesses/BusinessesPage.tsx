@@ -4,6 +4,7 @@ import { errorText } from "../../api/errors";
 import { useMyBusinesses } from "../../auth/useMyBusinesses";
 import { Banner } from "../../kit/Banner";
 import { TopBar } from "../../kit/TopBar";
+import { Loading } from "../../kit/Loading";
 
 // The business picker for people in more than one business (S1); M16 replaces it in S2.
 export function BusinessesPage() {
@@ -14,7 +15,7 @@ export function BusinessesPage() {
       <TopBar />
       <main className="page">
         <h1>Your businesses</h1>
-        {businesses.isPending && <p aria-busy="true">Loading…</p>}
+        {businesses.isPending && <Loading query={businesses} />}
         {businesses.error && <Banner tone="error">{errorText(businesses.error)}</Banner>}
         <ul className="list">
           {businesses.data?.map((b) => (

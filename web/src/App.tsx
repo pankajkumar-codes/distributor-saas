@@ -13,8 +13,8 @@ export function App() {
     () =>
       new QueryClient({
         defaultOptions: {
-          // A read retries twice only when the server or the network failed; a 4xx won't change.
-          queries: { retry: (count, e) => count < 2 && transient(e) },
+          // A read retries twice (after 0.5 s, then 1 s) only when the server or the network failed; a 4xx won't change.
+          queries: { retry: (count, e) => count < 2 && transient(e), retryDelay: (n) => Math.min(500 * 2 ** n, 2000) },
           mutations: { retry: false },
         },
       }),
