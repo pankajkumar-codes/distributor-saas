@@ -5,6 +5,7 @@ import { errorText, type ApiError } from "../../api/errors";
 import { formatDateTimeIst } from "../../format/dates";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
+import { HeldLink } from "./HeldLink";
 import { OWN_INVOICE_TYPES, ownInvoiceProblem, ownInvoiceSection, settled, statusText, type Upload } from "./sections";
 import { sendFile, uploadsKey, useUploads } from "./useUpload";
 
@@ -70,6 +71,7 @@ export function OwnInvoicesCard({ businessId, label, hint, canUpload }: Props) {
           {uploads.map((u) => (
             <li key={u.id}>
               <FileLine upload={u} />
+              <HeldLink businessId={businessId} upload={u} />
             </li>
           ))}
         </ul>

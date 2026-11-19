@@ -350,3 +350,12 @@ table.products td select { max-width: 100%; }
 .facts.totals dd { text-align: right; font-variant-numeric: tabular-nums; }
 .taxpart { display: block; white-space: nowrap; }
 @media (max-width: 600px) { .taxpart { white-space: normal; text-align: right; } .facts.totals { max-width: none; } }
+
+/* Held rows (#369): one card per row inside a reason group; the page reuses the kit's cards, chips and lists. */
+.held-rows { list-style: none; padding: 0; margin: 0; }
+.held-row { padding: 14px 0; border-top: 1px solid var(--line, rgba(127, 127, 127, 0.25)); }
+.held-row:first-child { border-top: 0; }
+.held-row h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 15px; }
+.held-row input[type="checkbox"] { width: 20px; height: 20px; }
+.held-link { margin: 8px 0 0; }
+@media (max-width: 600px) { .held-row .row .btn { flex: 1 1 100%; } }

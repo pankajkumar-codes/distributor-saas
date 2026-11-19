@@ -5,6 +5,7 @@ import { formatDateTimeIst } from "../../format/dates";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { acceptFor, settled, sectionChip, statusText, wrongType, SECTIONS, type Section, type Upload } from "./sections";
+import { HeldLink } from "./HeldLink";
 import { useStartUpload, useUpload, useUploads } from "./useUpload";
 
 type Props = {
@@ -72,6 +73,7 @@ export function UploadCard({ businessId, section, label, hint, canUpload, upload
       <p className="hint">{hint}</p>
 
       {upload && <Result upload={upload} />}
+      {upload && <HeldLink businessId={businessId} upload={upload} />}
       {uploadId && current.error && (
         <Banner tone="error">
           {errorText(current.error)} <Button type="button" variant="link" onClick={() => current.refetch()}>Try again</Button>
@@ -115,6 +117,7 @@ export function UploadCard({ businessId, section, label, hint, canUpload, upload
                 {u.file_name} · {formatDateTimeIst(u.created_at)}
                 <br />
                 <span className="hint">{statusText(u)}</span>
+                <HeldLink businessId={businessId} upload={u} />
               </li>
             ))}
           </ul>
