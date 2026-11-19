@@ -102,6 +102,13 @@ export function HomePage() {
       <main className="page page-wide">
         <h1>{greeting(data?.greeting_name)}</h1>
         <p className="hint home-sub">Here is where your business stands today.</p>
+        {FEATURES.invoicing && canCreateDocuments(business.role) && (
+          <p className="home-actions">
+            <Link className="btn btn-primary" to={`/b/${businessId}/invoices/new`}>
+              New invoice
+            </Link>
+          </p>
+        )}
         {warnings.length > 0 && (
           <Banner>
             <p>Your business is saved. Please check:</p>
