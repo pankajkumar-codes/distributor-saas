@@ -1,6 +1,6 @@
 # Table 13 (documents issued) in the GSTR-1 export, with check C-08
 
-Status: specification for issue #353 (R1). Docs only; nothing here is built. Decision D-098 (proposed) in `docs/DECISIONS.md`.
+Status: specification for issue #353 (R1). Docs only; nothing here is built. Decision D-099 (proposed) in `docs/DECISIONS.md`.
 Sources: CA expert answer `team/program-lead/ca-table-13-answer-v1.md` and v3 point 2; portal expert answer `team/gst-portal-expert/TABLE13-documents-issued.md`; the structure of a real tool-exported file in `team/research/gstr1-offline-json-structure.md` section 3 (doc_issue); worked example `team/gst/gstr1-examples.md` A7 and Part E. The people who answered are AI readers of government documents, not a registered CA; items marked **[CA]** need a human check before go-live.
 
 ## 1. Why
