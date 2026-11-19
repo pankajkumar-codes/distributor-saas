@@ -23,9 +23,14 @@ import { Totals } from "./Totals";
 import { useFinalize } from "./useFinalize";
 import { PreviewPanel } from "./PreviewPanel";
 import { usePreview } from "./usePreview";
+import { useFormKey } from "../../kit/formKey";
+import { useSingleFlight } from "../../kit/singleFlight";
 import { NoAccess } from "../../kit/NoAccess";
 
 type Product = components["schemas"]["ProductOut"];
+
+// Invoice numbering is off until the CA confirms it (D-010), so every invoice made here is a practice one and the button says so.
+const PRACTICE_ONLY = true;
 
 /**
  * M10 2a: a draft invoice. Everything shown about tax and totals is the server's computation
@@ -40,7 +45,8 @@ export function InvoicePage() {
   const businesses = useMyBusinesses();
   const business = businesses.data?.find((b) => b.business_id === businessId);
   const states = useStateCodes();
-  const key = useRef(crypto.randomUUID()); // one create, however many times Save is pressed
+  const formKey = useFormKey(`invoice:${businessId}`); // one create, however many times Save is pressed or the page is rebuilt
+  const once = useSingleFlight();
   const [form, setForm] = useState<Form | null>(draftId ? null : blankForm());
   const [saved, setSaved] = useState<Draft | null>(null);
   const [stale, setStale] = useState(false);
@@ -83,7 +89,7 @@ export function InvoicePage() {
     mutationFn: (f) =>
       draftId
         ? call(() => api.PUT("/api/v1/b/{business_id}/drafts/{draft_id}", { params: { path, header: { "If-Match": String(saved?.version) } }, body: draftIn(f) }))
-        : call(() => api.POST("/api/v1/b/{business_id}/drafts", { params: { path: { business_id: businessId }, header: { "Idempotency-Key": key.current } }, body: draftIn(f) })),
+        : call(() => api.POST("/api/v1/b/{business_id}/drafts", { params: { path: { business_id: businessId }, header: { "Idempotency-Key": formKey.current() } }, body: draftIn(f) })),
     onMutate: () => setStale(false),
     onSuccess: (out, sent) => {
       queryClient.setQueryData(["b", businessId, "draft", out.id], out);
@@ -92,9 +98,13 @@ export function InvoicePage() {
       setForm(formOf(out, Object.fromEntries(sent.lines.map((l) => [l.product_id, l.name]))));
       queryClient.invalidateQueries({ queryKey: ["b", businessId, "drafts"] });
       setSaved(out);
+      if (!draftId) formKey.reset();
       if (!draftId) navigate(`/b/${businessId}/invoices/${out.id}`, { replace: true });
     },
-    onError: (e) => setStale(e.code === "stale_record"),
+    onError: (e) => {
+      setStale(e.code === "stale_record");
+      if (e.code === "idempotency_mismatch") formKey.reset(); // the key was used by an earlier, different request: next press starts fresh
+    },
   });
   const remove = useMutation<unknown, ApiError>({
     mutationFn: () => call(() => api.DELETE("/api/v1/b/{business_id}/drafts/{draft_id}", { params: { path, header: { "If-Match": String(saved?.version) } } })),
@@ -149,21 +159,32 @@ export function InvoicePage() {
   };
   // One press: save what is on screen (if anything changed), then finalize that saved version. A failed save or
   // finalize leaves the draft saved and says why.
-  const createInvoice = async () => {
+  const createInvoice = () => {
     if (form.buyer === "cash" && !form.cash_state) {
       setCashStateMissing(true);
       cashStateRef.current?.focus();
       return;
     }
-    let target = saved;
-    if (dirty || !target) {
-      try {
-        target = await save.mutateAsync(form);
-      } catch {
-        return; // the save error is shown beside the form
-      }
-    }
-    finalize.mutate({ draftId: target.id, version: target.version });
+    // One chain at a time, however fast the button is pressed: a second press while the first is still saving or
+    // finalizing does nothing. The create key (one per form) and the finalize key (one per saved version) make a
+    // press after a failure carry on from where it stopped.
+    once((done) => {
+      void (async () => {
+        let target = saved;
+        if (dirty || !target) {
+          try {
+            target = await save.mutateAsync(form);
+          } catch {
+            return; // the save error is shown beside the form
+          }
+        }
+        try {
+          await finalize.mutateAsync({ draftId: target.id, version: target.version });
+        } catch {
+          // the finalize error is shown under the form
+        }
+      })().finally(done);
+    });
   };
   const setLine = (i: number, patch: Partial<Form["lines"][number]>) => set({ lines: form.lines.map((l, n) => (n === i ? { ...l, ...patch } : l)) });
   const pickProduct = (p: Product) => set({ lines: [...form.lines, { ...newLine(), product_id: p.id, name: p.name }] });
@@ -288,9 +309,9 @@ export function InvoicePage() {
           />
           {form.pos_override && <Field label="Why it differs" value={form.pos_reason} onChange={(e) => set({ pos_reason: e.target.value })} />}
 
-          <div className="actions">
+          <div className="actions sticky-actions">
             <Button type="button" variant="primary" busy={save.isPending || finalize.isPending} disabled={Boolean(saved && !dirty && saved.ready === false)} onClick={createInvoice}>
-              Create invoice
+              {PRACTICE_ONLY ? "Create practice invoice" : "Create invoice"}
             </Button>
             <Button type="submit" variant="secondary" busy={save.isPending} disabled={!dirty}>
               Save draft
