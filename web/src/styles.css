@@ -326,3 +326,6 @@ main:focus { outline: none; } /* the skip link moves focus here; the page itself
   main a:not(.btn):not(.btn-link) { display: inline-block; min-height: 24px; padding: 3px 0; line-height: 1.35; }
   .list li > a, td a:not(.btn) { padding: 6px 0; }
 }
+
+/* Phone: the file picker's button reaches the 44px tap size the other buttons have under 700px. */
+@media (max-width: 700px) { input[type="file"]::file-selector-button { min-height: 44px; } }
