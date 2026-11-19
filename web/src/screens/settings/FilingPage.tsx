@@ -88,12 +88,20 @@ export function FilingPage({ embedded = false }: { embedded?: boolean } = {}) {
   // TODO: drop the browser-clock quarter once GET /filing-profile lists the allowed starts
   // (a server follow-up; Staff 2's #84 review). Until then the server still decides and explains.
   const quarters = data ? [...new Set([data.window.for_quarter, quarterStartIst()])].sort() : [];
+  const current = (data?.current?.frequency ?? "") as Frequency | "";
+  // The current frequency is the starting choice; the start-quarter question only belongs to a different one.
+  const shown = frequency || current;
+  const changing = Boolean(frequency) && frequency !== current;
   const start = startsOn || data?.window.for_quarter || "";
+  // The first record of a frequency is not a change on the portal, so "outside the change period" does not apply to it.
+  const firstId = data?.history.length
+    ? [...data.history].sort((a, b) => a.chosen_at.localeCompare(b.chosen_at) || a.effective_from.localeCompare(b.effective_from))[0].id
+    : null;
   const err = (field: string) => (change.error?.field === field ? change.error.message || errorText(change.error) : undefined);
   const formError = change.error && !["frequency", "effective_from"].includes(change.error.field ?? "") ? change.error : null;
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (frequency && start) change.mutate({ frequency, effective_from: start });
+    if (changing && frequency && start) change.mutate({ frequency, effective_from: start });
   };
 
   return (
@@ -164,25 +172,29 @@ export function FilingPage({ embedded = false }: { embedded?: boolean } = {}) {
                     { value: "quarterly", label: FREQUENCY_LABEL.quarterly },
                     { value: "monthly", label: FREQUENCY_LABEL.monthly },
                   ]}
-                  value={frequency}
+                  value={shown}
                   onChange={(v) => choose(() => setFrequency(v))}
                   error={err("frequency")}
                 />
-                <RadioGroup<string>
-                  legend="Starting from the quarter that begins"
-                  name="effective_from"
-                  options={quarters.map((q) => ({ value: q, label: formatDate(q) }))}
-                  value={start}
-                  onChange={(v) => choose(() => setStartsOn(v))}
-                  hint="If you're not sure which quarter, ask your CA."
-                  error={err("effective_from")}
-                />
+                {changing && (
+                  <RadioGroup<string>
+                    legend="Starting from the quarter that begins"
+                    name="effective_from"
+                    options={quarters.map((q) => ({ value: q, label: formatDate(q) }))}
+                    value={start}
+                    onChange={(v) => choose(() => setStartsOn(v))}
+                    hint="If you're not sure which quarter, ask your CA."
+                    error={err("effective_from")}
+                  />
+                )}
                 {formError && <Banner tone="error">{formError.message || errorText(formError)}</Banner>}
-                <div className="actions">
-                  <Button type="submit" busy={change.isPending} disabled={!frequency}>
-                    Save frequency
-                  </Button>
-                </div>
+                {changing && (
+                  <div className="actions">
+                    <Button type="submit" busy={change.isPending}>
+                      Save frequency
+                    </Button>
+                  </div>
+                )}
               </form>
             )}
 
@@ -204,7 +216,7 @@ export function FilingPage({ embedded = false }: { embedded?: boolean } = {}) {
                         <td data-label="Frequency">{FREQUENCY_LABEL[h.frequency]}</td>
                         <td data-label="From">{formatDate(h.effective_from)}</td>
                         <td data-label="Chosen on">{formatDate(todayIst(new Date(h.chosen_at)))}</td>
-                        <td data-label="Notes">{h.warnings.map(warningText).join(" ") || "—"}</td>
+                        <td data-label="Notes">{h.warnings.filter((w) => !(h.id === firstId && w === "outside_window")).map(warningText).join(" ") || "—"}</td>
                       </tr>
                     ))}
                   </tbody>

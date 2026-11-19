@@ -47,6 +47,26 @@ function open(role = "owner") {
 const type = (label: string, value: string) => fireEvent.change(screen.getByLabelText(label), { target: { value } });
 const patches = () => server.sent.filter((s) => s.path === PROFILE && s.method === "PATCH");
 
+describe("coming from an invoice that needs last year's band", () => {
+  it("offers the way back to that invoice only", async () => {
+    server.reply(PROFILE, { status: 200, body: profile() });
+    server.reply(ME, me(), me());
+    window.history.replaceState({ usr: { backTo: "/b/b-1/invoices/d-1" }, key: "k1", idx: 0 }, "", "/b/b-1/settings");
+    render(<App />);
+    expect(await screen.findByRole("link", { name: "Back to your invoice" })).toHaveAttribute("href", "/b/b-1/invoices/d-1");
+    expect(screen.getByRole("group", { name: /Turnover last financial year/ }).parentElement).toHaveAttribute("id", "last-year-band");
+  });
+
+  it("ignores a way back that is not an invoice of this business", async () => {
+    server.reply(PROFILE, { status: 200, body: profile() });
+    server.reply(ME, me(), me());
+    window.history.replaceState({ usr: { backTo: "https://example.com/" }, key: "k2", idx: 0 }, "", "/b/b-1/settings");
+    render(<App />);
+    await screen.findByLabelText("Legal name");
+    expect(screen.queryByRole("link", { name: "Back to your invoice" })).toBeNull();
+  });
+});
+
 describe("business details", () => {
   it("sends only the changed fields with If-Match, and shows the server's warnings", async () => {
     server.reply(PROFILE, { status: 200, body: profile() });
