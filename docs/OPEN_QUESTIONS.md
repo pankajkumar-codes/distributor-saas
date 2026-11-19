@@ -402,7 +402,7 @@ Full spec: `docs/TABLE13_SPEC.md`. Answers so far come from the AI CA and portal
 - **OQ-ASK-1 (owner):** may we reuse GST portal tutorial text (store derived chunks, show short passages with attribution)? Terms not read; the bot stays off for customers until answered.
 - **OQ-ASK-2 (owner):** allow a paid Bedrock model in Mumbai for generative answers, with a monthly cap (recommend USD 10)?
 - **OQ-ASK-3 (EM):** read the AWS console in ap-south-1 and ap-south-2 for in-region on-demand text models, price and access; Bedrock availability is unverified.
-- **OQ-ASK-4 (owner):** save the tutorial index page as HTML into the project folder so verified deep links can be filled in; download the missing pack documents (offline tool guide and JSON schema, registration, payments, e-invoice and e-way bill).
+- **OQ-ASK-4 (owner):** download the missing pack documents (offline tool guide and JSON schema, registration, payments, e-invoice and e-way bill). Per-topic deep links are verified by the portal expert (`team/gst-portal-expert/URLS.md`, 2026-11-20); a document with no verified row uses the index URL.
 - **OQ-ASK-5 (owner):** release placement (recommended: own track with R2), support contact, log retention (90 days), who sees the bot (all members). See the decision table in the spec.
 
 ## Decision handling
