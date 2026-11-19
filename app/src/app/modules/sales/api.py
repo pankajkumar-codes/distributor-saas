@@ -324,8 +324,10 @@ def create_draft(
 
 
 @router.get("/b/{business_id}/drafts/{draft_id}", response_model=DraftOut, dependencies=EDIT)
-def get_draft(draft_id: str, uow: BusinessUoW, response: Response):
-    return _etag(response, _out(drafts.get(uow, parse_id(draft_id))))
+def get_draft(draft_id: str, uow: BusinessUoW, response: Response, clock: Annotated[Clock, Depends(get_clock)]):
+    """Reading a draft checks it again as of today, so a fixed product, or a business setting changed
+    meanwhile, shows at once. Not a user edit: the version is unchanged."""
+    return _etag(response, _out(*_computed_and_stored(uow, drafts.get(uow, parse_id(draft_id)), clock.today())))
 
 
 @router.put("/b/{business_id}/drafts/{draft_id}", response_model=DraftOut, dependencies=EDIT)

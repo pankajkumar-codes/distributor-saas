@@ -170,7 +170,9 @@ export function InvoicePage() {
   const finalizeError = finalize.error;
   const finalizeWords = !finalizeError
     ? null
-    : finalizeError.status === 404
+    : finalizeError.code === "finalize_blocked" && saved?.computation && saved.computation.blocks.length > 0
+      ? null // the list under the form already says what to fix; a second generic banner only repeats it
+      : finalizeError.status === 404
       ? "Finalizing isn't switched on for your business yet. Your draft is saved."
       : finalizeError.fix ?? (finalizeError.message || errorText(finalizeError));
 
