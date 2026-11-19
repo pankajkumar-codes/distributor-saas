@@ -12,6 +12,7 @@ import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
 import { useBuildWorksheet, useSaveEntries, useStartWorksheetPdf, useWorksheetExcel, useWorksheetPdfStatus, useWorksheet, type Outward, type Worksheet } from "./worksheet";
 import { HEAD_NAME, TABLES, typedHeads } from "./worksheetRows";
+import { NoAccess } from "../../kit/NoAccess";
 import { Loading } from "../../kit/Loading";
 
 const TAX_HEADS = ["igst", "cgst", "sgst", "cess"] as const;
@@ -258,7 +259,8 @@ export function WorksheetPage() {
       </main>
     );
   }
-  if (!business || !allowed || (q.isError && q.error.status === 404)) return <NotFound />;
+  if (!business) return <NotFound />;
+  if (!allowed || (q.isError && q.error.status === 404)) return <NoAccess businessId={businessId} />;
   const ws = q.data;
 
   return (

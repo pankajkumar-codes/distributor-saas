@@ -15,6 +15,7 @@ import { NotFound } from "../../kit/NotFound";
 import { SelectField } from "../../kit/SelectField";
 import { TopBar } from "../../kit/TopBar";
 import { warningText } from "../onboarding/warnings";
+import { NoAccess } from "../../kit/NoAccess";
 import { Loading } from "../../kit/Loading";
 
 type Page = components["schemas"]["AuditPageOut"];
@@ -207,7 +208,9 @@ export function AuditPage() {
       </main>
     );
   }
-  if (!business || !canView || list.error?.status === 404) return <NotFound />;
+  if (!business) return <NotFound />;
+  if (!canView) return <NoAccess businessId={businessId} />;
+  if (list.error?.status === 404) return <NotFound />;
 
   const rows = list.data?.pages.flatMap((p) => p.items) ?? [];
   const people = (members.data?.members ?? []).map((m) => ({ value: m.user_id, label: m.name || m.email || "Former member" }));

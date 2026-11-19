@@ -14,6 +14,7 @@ import { Button } from "../../kit/Button";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
 import { ImportRows, STATUS_LABEL, type RowStatus } from "./ImportRows";
+import { NoAccess } from "../../kit/NoAccess";
 
 type Run = components["schemas"]["ImportOut"];
 const PAGE = 50;
@@ -145,7 +146,9 @@ export function ImportPage() {
       </main>
     );
   }
-  if (!business || !canEditCatalog(business.role) || run.error?.status === 404) return <NotFound />;
+  if (!business) return <NotFound />;
+  if (!canEditCatalog(business.role)) return <NoAccess businessId={businessId} />;
+  if (run.error?.status === 404) return <NotFound />;
 
   const current = run.data?.pages[0];
   const rows = run.data?.pages.flatMap((p) => p.rows) ?? [];

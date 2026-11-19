@@ -66,6 +66,6 @@ describe("GSTR-3B portal guide", () => {
   it("is a not-found page for a billing member", async () => {
     server.reply(LIST, list(row(G3, "GSTR3B")));
     open(G3, "billing");
-    expect(await screen.findByRole("heading", { name: "We couldn't find that page" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "You don't have access to this page" })).toBeTruthy();
   });
 });

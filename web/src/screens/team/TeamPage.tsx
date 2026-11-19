@@ -12,6 +12,7 @@ import { NotFound } from "../../kit/NotFound";
 import { SelectField } from "../../kit/SelectField";
 import { TopBar } from "../../kit/TopBar";
 import { useCancelInvite, useChangeRole, useInvite, useMembers, useResend, useSetActive, type InviteRole, type Member, type Role } from "./useTeam";
+import { NoAccess } from "../../kit/NoAccess";
 import { useFormKey } from "../../kit/formKey";
 import { Loading } from "../../kit/Loading";
 
@@ -162,7 +163,9 @@ export function TeamPage() {
       </main>
     );
   }
-  if (!business || !allowed || team.error?.status === 404) return <NotFound />;
+  if (!business) return <NotFound />;
+  if (!allowed) return <NoAccess businessId={businessId} />;
+  if (team.error?.status === 404) return <NotFound />;
   const invites = (team.data?.invites ?? []).filter((i) => i.status !== "accepted");
 
   return (
