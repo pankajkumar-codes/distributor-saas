@@ -182,6 +182,17 @@ export function HomePage() {
                 </ul>
               </section>
             )}
+            <nav className="card" aria-labelledby="catalog">
+              <h2 id="catalog">Products and customers</h2>
+              <ul className="list">
+                <li>
+                  <Link to={`/b/${businessId}/products`}>Products</Link>
+                </li>
+                <li>
+                  <Link to={`/b/${businessId}/customers`}>Customers</Link>
+                </li>
+              </ul>
+            </nav>
             {/* Until the app has its own navigation (Designer, OPEN_QUESTIONS), Home is the way in. */}
             {FEATURES.invoicing && canCreateDocuments(business.role) && (
               <nav className="card" aria-labelledby="sell">
