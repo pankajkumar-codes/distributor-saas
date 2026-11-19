@@ -486,7 +486,8 @@ export interface paths {
         /**
          * Get Draft
          * @description Reading a draft checks it again as of today, so a fixed product, or a business setting changed
-         *     meanwhile, shows at once. Not a user edit: the version is unchanged.
+         *     meanwhile, shows at once. Not a user edit: the version is unchanged. A draft that cannot be
+         *     computed (its customer was deleted) is returned as stored, so the page can open it and the buyer be changed.
          */
         get: operations["get_draft_api_v1_b__business_id__drafts__draft_id__get"];
         /** Save Draft */

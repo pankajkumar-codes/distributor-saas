@@ -310,6 +310,18 @@ def test_a_customer_deleted_after_the_draft_was_saved_is_customer_not_found_on_s
     assert r.status_code == 422 and r.json()["error"]["code"] == "customer_not_found"
 
 
+def test_a_draft_whose_customer_was_deleted_can_still_be_opened_to_change_the_buyer(shop):
+    pg, biz, _ = shop
+    p, c = make_product(pg, biz, hsn="340120"), make_customer(pg, biz)
+    d = create(pg, biz, draft_body(p, customer_id=c)).json()
+    cu = pg.client.get(f"/api/v1/b/{biz}/customers/{c}", headers=h()).json()
+    assert pg.client.delete(f"/api/v1/b/{biz}/customers/{c}", headers=h(**{"If-Match": str(cu["version"])})).status_code == 204
+    r = pg.client.get(f"/api/v1/b/{biz}/drafts/{d['id']}", headers=h())
+    assert r.status_code == 200 and r.json()["computation"] is None and r.json()["version"] == d["version"]
+    other = make_customer(pg, biz, name="Das Traders")
+    assert put(pg, biz, r.json(), draft_body(p, customer_id=other)).status_code == 200
+
+
 # -- Delivery and place of supply on the draft (LLD-4 §3.1: case B and G16) -------------------
 
 KOLKATA = {"name": "Das Warehousing", "line1": "4 Strand Road", "line2": None, "city": "Kolkata", "pin": "700001",
