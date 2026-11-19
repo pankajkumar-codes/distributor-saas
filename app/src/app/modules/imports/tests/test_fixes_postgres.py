@@ -116,3 +116,40 @@ def test_only_the_uploaders_may_fix_and_another_business_gets_404(shop, held):  
     assert post(pg, f"/api/v1/b/{other}/rows/{row}/resolve", {"action": "enter_hsn", "note": "x", "value": "6109"},
                 sub="bob", key="k-bob").status_code == 404
     assert scalar(pg.owner, "select count(*) from imports.row_resolutions") == 0
+
+
+# -- #345: a B2B row whose Bill To and Ship To states differ --------------------------------
+@pytest.fixture()
+def differing(shop):  # noqa: F811
+    pg, biz, _ = shop
+    z = fxa.zipped({"MTR_B2B-JUL-2026.csv": fxa.b2b_bill_ship_differ(gstin=GSTIN)})
+    upload_id, _ = upload(shop, "amazon", "july.zip", z, "application/zip")
+    run_jobs(shop)
+    run_id = state(shop, upload_id)["run_id"]
+    rows = get(pg, f"/api/v1/b/{biz}/runs/{run_id}/rows?status=held").json()["rows"]
+    return rows, run_id
+
+
+def test_a_row_whose_bill_to_and_ship_to_states_differ_is_held_for_a_ca_check_and_never_accepted(shop, differing):  # noqa: F811
+    pg, biz, _ = shop
+    rows, run_id = differing
+    assert len(rows) == 2 and {r["hold_reason"] for r in rows} == {"bill_ship_diff"}  # items 21 and 22; item 23 matches
+    row = rows[0]
+    assert row["reason_label"] == "Bill-to and ship-to states differ" and row["needs_ca_check"] is True
+    assert [a["action"] for a in row["allowed_actions"]] == ["set_aside", "pick_state"]  # no accept: the user decides
+    run = get(pg, f"/api/v1/b/{biz}/runs/{run_id}").json()
+    assert run["held_by_reason"] == {"bill_ship_diff": 2}
+
+
+def test_the_user_releases_such_a_row_by_picking_the_place_of_supply_with_a_note(shop, differing):  # noqa: F811
+    pg, biz, _ = shop
+    rows, run_id = differing
+    row = rows[0]["row_id"]
+    assert fix(shop, row, "pick_state", note=" ", value="27").json()["error"]["code"] == "note_required"
+    assert fix(shop, row, "pick_state", value="Narnia").json()["error"]["code"] == "state_unknown"
+    done = fix(shop, row, "pick_state", note="Buyer asked us to ship to their own Kolkata branch: Ship To state", value="19")
+    assert done.status_code == 200 and done.json()["resolution"] == {
+        "action": "pick_state", "note": "Buyer asked us to ship to their own Kolkata branch: Ship To state",
+        "at": done.json()["resolution"]["at"], "value": "19"}
+    assert get(pg, f"/api/v1/b/{biz}/runs/{run_id}").json()["held_by_reason"] == {"bill_ship_diff": 1}
+    assert scalar(pg.owner, "select count(*) from imports.row_resolutions where fix_field = 'state'") == 1

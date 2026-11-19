@@ -22,7 +22,8 @@ PLATFORM_SECTIONS = ("amazon", "flipkart", "meesho")
 
 # Why a row is held (LLD-7 §3 step 5). A reader may only choose from these.
 HOLD_REASONS = ("blank_hsn", "blank_uqc", "unknown_state", "unknown_txn_type", "blank_qty", "sanity",
-                "cashback_adjustment", "price_adjustment", "missing_original", "number_format", "pdf_unclear")
+                "cashback_adjustment", "price_adjustment", "missing_original", "number_format", "pdf_unclear",
+                "bill_ship_diff")
 
 
 class Reader(Protocol):
@@ -48,7 +49,8 @@ class Reader(Protocol):
 
         A reader that needs refdata to decide (the state list, a pattern) names the keys in an optional
         `refdata_keys` attribute; the upload pipeline then calls `classify(row, context)` with
-        `context["states"]` (every state code and name, case-folded) and each key's value. The reader
+        `context["states"]` (every state code and name, case-folded), `context["state_codes"]` (the same text mapped to
+        its state code) and each key's value. The reader
         itself still never touches the database."""
 
 

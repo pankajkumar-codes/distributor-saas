@@ -152,6 +152,47 @@
   last_checked: 2026-11-13
   status: provisional
 
+- key: imports.held.bill_ship_diff.label
+  value: "Bill-to and ship-to states differ"
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/program-lead/ca-answers-from-govt-docs-v2.md
+  source_title: "#345: what a seller reads for a row held as bill_ship_diff"
+  last_checked: 2026-11-19
+  status: provisional
+
+- key: imports.held.bill_ship_diff.effect_note
+  value: "This row is left out of the return until you choose its place of supply."
+  type: text
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/program-lead/ca-answers-from-govt-docs-v2.md
+  source_title: "#345: what leaving a bill_ship_diff row alone does"
+  last_checked: 2026-11-19
+  status: provisional
+
+- key: imports.held.bill_ship_diff.accept_allowed
+  value: "false"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/program-lead/ca-answers-from-govt-docs-v2.md
+  source_title: "#345: a bill_ship_diff row is never used as the file states it; the user picks the state"
+  last_checked: 2026-11-19
+  status: provisional
+  note: "Which state applies is a legal reading of IGST Act s.10(1)(a) or (b) that the report does not settle (CA expert v2, CA-4)."
+
+- key: imports.held.bill_ship_diff.needs_ca_check
+  value: "true"
+  type: boolean
+  kind: product
+  valid_from: 2026-11-13
+  source_url: team/program-lead/ca-answers-from-govt-docs-v2.md
+  source_title: "#345: whether a bill_ship_diff row should be shown to the CA (CA expert v2, CA-4: judgement per row)"
+  last_checked: 2026-11-19
+  status: provisional
+
 - key: imports.held.unknown_txn_type.label
   value: "Transaction type not recognised"
   type: text
