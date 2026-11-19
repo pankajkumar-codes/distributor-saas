@@ -1,5 +1,5 @@
 # HSN rules (LLD-3 §4), from the GST expert's team/gst/refdata-rates-uqc.md v1.1 §5(a).
-# Tax row, provisional. Shape only: it catches typos and never says which HSN fits a
+# Pattern row: provisional. Shape only: it catches typos and never says which HSN fits a
 # product (GC-P3). Type pattern (the document says text) so the loader checks that it
 # compiles; [0-9] rather than \d, which can match non-ASCII digits.
 # The minimum digits by turnover (§5(b), hsn_min_digits) is a different rule, not built yet.
@@ -25,27 +25,35 @@
   kind: tax
   valid_from: 2021-04-01
   source_url: https://tutorial.gst.gov.in/userguide/returns/GSTR_1.htm
-  source_title: "GSTN FAQs on Form GSTR-1, Table-12 Q3 (minimum 4 or 6 digits by AATO, under Notification 78/2020-CT dated 15-10-2020); GSTN advisory HSN3"
-  last_checked: 2026-10-24
-  status: provisional
-  note: "AATO in the preceding FY; 'more than' ₹5 crore needs the higher count. Effective date 01-04-2021 from secondary sources (refdata-rates-uqc.md open item 6)."
+  source_title: "Notification 78/2020-CT dated 15-10-2020, table of minimum HSN digits by aggregate turnover in the preceding financial year, w.e.f. 01-04-2021"
+  last_checked: 2026-11-19
+  status: expert_confirmed
+  confirmed_by: "GST CA expert, v4 answers (refdata-provisional-check-hsn-einvoice-v1); issue #362"
+  confirmed_on: 2026-11-19
+  note: "AATO in the preceding FY; more than 5 crore rupees needs the higher count, up to 5 crore the lower. Text of Notification 78/2020-CT read by the CA expert. The notification relieves a seller up to 5 crore of the digit count on invoices to unregistered buyers; that is for the rule using these rows, not this value."
+
 - key: hsn.min_digits_up_to_threshold
   value: "4"
   type: integer
   kind: tax
   valid_from: 2021-04-01
   source_url: https://tutorial.gst.gov.in/userguide/returns/GSTR_1.htm
-  source_title: "GSTN FAQs on Form GSTR-1, Table-12 Q3 (Notification 78/2020-CT dated 15-10-2020)"
-  last_checked: 2026-10-24
-  status: provisional
+  source_title: "Notification 78/2020-CT dated 15-10-2020, table of minimum HSN digits by aggregate turnover in the preceding financial year, w.e.f. 01-04-2021 (up to rupees five crores: 4 digits)"
+  last_checked: 2026-11-19
+  status: expert_confirmed
+  confirmed_by: "GST CA expert, v4 answers (refdata-provisional-check-hsn-einvoice-v1); issue #362"
+  confirmed_on: 2026-11-19
   note: "AATO in the preceding FY up to hsn.min_digits_aato_threshold."
+
 - key: hsn.min_digits_above_threshold
   value: "6"
   type: integer
   kind: tax
   valid_from: 2021-04-01
   source_url: https://tutorial.gst.gov.in/userguide/returns/GSTR_1.htm
-  source_title: "GSTN FAQs on Form GSTR-1, Table-12 Q3 (Notification 78/2020-CT dated 15-10-2020)"
-  last_checked: 2026-10-24
-  status: provisional
+  source_title: "Notification 78/2020-CT dated 15-10-2020, table of minimum HSN digits by aggregate turnover in the preceding financial year, w.e.f. 01-04-2021 (more than rupees five crores: 6 digits)"
+  last_checked: 2026-11-19
+  status: expert_confirmed
+  confirmed_by: "GST CA expert, v4 answers (refdata-provisional-check-hsn-einvoice-v1); issue #362"
+  confirmed_on: 2026-11-19
   note: "AATO in the preceding FY more than hsn.min_digits_aato_threshold; also the answer when the band is unknown (LLD-1 §8.3: the stricter row)."
