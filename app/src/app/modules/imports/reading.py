@@ -186,12 +186,12 @@ def _profile(uow, reader: Reader, today):
 
 def _context(uow, reader: Reader, today) -> dict | None:
     """What a reader that names `refdata_keys` is given to decide a hold: the state list (codes and names,
-    case-folded) and each key's value on `today`. None for a reader that needs nothing."""
+    case-folded), the same text mapped to its state code, and each key's value on `today`. None for a reader that needs nothing."""
     keys = getattr(reader, "refdata_keys", None)
     if keys is None:
         return None
-    states = {part.casefold() for code, name in state_codes(uow.tx, today) for part in (code, " ".join(name.split()))}
-    return {"states": states, **{key: value_on(uow.tx, key, today) for key in keys}}
+    by_text = {part.casefold(): code for code, name in state_codes(uow.tx, today) for part in (code, " ".join(name.split()))}
+    return {"states": set(by_text), "state_codes": by_text, **{key: value_on(uow.tx, key, today) for key in keys}}
 
 
 def _classifier(reader: Reader, context: dict | None = None):

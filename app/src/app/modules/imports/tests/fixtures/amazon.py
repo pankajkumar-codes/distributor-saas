@@ -90,8 +90,26 @@ def b2c_held(gstin=OWN) -> bytes:
 
 def b2b_good(gstin=OWN) -> bytes:
     headers = B2C_HEADERS + B2B_EXTRA
-    rows = [{**sale("20", gstin=gstin), "Customer Bill To Gstid": OTHER, "Customer Ship To Gstid": OTHER,
+    # Bill To is a Maharashtra buyer (27) and the goods go to the same state, so the place of supply is not in doubt.
+    rows = [{**sale("20", gstin=gstin, intra=False, state="MAHARASHTRA", amount="118.00", taxable="100.00",
+                    tax="18.00"),
+             "Customer Bill To Gstid": OTHER, "Customer Ship To Gstid": OTHER,
              "Irn Number": "IRN-MADE-UP", "Irn Filing Status": "FILED", "Irn Date": "2026-07-05 00:00:00"}]
+    return csv_bytes(headers, rows)
+
+
+def b2b_bill_ship_differ(gstin=OWN) -> bytes:
+    """A Maharashtra buyer (Bill To 27) with the goods shipped to West Bengal: Ship To and Bill To differ (#345).
+    Item 21 names a Ship To state that is not in the list; item 22 is the same state as Bill To (not held)."""
+    headers = B2C_HEADERS + B2B_EXTRA
+    base = {"Customer Bill To Gstid": OTHER, "Customer Ship To Gstid": OTHER, "Irn Number": "IRN-MADE-UP",
+            "Irn Filing Status": "FILED", "Irn Date": "2026-07-05 00:00:00"}
+    rows = [
+        {**sale("21", gstin=gstin, state="WEST BENGAL"), **base},
+        {**sale("22", gstin=gstin, state="ATLANTIS"), **base},
+        {**sale("23", gstin=gstin, intra=False, state="MAHARASHTRA", amount="118.00", taxable="100.00", tax="18.00"),
+         **base},
+    ]
     return csv_bytes(headers, rows)
 
 

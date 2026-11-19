@@ -16,6 +16,8 @@ all (a cancel, a free replacement) is shown as zero-value and left out of the re
 
 from decimal import Decimal
 
+from app.modules.business.interface import gstin_state
+
 from ..models import StagedRowStatus
 from ..parsing import FieldKind, FieldSpec, MappingProfile
 from .base import HeaderReader
@@ -96,8 +98,22 @@ def _zero(*values) -> bool:
     return all(v is None or v == 0 for v in values)
 
 
+def _bill_ship_differ(n: dict, state_codes: dict[str, str] | None) -> bool:
+    """A B2B row whose Bill To state (the first two characters of the Bill To GSTIN) is not the Ship To state, so the
+    place of supply is Ship To's only if the goods went to the buyer itself and Bill To's if to a third party the buyer
+    named (IGST Act s.10(1)(a), (b); CA expert v2, CA-4). The report does not say which, so the row is held. A Ship To
+    state that is not in the state list counts as different. Not decided without a Bill To GSTIN with a state in the
+    list (B2C files have none): the row is then read as before."""
+    bill = gstin_state(str(n.get("buyer_gstin") or "").strip())
+    if state_codes is None or bill not in state_codes.values():
+        return False
+    ship = state_codes.get(" ".join(str(n.get("ship_to_state") or "").split()).casefold())
+    return ship != bill
+
+
 class AmazonReader(HeaderReader):
     section = "amazon"
+    refdata_keys: tuple = ()  # none; asking for a context gives classify the state list (bill-to against ship-to, #345)
     coverage_field = "shipment_date"  # the month this file covers, for the coverage view only
 
     def __init__(self, kind: str):
@@ -122,7 +138,7 @@ class AmazonReader(HeaderReader):
             notes="Merchant Tax Report; headers from platform-reader-spec section 2, unchecked against a real file.",
         )
 
-    def classify(self, row):
+    def classify(self, row, context=None):
         n = row.normalized or {}
         kind = n.get("txn_type")
         if kind not in KNOWN_TYPES:
@@ -138,6 +154,8 @@ class AmazonReader(HeaderReader):
             return StagedRowStatus.held, "blank_qty"
         if not n.get("ship_to_state"):
             return StagedRowStatus.held, "unknown_state"
+        if _bill_ship_differ(n, (context or {}).get("state_codes")):
+            return StagedRowStatus.held, "bill_ship_diff"  # IGST Act s.10(1): never guess which state applies
         rates = [n.get(k) for k in ("cgst_rate", "sgst_rate", "utgst_rate", "igst_rate", "cess_rate")]
         if any(r is not None and (r > PERCENT or r < 0) for r in rates):
             return StagedRowStatus.held, "sanity"  # a rate over 100% or below 0: the scaling guess was wrong

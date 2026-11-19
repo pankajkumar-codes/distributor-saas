@@ -184,6 +184,7 @@ column (compared in upper case); a blank or different one rejects the file whole
   value are `skipped_zero` (provisional, see OPEN_QUESTIONS); a Cancel carrying value is held `sanity`; any other type is held
   `unknown_txn_type`. Blank HSN, quantity or ship-to state hold the row (`blank_hsn`, `blank_qty`, `unknown_state`);
   IGST together with CGST/SGST on one row is held `sanity`.
+- **Bill To against Ship To (#345, D-102):** on the B2B report only, the Bill To state is the first two characters of `Customer Bill To Gstid`; when it is in the state list and the Ship To state is not the same state (a name or a code; a state not in the list counts as different), the row is held `bill_ship_diff` and flagged for a CA check, never accepted as filed. The user releases it with `pick_state` and a note. B2C and the other platforms have no Bill To column and are read as before. See `docs/MARKETPLACE_POS.md`.
 - **Guards against a wrong guess:** a rate above 100 or below 0 after scaling is held `sanity`, so a file that already
   writes `18` shows as held rows, not as 1800. A file naming more than one seller GSTIN is refused whole (`wrong_gstin`).
   `unknown_state` is held only for a blank state; an unrecognised state name is not yet checked against the state list.
@@ -263,7 +264,7 @@ blank (`FieldSpec.blank_tokens`, applied to the mapped fields of this profile). 
 
 - **`enter_hsn` and `pick_state`** are new `resolve` actions with a `value`. `enter_hsn` is offered only on a `blank_hsn` row
   and takes an HSN in the shape refdata `hsn.pattern` allows (a typo check, never which HSN fits); `pick_state` only on an
-  `unknown_state` row and takes a code from the refdata state list. Both need a note, like every decision. They are stored in
+  `unknown_state` or `bill_ship_diff` row and takes a code from the refdata state list. Both need a note, like every decision. They are stored in
   `row_resolutions` (`kind = 'fixed'`, `fix_field`, `fix_value`; migration `202611131500`, additive): insert-only, one
   decision per row, the same fix twice is one decision, a different value or another action is refused. **The row as the
   file said it is never changed**; the build (R1-M7) reads the decision to use the value. Runs count them as `counts.fixed`.
