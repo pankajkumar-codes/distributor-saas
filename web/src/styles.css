@@ -316,4 +316,13 @@ input[type="file"]:disabled::file-selector-button { opacity: 0.45; cursor: not-a
   table.products.deadlines td:nth-child(3) { grid-column: 1 / -1; grid-row: 3; }
   table.products.deadlines td:nth-child(5) { grid-column: 1 / -1; grid-row: 4; margin-top: 6px; }
   table.products.deadlines td:nth-child(5) .btn { width: 100%; }
+/* Skip link: the first Tab stop on every screen, visible only while focused. */
+.skip-link { position: absolute; left: 8px; top: -80px; z-index: 100; padding: 10px 14px; border-radius: 8px; background: var(--surface); color: var(--accent); border: 2px solid var(--accent); font-weight: 600; }
+.skip-link:focus, .skip-link:focus-visible { top: 8px; outline-offset: 2px; }
+main:focus { outline: none; } /* the skip link moves focus here; the page itself is not a control */
+
+/* Phone: text links get at least a 24 px tall tap area (WCAG 2.2, 2.5.8) instead of the 20 to 22 px of a bare line of text. */
+@media (max-width: 600px) {
+  main a:not(.btn):not(.btn-link) { display: inline-block; min-height: 24px; padding: 3px 0; line-height: 1.35; }
+  .list li > a, td a:not(.btn) { padding: 6px 0; }
 }
