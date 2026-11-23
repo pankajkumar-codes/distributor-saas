@@ -35,9 +35,14 @@ export type Form = {
 const BLANK_ADDRESS: Address = { name: "", line1: "", line2: "", city: "", pin: "", state_code: "" };
 export const newLine = (): Line => ({ key: crypto.randomUUID(), product_id: "", name: "", quantity: "1", unit_price: "", discount_kind: "", discount_value: "" });
 
+/** Today on this device's calendar, as the yyyy-mm-dd a date input takes (not UTC, which is still yesterday in India before 5:30 am). */
+export const localToday = (now: Date = new Date()): string =>
+  `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+
+/** A new invoice starts on today's date, so the field shows a date rather than an empty dd-mm-yyyy mask. */
 export const blankForm = (): Form => ({
   buyer: "customer", customer_id: "", customer_name: "", cash_state: "", cash_name: "", cash_address: "",
-  doc_date: "", invoice_discount: "0", charges: [], lines: [], customer_collects: false,
+  doc_date: localToday(), invoice_discount: "0", charges: [], lines: [], customer_collects: false,
   ship_different: false, ship: BLANK_ADDRESS, third_party: false, pos_override: "", pos_reason: "",
 }); // fmt: skip
 

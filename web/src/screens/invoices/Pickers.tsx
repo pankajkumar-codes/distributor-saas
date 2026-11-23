@@ -79,3 +79,44 @@ export const ProductPicker = (p: Props<Product>) => (
     fetchItems={(q) => call(() => api.GET("/api/v1/b/{business_id}/products", { params: { path: { business_id: p.businessId }, query: query(q) } }))}
   />
 );
+
+type Address = Customer["billing"];
+const addressText = (a: Address | null | undefined, stateNames: Record<string, string>) =>
+  a ? [a.line1, a.line2, a.city, a.pin, a.state_code && `${stateNames[a.state_code] ?? ""} (${a.state_code})`.trim()].filter(Boolean).join(", ") : "";
+
+/**
+ * The customer on the invoice: name, GSTIN and billing address, with Change to pick another. The details come from the
+ * customer record (already in the cache after a pick; read once when a saved draft is opened). If that read fails, the
+ * name alone is shown, which is what the draft itself stores.
+ */
+export function ChosenCustomer({ businessId, customerId, name, stateNames, onChange }: {
+  businessId: string;
+  customerId: string;
+  name: string;
+  stateNames: Record<string, string>;
+  onChange: () => void;
+}) {
+  const found = useQuery<Customer, ApiError>({
+    queryKey: ["b", businessId, "customer", customerId],
+    staleTime: 5 * 60_000,
+    queryFn: () => call(() => api.GET("/api/v1/b/{business_id}/customers/{customer_id}", { params: { path: { business_id: businessId, customer_id: customerId } } })),
+  });
+  const c = found.data;
+  const billing = addressText(c?.billing, stateNames);
+  const delivery = c && !c.delivery_same_as_billing ? addressText(c.delivery, stateNames) : "";
+  return (
+    <section className="card" aria-label="Customer">
+      <div className="card-head">
+        <p>
+          Customer: <strong>{c?.name ?? name}</strong>
+        </p>
+        <button type="button" className="btn btn-link" onClick={onChange}>
+          Change
+        </button>
+      </div>
+      {c && <p>{c.gstin ? `GSTIN ${c.gstin}` : "No GSTIN (unregistered)"}</p>}
+      {billing && <p>Billing address: {billing}</p>}
+      {delivery && <p>Delivers to: {delivery}</p>}
+    </section>
+  );
+}

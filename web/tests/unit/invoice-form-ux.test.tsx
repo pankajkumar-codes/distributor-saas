@@ -1,0 +1,120 @@
+import { fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { App } from "../../src/App";
+import { resetSessionForTests } from "../../src/auth/session";
+import { blankForm, localToday } from "../../src/screens/invoices/draftForm";
+import { fakeApi } from "./fakeApi";
+
+vi.mock("../../src/features", () => ({ FEATURES: { invoicing: true } }));
+const demo = vi.hoisted(() => ({ on: false }));
+vi.mock("../../src/demo", () => ({ isDemo: () => demo.on }));
+
+const REFRESH = "/api/v1/auth/refresh";
+const ME = "/api/v1/me/businesses";
+const STATES = "/api/v1/refdata/state-codes";
+const ONE = "/api/v1/b/b-1/drafts/d-1";
+const states = { status: 200, body: { on: "2026-11-09", states: [{ code: "07", name: "Delhi" }, { code: "19", name: "West Bengal" }] } };
+const address = (line1: string, city: string, pin: string, state_code: string) => ({ line1, line2: null, city, pin, state_code });
+const delhi = {
+  id: "c-1", name: "Demo Distributor Delhi", gstin: "07DEMOE3333E1ZU", gstin_state_code: "07", status: "active", version: 1, warnings: [], in_use: true, credit_days: 45,
+  billing: address("9 Demo Chowk", "New Delhi", "110001", "07"), delivery_same_as_billing: false, delivery: address("3 Demo Godown Road", "Siliguri", "734001", "19"),
+}; // fmt: skip
+const howrah = { ...delhi, id: "c-2", name: "Howrah Stores", gstin: null, gstin_state_code: null, billing: address("7 Demo Para", "Howrah", "711101", "19"), delivery_same_as_billing: true, delivery: null };
+const draft = {
+  id: "d-1", kind: "invoice", version: 1, customer_id: "c-1", cash_buyer: null, bill_to: { name: "Demo Distributor Delhi" }, ship_to: null, doc_date: null,
+  invoice_discount: "0.00", charges: [], eway: null, customer_collects: false, ship_to_third_party: false, pos_override: null, pos_override_reason: null, lines: [],
+  total: "0.00", ready: false, computed_at: "2026-11-09T10:00:00Z", created_at: "2026-11-09T10:00:00Z", updated_at: "2026-11-09T10:00:00Z", computation: null,
+}; // fmt: skip
+
+let server: ReturnType<typeof fakeApi>;
+beforeEach(() => {
+  demo.on = false;
+  resetSessionForTests();
+  server = fakeApi();
+  server.reply(REFRESH, { status: 200, body: { access_token: "t", expires_in: 3600 } });
+  server.reply(ME, { status: 200, body: { businesses: [{ business_id: "b-1", display_name: "Demo Traders", gstin: null, role: "owner" }] } });
+  server.reply(STATES, states);
+});
+afterEach(() => vi.unstubAllGlobals());
+
+const open = (path: string) => {
+  window.history.replaceState(null, "", path);
+  render(<App />);
+};
+
+describe("the customer on a new invoice", () => {
+  it("hides the search once a customer is picked, shows their GSTIN and addresses, and Change picks another", async () => {
+    server.reply("/api/v1/b/b-1/customers", { status: 200, body: { items: [delhi], has_more: false } }, { status: 200, body: { items: [howrah], has_more: false } });
+    open("/b/b-1/invoices/new");
+    fireEvent.change(await screen.findByLabelText("Find a customer"), { target: { value: "delhi" } });
+    fireEvent.click(await screen.findByRole("button", { name: /Demo Distributor Delhi · 07DEMOE3333E1ZU/ }, { timeout: 3000 }));
+
+    const card = await screen.findByRole("region", { name: "Customer" });
+    expect(card).toHaveTextContent("Demo Distributor Delhi");
+    expect(card).toHaveTextContent("GSTIN 07DEMOE3333E1ZU");
+    expect(card).toHaveTextContent("Billing address: 9 Demo Chowk, New Delhi, 110001, Delhi (07)");
+    expect(card).toHaveTextContent("Delivers to: 3 Demo Godown Road, Siliguri, 734001, West Bengal (19)");
+    expect(screen.queryByLabelText("Find a customer")).toBeNull();
+    // the picked customer came with its details, so nothing more was read
+    expect(server.paths()).not.toContain("/api/v1/b/b-1/customers/c-1");
+
+    fireEvent.click(screen.getByRole("button", { name: "Change" }));
+    fireEvent.change(screen.getByLabelText("Find another customer"), { target: { value: "howrah" } });
+    fireEvent.click(await screen.findByRole("button", { name: "Howrah Stores" }, { timeout: 3000 }));
+    const again = await screen.findByRole("region", { name: "Customer" });
+    expect(again).toHaveTextContent("Howrah Stores");
+    expect(again).toHaveTextContent("No GSTIN (unregistered)");
+    expect(again).not.toHaveTextContent("Delivers to");
+  });
+
+  it("can back out of Change and keep the customer", async () => {
+    server.reply(ONE, { status: 200, body: draft });
+    server.reply("/api/v1/b/b-1/customers/c-1", { status: 200, body: delhi });
+    open("/b/b-1/invoices/d-1");
+    expect(await screen.findByText("GSTIN 07DEMOE3333E1ZU")).toBeInTheDocument(); // read once for a saved draft
+    fireEvent.click(screen.getByRole("button", { name: "Change" }));
+    fireEvent.click(screen.getByRole("button", { name: "Keep Demo Distributor Delhi" }));
+    expect(screen.getByRole("region", { name: "Customer" })).toHaveTextContent("Demo Distributor Delhi");
+    expect(screen.queryByLabelText("Find another customer")).toBeNull();
+  });
+
+  it("still shows the name when the customer's details can't be read", async () => {
+    server.reply(ONE, { status: 200, body: draft });
+    server.reply("/api/v1/b/b-1/customers/c-1", { status: 404, body: { error: { code: "not_found", message: "not found" } } });
+    open("/b/b-1/invoices/d-1");
+    expect(await screen.findByRole("region", { name: "Customer" })).toHaveTextContent("Demo Distributor Delhi");
+  });
+});
+
+describe("the invoice date", () => {
+  it("starts on today's local date and cannot be set after it", async () => {
+    expect(localToday(new Date(2026, 10, 24, 1, 46))).toBe("2026-11-24"); // 1:46 am in India is still the 23rd in UTC
+    expect(blankForm().doc_date).toBe(localToday());
+    open("/b/b-1/invoices/new");
+    const date = await screen.findByLabelText("Invoice date");
+    expect(date).toHaveValue(localToday());
+    expect(date).toHaveAttribute("max", localToday());
+  });
+
+  it("opens the calendar when the box is clicked anywhere", async () => {
+    open("/b/b-1/invoices/new");
+    const date = (await screen.findByLabelText("Invoice date")) as HTMLInputElement;
+    const showPicker = vi.fn();
+    Object.defineProperty(date, "showPicker", { value: showPicker, configurable: true });
+    fireEvent.click(date);
+    expect(showPicker).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("the PDF preview in the local demo", () => {
+  it("says up front that the demo makes no PDFs, instead of waiting and calling it slow", async () => {
+    demo.on = true;
+    server.reply(ONE, { status: 200, body: draft });
+    server.reply("/api/v1/b/b-1/customers/c-1", { status: 200, body: delhi });
+    open("/b/b-1/invoices/d-1");
+    expect(await screen.findByRole("button", { name: "Preview PDF" })).toBeDisabled();
+    expect(screen.getByText(/PDF previews aren't made in the local demo/)).toBeInTheDocument();
+    expect(server.paths()).not.toContain(`${ONE}/preview`);
+  });
+});
