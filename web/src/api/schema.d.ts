@@ -3508,6 +3508,13 @@ export interface components {
             pdf: components["schemas"]["DocumentPdfState"];
             /** Place Of Supply */
             place_of_supply: string | null;
+            /**
+             * Pos Basis
+             * @enum {string}
+             */
+            pos_basis: "delivery" | "third_party" | "customer_collects" | "buyer_address" | "override";
+            /** Pos Override Reason */
+            pos_override_reason: string | null;
             /** Pos State Code */
             pos_state_code: string;
             /** Round Off */

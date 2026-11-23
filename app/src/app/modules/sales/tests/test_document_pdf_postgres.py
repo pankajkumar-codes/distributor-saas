@@ -18,7 +18,7 @@ from platform_common.queue import FakeQueue, set_queue
 from platform_common.storage import LocalObjectStore, set_store
 
 from .conftest import PG_ADMIN_URL, new_business, seed_member
-from .test_drafts_api_postgres import h
+from .test_drafts_api_postgres import KOLKATA, create, draft_body, h, make_product
 from .test_finalize_postgres import fin, ready_draft, switch
 
 pytestmark = pytest.mark.skipif(not PG_ADMIN_URL, reason="PG_ADMIN_URL not set")
@@ -214,3 +214,30 @@ def test_another_business_cannot_read_a_document_and_a_ca_can(shop):
     assert _get(pg, biz, doc["id"], sub="bob").status_code == 404  # not a member of that business
     assert _get(pg, biz, doc["id"], sub="cathy").status_code == 200
     assert _get(pg, biz, str(uuid.uuid4())).status_code == 404
+
+
+@pytest.mark.parametrize(("extra", "basis", "reason"), [
+    ({}, "delivery", None),
+    ({"ship_to": KOLKATA, "ship_to_third_party": True}, "third_party", None),
+    ({"customer_collects": True}, "customer_collects", None),
+    ({"pos_override": "19", "pos_override_reason": "Goods handed over in Kolkata"}, "override", "Goods handed over in Kolkata"),
+])
+def test_the_document_says_why_its_place_of_supply_was_chosen(shop, extra, basis, reason):
+    pg, biz, other, _, _, _ = shop
+    d = ready_draft(pg, biz, **extra)
+    doc = fin(pg, biz, d)
+    assert doc.status_code == 200, doc.text
+    body = _get(pg, biz, doc.json()["id"]).json()
+    assert (body["pos_basis"], body["pos_override_reason"]) == (basis, reason)
+    assert _get(pg, other, doc.json()["id"], sub="bob").status_code == 404  # still this business's only
+
+
+def test_a_buyer_without_a_gstin_is_placed_by_their_address(shop):
+    pg, biz, _, _, _, _ = shop
+    p = make_product(pg, biz, code="P-CASH", hsn="340111")
+    r = create(pg, biz, draft_body(p, cash_buyer={"name": "Walk-in", "state_code": "27"}))
+    assert r.status_code == 201 and r.json()["ready"] is True, r.text
+    doc = fin(pg, biz, r.json())
+    assert doc.status_code == 200, doc.text
+    body = _get(pg, biz, doc.json()["id"]).json()
+    assert (body["pos_basis"], body["pos_override_reason"]) == ("buyer_address", None)

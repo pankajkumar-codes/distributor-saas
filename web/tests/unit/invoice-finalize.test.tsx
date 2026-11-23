@@ -21,7 +21,7 @@ const doc = { id: "doc-1", draft_id: "d-1", kind: "invoice", is_practice: true, 
 const docFull = {
   ...doc, fy: "2026-27", gstin: "19ABCDE1234F1Z5", supply_class: "B2B", pos_state_code: "19", is_inter_state: false, customer_id: "c-1", counterparty_name: "Sharma Traders",
   due_date: null, taxable_total: "1000.00", cgst_total: "90.00", sgst_total: "90.00", utgst: false, igst_total: "0.00", round_off: "0.00", finalized_at: "2026-11-18T10:00:00Z",
-  buyer: { name: "Sharma Traders", gstin: "19AAAAA0000A1Z5", address: ["12 Market Road", "Howrah 711101"], state: "West Bengal (19)" }, ship_to: null, place_of_supply: "West Bengal (19)",
+  buyer: { name: "Sharma Traders", gstin: "19AAAAA0000A1Z5", address: ["12 Market Road", "Howrah 711101"], state: "West Bengal (19)" }, ship_to: null, place_of_supply: "West Bengal (19)", pos_basis: "delivery", pos_override_reason: null,
   lines: [{ no: "1", description: "Aloe Vera Gel", hsn: "3304", quantity: "10", uqc: "PCS", unit_price: "100.00", gross: "1000.00", discount: null, taxable: "1000.00",
     taxes: [{ component: "CGST", rate: "9", amount: "90.00" }, { component: "SGST", rate: "9", amount: "90.00" }], total: "1180.00" }],
   gross_total: "1000.00", line_discount_total: "0.00", invoice_discount: "0.00", charges_total: "0.00", charges_label: null, cess_total: "0.00", amount_in_words: "One thousand one hundred eighty rupees only",
@@ -218,5 +218,16 @@ describe("the issued invoice page", () => {
     expect(screen.getByText("Line discounts").nextElementSibling).toHaveTextContent("₹50.00");
     expect(screen.getByText("Round off").nextElementSibling).toHaveTextContent("-₹0.40");
     expect(screen.getByText(/Dock 4, Bihar \(10\)/)).toBeInTheDocument();
+  });
+
+  it.each([
+    [{}, "Where the goods are delivered."],
+    [{ pos_basis: "third_party" }, /goods went to another person on the buyer's direction \("Goods go to a third party, not the buyer" was ticked\)/],
+    [{ pos_basis: "customer_collects" }, /the buyer collects the goods .* CA to confirm/],
+    [{ pos_basis: "buyer_address" }, "The buyer has no GSTIN: their delivery address, or billing address if none."],
+    [{ pos_basis: "override", pos_override_reason: "Goods handed over in Kolkata" }, "Chosen by hand on the draft. Reason given: Goods handed over in Kolkata"],
+  ])("says why the place of supply was chosen (%o)", async (body, text) => {
+    show(body);
+    expect(await screen.findByText(text)).toBeInTheDocument();
   });
 });
