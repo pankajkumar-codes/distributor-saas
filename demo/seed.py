@@ -1,8 +1,10 @@
-"""Creates the demo user and business through the API's own sign-up path (local demo only).
+"""Creates the demo user and business through the API's own sign-up path (local demo only), then
+its ready-made customers and products (demo/demo_data.py) through the same API a person uses.
 
     python demo/seed.py http://api:8000        # inside the demo containers
 
-Safe to run again: if the demo user can already sign in, it stops. Uses only the standard
+Safe to run again: it signs in if the demo user exists, keeps the business it already has, and adds
+only the customers (matched by name) and products (matched by code) that are missing. Uses only the standard
 library. The sign-up code is read from the local mail file, as a developer would read it.
 Everything it creates is made up: a fictitious business with a synthetic GSTIN.
 """
@@ -13,11 +15,13 @@ import os
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import uuid
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from demo_data import CUSTOMERS, PRODUCTS  # noqa: E402
 from make_samples import DEMO_GSTIN  # noqa: E402
 
 EMAIL = "demo@example.com"
@@ -88,8 +92,10 @@ def _seed(base):
         status, body = call(base, "POST", "/auth/signup/verify",
                             {"email": EMAIL, "code": code_for(EMAIL), "password": PASSWORD})
         token = need(status, body, (200,), "verify")["access_token"]
-    if need(*call(base, "GET", "/me/businesses", None, token), (200,), "list businesses")["businesses"]:
+    businesses = need(*call(base, "GET", "/me/businesses", None, token), (200,), "list businesses")["businesses"]
+    if businesses:
         print("demo business already exists")
+        _catalog(base, businesses[0]["business_id"], token)
         return token
     business = need(
         *call(base, "POST", "/b", {
@@ -108,7 +114,27 @@ def _seed(base):
                {"frequency": "monthly", "effective_from": quarter_start(today_ist()).isoformat()}, token),
          (200, 201), "filing frequency")
     print("demo business created")
+    _catalog(base, business, token)
     return token
+
+
+def _catalog(base, business, token):
+    """Adds the demo customers and products the business doesn't have yet (archived ones count as had)."""
+    added = 0
+    for c in CUSTOMERS:
+        q = urllib.parse.quote(c["name"][:100])
+        found = need(*call(base, "GET", f"/b/{business}/customers?status=all&limit=200&q={q}", None, token),
+                     (200,), "list customers")
+        if not any(x["name"] == c["name"] for x in found["items"]):
+            need(*call(base, "POST", f"/b/{business}/customers", c, token), (201,), f"customer {c['name']}")
+            added += 1
+    for p in PRODUCTS:
+        found = need(*call(base, "GET", f"/b/{business}/products?status=all&limit=200&q={p['code']}", None, token),
+                     (200,), "list products")
+        if not any(x["code"] == p["code"] for x in found["items"]):
+            need(*call(base, "POST", f"/b/{business}/products", p, token), (201,), f"product {p['code']}")
+            added += 1
+    print(f"demo customers and products: {added} added")
 
 
 if __name__ == "__main__":
