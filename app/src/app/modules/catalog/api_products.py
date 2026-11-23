@@ -68,6 +68,8 @@ class ProductPatch(BaseModel):
     barcode: Text | None = None
     tax_category: Literal["taxable", "exempt", "nil_rated", "non_gst"] | None = None
     has_cess: bool | None = None
+    # Only with tax_category "taxable" on a product that wasn't, and isn't on an invoice yet.
+    rate: RateIn | None = None
 
 
 class ReasonIn(BaseModel):

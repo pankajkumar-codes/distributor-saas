@@ -269,11 +269,23 @@ def update(uow: UnitOfWork, product_id: uuid.UUID, changes: dict, if_match: int 
     p = _get(uow, product_id, lock=True)
     _check_version(p, if_match)
     fields = _check_fields(uow, {k: v for k, v in changes.items() if k in EDITABLE}, today)
-    if "tax_category" in fields and (fields["tax_category"] == "taxable") != (p.tax_category == "taxable"):
-        # A taxable product's rate rows would be left meaningless, or a new taxable one
-        # would have none; neither is guessed. The fix is a new product (or delete if unused).
-        raise Invalid("tax_category_locked", "A product can't move between taxable and not taxable",
-                      field="tax_category", fix="Create a new product with the right category")
+    rate = changes.get("rate")
+    moves = "tax_category" in fields and (fields["tax_category"] == "taxable") != (p.tax_category == "taxable")
+    if moves and p.in_use:
+        # Issued invoices carry this product's treatment; changing it under them is not guessed.
+        raise Invalid("tax_category_locked", "This product is on invoices, so it can't move between taxable and"
+                      " not taxable", field="tax_category", fix="Create a new product with the right category")
+    if moves and fields["tax_category"] == "taxable":
+        # A product never invoiced may become taxable, with its rate in the same request:
+        # the app never fills a rate (AC3-4), as on create.
+        if rate is None:
+            raise Invalid("rate_required", "A taxable product needs its GST rate and the date it applies from",
+                          field="rate")
+        value = parse_rate(rate["rate"])
+        check_rate(uow.tx, value, rate["valid_from"], today)
+    elif rate is not None:
+        raise Invalid("rate_not_allowed", "Send a rate only when a product becomes taxable; add later rates"
+                      " from its rate history", field="rate")
     if "sale_rate" in fields and p.price_needed:
         fields["price_needed"] = False  # the business has now named the selling price (R2-M3)
     changed = {k: v for k, v in fields.items() if getattr(p, k) != v}
@@ -288,6 +300,33 @@ def update(uow: UnitOfWork, product_id: uuid.UUID, changes: dict, if_match: int 
     )
     audit.record(uow, "product.updated", "product", product_id,
                  data={"code": changed.get("code", p.code), "fields": sorted(changed)})
+    if moves:
+        _move_rates(uow, product_id, fields["tax_category"], rate)
+
+
+def _move_rates(uow: UnitOfWork, product_id: uuid.UUID, category: str, rate: dict | None) -> None:
+    """A never-invoiced product changed sides. Becoming taxable adds the rate the request
+    named; leaving it voids each live rate (kept, with the reason, never deleted), so no
+    rate is read for a product that has none and none comes back if it turns taxable again."""
+    if category == "taxable":
+        value = parse_rate(rate["rate"])
+        if any(r.valid_from == rate["valid_from"] for r in live(rate_rows(uow, product_id))):
+            raise Conflict("rate_exists_on_date", f"This product already has a rate from {rate['valid_from']:%d-%m-%Y}",
+                           fix="Choose another date")
+        rate_id = _insert_rate(uow, product_id, value, rate["valid_from"])
+        audit.record(uow, "product.rate_added", "product", product_id,
+                     data={"rate_id": str(rate_id), "rate": f"{value.normalize():f}",
+                           "valid_from": rate["valid_from"].isoformat()})
+        return
+    reason = f"Product changed to {category.replace('_', '-')}"
+    for r in live(rate_rows(uow, product_id)):
+        uow.tx.execute(
+            text("insert into catalog.product_rate_voids (rate_id, business_id, reason, created_by)"
+                 " values (:r, :b, :reason, :me)"),
+            {"r": r.id, "b": _business(uow), "reason": reason, "me": _me(uow)},
+        )
+        audit.record(uow, "product.rate_voided", "product", product_id, reason=reason,
+                     data={"rate_id": str(r.id), "rate": f"{r.rate.normalize():f}", "valid_from": r.valid_from.isoformat()})
 
 
 def set_archived(uow: UnitOfWork, product_id: uuid.UUID, archived: bool) -> None:

@@ -209,6 +209,9 @@ export function HomePage() {
                     <Link to={`/b/${businessId}/invoices/new`}>New invoice</Link>
                   </li>
                   <li>
+                    <Link to={`/b/${businessId}/drafts`}>Draft invoices</Link>
+                  </li>
+                  <li>
                     <Link to={`/b/${businessId}/documents`}>Issued invoices</Link>
                   </li>
                   {canViewUploads(business.role) && ( // purchases are owner, admin and CA; billing would get a 404

@@ -5229,6 +5229,7 @@ export interface components {
             hsn?: string | null;
             /** Name */
             name?: string | null;
+            rate?: components["schemas"]["RateIn"] | null;
             /** Sale Rate */
             sale_rate?: string | null;
             /** Tax Category */

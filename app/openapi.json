@@ -8002,6 +8002,16 @@
             ],
             "title": "Name"
           },
+          "rate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RateIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "sale_rate": {
             "anyOf": [
               {

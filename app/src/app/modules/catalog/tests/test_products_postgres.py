@@ -398,14 +398,61 @@ def test_patch_needs_the_current_version(shop):
     r = pg.client.patch(url(biz, f"/{p['id']}"), json={"name": "Lost edit"}, headers={**h, "If-Match": "1"})
     assert r.status_code == 409 and r.json()["error"]["code"] == "stale_record"
     assert pg.client.get(url(biz, f"/{p['id']}"), headers=h).json()["name"] == "Neem soap 125 g"
-    r = pg.client.patch(url(biz, f"/{p['id']}"), json={"tax_category": "exempt"}, headers={**h, "If-Match": "2"})
-    assert r.status_code == 422 and r.json()["error"]["code"] == "tax_category_locked"
     # Archive takes no If-Match and is a no-op the second time, but bumps version [RM43-7].
     assert post(pg, url(biz, f"/{p['id']}/archive")).json()["version"] == 3
     assert post(pg, url(biz, f"/{p['id']}/archive")).json()["version"] == 3
     assert audit_actions(pg, biz).count("product.archived") == 1
     assert pg.client.get(url(biz), headers=h).json()["items"] == []
     assert len(pg.client.get(url(biz, "?status=archived"), headers=h).json()["items"]) == 1
+
+
+def test_a_product_not_yet_invoiced_can_move_between_taxable_and_not(shop):
+    """Pankaj's retest (2026-11-23): Exempt to Taxable on edit, with the rate in the same request.
+    Leaving taxable voids the live rates (kept, with the reason); a used product stays locked."""
+    pg, biz = shop
+    h = as_user("alice")
+    body = product(code="MOVE-1", tax_category="exempt")
+    body.pop("rate")
+    r = post(pg, url(biz), body)
+    assert r.status_code == 201, r.text
+    p = r.json()
+    pid = p["id"]
+    assert p["rates"] == [] and p["rate_on"] is None
+    patch = lambda body, v: pg.client.patch(url(biz, f"/{pid}"), json=body, headers={**h, "If-Match": str(v)})  # noqa: E731
+    r = patch({"tax_category": "taxable"}, 1)
+    assert r.status_code == 422 and r.json()["error"]["code"] == "rate_required"
+    r = patch({"tax_category": "taxable", "rate": {"rate": "7", "valid_from": "2026-04-01"}}, 1)
+    assert r.status_code == 422 and r.json()["error"]["code"] == "rate_not_allowed"
+    r = patch({"tax_category": "nil_rated", "rate": {"rate": "18", "valid_from": "2026-04-01"}}, 1)
+    assert r.status_code == 422 and r.json()["error"]["code"] == "rate_not_allowed"
+    r = patch({"tax_category": "taxable", "rate": {"rate": "18", "valid_from": "2026-04-01"}}, 1)
+    assert r.status_code == 200, r.text
+    got = r.json()
+    assert (got["tax_category"], got["rate_on"]["rate"], got["version"]) == ("taxable", "18", 2)
+    assert [(x["rate"], x["voided"]) for x in got["rates"]] == [("18", False)]
+    # Already taxable: a later rate goes through the rate history, not the edit.
+    r = patch({"name": "Neem soap", "rate": {"rate": "5", "valid_from": "2026-10-01"}}, 2)
+    assert r.status_code == 422 and r.json()["error"]["code"] == "rate_not_allowed"
+    r = patch({"tax_category": "nil_rated"}, 2)
+    assert r.status_code == 200, r.text
+    got = r.json()
+    assert (got["tax_category"], got["rate_on"]) == ("nil_rated", None)
+    assert [(x["rate"], x["voided"]) for x in got["rates"]] == [("18", True)]
+    actions = audit_actions(pg, biz)
+    assert actions.count("product.rate_added") == 1 and actions.count("product.rate_voided") == 1
+    # Back to taxable: the voided rate doesn't come back; the new one is the only live rate.
+    r = patch({"tax_category": "taxable", "rate": {"rate": "5", "valid_from": "2026-04-01"}}, 3)
+    assert r.status_code == 200, r.text
+    assert r.json()["rate_on"]["rate"] == "5"
+    # Once on an invoice, the category can't cross sides any more.
+    alice = user_id(pg.owner, "alice")
+    with pg.app_rw.begin() as c:
+        ctx(c, alice, biz)
+        mark_used(c, [uuid.UUID(pid)])
+    r = patch({"tax_category": "exempt"}, 4)
+    assert r.status_code == 422 and r.json()["error"]["code"] == "tax_category_locked"
+    r = patch({"tax_category": "taxable"}, 4)  # same side: nothing to lock, nothing changes
+    assert r.status_code == 200 and r.json()["version"] == 4
 
 
 def test_delete_is_a_soft_delete_that_keeps_the_rate_history(shop):

@@ -136,7 +136,6 @@ export function ProductPage() {
   const [advanced, setAdvanced] = useState(false);
   const [rateMissing, setRateMissing] = useState(false);
   const [saleRateChecked, setSaleRateChecked] = useState(false); // a save was tried: a half-typed "10." is now a problem
-  const rates = useGstRates(validFrom, isNew && values.tax_category === "taxable");
   const latest = product.data ?? null;
 
   useEffect(() => {
@@ -153,6 +152,10 @@ export function ProductPage() {
     setOpened(latest);
   }, [latest]); // opened and values are read to rebase onto a newer version, not to trigger it
 
+  // A new taxable product, or a saved one changed to Taxable, needs its first rate. Later
+  // rates of a product that is already taxable go through its rate history below.
+  const needsRate = values.tax_category === "taxable" && (isNew || (opened !== null && opened.tax_category !== "taxable"));
+  const rates = useGstRates(validFrom, needsRate);
   // A rate that isn't in force on the newly chosen date is not kept, nor sent before it's cleared.
   const chosenRate = rates.data?.includes(rate) ? rate : "";
   useEffect(() => {
@@ -203,7 +206,10 @@ export function ProductPage() {
       return call(() =>
         api.PATCH("/api/v1/b/{business_id}/products/{product_id}", {
           params: { path: { ...path, product_id: productId }, header: { "If-Match": String(opened?.version) } },
-          body: changedFields(valuesOf(opened!), values),
+          body: {
+            ...changedFields(valuesOf(opened!), values),
+            ...(needsRate ? { rate: { rate: chosenRate, valid_from: validFrom } } : {}),
+          },
         }),
       );
     },
@@ -293,6 +299,13 @@ export function ProductPage() {
     return `Now saved as: ${typeof now === "boolean" ? (now ? "yes" : "no") : now || "(blank)"}`;
   };
   const hint = (field: keyof Values, normal?: string) => theirs(field) ?? warningFor(field) ?? normal;
+  const categoryNote = isNew
+    ? undefined
+    : base?.in_use
+      ? "This product is on invoices, so it can't move between taxable and not taxable."
+      : base?.tax_category === "taxable" && values.tax_category !== "taxable"
+        ? "Its GST rates will be voided. They stay in the rate history."
+        : undefined;
   const advancedOpen = advanced || Boolean(errorFor("valid_from"));
   const set = (field: keyof Values) => (e: { target: { value: string } }) => setValues({ ...values, [field]: e.target.value });
   const submit = (e: FormEvent) => {
@@ -301,7 +314,7 @@ export function ProductPage() {
       setSaleRateChecked(true);
       return;
     }
-    if (isNew && values.tax_category === "taxable" && !chosenRate) {
+    if (needsRate && !chosenRate) {
       setRateMissing(true);
       return;
     }
@@ -376,7 +389,7 @@ export function ProductPage() {
             options={CATEGORIES}
             value={values.tax_category}
             onChange={(v) => setValues({ ...values, tax_category: v })}
-            hint={hint("tax_category", isNew ? undefined : "A product can't move between taxable and not taxable.")}
+            hint={hint("tax_category", categoryNote)}
             error={errorFor("tax_category")}
           />
           <label className="radio">
@@ -385,7 +398,7 @@ export function ProductPage() {
           </label>
           {warningFor("has_cess") && <p className="hint">{warningFor("has_cess")}</p>}
 
-          {isNew && values.tax_category === "taxable" && (
+          {needsRate && (
             <>
               <SelectField
                 label="GST rate"
