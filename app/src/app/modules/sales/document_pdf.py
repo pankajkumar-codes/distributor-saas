@@ -157,15 +157,37 @@ def _lines(tx, business_id: uuid.UUID, document_id: uuid.UUID) -> list[dict]:
     return lines
 
 
+def _pos_basis(tx, business_id: uuid.UUID, document_id: uuid.UUID, counterparty_gstin: str | None,
+               snap: dict) -> tuple[str, str | None]:
+    """Why the stored place of supply is what it is, read back from what finalize stored: the override trail, whether
+    the buyer had a GSTIN, and the third-party and customer-collects flags in the print snapshot. The same order as
+    `compute.core._place_of_supply`; it states what the app did and adds no rule of its own."""
+    reason = tx.execute(
+        text("select reason from sales.pos_overrides where document_id = :d and business_id = :b"),
+        {"d": document_id, "b": business_id},
+    ).scalar_one_or_none()
+    if reason is not None:
+        return "override", reason
+    if not counterparty_gstin:
+        return "buyer_address", None
+    if snap.get("ship_to_third_party"):
+        return "third_party", None
+    if snap.get("customer_collects"):
+        return "customer_collects", None
+    return "delivery", None
+
+
 def view(tx, business_id: uuid.UUID, document_id: uuid.UUID) -> dict:
     """What the invoice page shows besides the stored header: the buyer and ship-to as snapshotted at finalize, the
     place of supply, the lines with their tax split, and the amount in words. Read-only; no money is worked out."""
     doc = tx.execute(
-        text("select print, doc_date, pos_state_code, amount_in_words, gross_total, line_discount_total,"
-             " invoice_discount, charges_total, cess_total from sales.documents where id = :d and business_id = :b"),
+        text("select print, doc_date, pos_state_code, counterparty_gstin, amount_in_words, gross_total,"
+             " line_discount_total, invoice_discount, charges_total, cess_total"
+             " from sales.documents where id = :d and business_id = :b"),
         {"d": document_id, "b": business_id},
     ).mappings().one()
     snap, on = doc["print"], doc["doc_date"]
+    basis, override_reason = _pos_basis(tx, business_id, document_id, doc["counterparty_gstin"], snap)
     buyer = _party(tx, snap.get("bill_to"), on)
     if buyer is None and snap.get("cash_buyer"):
         buyer = _party(tx, snap["cash_buyer"], on)
@@ -175,6 +197,8 @@ def view(tx, business_id: uuid.UUID, document_id: uuid.UUID) -> dict:
         "buyer": buyer,
         "ship_to": None if ship is None else {"address": ship["address"], "state": ship["state"]},
         "place_of_supply": _state(tx, doc["pos_state_code"], on),
+        "pos_basis": basis,
+        "pos_override_reason": override_reason,
         "lines": _lines(tx, business_id, document_id),
         "gross_total": _money(doc["gross_total"]),
         "line_discount_total": _money(doc["line_discount_total"]),

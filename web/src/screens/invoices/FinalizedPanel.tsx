@@ -51,7 +51,11 @@ export function FinalizedPanel({ businessId, doc }: { businessId: string; doc: D
             </>
           )}
           <dt>Place of supply</dt>
-          <dd>{doc.place_of_supply ?? "—"} · {doc.is_inter_state ? "Inter-state (IGST)" : "Within the state (CGST + SGST)"}</dd>
+          <dd>
+            {doc.place_of_supply ?? "—"} · {doc.is_inter_state ? "Inter-state (IGST)" : "Within the state (CGST + SGST)"}
+            <br />
+            <span className="hint">{posBasisText(doc.pos_basis, doc.pos_override_reason)}</span>
+          </dd>
           <dt>Seller GSTIN</dt>
           <dd>{doc.gstin}</dd>
           {doc.due_date && (
@@ -145,4 +149,20 @@ export function FinalizedPanel({ businessId, doc }: { businessId: string; doc: D
       </p>
     </section>
   );
+}
+
+/** Why the place of supply is what it is, in the words of the box that was set on the draft. States what the app did; no rule of its own. */
+function posBasisText(basis: DocumentDetail["pos_basis"], reason: string | null): string {
+  switch (basis) {
+    case "override":
+      return `Chosen by hand on the draft. Reason given: ${reason ?? "—"}`;
+    case "third_party":
+      return "The buyer's GSTIN state: the goods went to another person on the buyer's direction (\"Goods go to a third party, not the buyer\" was ticked).";
+    case "customer_collects":
+      return "The buyer's GSTIN state: the buyer collects the goods (\"The customer collects the goods\" was ticked). CA to confirm.";
+    case "buyer_address":
+      return "The buyer has no GSTIN: their delivery address, or billing address if none.";
+    default:
+      return "Where the goods are delivered.";
+  }
 }

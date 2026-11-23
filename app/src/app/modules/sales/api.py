@@ -556,6 +556,11 @@ class DocumentDetailOut(DocumentOut):
     buyer: DocumentParty | None  # the bill-to as at finalize; null if none was recorded
     ship_to: DocumentShipTo | None
     place_of_supply: str | None
+    # Why that place of supply (read back from the stored document): delivery (registered buyer, where the goods
+    # go), third_party (registered buyer, goods sent to another person on its direction), customer_collects
+    # (registered buyer collects), buyer_address (no GSTIN: delivery or billing address), override (with its reason).
+    pos_basis: Literal["delivery", "third_party", "customer_collects", "buyer_address", "override"]
+    pos_override_reason: str | None
     lines: list[DocumentLineOut]
     gross_total: str
     line_discount_total: str

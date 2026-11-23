@@ -2875,6 +2875,28 @@
             ],
             "title": "Place Of Supply"
           },
+          "pos_basis": {
+            "enum": [
+              "delivery",
+              "third_party",
+              "customer_collects",
+              "buyer_address",
+              "override"
+            ],
+            "title": "Pos Basis",
+            "type": "string"
+          },
+          "pos_override_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pos Override Reason"
+          },
           "pos_state_code": {
             "title": "Pos State Code",
             "type": "string"
@@ -2940,6 +2962,8 @@
           "buyer",
           "ship_to",
           "place_of_supply",
+          "pos_basis",
+          "pos_override_reason",
           "lines",
           "gross_total",
           "line_discount_total",
