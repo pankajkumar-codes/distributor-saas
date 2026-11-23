@@ -116,25 +116,6 @@ describe("a new product", () => {
     expect(second.headers.get("Idempotency-Key")).not.toBe(first.headers.get("Idempotency-Key"));
   });
 
-  it("drops the chosen rate when it isn't in force on the new date", async () => {
-    open("/b/b-1/products/new");
-    await screen.findByRole("option", { name: "Numbers (NOS)" });
-    server.reply(RATES, { status: 200, body: { on: todayIst(), rates: ["5", "18", "28"] } }, { status: 200, body: { on: "2026-03-01", rates: ["5", "18", "40"] } });
-    fireEvent.click(screen.getByRole("radio", { name: "Taxable" }));
-    await screen.findByRole("option", { name: "28%" });
-    type("GST rate", "28");
-    expect(screen.getByLabelText("GST rate")).toHaveValue("28");
-    type("Rate applies from", "2026-03-01");
-    await screen.findByRole("option", { name: "40%" });
-    expect(screen.getByLabelText("GST rate")).toHaveValue("");
-    // Nothing is chosen any more: the form says so in plain words and sends nothing.
-    fireEvent.click(screen.getByRole("button", { name: "Add product" }));
-    expect(await screen.findByText("Choose a GST rate.")).toBeInTheDocument();
-    expect(sent(LIST, "POST")).toHaveLength(0);
-    type("GST rate", "5");
-    expect(screen.queryByText("Choose a GST rate.")).toBeNull();
-  });
-
   it("never shows the server's pattern text under the GST rate", async () => {
     open("/b/b-1/products/new");
     await screen.findByRole("option", { name: "Numbers (NOS)" });
@@ -202,25 +183,20 @@ describe("the new product form's lists and fields", () => {
     expect(server.sent.some((s) => s.method === "POST" && s.path.endsWith("/products"))).toBe(false);
   });
 
-  it("hides the date a rate starts under Advanced, today by default, and opens it when the server names it", async () => {
+  it("has no Advanced toggle or start date: the first rate applies from today, and a date error shows under the rate", async () => {
     open("/b/b-1/products/new");
     await screen.findByRole("option", { name: "Numbers (NOS)" });
     server.reply(RATES, { status: 200, body: { on: todayIst(), rates: ["5", "18"] } });
     fireEvent.click(screen.getByRole("radio", { name: "Taxable" }));
     await screen.findByRole("option", { name: "18%" });
-    expect(screen.getByLabelText("Rate applies from")).not.toBeVisible();
-    expect(screen.getByLabelText("Rate applies from")).toHaveValue(todayIst());
-    const advanced = screen.getByRole("button", { name: "Advanced" });
-    expect(advanced).toHaveAttribute("aria-expanded", "false");
-    fireEvent.click(advanced);
-    expect(screen.getByLabelText("Rate applies from")).toBeVisible();
-    fireEvent.click(advanced);
-    expect(screen.getByLabelText("Rate applies from")).not.toBeVisible();
+    expect(screen.queryByRole("button", { name: "Advanced" })).toBeNull();
+    expect(screen.queryByLabelText("Rate applies from")).toBeNull();
+    expect(screen.getByText(/It applies from today. For invoices dated earlier, add an earlier start date under GST rate history/)).toBeInTheDocument();
     type("GST rate", "18");
     server.reply(LIST, { status: 422, body: { error: { code: "invalid", message: "Pick a later date", field: "rate.valid_from" } } });
     fireEvent.click(screen.getByRole("button", { name: "Add product" }));
-    await screen.findByText("Pick a later date");
-    expect(screen.getByLabelText("Rate applies from")).toBeVisible();
+    expect(await screen.findByText("Pick a later date")).toBeInTheDocument();
+    expect(sent(LIST, "POST")[0].body).toMatchObject({ rate: { rate: "18", valid_from: todayIst() } });
   });
 
   it("says why the rate list is empty, and does not leave a blank dropdown", async () => {
@@ -230,7 +206,7 @@ describe("the new product form's lists and fields", () => {
     fireEvent.click(screen.getByRole("radio", { name: "Taxable" }));
     expect(screen.getByLabelText("GST rate")).toBeDisabled();
     expect(screen.getByRole("option", { name: "Loading rates…" })).toBeInTheDocument();
-    expect(await screen.findByText(/No GST rates are on file for that date/)).toBeInTheDocument();
+    expect(await screen.findByText(/No GST rates are on file for today/)).toBeInTheDocument();
     expect(screen.getByLabelText("GST rate")).toBeDisabled();
   });
 
