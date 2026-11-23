@@ -131,9 +131,9 @@ export function ProductPage() {
   const [opened, setOpened] = useState<Detail | null>(null);
   const [theirFields, setTheirFields] = useState<(keyof Values)[]>([]);
   const [rate, setRate] = useState("");
-  const [validFrom, setValidFrom] = useState(todayIst());
+  // A new product's first rate starts today (IST). An earlier start goes through Rate history after saving (#388).
+  const [validFrom] = useState(todayIst());
   const [stale, setStale] = useState(false);
-  const [advanced, setAdvanced] = useState(false);
   const [rateMissing, setRateMissing] = useState(false);
   const [saleRateChecked, setSaleRateChecked] = useState(false); // a save was tried: a half-typed "10." is now a problem
   const latest = product.data ?? null;
@@ -156,21 +156,16 @@ export function ProductPage() {
   // rates of a product that is already taxable go through its rate history below.
   const needsRate = values.tax_category === "taxable" && (isNew || (opened !== null && opened.tax_category !== "taxable"));
   const rates = useGstRates(validFrom, needsRate);
-  // A rate that isn't in force on the newly chosen date is not kept, nor sent before it's cleared.
+  // A rate that isn't in the list for today is not kept, nor sent.
   const chosenRate = rates.data?.includes(rate) ? rate : "";
   useEffect(() => {
     if (rates.data && rate && !rates.data.includes(rate)) setRate("");
   }, [rates.data, rate]);
 
-  // The rate list answers for one date. Say why it is empty instead of showing a dropdown with nothing in it.
-  const dateOk = /^\d{4}-\d{2}-\d{2}$/.test(validFrom);
+  // The rate list answers for today. Say why it is empty instead of showing a dropdown with nothing in it.
   const ratesReady = Boolean(rates.data && rates.data.length > 0);
-  const ratesPlaceholder = !dateOk ? "Enter a date first" : rates.isPending ? "Loading rates…" : rates.error ? "Rates unavailable" : "Choose…";
-  const ratesNote = !dateOk
-    ? "Enter the date the rate applies from (under Advanced)."
-    : rates.data?.length === 0
-      ? "No GST rates are on file for that date. Check the date under Advanced."
-      : undefined;
+  const ratesPlaceholder = rates.isPending ? "Loading rates…" : rates.error ? "Rates unavailable" : "Choose…";
+  const ratesNote = rates.data?.length === 0 ? "No GST rates are on file for today." : undefined;
 
   const saved = (p: Detail) => {
     queryClient.setQueryData(["b", businessId, "product", p.id], p);
@@ -306,7 +301,6 @@ export function ProductPage() {
       : base?.tax_category === "taxable" && values.tax_category !== "taxable"
         ? "Its GST rates will be voided. They stay in the rate history."
         : undefined;
-  const advancedOpen = advanced || Boolean(errorFor("valid_from"));
   const set = (field: keyof Values) => (e: { target: { value: string } }) => setValues({ ...values, [field]: e.target.value });
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -410,8 +404,8 @@ export function ProductPage() {
                   setRate(e.target.value);
                   setRateMissing(false);
                 }}
-                hint={ratesNote ?? "The rate your CA advised. The list is the GST rates in force on the date the rate starts (under Advanced)."}
-                error={errorFor("rate")}
+                hint={ratesNote ?? "The rate your CA advised. It applies from today; an earlier start date can be added in Rate history after saving."}
+                error={errorFor("rate") ?? errorFor("valid_from")}
               />
               {rates.error && (
                 <Banner tone="error">
@@ -421,21 +415,6 @@ export function ProductPage() {
                   </Button>
                 </Banner>
               )}
-              <p>
-                <Button type="button" variant="link" aria-expanded={advancedOpen} aria-controls="advanced-rate" onClick={() => setAdvanced(!advanced)}>
-                  Advanced
-                </Button>
-              </p>
-              <div id="advanced-rate" hidden={!advancedOpen}>
-                <Field
-                  label="Rate applies from"
-                  type="date"
-                  value={validFrom}
-                  onChange={(e) => setValidFrom(e.target.value)}
-                  hint="The date this GST rate starts. It is today unless the rate began earlier."
-                  error={errorFor("valid_from")}
-                />
-              </div>
             </>
           )}
           </fieldset>
