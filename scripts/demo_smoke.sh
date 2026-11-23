@@ -75,11 +75,13 @@ curl -sSI -m 20 "$URL/" | grep -qi '^cache-control: no-cache' || fail "/ should 
 r=$(req -H 'Cookie: kartaa_in=1' "$URL/"); [ "$(status "$r")" = 200 ] && grep -q 'id="root"' "$BODY" || fail "a signed-in visitor at / did not get the app: $r"
 r=$(req "$URL/signin"); [ "$(status "$r")" = 200 ] && grep -q 'id="root"' "$BODY" || fail "/signin did not load the app: $r"
 r=$(req "$URL/assets/does-not-exist.js"); [ "$(status "$r")" = 404 ] || fail "a missing asset should be 404, got: $r"
+curl -sSI -m 20 "$URL/b/x/invoices/new" | grep -qi '^cache-control: no-cache' || fail "an app page should be sent with Cache-Control: no-cache, so a new build shows on reload"
 pass "/ is the landing page for a visitor and the app when signed in; /signin loads; a missing asset is a 404"
 req -H 'Cookie: kartaa_in=1' "$URL/" >/dev/null
 ASSET=$(grep -o '/assets/[^"]*\.js' "$BODY" | head -1)
 [ -n "$ASSET" ] || fail "no script found in the page"
 r=$(req "$URL$ASSET"); [ "$(status "$r")" = 200 ] || fail "the app's script did not load: $r"
+curl -sSI -m 20 "$URL$ASSET" | grep -qi '^cache-control: .*immutable' || fail "the app's hashed script should be sent as immutable"
 pass "the app's script loads"
 
 # 4. The demo account signs in, and /me answers.
