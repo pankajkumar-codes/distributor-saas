@@ -285,7 +285,8 @@ Work down this list.
     inside Docker and is reached through the page, so `http://127.0.0.1:8000` will never open and that is correct. To test
     the API, use `http://localhost:5173/api/v1/health` (it should print `{"status":"ok"}`).
 11. **After every `git pull`, run `./demo.sh` (or `.\demo.ps1`) again.** It rebuilds from the files you now have and starts
-    clean (it stops and forgets the old one first). Opening the page without doing this shows the old version.
+    clean (it stops and forgets the old one first). Opening the page without doing this shows the old version. Then
+    reload any Kartaa tab you still have open (a tab left open keeps running the old app until it is reloaded).
 
 ### WSL (Windows): keep the project inside Ubuntu
 
