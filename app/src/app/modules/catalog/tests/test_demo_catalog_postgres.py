@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from app import api as app_api
-from app.modules.business.gstin import check_gstin
+from app.modules.business.interface import check_gstin
 from platform_common.clock import IST, FrozenClock, get_clock
 
 from .conftest import PG_ADMIN_URL, as_user, new_business
