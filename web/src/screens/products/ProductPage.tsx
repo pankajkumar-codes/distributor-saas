@@ -131,6 +131,8 @@ export function ProductPage() {
   const [opened, setOpened] = useState<Detail | null>(null);
   const [theirFields, setTheirFields] = useState<(keyof Values)[]>([]);
   const [rate, setRate] = useState("");
+  // A new product's first rate starts today (IST). An earlier start goes through Rate history after saving (#388).
+  const [validFrom] = useState(todayIst());
   const [stale, setStale] = useState(false);
   const [rateMissing, setRateMissing] = useState(false);
   const [saleRateChecked, setSaleRateChecked] = useState(false); // a save was tried: a half-typed "10." is now a problem
@@ -153,20 +155,17 @@ export function ProductPage() {
   // A new taxable product, or a saved one changed to Taxable, needs its first rate. Later
   // rates of a product that is already taxable go through its rate history below.
   const needsRate = values.tax_category === "taxable" && (isNew || (opened !== null && opened.tax_category !== "taxable"));
-  // A first rate applies from today (IST). An earlier start, for invoices dated before today, is added under the
-  // product's GST rate history once it is saved; the CSV import keeps its own start-date column.
-  const validFrom = todayIst();
   const rates = useGstRates(validFrom, needsRate);
-  // A rate that isn't in force today (the list moved on at midnight) is not kept, nor sent before it's cleared.
+  // A rate that isn't in the list for today is not kept, nor sent.
   const chosenRate = rates.data?.includes(rate) ? rate : "";
   useEffect(() => {
     if (rates.data && rate && !rates.data.includes(rate)) setRate("");
   }, [rates.data, rate]);
 
-  // Say why the rate list is empty instead of showing a dropdown with nothing in it.
+  // The rate list answers for today. Say why it is empty instead of showing a dropdown with nothing in it.
   const ratesReady = Boolean(rates.data && rates.data.length > 0);
   const ratesPlaceholder = rates.isPending ? "Loading rates…" : rates.error ? "Rates unavailable" : "Choose…";
-  const ratesNote = rates.data?.length === 0 ? "No GST rates are on file for today. Try again later." : undefined;
+  const ratesNote = rates.data?.length === 0 ? "No GST rates are on file for today." : undefined;
 
   const saved = (p: Detail) => {
     queryClient.setQueryData(["b", businessId, "product", p.id], p);
@@ -405,10 +404,7 @@ export function ProductPage() {
                   setRate(e.target.value);
                   setRateMissing(false);
                 }}
-                hint={
-                  ratesNote ??
-                  "The rate your CA advised. It applies from today. For invoices dated earlier, add an earlier start date under GST rate history after saving."
-                }
+                hint={ratesNote ?? "The rate your CA advised. It applies from today; an earlier start date can be added in Rate history after saving."}
                 error={errorFor("rate") ?? errorFor("valid_from")}
               />
               {rates.error && (

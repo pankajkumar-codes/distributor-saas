@@ -183,7 +183,7 @@ describe("the new product form's lists and fields", () => {
     expect(server.sent.some((s) => s.method === "POST" && s.path.endsWith("/products"))).toBe(false);
   });
 
-  it("has no Advanced toggle or start date: the first rate applies from today, and a date error shows under the rate", async () => {
+  it("has no Advanced link or start date: the first rate starts today, and a date error shows under the rate (#388)", async () => {
     open("/b/b-1/products/new");
     await screen.findByRole("option", { name: "Numbers (NOS)" });
     server.reply(RATES, { status: 200, body: { on: todayIst(), rates: ["5", "18"] } });
@@ -191,12 +191,16 @@ describe("the new product form's lists and fields", () => {
     await screen.findByRole("option", { name: "18%" });
     expect(screen.queryByRole("button", { name: "Advanced" })).toBeNull();
     expect(screen.queryByLabelText("Rate applies from")).toBeNull();
-    expect(screen.getByText(/It applies from today. For invoices dated earlier, add an earlier start date under GST rate history/)).toBeInTheDocument();
+    type("Product code", "SOAP-1");
+    type("Name", "Neem soap");
+    type("Unit", "NOS");
+    type("Sale rate per unit, excluding GST (₹)", "45");
     type("GST rate", "18");
     server.reply(LIST, { status: 422, body: { error: { code: "invalid", message: "Pick a later date", field: "rate.valid_from" } } });
     fireEvent.click(screen.getByRole("button", { name: "Add product" }));
     expect(await screen.findByText("Pick a later date")).toBeInTheDocument();
-    expect(sent(LIST, "POST")[0].body).toMatchObject({ rate: { rate: "18", valid_from: todayIst() } });
+    const [post] = sent(LIST, "POST");
+    expect((post.body as unknown as { rate: unknown }).rate).toEqual({ rate: "18", valid_from: todayIst() });
   });
 
   it("says why the rate list is empty, and does not leave a blank dropdown", async () => {
