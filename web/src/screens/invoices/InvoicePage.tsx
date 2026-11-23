@@ -16,7 +16,7 @@ import { NotFound } from "../../kit/NotFound";
 import { RadioGroup } from "../../kit/RadioGroup";
 import { SelectField } from "../../kit/SelectField";
 import { TopBar } from "../../kit/TopBar";
-import { blankForm, draftIn, formOf, localToday, newLine, sameForm, type Draft, type Form } from "./draftForm";
+import { blankForm, draftIn, formOf, newLine, todayIST, sameForm, type Draft, type Form } from "./draftForm";
 import { useStockFlags } from "../stock/useStock";
 import { ChosenCustomer, CustomerPicker, ProductPicker } from "./Pickers";
 import { HsnFix } from "./HsnFix";
@@ -271,8 +271,9 @@ export function InvoicePage() {
           <Field
             label="Invoice date"
             type="date"
-            value={form.doc_date}
-            max={localToday()}
+            value={form.doc_date || todayIST()}
+            className={form.doc_date ? undefined : "date-default"}
+            max={todayIST()}
             onChange={(e) => set({ doc_date: e.target.value })}
             onClick={(e) => {
               // Open the calendar from anywhere in the box, not only its icon. Browsers without showPicker keep their own behaviour.
@@ -282,7 +283,11 @@ export function InvoicePage() {
                 // showPicker refuses outside a user gesture or in a cross-origin frame; typing the date still works
               }
             }}
-            hint="A new invoice starts on today's date. Blank means the day you finalize. The date is shown in the order your browser uses."
+            hint={
+              form.doc_date
+                ? "Clear the date to use the day you finalize. The date is shown in the order your browser uses."
+                : "Today's date, in grey, until you pick one: the invoice takes the day you finalize it. The date is shown in the order your browser uses."
+            }
           />
 
           <h2>Items</h2>

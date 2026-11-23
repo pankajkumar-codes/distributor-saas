@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../../src/App";
 import { resetSessionForTests } from "../../src/auth/session";
-import { blankForm, localToday } from "../../src/screens/invoices/draftForm";
+import { blankForm, todayIST } from "../../src/screens/invoices/draftForm";
 import { fakeApi } from "./fakeApi";
 
 vi.mock("../../src/features", () => ({ FEATURES: { invoicing: true } }));
@@ -88,13 +88,42 @@ describe("the customer on a new invoice", () => {
 });
 
 describe("the invoice date", () => {
-  it("starts on today's local date and cannot be set after it", async () => {
-    expect(localToday(new Date(2026, 10, 24, 1, 46))).toBe("2026-11-24"); // 1:46 am in India is still the 23rd in UTC
-    expect(blankForm().doc_date).toBe(localToday());
+  it("takes today's date in India, not UTC or the device's zone", () => {
+    expect(todayIST(new Date("2026-11-23T20:16:00Z"))).toBe("2026-11-24"); // 1:46 am IST on the 24th is still the 23rd in UTC
+    expect(todayIST(new Date("2026-11-23T18:29:00Z"))).toBe("2026-11-23"); // 11:59 pm IST
+    expect(todayIST(new Date("2026-03-31T18:30:00Z"))).toBe("2026-04-01"); // midnight IST starts the new financial year
+  });
+
+  it("shows today in grey on a new invoice without saving it, so a later finalize takes that day's date", async () => {
+    expect(blankForm().doc_date).toBe("");
     open("/b/b-1/invoices/new");
     const date = await screen.findByLabelText("Invoice date");
-    expect(date).toHaveValue(localToday());
-    expect(date).toHaveAttribute("max", localToday());
+    expect(date).toHaveValue(todayIST());
+    expect(date).toHaveClass("date-default");
+    expect(date).toHaveAttribute("max", todayIST());
+    expect(screen.getByText(/until you pick one: the invoice takes the day you finalize it/)).toBeInTheDocument();
+  });
+
+  it("keeps a picked date in normal ink, and clearing it goes back to today in grey", async () => {
+    open("/b/b-1/invoices/new");
+    const date = await screen.findByLabelText("Invoice date");
+    fireEvent.change(date, { target: { value: "2026-11-02" } });
+    expect(date).toHaveValue("2026-11-02");
+    expect(date).not.toHaveClass("date-default");
+    expect(screen.getByText(/Clear the date to use the day you finalize/)).toBeInTheDocument();
+    fireEvent.change(date, { target: { value: "" } });
+    expect(date).toHaveValue(todayIST());
+    expect(date).toHaveClass("date-default");
+  });
+
+  it("shows a saved draft's own date as it is", async () => {
+    server.reply(ONE, { status: 200, body: { ...draft, doc_date: "2026-11-05" } });
+    server.reply("/api/v1/b/b-1/customers/c-1", { status: 200, body: delhi });
+    open("/b/b-1/invoices/d-1");
+    await screen.findByRole("region", { name: "Customer" });
+    const date = screen.getByLabelText("Invoice date");
+    expect(date).toHaveValue("2026-11-05");
+    expect(date).not.toHaveClass("date-default");
   });
 
   it("opens the calendar when the box is clicked anywhere", async () => {

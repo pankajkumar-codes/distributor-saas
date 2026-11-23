@@ -35,14 +35,24 @@ export type Form = {
 const BLANK_ADDRESS: Address = { name: "", line1: "", line2: "", city: "", pin: "", state_code: "" };
 export const newLine = (): Line => ({ key: crypto.randomUUID(), product_id: "", name: "", quantity: "1", unit_price: "", discount_kind: "", discount_value: "" });
 
-/** Today on this device's calendar, as the yyyy-mm-dd a date input takes (not UTC, which is still yesterday in India before 5:30 am). */
-export const localToday = (now: Date = new Date()): string =>
-  `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+/**
+ * Today's date in India (IST), as the yyyy-mm-dd a date input takes. The server judges "today" in IST too
+ * (`doc_date_future`, and a blank date becomes the IST date at finalize), so neither UTC (still yesterday before
+ * 5:30 am IST) nor the device's own time zone is used.
+ */
+export const todayIST = (now: Date = new Date()): string => {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(now);
+  const part = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+};
 
-/** A new invoice starts on today's date, so the field shows a date rather than an empty dd-mm-yyyy mask. */
+/**
+ * A new invoice has no date of its own: the page shows today's date greyed out, and the server dates it on the day it
+ * is finalized. Saving today's date here would back-date a draft finalized on a later day.
+ */
 export const blankForm = (): Form => ({
   buyer: "customer", customer_id: "", customer_name: "", cash_state: "", cash_name: "", cash_address: "",
-  doc_date: localToday(), invoice_discount: "0", charges: [], lines: [], customer_collects: false,
+  doc_date: "", invoice_discount: "0", charges: [], lines: [], customer_collects: false,
   ship_different: false, ship: BLANK_ADDRESS, third_party: false, pos_override: "", pos_reason: "",
 }); // fmt: skip
 
