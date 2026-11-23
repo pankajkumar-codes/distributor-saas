@@ -85,6 +85,12 @@ the Finalize button does nothing here either. To try it, start the demo with the
 > staging or production configuration, and it stays off there until the CA answers (D-010, D-044, CA-1). Without the
 > flag the demo behaves as the product ships.
 
+### PDF previews are not made in the demo
+
+The PDF renderer is a cloud function (D-042); the demo records a render request and nothing draws it. So on a draft
+invoice the **Preview PDF** button is greyed out with a one-line note saying so, instead of waiting and reporting
+"taking longer than usual". Totals and checks on the page are the same computation the PDF would print.
+
 ### Windows with WSL (an alternative that is partly verified)
 
 **Status, so you know what to trust:** `.\demo.ps1` is the simplest way and needs none of the steps below, but it has

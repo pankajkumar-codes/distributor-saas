@@ -17,8 +17,9 @@ import { RadioGroup } from "../../kit/RadioGroup";
 import { SelectField } from "../../kit/SelectField";
 import { TopBar } from "../../kit/TopBar";
 import { blankForm, draftIn, formOf, newLine, sameForm, type Draft, type Form } from "./draftForm";
+import { todayIst } from "../../format/dates";
 import { useStockFlags } from "../stock/useStock";
-import { CustomerPicker, ProductPicker } from "./Pickers";
+import { ChosenCustomer, CustomerPicker, ProductPicker } from "./Pickers";
 import { HsnFix } from "./HsnFix";
 import { Totals } from "./Totals";
 import { useFinalize } from "./useFinalize";
@@ -53,6 +54,7 @@ export function InvoicePage() {
   const [stale, setStale] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [cashStateMissing, setCashStateMissing] = useState(false);
+  const [changingCustomer, setChangingCustomer] = useState(false);
   const cashStateRef = useRef<HTMLSelectElement>(null);
   const path = { business_id: businessId, draft_id: draftId ?? "" };
 
@@ -228,8 +230,26 @@ export function InvoicePage() {
           />
           {form.buyer === "customer" ? (
             <>
-              {form.customer_id && <p>Customer: <strong>{form.customer_name}</strong></p>}
-              <CustomerPicker businessId={businessId} label="Find a customer" onPick={(c) => set({ customer_id: c.id, customer_name: c.name })} />
+              {form.customer_id && !changingCustomer ? (
+                <ChosenCustomer businessId={businessId} customerId={form.customer_id} name={form.customer_name} stateNames={stateNames} onChange={() => setChangingCustomer(true)} />
+              ) : (
+                <>
+                  <CustomerPicker
+                    businessId={businessId}
+                    label={form.customer_id ? "Find another customer" : "Find a customer"}
+                    onPick={(c) => {
+                      queryClient.setQueryData(["b", businessId, "customer", c.id], c); // the summary shows it without another read
+                      set({ customer_id: c.id, customer_name: c.name });
+                      setChangingCustomer(false);
+                    }}
+                  />
+                  {form.customer_id && (
+                    <Button type="button" variant="link" onClick={() => setChangingCustomer(false)}>
+                      Keep {form.customer_name || "the customer"}
+                    </Button>
+                  )}
+                </>
+              )}
             </>
           ) : (
             <>
@@ -249,7 +269,27 @@ export function InvoicePage() {
               <Field label="Buyer's address (optional)" value={form.cash_address} onChange={(e) => set({ cash_address: e.target.value })} />
             </>
           )}
-          <Field label="Invoice date" type="date" value={form.doc_date} onChange={(e) => set({ doc_date: e.target.value })} hint="Blank is today. The date is shown in the order your browser uses." />
+          <Field
+            label="Invoice date"
+            type="date"
+            value={form.doc_date || todayIst()}
+            className={form.doc_date ? undefined : "date-default"}
+            max={todayIst()}
+            onChange={(e) => set({ doc_date: e.target.value })}
+            onClick={(e) => {
+              // Open the calendar from anywhere in the box, not only its icon. Browsers without showPicker keep their own behaviour.
+              try {
+                e.currentTarget.showPicker?.();
+              } catch {
+                // showPicker refuses outside a user gesture or in a cross-origin frame; typing the date still works
+              }
+            }}
+            hint={
+              form.doc_date
+                ? "Clear the date to use the day you finalize. The date is shown in the order your browser uses."
+                : "Today's date, in grey, until you pick one: the invoice takes the day you finalize it. The date is shown in the order your browser uses."
+            }
+          />
 
           <h2>Items</h2>
           {form.lines.map((l, i) => (
