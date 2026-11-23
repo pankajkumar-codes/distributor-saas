@@ -90,6 +90,7 @@ h2 { font-size: 18px; margin: 24px 0 12px; text-wrap: balance; }
 .radio input { width: 20px; height: 20px; margin: 0; flex: none; accent-color: var(--accent); }
 .banner p, .banner ul { margin: 0; }
 .field input:disabled, .field select:disabled { background: var(--sunk); color: var(--muted); cursor: not-allowed; }
+.field input.date-default { color: var(--muted); } /* the invoice date shown before one is picked (today, not saved) */
 input[aria-invalid="true"], select[aria-invalid="true"] { border-color: var(--bad); }
 .hint, .note { color: var(--muted); font-size: 13px; margin: 4px 0 12px; }
 .error { color: var(--bad); font-size: 13px; font-weight: 600; margin: 4px 0 12px; }

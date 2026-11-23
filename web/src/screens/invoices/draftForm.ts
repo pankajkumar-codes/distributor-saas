@@ -35,6 +35,10 @@ export type Form = {
 const BLANK_ADDRESS: Address = { name: "", line1: "", line2: "", city: "", pin: "", state_code: "" };
 export const newLine = (): Line => ({ key: crypto.randomUUID(), product_id: "", name: "", quantity: "1", unit_price: "", discount_kind: "", discount_value: "" });
 
+/**
+ * A new invoice has no date of its own: the page shows today's date in India (`todayIst`) greyed out, and the server dates it on the day it
+ * is finalized. Saving today's date here would back-date a draft finalized on a later day.
+ */
 export const blankForm = (): Form => ({
   buyer: "customer", customer_id: "", customer_name: "", cash_state: "", cash_name: "", cash_address: "",
   doc_date: "", invoice_discount: "0", charges: [], lines: [], customer_collects: false,
