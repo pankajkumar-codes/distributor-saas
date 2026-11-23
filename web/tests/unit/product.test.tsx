@@ -274,6 +274,47 @@ describe("editing a product", () => {
     expect(patch.headers.get("If-Match")).toBe("3");
   });
 
+  it("asks for a GST rate when an exempt product is changed to Taxable, and sends it with the edit", async () => {
+    const exempt = detail({ tax_category: "exempt", rate_on: null, rates: [] });
+    server.reply(ONE, { status: 200, body: exempt });
+    open("/b/b-1/products/p-1");
+    await screen.findByRole("heading", { name: "Neem soap" });
+    expect(screen.queryByLabelText("GST rate")).not.toBeInTheDocument();
+    server.reply(RATES, { status: 200, body: { on: todayIst(), rates: ["0.25", "3", "5", "18", "40"] } });
+    fireEvent.click(screen.getByRole("radio", { name: "Taxable" }));
+    await screen.findByRole("option", { name: "18%" });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(await screen.findByText("Choose a GST rate.")).toBeInTheDocument();
+    expect(sent(ONE, "PATCH")).toHaveLength(0);
+    server.reply(`PATCH ${ONE}`, { status: 200, body: detail({ version: 4 }) });
+    type("GST rate", "18");
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(await screen.findByText(/Saved\. Invoices already finalized keep/)).toBeInTheDocument();
+    const [patch] = sent(ONE, "PATCH");
+    expect(patch.body).toEqual({ tax_category: "taxable", rate: { rate: "18", valid_from: todayIst() } });
+    expect(screen.queryByLabelText("GST rate")).not.toBeInTheDocument(); // later rates go through the rate history
+  });
+
+  it("sends no rate when a taxable product is changed to Nil rated, and says its rates will be voided", async () => {
+    server.reply(ONE, { status: 200, body: detail() });
+    open("/b/b-1/products/p-1");
+    await screen.findByRole("heading", { name: "Neem soap" });
+    fireEvent.click(screen.getByRole("radio", { name: "Nil rated" }));
+    expect(screen.getByText("Its GST rates will be voided. They stay in the rate history.")).toBeInTheDocument();
+    expect(screen.queryByLabelText("GST rate")).not.toBeInTheDocument();
+    server.reply(`PATCH ${ONE}`, { status: 200, body: detail({ tax_category: "nil_rated", rate_on: null, version: 4 }) });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(await screen.findByText(/Saved\. Invoices already finalized keep/)).toBeInTheDocument();
+    expect(sent(ONE, "PATCH")[0].body).toEqual({ tax_category: "nil_rated" });
+  });
+
+  it("says a product on invoices can't move between taxable and not taxable", async () => {
+    server.reply(ONE, { status: 200, body: detail({ in_use: true }) });
+    open("/b/b-1/products/p-1");
+    await screen.findByRole("heading", { name: "Neem soap" });
+    expect(screen.getByText("This product is on invoices, so it can't move between taxable and not taxable.")).toBeInTheDocument();
+  });
+
   it("sends one request and shows Saved when Save is pressed twice quickly", async () => {
     server.reply(ONE, { status: 200, body: detail() });
     open("/b/b-1/products/p-1");

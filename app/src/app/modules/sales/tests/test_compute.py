@@ -620,3 +620,20 @@ def test_business_not_ready_names_what_is_missing():
     assert words(("gstin",)) == "Your business's GSTIN is missing."
     assert words(("legal_name", "address")) == "Your business's legal name and address are missing."
     assert words(("legal_name", "address", "gstin")) == "Your business's legal name, address and GSTIN are missing."
+
+
+def test_a_not_taxable_product_gets_one_block_that_says_why():
+    """Pankaj's retest (2026-11-23): a nil-rated product has no rate, and the line said only
+    "no GST rate on the invoice date", as if a rate were missing. The category block says why."""
+    lines = [
+        line(1, 100, None, tax_category="nil_rated", rate_id=None, hsn=None),
+        line(1, 100, None, tax_category="exempt", rate_id=None),
+        line(1, 100, None, tax_category="non_gst", rate_id=None),
+    ]
+    c = run(lines, registered(MH))
+    assert [(b.code, b.line_no) for b in c.blocks] == [("product_exempt", 1), ("product_exempt", 2), ("product_exempt", 3)]
+    assert [b.fix for b in c.blocks] == [
+        "Nil-rated items need a bill of supply; not supported yet.",
+        "Exempt items need a bill of supply; not supported yet.",
+        "Non-GST items aren't supported on invoices yet.",
+    ]

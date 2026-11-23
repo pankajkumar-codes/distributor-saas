@@ -25,6 +25,11 @@ RUPEE = Decimal(1)
 HALVES = 2  # CGST and SGST/UTGST each take half the rate (LLD-4 §3.2 step 5, tax-computation §3)
 
 _EXEMPT_FIX = "Exempt items need a bill of supply; not supported yet."  # BH-2
+_NOT_TAXABLE_FIX = {
+    "exempt": _EXEMPT_FIX,
+    "nil_rated": "Nil-rated items need a bill of supply; not supported yet.",
+    "non_gst": "Non-GST items aren't supported on invoices yet.",
+}
 
 
 class _Checks:
@@ -259,7 +264,10 @@ def _line_checks(i: int, line: LineIn, inp: ComputeInput, checks: _Checks) -> De
             "product_archived", "This product is archived. Restore it or choose another.", f"{at}.product_id", n
         )
     if p.tax_category != "taxable":
-        checks.block("product_exempt", _EXEMPT_FIX, f"{at}.product_id", n)
+        # One block says why. Such a product has no GST rate, so the HSN and rate checks
+        # below would only add a wrong "no GST rate on the invoice date" to it.
+        checks.block("product_exempt", _NOT_TAXABLE_FIX[p.tax_category], f"{at}.product_id", n)
+        return None
     if p.has_cess:
         checks.block("product_has_cess", "Products with compensation cess aren't supported yet.", f"{at}.product_id", n)
     hsn = p.hsn or ""
