@@ -53,10 +53,14 @@ pass "./demo.sh reached its ready box"
 
 # 2. Everything the compose file says is healthy is healthy, and nothing has restarted on its own.
 $DC ps
-for s in api web db; do
+for s in api web db renderer; do
   [ "$($DC ps --status running -q "$s" | wc -l)" = 1 ] || fail "$s is not running"
 done
-pass "db, api and web are running"
+pass "db, api, web and renderer are running"
+# The PDF renderer (#387) loaded its bundled pango and fonts and drew its self-test page.
+for _ in $(seq 30); do $DC logs renderer 2>&1 | grep -q "watching /srv/build/objects" && break; sleep 2; done
+$DC logs renderer 2>&1 | grep -q "self-test: {'pages': 1" || { $DC logs renderer; fail "the renderer did not pass its self-test"; }
+pass "the renderer drew its self-test page and is watching for previews"
 
 # 3. The page and the API through nginx.
 for n in 1 2 3; do

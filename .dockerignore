@@ -9,7 +9,8 @@ web/dist
 web/test-results
 web/playwright-report
 infra
-renderer
+# renderer/ is needed by the demo's renderer image (demo/Dockerfile); its tests are not
+renderer/tests
 docs
 tests
 **/.env*

@@ -57,7 +57,7 @@ case "$cmd" in
     echo "Starting the demo. The first time this downloads and builds things and can take 5 to 10 minutes."
     dc down -v --remove-orphans >/dev/null 2>&1   # every start is a clean one: sign-in lives in memory
     port_busy 5173 && die "Port 5173 is already used by another program on this computer." "Close the other program (often another 'npm run dev' or 'vite'), then run this again."
-    dc up -d --build --wait api web codes || die "Docker could not build or start the demo." "Look at the lines above. Common causes: no internet while building, or Docker is out of disk space or memory."
+    dc up -d --build --wait api web codes renderer || die "Docker could not build or start the demo." "Look at the lines above. Common causes: no internet while building, or Docker is out of disk space or memory."
     dc run --rm seed || die "Setting up the demo business failed." "Run './demo.sh stop' and try again."
     wait_open
     if [ "$FINALIZE" = 1 ]; then
