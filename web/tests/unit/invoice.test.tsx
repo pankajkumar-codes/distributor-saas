@@ -74,7 +74,8 @@ describe("coming back from the product after fixing its HSN", () => {
     window.history.back();
     await waitFor(() => expect(window.location.pathname).toBe("/b/b-1/invoices/d-1"));
     await waitFor(() => expect(screen.queryByText(/Add the product's HSN code/)).toBeNull());
-    expect(screen.getByRole("button", { name: "Create practice invoice" })).toBeEnabled();
+    // The check text can go a render before the button is enabled (the draft read is still settling): wait for both.
+    await waitFor(() => expect(screen.getByRole("button", { name: "Create practice invoice" })).toBeEnabled());
     expect(screen.queryByText(/Fix the checks above/)).toBeNull();
   });
 });
