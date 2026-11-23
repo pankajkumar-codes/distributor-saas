@@ -148,6 +148,35 @@ so you create a business through the sign-up page.
   outside the demo. If the page does not answer within 20 seconds it says it could not reach the server.
 - The own-invoice Excel reader is real (R1-M5). Its sample is read, previewed and can be confirmed into documents (R1-M7, step 14 below). The PDF reader arrives in R1-M6. Confirming Amazon, Flipkart or Meesho files is refused on purpose, until the CA settles how their rows are treated.
 - Retention (clean-up of old uploads) is switched off, as it ships.
+- **Ready-made customers and products.** The Demo Traders account starts with 5 made-up customers and 10 made-up
+  products (`demo/demo_data.py`), so you can make an invoice without typing a customer or product first. Names say
+  "(made up)" or "(demo)"; the GSTINs have a correct check character but belong to nobody.
+
+  | Customer | GSTIN | State | Tests |
+  |---|---|---|---|
+  | Demo Retail Kolkata | 19DEMOC1111C1Z7 | West Bengal (19) | B2B, same state (CGST + SGST) |
+  | Demo Wholesale Mumbai | 27DEMOD2222D1Z1 | Maharashtra (27) | B2B, other state (IGST) |
+  | Demo Walk-in Buyer Howrah | none | West Bengal (19) | B2C, same state |
+  | Demo Home Buyer Patna | none | Bihar (10) | B2C, other state (large or small by invoice value) |
+  | Demo Distributor Delhi, ships to Siliguri | 07DEMOE3333E1ZU | Bill To Delhi (07), Ship To West Bengal (19) | Bill To and Ship To in different states |
+
+  | Code | HSN / SAC | Unit | GST | Tests |
+  |---|---|---|---|---|
+  | DEMO-TSHIRT | 6109 | PCS | 5% | 4-digit HSN, has a barcode |
+  | DEMO-FABRIC | 520811 | MTR | 5% | 6-digit HSN, price with paise (120.75) |
+  | DEMO-CREAM | 33049910 | NOS | 18% | 8-digit HSN |
+  | DEMO-HAMPER | none | BOX | 18% | Missing HSN |
+  | DEMO-SODA | 22021010 | BTL | 40% | highest rate |
+  | DEMO-RING | 7113 | GMS | 3% | weight unit, high price |
+  | DEMO-CONSULT | SAC 998311 | OTH | 18% | a service |
+  | DEMO-RICE | 1006 | KGS | nil-rated | no rate |
+  | DEMO-BOOK | 4901 | NOS | exempt | no rate |
+  | DEMO-DIESEL | 2710 | LTR | non-GST | outside GST |
+
+  Every rate applies from 01-02-2026. 12% and 28% are not used because the app's rate list no longer has them from
+  that date. The HSN and rate pairs give a spread of cases to test; they are not tax advice. SEZ and export
+  customers are not in the list because the app has no SEZ or export invoices yet. These customers and products
+  exist only in the local demo, never in staging or production.
 
 ## 3b. Trying the GSTIN lookup on sign-up
 
@@ -293,7 +322,8 @@ its data in memory, not on any disk, so it never waits for the disk.)
 uses), starts the API with `PLATFORM_ENV=local` (jobs run inline, files go to a local folder, mail goes to a file)
 and `DEMO_READERS=1`, serves the built web app with nginx (`demo/nginx.conf`: it passes `/api` to the API, opening a fresh connection for every request and giving up after 3 s to connect, so no stuck connection can wedge the page), and runs
 `demo/watch_codes.py` to print codes. `demo/seed.py` signs the demo user up through the API's own sign-up path
-and creates the made-up business. Sample files are built by `demo/make_samples.py`; a test keeps the committed
+and creates the made-up business, then adds the customers and products in `demo/demo_data.py` through the same
+API (only the ones missing, so a re-run adds nothing). Sample files are built by `demo/make_samples.py`; a test keeps the committed
 files equal to the generator's output and checks each file does what section 4 says.
 `app/src/app/demo_readers.py` registers the stand-in readers only when `DEMO_READERS=1` and the environment is
 local or test (never on Lambda).
