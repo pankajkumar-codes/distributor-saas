@@ -100,6 +100,16 @@ services:
       timeout: 4s
       retries: 60
 
+  # Draws PDF previews (#387): watches the render requests the API leaves in the `build` volume and renders each with
+  # the cloud renderer's own code and templates (demo/render_watch.py). No network is needed once built.
+  renderer:
+    build: { context: ., dockerfile: demo/Dockerfile, target: renderer }
+    image: gstdemo-renderer
+    restart: unless-stopped
+    network_mode: none
+    volumes:
+      - build:/srv/build
+
   codes:
     <<: *api
     command: ["python", "-u", "demo/watch_codes.py", "/srv/build/mail/outbox.jsonl"]

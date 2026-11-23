@@ -2,7 +2,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 import { errorText } from "../../api/errors";
 import { signOut } from "../../auth/session";
-import { isDemo } from "../../demo";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import type { usePreview } from "./usePreview";
@@ -21,17 +20,6 @@ export function PreviewPanel({ preview, version, dirty }: { preview: ReturnType<
     await signOut();
     navigate(`/signin?next=${encodeURIComponent(here)}`, { replace: true });
   };
-  // The PDF renderer runs only in the cloud (D-042); the local demo records the request and nothing ever draws it,
-  // so the button would only wait and then say "taking longer than usual". Say so up front instead.
-  if (isDemo())
-    return (
-      <section aria-label="Preview">
-        <Button type="button" disabled>
-          Preview PDF
-        </Button>
-        <p className="hint">PDF previews aren't made in the local demo: the PDF maker runs only in the cloud. Your draft is saved.</p>
-      </section>
-    );
   return (
     <section aria-label="Preview">
       <Button type="button" busy={preview.start.isPending} disabled={dirty} onClick={() => preview.start.mutate()}>

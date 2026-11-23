@@ -437,7 +437,7 @@ jobs:
   demo-smoke:
     # The local demo, run as a person runs it (./demo.sh) on Docker: nginx in front, the demo account, an API
     # restart that keeps sign-in, and a frozen database that must not stop /health. Not in the required checks
-    # yet: it is new, and builds three images. scripts/demo_smoke.sh has the steps.
+    # yet: it is new, and builds four images. scripts/demo_smoke.sh has the steps.
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

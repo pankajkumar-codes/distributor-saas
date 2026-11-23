@@ -138,13 +138,16 @@ describe("the invoice date", () => {
 });
 
 describe("the PDF preview in the local demo", () => {
-  it("says up front that the demo makes no PDFs, instead of waiting and calling it slow", async () => {
+  it("works as in the cloud: the demo has its own renderer (#387)", async () => {
     demo.on = true;
     server.reply(ONE, { status: 200, body: draft });
     server.reply("/api/v1/b/b-1/customers/c-1", { status: 200, body: delhi });
+    server.reply(`POST ${ONE}/preview`, { status: 202, body: { job_id: "j-1" } });
     open("/b/b-1/invoices/d-1");
-    expect(await screen.findByRole("button", { name: "Preview PDF" })).toBeDisabled();
-    expect(screen.getByText(/PDF previews aren't made in the local demo/)).toBeInTheDocument();
-    expect(server.paths()).not.toContain(`${ONE}/preview`);
+    const button = await screen.findByRole("button", { name: "Preview PDF" });
+    expect(button).toBeEnabled();
+    expect(screen.queryByText(/PDF previews aren't made in the local demo/)).toBeNull();
+    fireEvent.click(button);
+    await vi.waitFor(() => expect(server.paths()).toContain(`${ONE}/preview`));
   });
 });
