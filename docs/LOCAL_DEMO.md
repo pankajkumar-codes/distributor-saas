@@ -85,12 +85,6 @@ the Finalize button does nothing here either. To try it, start the demo with the
 > staging or production configuration, and it stays off there until the CA answers (D-010, D-044, CA-1). Without the
 > flag the demo behaves as the product ships.
 
-### PDF previews are not made in the demo
-
-The PDF renderer is a cloud function (D-042); the demo records a render request and nothing draws it. So on a draft
-invoice the **Preview PDF** button is greyed out with a one-line note saying so, instead of waiting and reporting
-"taking longer than usual". Totals and checks on the page are the same computation the PDF would print.
-
 ### Windows with WSL (an alternative that is partly verified)
 
 **Status, so you know what to trust:** `.\demo.ps1` is the simplest way and needs none of the steps below, but it has
@@ -154,6 +148,12 @@ so you create a business through the sign-up page.
   outside the demo. If the page does not answer within 20 seconds it says it could not reach the server.
 - The own-invoice Excel reader is real (R1-M5). Its sample is read, previewed and can be confirmed into documents (R1-M7, step 14 below). The PDF reader arrives in R1-M6. Confirming Amazon, Flipkart or Meesho files is refused on purpose, until the CA settles how their rows are treated.
 - Retention (clean-up of old uploads) is switched off, as it ships.
+- **PDF previews are real** (#387). **Preview PDF** on a saved draft invoice draws the PDF with the same renderer
+  code, templates and fonts as the cloud (D-042): a `renderer` piece in the demo watches the render requests and
+  turns each into a PDF in a second or two. The first `./demo.sh` after this change builds it, which downloads its
+  pinned packages and fonts and adds a few minutes, once. If a preview never comes, `docker compose -p gstdemo logs renderer` shows why
+  (it logs only the kind of error, never invoice contents). After three failed tries it marks the preview as failed,
+  and the page says the PDF could not be made.
 - **Ready-made customers and products.** The Demo Traders account starts with 5 made-up customers and 10 made-up
   products (`demo/demo_data.py`), so you can make an invoice without typing a customer or product first. Names say
   "(made up)" or "(demo)"; the GSTINs have a correct check character but belong to nobody.
@@ -331,5 +331,10 @@ and `DEMO_READERS=1`, serves the built web app with nginx (`demo/nginx.conf`: it
 and creates the made-up business, then adds the customers and products in `demo/demo_data.py` through the same
 API (only the ones missing, so a re-run adds nothing). Sample files are built by `demo/make_samples.py`; a test keeps the committed
 files equal to the generator's output and checks each file does what section 4 says.
+The `renderer` piece (`demo/render_watch.py`, image target `renderer` in `demo/Dockerfile`) is built by
+`scripts/build_renderer.py` from the Lambda's own locks for this computer's processor, runs with no network, and
+calls `renderer.handler.render_one` on each new `render-input/.../input.json` in the shared `build` volume, writing
+`documents/.../document.pdf` (or `failed.json` after 3 tries) the way the Lambda writes to S3. The API is unchanged:
+locally it still only records the render message (`app/src/app/runtime.py`), and nothing about AWS changes.
 `app/src/app/demo_readers.py` registers the stand-in readers only when `DEMO_READERS=1` and the environment is
 local or test (never on Lambda).

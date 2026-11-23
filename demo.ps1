@@ -73,7 +73,7 @@ switch ($Command.ToLower()) {
         if (Test-Port 5173) {
             Stop-Here "Port 5173 is already used by another program on this computer." "Close the other program (often another 'npm run dev' or 'vite' window), or restart the computer, then run this again."
         }
-        Dc up -d --build --wait api web codes
+        Dc up -d --build --wait api web codes renderer
         if ($LASTEXITCODE -ne 0) {
             Stop-Here "Docker could not build or start the demo." "Look at the red lines above. Common causes: no internet while building, or Docker Desktop is out of disk space or memory. Then run '.\demo.ps1 stop' and try again."
         }

@@ -9,7 +9,8 @@ test or CI job that somehow gets one fails instead of calling AWS.
 
 Locally and in tests: InlineQueue runs each job as soon as its request commits, and
 LocalObjectStore keeps files under build/objects. Render requests are recorded by a
-FakeQueue and never rendered: WeasyPrint runs only in the renderer Lambda. Anywhere else with neither set,
+FakeQueue and never rendered by this process: WeasyPrint runs in the renderer Lambda, and in the local demo
+only, a separate renderer container reads the inputs from build/objects (demo/render_watch.py). Anywhere else with neither set,
 nothing is configured, and the first send or upload raises rather than falling back to
 a fake.
 """
