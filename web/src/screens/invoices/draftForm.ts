@@ -36,18 +36,7 @@ const BLANK_ADDRESS: Address = { name: "", line1: "", line2: "", city: "", pin: 
 export const newLine = (): Line => ({ key: crypto.randomUUID(), product_id: "", name: "", quantity: "1", unit_price: "", discount_kind: "", discount_value: "" });
 
 /**
- * Today's date in India (IST), as the yyyy-mm-dd a date input takes. The server judges "today" in IST too
- * (`doc_date_future`, and a blank date becomes the IST date at finalize), so neither UTC (still yesterday before
- * 5:30 am IST) nor the device's own time zone is used.
- */
-export const todayIST = (now: Date = new Date()): string => {
-  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(now);
-  const part = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
-  return `${part("year")}-${part("month")}-${part("day")}`;
-};
-
-/**
- * A new invoice has no date of its own: the page shows today's date greyed out, and the server dates it on the day it
+ * A new invoice has no date of its own: the page shows today's date in India (`todayIst`) greyed out, and the server dates it on the day it
  * is finalized. Saving today's date here would back-date a draft finalized on a later day.
  */
 export const blankForm = (): Form => ({

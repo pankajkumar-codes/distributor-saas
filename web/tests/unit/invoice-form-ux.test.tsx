@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../../src/App";
 import { resetSessionForTests } from "../../src/auth/session";
-import { blankForm, todayIST } from "../../src/screens/invoices/draftForm";
+import { todayIst } from "../../src/format/dates";
+import { blankForm } from "../../src/screens/invoices/draftForm";
 import { fakeApi } from "./fakeApi";
 
 vi.mock("../../src/features", () => ({ FEATURES: { invoicing: true } }));
@@ -89,18 +90,18 @@ describe("the customer on a new invoice", () => {
 
 describe("the invoice date", () => {
   it("takes today's date in India, not UTC or the device's zone", () => {
-    expect(todayIST(new Date("2026-11-23T20:16:00Z"))).toBe("2026-11-24"); // 1:46 am IST on the 24th is still the 23rd in UTC
-    expect(todayIST(new Date("2026-11-23T18:29:00Z"))).toBe("2026-11-23"); // 11:59 pm IST
-    expect(todayIST(new Date("2026-03-31T18:30:00Z"))).toBe("2026-04-01"); // midnight IST starts the new financial year
+    expect(todayIst(new Date("2026-11-23T20:16:00Z"))).toBe("2026-11-24"); // 1:46 am IST on the 24th is still the 23rd in UTC
+    expect(todayIst(new Date("2026-11-23T18:29:00Z"))).toBe("2026-11-23"); // 11:59 pm IST
+    expect(todayIst(new Date("2026-03-31T18:30:00Z"))).toBe("2026-04-01"); // midnight IST starts the new financial year
   });
 
   it("shows today in grey on a new invoice without saving it, so a later finalize takes that day's date", async () => {
     expect(blankForm().doc_date).toBe("");
     open("/b/b-1/invoices/new");
     const date = await screen.findByLabelText("Invoice date");
-    expect(date).toHaveValue(todayIST());
+    expect(date).toHaveValue(todayIst());
     expect(date).toHaveClass("date-default");
-    expect(date).toHaveAttribute("max", todayIST());
+    expect(date).toHaveAttribute("max", todayIst());
     expect(screen.getByText(/until you pick one: the invoice takes the day you finalize it/)).toBeInTheDocument();
   });
 
@@ -112,7 +113,7 @@ describe("the invoice date", () => {
     expect(date).not.toHaveClass("date-default");
     expect(screen.getByText(/Clear the date to use the day you finalize/)).toBeInTheDocument();
     fireEvent.change(date, { target: { value: "" } });
-    expect(date).toHaveValue(todayIST());
+    expect(date).toHaveValue(todayIst());
     expect(date).toHaveClass("date-default");
   });
 

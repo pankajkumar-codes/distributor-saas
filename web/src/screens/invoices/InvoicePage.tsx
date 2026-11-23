@@ -16,7 +16,8 @@ import { NotFound } from "../../kit/NotFound";
 import { RadioGroup } from "../../kit/RadioGroup";
 import { SelectField } from "../../kit/SelectField";
 import { TopBar } from "../../kit/TopBar";
-import { blankForm, draftIn, formOf, newLine, todayIST, sameForm, type Draft, type Form } from "./draftForm";
+import { blankForm, draftIn, formOf, newLine, sameForm, type Draft, type Form } from "./draftForm";
+import { todayIst } from "../../format/dates";
 import { useStockFlags } from "../stock/useStock";
 import { ChosenCustomer, CustomerPicker, ProductPicker } from "./Pickers";
 import { HsnFix } from "./HsnFix";
@@ -271,9 +272,9 @@ export function InvoicePage() {
           <Field
             label="Invoice date"
             type="date"
-            value={form.doc_date || todayIST()}
+            value={form.doc_date || todayIst()}
             className={form.doc_date ? undefined : "date-default"}
-            max={todayIST()}
+            max={todayIst()}
             onChange={(e) => set({ doc_date: e.target.value })}
             onClick={(e) => {
               // Open the calendar from anywhere in the box, not only its icon. Browsers without showPicker keep their own behaviour.
