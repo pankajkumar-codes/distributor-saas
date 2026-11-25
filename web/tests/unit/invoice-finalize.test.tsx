@@ -48,7 +48,7 @@ const open = () => {
 describe("a sales invoice from the catalog", () => {
   it("warns about no stock and a missing price without blocking anything", async () => {
     open();
-    expect(await screen.findByText(/No stock on hand for this product. You can still sell it/)).toBeInTheDocument();
+    expect(await screen.findByText(/No stock on hand\. You can still sell it/)).toBeInTheDocument();
     expect(screen.getByText(/has no selling price yet/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Create practice invoice" })).toBeEnabled();
   });
@@ -60,7 +60,7 @@ describe("a sales invoice from the catalog", () => {
     server.reply(`POST ${B}/documents/doc-1/pdf`, { status: 202, body: { job_id: "j-1", attempt: 1 } });
     open();
     fireEvent.click(await screen.findByRole("button", { name: "Create practice invoice" }));
-    expect(await screen.findByText("Invoice PI-2026-27-0001")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Invoice issued PI-2026-27-0001" })).toBeInTheDocument();
     expect(window.location.pathname).toBe("/b/b-1/documents/doc-1");
     expect(screen.getByText(/not a tax invoice/)).toBeInTheDocument();
     const fin = server.sent.find((s) => s.path === `${ONE}/finalize`)!;
@@ -76,9 +76,9 @@ describe("a sales invoice from the catalog", () => {
     server.reply(`POST ${ONE}/finalize`, { status: 200, body: doc });
     server.reply(`GET ${B}/documents/doc-1`, { status: 200, body: { ...docFull, stock_movements: 1, pdf: { status: "none" } } });
     open();
-    fireEvent.change(await screen.findByLabelText("Quantity"), { target: { value: "11" } });
+    fireEvent.change(await screen.findByLabelText(/^Quantity of /), { target: { value: "11" } });
     fireEvent.click(screen.getByRole("button", { name: "Create practice invoice" }));
-    expect(await screen.findByText("Invoice PI-2026-27-0001")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Invoice issued PI-2026-27-0001" })).toBeInTheDocument();
     expect(server.sent.find((s) => s.path === ONE && s.method === "PUT")!.headers.get("If-Match")).toBe("2");
     expect(server.sent.find((s) => s.path === `${ONE}/finalize`)!.headers.get("If-Match")).toBe("3");
   });
@@ -88,13 +88,13 @@ describe("a sales invoice from the catalog", () => {
     server.reply(`POST ${ONE}/finalize`, { status: 200, body: doc });
     server.reply(`GET ${B}/documents/doc-1`, { status: 200, body: { ...docFull, stock_movements: 1, pdf: { status: "none" } } });
     open();
-    fireEvent.change(await screen.findByLabelText("Quantity"), { target: { value: "11" } });
+    fireEvent.change(await screen.findByLabelText(/^Quantity of /), { target: { value: "11" } });
     const create = screen.getByRole("button", { name: "Create practice invoice" });
     act(() => {
       create.click(); // both presses land before the page has re-rendered, as with a fast double click
       create.click();
     });
-    expect(await screen.findByText("Invoice PI-2026-27-0001")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Invoice issued PI-2026-27-0001" })).toBeInTheDocument();
     expect(server.sent.filter((s) => s.path === ONE && s.method === "PUT")).toHaveLength(1);
     expect(server.sent.filter((s) => s.path === `${ONE}/finalize`)).toHaveLength(1);
   });
@@ -104,11 +104,11 @@ describe("a sales invoice from the catalog", () => {
     server.reply(`POST ${ONE}/finalize`, { status: 503 }, { status: 200, body: doc });
     server.reply(`GET ${B}/documents/doc-1`, { status: 200, body: { ...docFull, stock_movements: 1, pdf: { status: "none" } } });
     open();
-    fireEvent.change(await screen.findByLabelText("Quantity"), { target: { value: "11" } });
+    fireEvent.change(await screen.findByLabelText(/^Quantity of /), { target: { value: "11" } });
     fireEvent.click(screen.getByRole("button", { name: "Create practice invoice" }));
     expect(await screen.findByText(/Something went wrong on our side/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Create practice invoice" }));
-    expect(await screen.findByText("Invoice PI-2026-27-0001")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Invoice issued PI-2026-27-0001" })).toBeInTheDocument();
     expect(server.sent.filter((s) => s.path === ONE && s.method === "PUT")).toHaveLength(1);
     const [first, second] = server.sent.filter((s) => s.path === `${ONE}/finalize`);
     expect(second.headers.get("Idempotency-Key")).toBe(first.headers.get("Idempotency-Key"));
@@ -118,7 +118,7 @@ describe("a sales invoice from the catalog", () => {
   it("does not create the invoice when the save is refused", async () => {
     server.reply(`PUT ${ONE}`, { status: 422, body: { error: { code: "invalid", message: "Check the quantity" } } });
     open();
-    fireEvent.change(await screen.findByLabelText("Quantity"), { target: { value: "0" } });
+    fireEvent.change(await screen.findByLabelText(/^Quantity of /), { target: { value: "0" } });
     fireEvent.click(screen.getByRole("button", { name: "Create practice invoice" }));
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     expect(server.sent.filter((s) => s.path === `${ONE}/finalize`)).toHaveLength(0);
@@ -179,10 +179,11 @@ describe("the issued invoice page", () => {
 
   it("shows the buyer, each line, the CGST and SGST split and the totals as the server stored them", async () => {
     show({});
-    expect(await screen.findByText("Invoice PI-2026-27-0001")).toBeInTheDocument();
-    expect(screen.getByText(/Sharma Traders · GSTIN 19AAAAA0000A1Z5/)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Invoice issued PI-2026-27-0001" })).toBeInTheDocument();
+    const parties = screen.getByRole("region", { name: "Parties" });
+    expect(parties).toHaveTextContent(/Sharma Traders\s*GSTIN 19AAAAA0000A1Z5/);
     expect(screen.getByText(/12 Market Road, Howrah 711101/)).toBeInTheDocument();
-    expect(screen.getByText(/West Bengal \(19\) · Within the state/)).toBeInTheDocument();
+    expect(parties).toHaveTextContent(/West Bengal \(19\) · Within the state/);
     const row = screen.getByRole("row", { name: /Aloe Vera Gel/ });
     expect(row).toHaveTextContent("HSN 3304");
     expect(row).toHaveTextContent("10 PCS");
@@ -199,7 +200,7 @@ describe("the issued invoice page", () => {
   it("labels a practice invoice as one, and offers the practice PDF", async () => {
     show({});
     expect(await screen.findByText(/Practice invoice\./)).toBeInTheDocument();
-    expect(screen.getByText(/Practice · not for customers/)).toBeInTheDocument();
+    expect(screen.getByText(/Not for customers: it is not a tax invoice/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Download practice PDF" })).toBeEnabled();
   });
 

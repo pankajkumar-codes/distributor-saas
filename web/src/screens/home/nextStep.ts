@@ -16,6 +16,8 @@ export type NextStep = {
   /** Index of the current step in `steps`, or -1 when there is none. */
   current: number;
   action: { label: string; to: string } | null;
+  /** A plain link beside the button for a second way forward (a month with no sales goes on to a nil return, #406). */
+  alt?: { label: string; to: string } | null;
 };
 
 export type ChecklistItem = { key: string; done: boolean; href: string };
@@ -88,7 +90,7 @@ function gstr1Path(row: Gstr1Row, build: Gstr1Build | undefined, fileTaken: bool
   const table13 = !build.findings.some((f) => f.code === TABLE13_CHECK);
   const done = [build.members_count > 0, toFix === 0, table13, fileTaken === true, false];
   const subs = [
-    build.members_count > 0 ? plural(build.members_count, "invoice or note", "invoices and notes") : "No sales for this period yet",
+    build.members_count > 0 ? plural(build.members_count, "invoice or note", "invoices and notes") : "None found yet",
     toFix > 0 ? `${toFix} to fix` : "Nothing to fix",
     "Table 13",
     "JSON for the portal",
@@ -107,6 +109,8 @@ function gstr1Path(row: Gstr1Row, build: Gstr1Build | undefined, fileTaken: bool
     steps: labels.map((label, i) => ({ label, sub: subs[i], state: done[i] ? "done" : i === current ? "cur" : "todo" })),
     current,
     action: actions[current] ?? null,
+    // No sales found: the seller may simply have had none. The return page takes a nil return through the same steps.
+    alt: current === 0 && canUpload ? { label: `No sales in ${row.period_label}? Go on to a nil return`, to: ret } : null,
   };
 }
 

@@ -476,3 +476,42 @@ def test_mrp_never_changes_the_line_tax_or_totals(shop):  # #398, D-104: MRP is 
     after = pg.client.get(f"/api/v1/b/{biz}/drafts/{d['id']}", headers=h()).json()["computation"]
     assert after == before
     assert after["taxable_total"] == "113.75" and "999.99" not in str(after)  # 2.5 x 45.50, from the rate
+
+
+def estimate(pg, biz, body, sub="alice"):
+    return pg.client.post(f"/api/v1/b/{biz}/drafts/estimate", json=body, headers=h(sub))
+
+
+def test_an_estimate_is_the_computation_a_save_would_store_and_stores_nothing(shop):  # #411
+    pg, biz, _ = shop
+    p, c = make_product(pg, biz, hsn="340120"), make_customer(pg, biz)
+    body = draft_body(p, customer_id=c, invoice_discount="5", lines=[{"product_id": p, "quantity": "3", "unit_price": "80",
+                                                                       "discount_kind": "amount", "discount_value": "10"}])
+    drafts_before = scalar(pg.owner, "select count(*) from sales.drafts")
+    audit_before = scalar(pg.owner, "select count(*) from platform.audit_log")
+    r = estimate(pg, biz, body)
+    assert r.status_code == 200, r.text
+    assert scalar(pg.owner, "select count(*) from sales.drafts") == drafts_before
+    assert scalar(pg.owner, "select count(*) from platform.audit_log") == audit_before
+    saved = create(pg, biz, body).json()["computation"]
+    assert r.json() == saved
+    assert r.json()["lines"][0]["base"] == "230.00"
+    # an incomplete draft gets blocks, not an error; amounts that can't be computed are a 422, as on save
+    assert "buyer_state_missing" in [b["code"] for b in estimate(pg, biz, draft_body(p)).json()["blocks"]]
+    assert estimate(pg, biz, draft_body(p, cash_buyer={"state_code": "27"}, invoice_discount="1000")).status_code == 422
+    assert estimate(pg, biz, draft_body(p, kind="credit_note")).status_code == 422
+
+
+def test_an_estimate_is_scoped_to_the_business_and_its_editors(shop):  # #411
+    pg, biz, other = shop
+    p = make_product(pg, biz, hsn="340120")
+    theirs = make_product(pg, other, sub="bob")
+    assert estimate(pg, biz, draft_body(p), sub="bill").status_code == 200
+    # the CA does not see drafts; a non-member gets the unknown-ID 404
+    assert estimate(pg, biz, draft_body(p), sub="cathy").status_code == 404
+    assert estimate(pg, biz, draft_body(p), sub="bob").status_code == 404
+    # bob's own business can't price biz's product, and biz can't use bob's
+    r = estimate(pg, other, draft_body(p), sub="bob")
+    assert (r.status_code, r.json()["error"]["code"]) == (422, "product_not_found")
+    r = estimate(pg, biz, draft_body(theirs))
+    assert (r.status_code, r.json()["error"]["code"]) == (422, "product_not_found")

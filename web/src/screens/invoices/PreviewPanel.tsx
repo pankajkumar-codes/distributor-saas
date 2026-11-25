@@ -21,11 +21,11 @@ export function PreviewPanel({ preview, version, dirty }: { preview: ReturnType<
     navigate(`/signin?next=${encodeURIComponent(here)}`, { replace: true });
   };
   return (
-    <section aria-label="Preview">
-      <Button type="button" busy={preview.start.isPending} disabled={dirty} onClick={() => preview.start.mutate()}>
+    <section className="prev" aria-label="Preview PDF">
+      <Button type="button" variant="secondary" className="btn-sm" busy={preview.start.isPending} disabled={dirty} onClick={() => preview.start.mutate()}>
         Preview PDF
       </Button>
-      {dirty && <p className="hint">Save first: the preview shows the saved draft.</p>}
+      <span className="hint">{dirty ? "Save first: the preview shows the saved draft." : "Shows the saved draft."}</span>
       {state === "preparing" && <p aria-busy="true">Preparing the preview…</p>}
       {state === "slow" && (
         <Banner tone="info">

@@ -477,6 +477,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/drafts/estimate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Estimate Draft
+         * @description The tax computation for a draft as typed, without saving it (#411): the same checks and computation as a
+         *     save, nothing stored. New invoice calls it as the seller types so the totals and the paper move with them.
+         *     Not a record: Save draft keeps the draft, and finalize computes again.
+         */
+        post: operations["estimate_draft_api_v1_b__business_id__drafts_estimate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/drafts/{draft_id}": {
         parameters: {
             query?: never;
@@ -7523,6 +7545,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DraftOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    estimate_draft_api_v1_b__business_id__drafts_estimate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComputationOut"];
                 };
             };
             /** @description Validation Error */
