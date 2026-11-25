@@ -7675,6 +7675,17 @@
             "title": "In Use",
             "type": "boolean"
           },
+          "mrp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mrp"
+          },
           "name": {
             "title": "Name",
             "type": "string"
@@ -7739,6 +7750,7 @@
           "hsn",
           "uqc",
           "sale_rate",
+          "mrp",
           "barcode",
           "tax_category",
           "has_cess",
@@ -7790,6 +7802,18 @@
               }
             ],
             "title": "Hsn"
+          },
+          "mrp": {
+            "anyOf": [
+              {
+                "maxLength": 24,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mrp"
           },
           "name": {
             "maxLength": 1000,
@@ -7877,6 +7901,17 @@
             "title": "In Use",
             "type": "boolean"
           },
+          "mrp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mrp"
+          },
           "name": {
             "title": "Name",
             "type": "string"
@@ -7930,6 +7965,7 @@
           "hsn",
           "uqc",
           "sale_rate",
+          "mrp",
           "barcode",
           "tax_category",
           "has_cess",
@@ -8013,6 +8049,18 @@
               }
             ],
             "title": "Hsn"
+          },
+          "mrp": {
+            "anyOf": [
+              {
+                "maxLength": 24,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mrp"
           },
           "name": {
             "anyOf": [

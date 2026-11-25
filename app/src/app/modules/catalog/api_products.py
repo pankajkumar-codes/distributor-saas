@@ -51,6 +51,7 @@ class ProductIn(BaseModel):
     hsn: Text | None = None
     uqc: Text
     sale_rate: Money
+    mrp: Money | None = None  # optional, display only (D-104); blank or null means none
     barcode: Text | None = None
     tax_category: Literal["taxable", "exempt", "nil_rated", "non_gst"]
     has_cess: bool = False
@@ -65,6 +66,7 @@ class ProductPatch(BaseModel):
     hsn: Text | None = None
     uqc: Text | None = None
     sale_rate: Money | None = None
+    mrp: Money | None = None  # null or "" clears it
     barcode: Text | None = None
     tax_category: Literal["taxable", "exempt", "nil_rated", "non_gst"] | None = None
     has_cess: bool | None = None
@@ -104,6 +106,7 @@ class ProductOut(BaseModel):
     hsn: str | None
     uqc: str
     sale_rate: str
+    mrp: str | None  # per 1 qty, 2 decimals; display only, never used for tax (D-104)
     barcode: str | None
     tax_category: str
     has_cess: bool
@@ -159,6 +162,7 @@ def _out(p: products.Product, rate: dict | None) -> dict:
         "hsn": p.hsn,
         "uqc": p.uqc,
         "sale_rate": f"{p.sale_rate:.2f}",
+        "mrp": None if p.mrp is None else f"{p.mrp:.2f}",
         "barcode": p.barcode,
         "tax_category": p.tax_category,
         "has_cess": p.has_cess,

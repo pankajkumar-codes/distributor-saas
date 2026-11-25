@@ -5137,6 +5137,8 @@ export interface components {
             id: string;
             /** In Use */
             in_use: boolean;
+            /** Mrp */
+            mrp: string | null;
             /** Name */
             name: string;
             /** Price Needed */
@@ -5172,6 +5174,8 @@ export interface components {
             has_cess: boolean;
             /** Hsn */
             hsn?: string | null;
+            /** Mrp */
+            mrp?: string | null;
             /** Name */
             name: string;
             rate?: components["schemas"]["RateIn"] | null;
@@ -5199,6 +5203,8 @@ export interface components {
             id: string;
             /** In Use */
             in_use: boolean;
+            /** Mrp */
+            mrp: string | null;
             /** Name */
             name: string;
             /** Price Needed */
@@ -5234,6 +5240,8 @@ export interface components {
             has_cess?: boolean | null;
             /** Hsn */
             hsn?: string | null;
+            /** Mrp */
+            mrp?: string | null;
             /** Name */
             name?: string | null;
             rate?: components["schemas"]["RateIn"] | null;

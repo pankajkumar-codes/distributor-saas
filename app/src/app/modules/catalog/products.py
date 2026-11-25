@@ -24,10 +24,10 @@ from . import checks
 from .rates import RateRow, check_rate, live, parse_rate, rate_on
 
 CONFIRMERS = ("owner", "admin")  # L3-3: a rule inside catalog.edit
-EDITABLE = ("code", "name", "hsn", "uqc", "sale_rate", "barcode", "tax_category", "has_cess")
+EDITABLE = ("code", "name", "hsn", "uqc", "sale_rate", "mrp", "barcode", "tax_category", "has_cess")
 
 _FIELDS = ("id", "code", "name", "hsn", "uqc", "sale_rate", "barcode", "tax_category", "has_cess", "status",
-           "version", "price_needed")
+           "version", "price_needed", "mrp")
 _COLUMNS = ", ".join(_FIELDS) + ", first_used_at is not null as in_use"
 
 
@@ -45,6 +45,7 @@ class Product:
     status: str
     version: int
     price_needed: bool  # R2-M3: made from a purchase line, selling price per 1 qty not set yet
+    mrp: Decimal | None  # display only (D-104): never feeds taxable value or tax
     in_use: bool
 
 
@@ -205,6 +206,8 @@ def _check_fields(uow: UnitOfWork, fields: dict, today: date) -> dict:
             out[key] = checks.uqc(tx, value, today)
         elif key == "sale_rate":
             out[key] = checks.sale_rate(value)
+        elif key == "mrp":
+            out[key] = checks.mrp(value)
         elif key == "barcode":
             out[key] = checks.barcode(value)
         elif key == "tax_category":
@@ -243,9 +246,9 @@ def create(uow: UnitOfWork, body: dict, today: date) -> uuid.UUID:
     product_id = uuid7()
     _write(
         uow,
-        "insert into catalog.products (id, business_id, code, name, hsn, uqc, sale_rate, barcode, tax_category,"
-        " has_cess, created_by, updated_by) values (:id, :b, :code, :name, :hsn, :uqc, :sale_rate, :barcode,"
-        " :tax_category, :has_cess, :me, :me)",
+        "insert into catalog.products (id, business_id, code, name, hsn, uqc, sale_rate, mrp, barcode,"
+        " tax_category, has_cess, created_by, updated_by) values (:id, :b, :code, :name, :hsn, :uqc, :sale_rate,"
+        " :mrp, :barcode, :tax_category, :has_cess, :me, :me)",
         {"id": product_id, "b": _business(uow), "me": _me(uow), **fields},
     )
     audit.record(uow, "product.created", "product", product_id, data={"code": fields["code"]})
