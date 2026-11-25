@@ -206,6 +206,29 @@ def test_documents_are_listed_newest_first_for_this_business_only(shop):
     assert pg.client.get(f"/api/v1/b/{other}/documents", headers=h("bob")).json()["documents"] == []
 
 
+def test_documents_search_matches_number_or_buyer_within_this_business_only(shop):
+    pg, biz, other, _, _, _ = shop
+    doc = _document(pg, biz)
+    other_doc = fin(pg, other, ready_draft(pg, other, sub="bob"), sub="bob").json()
+
+    def search(b, q, sub="alice"):
+        r = pg.client.get(f"/api/v1/b/{b}/documents", params={"q": q}, headers=h(sub))
+        assert r.status_code == 200, r.text
+        return [d["id"] for d in r.json()["documents"]]
+
+    assert search(biz, doc["doc_number"]) == [doc["id"]]
+    assert search(biz, doc["doc_number"][-3:].lower()) == [doc["id"]]  # part of the number, any case
+    assert search(biz, doc["counterparty_name"][:3]) == [doc["id"]]
+    assert search(biz, "no such buyer") == []
+    assert search(biz, "%") == [] and search(biz, "_") == []  # wildcards are matched as text
+    # Bob's invoice may carry the same practice number and a like-named buyer; it never shows in Alice's business.
+    assert other_doc["id"] not in search(biz, other_doc["doc_number"])
+    assert other_doc["id"] not in search(biz, other_doc["counterparty_name"][:3])
+    assert doc["id"] not in search(other, doc["doc_number"], sub="bob")
+    assert pg.client.get(f"/api/v1/b/{biz}/documents", params={"q": "x"}, headers=h("bob")).status_code == 404
+    assert pg.client.get(f"/api/v1/b/{biz}/documents", params={"q": "x" * 101}, headers=h("alice")).status_code == 422
+
+
 def test_another_business_cannot_read_a_document_and_a_ca_can(shop):
     pg, biz, other, _, _, _ = shop
     doc = _document(pg, biz)
