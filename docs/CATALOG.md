@@ -17,7 +17,7 @@ LLD-3 parts S3-a (products) and S3-b (customers). The code is in `app/src/app/mo
 | `POST /products/{pid}/rates/{rid}/confirm`, `/unconfirm` | `catalog.edit`, owner or admin only | Confirm takes an optional note; unconfirm needs a reason. |
 | `GET /units` | `catalog.view` | The UQC list for the unit picker. |
 | `GET /api/v1/refdata/gst-rates?on=` | signed in (refdata, `me_uow`) | The rates on `gst.rate_values` on `on` (default today in India), ascending, as decimal strings, for the rate picker. Empty before GST began. It lists rates and never suggests one. |
-| `GET /products/import-template` | `catalog.view` | The CSV header row (`products-template.csv`): code, name, hsn, unit, sale_rate, gst_rate, gst_rate_valid_from, barcode, tax_category, has_cess. |
+| `GET /products/import-template` | `catalog.view` | The CSV header row (`products-template.csv`): code, name, hsn, unit, sale_rate, gst_rate, gst_rate_valid_from, barcode, tax_category, has_cess, mrp. The `mrp` column is optional: a file without it changes no product's MRP; with it, a blank cell clears the MRP. |
 | `POST /product-imports` | `catalog.edit` | `{file_name, size_bytes}` with an `Idempotency-Key`. 201 `{import_id, upload: {url, fields, expires_at}}`: a presigned POST for exactly `uploads/b/<business>/<import>`, at most `catalog.import.max_bytes`. |
 | `POST /product-imports/{id}/complete` | `catalog.edit` | Checks the file is in the store, then 202 `{job_id}` for the parse job. 409 `upload_missing` before the upload lands; calling it again returns the same job. |
 | `GET /product-imports/{id}` | `catalog.view` | Status, counts, error, and the preview rows (`rows=new|changed|unchanged|invalid|conflict`, `limit`, `offset`) with each row's values, diff, errors and outcome. |
@@ -57,6 +57,7 @@ LLD-3 parts S3-a (products) and S3-b (customers). The code is in `app/src/app/mo
   - PIN must match refdata `address.pin_pattern`; credit days run from 0 to refdata `customer.credit_days_max` (both provisional, PO).
   - Audit rows hold field names only, never a name, address or GSTIN (LLD-3 §9).
 - **Money and rates** are decimal strings in and out. A JSON number is refused.
+- **MRP** (#398, D-104) is optional: a decimal string with up to 2 decimals, not negative (`mrp_invalid`), stored as `numeric(14, 2)`; `null` or `""` on a PATCH clears it. It is display only: taxable value and tax still come from the line's rate, never from MRP (tax-inclusive pricing is CA-5). An MRP change is an ordinary product edit: it bumps `version`, needs If-Match and is audited as `product.updated` with the field name.
 - **Tenant isolation.**
   - Every table has forced row-level security, and every query also filters on the bound business explicitly.
   - The rate tables use composite `(id, business_id)` foreign keys, so a row can't point at another business's product. Foreign key checks don't see row-level security, so the policies alone wouldn't stop that.

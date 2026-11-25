@@ -13,6 +13,8 @@ from platform_common.errors import Invalid
 CODE = re.compile(r"^[A-Za-z0-9_./-]+$")
 # The column holds 18 digits with 2 after the point.
 SALE_RATE = re.compile(r"^[0-9]{1,16}(\.[0-9]{1,2})?$")
+# MRP: numeric(14, 2), so 12 digits before the point.
+MRP = re.compile(r"^[0-9]{1,12}(\.[0-9]{1,2})?$")
 TAX_CATEGORIES = ("taxable", "exempt", "nil_rated", "non_gst")
 
 
@@ -67,6 +69,21 @@ def sale_rate(raw: str) -> Decimal:
         raise Invalid("sale_rate_invalid", "Enter the price as a number with up to 2 decimals, like 120.50",
                       field="sale_rate")
     return Decimal(raw.strip())
+
+
+def mrp(raw: str | None) -> Decimal | None:
+    """Optional, per unit, display only (D-104): never used for taxable value or tax. Blank
+    clears it. A decimal string only: never a float (AC3-15)."""
+    if raw is None:
+        return None
+    if not isinstance(raw, str):
+        raise Invalid("mrp_invalid", "Enter the MRP as a number with up to 2 decimals, like 120.50", field="mrp")
+    value = raw.strip()
+    if not value:
+        return None
+    if not MRP.match(value):
+        raise Invalid("mrp_invalid", "Enter the MRP as a number with up to 2 decimals, like 120.50", field="mrp")
+    return Decimal(value)
 
 
 def barcode(raw: str | None) -> str | None:

@@ -464,3 +464,15 @@ def test_a_bad_cursor_is_a_422(shop, bad):
     pg, biz, _ = shop
     r = pg.client.get(f"/api/v1/b/{biz}/drafts?cursor={bad}", headers=h())
     assert (r.status_code, r.json()["error"]["code"], r.json()["error"]["field"]) == (422, "cursor_invalid", "cursor")
+
+
+def test_mrp_never_changes_the_line_tax_or_totals(shop):  # #398, D-104: MRP is display only
+    pg, biz, _ = shop
+    p, c = make_product(pg, biz), make_customer(pg, biz)
+    d = create(pg, biz, draft_body(p, customer_id=c)).json()
+    before = d["computation"]
+    r = pg.client.patch(f"/api/v1/b/{biz}/products/{p}", json={"mrp": "999.99"}, headers=h(**{"If-Match": "1"}))
+    assert r.status_code == 200 and r.json()["mrp"] == "999.99"
+    after = pg.client.get(f"/api/v1/b/{biz}/drafts/{d['id']}", headers=h()).json()["computation"]
+    assert after == before
+    assert after["taxable_total"] == "113.75" and "999.99" not in str(after)  # 2.5 x 45.50, from the rate
