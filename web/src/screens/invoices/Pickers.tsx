@@ -26,11 +26,10 @@ type Props<T> = {
  * from the first letter the server's own search answers. Picking a result calls onPick and
  * clears the box. The server scopes the search to this business.
  */
-function Picker<T extends { id: string }>({ label, placeholder, error, onPick, none, kind, businessId, show, fetchItems, exclude }: Props<T> & {
+function Picker<T extends { id: string }>({ label, placeholder, error, onPick, none, kind, businessId, show, fetchItems }: Props<T> & {
   kind: "customers" | "products";
   show: (i: T) => ReactNode;
   fetchItems: (q: string) => Promise<{ items: T[] }>;
-  exclude?: ReadonlySet<string>;
 }) {
   const [text, setText] = useState("");
   const q = useDebounced(text.trim(), 200);
@@ -40,7 +39,7 @@ function Picker<T extends { id: string }>({ label, placeholder, error, onPick, n
     queryFn: () => fetchItems(q),
   });
   const id = useId();
-  const items = (found.data?.items ?? []).filter((i) => !exclude?.has(i.id));
+  const items = found.data?.items ?? [];
   const open = text.trim().length > 0 && q.length > 0;
   return (
     <div className="pick">
@@ -102,7 +101,7 @@ export const CustomerPicker = (p: Props<Customer> & { stateNames: Record<string,
   />
 );
 
-export const ProductPicker = (p: Props<Product> & { exclude?: ReadonlySet<string> }) => (
+export const ProductPicker = (p: Props<Product>) => (
   <Picker<Product>
     {...p}
     kind="products"

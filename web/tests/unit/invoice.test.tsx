@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../../src/App";
@@ -504,5 +504,38 @@ describe("the form's body", () => {
     expect(screen.getByText("2 to fix:")).toBeInTheDocument();
     expect(screen.getByText("Choose a buyer.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save draft" })).toBeEnabled(); // a draft can still be saved
+  });
+});
+
+describe("live totals while typing (#411)", () => {
+  const line = (base: string) => ({ line_no: 1, product_id: "p-1", base, taxes: [] });
+  it("asks the server for the figures of the form as typed, without saving, and shows them on the line and the paper", async () => {
+    server.reply(ONE, { status: 200, body: draft({ computation: computation({ lines: [line("1000.00")] }) }) });
+    server.reply("/api/v1/b/b-1/products/p-1", { status: 200, body: product });
+    server.reply(`POST ${DRAFTS}/estimate`, { status: 200, body: computation({ lines: [line("1200.00")], taxable_total: "1200.00", cgst_total: "108.00", sgst_total: "108.00", doc_total: "1416.00" }) });
+    open("/b/b-1/invoices/d-1");
+    const paper = await screen.findByRole("region", { name: "Invoice preview" });
+    await waitFor(() => expect(paper).toHaveTextContent("₹1,180.00"));
+    fireEvent.change(screen.getByLabelText(/^Quantity of /), { target: { value: "12" } });
+    await waitFor(() => expect(paper).toHaveTextContent("₹1,416.00"));
+    expect(within(screen.getByRole("region", { name: "Items" })).getByRole("row", { name: /Aloe Vera Gel/ })).toHaveTextContent("₹1,200.00");
+    const asked = sent(`${DRAFTS}/estimate`, "POST");
+    expect(asked).toHaveLength(1);
+    expect(asked[0].body).toMatchObject({ lines: [{ product_id: "p-1", quantity: "12" }] });
+    expect(sent(ONE, "PUT")).toHaveLength(0); // nothing is saved
+    expect(screen.getByText(/Totals include your changes/)).toBeInTheDocument();
+  });
+
+  it("shows a dash while the server can't work the figures out yet", async () => {
+    server.reply(ONE, { status: 200, body: draft({ computation: computation({ lines: [line("1000.00")] }) }) });
+    server.reply("/api/v1/b/b-1/products/p-1", { status: 200, body: product });
+    server.reply(`POST ${DRAFTS}/estimate`, { status: 422, body: { error: { code: "invalid", message: "bad", field: "lines.0.quantity" } } });
+    open("/b/b-1/invoices/d-1");
+    const paper = await screen.findByRole("region", { name: "Invoice preview" });
+    await waitFor(() => expect(paper).toHaveTextContent("₹1,180.00"));
+    fireEvent.change(screen.getByLabelText(/^Quantity of /), { target: { value: "1.2.3" } });
+    await waitFor(() => expect(sent(`${DRAFTS}/estimate`, "POST")).toHaveLength(1));
+    await waitFor(() => expect(paper).not.toHaveTextContent("₹1,180.00"));
+    expect(within(screen.getByRole("region", { name: "Items" })).getByRole("row", { name: /Aloe Vera Gel/ })).not.toHaveTextContent("₹");
   });
 });

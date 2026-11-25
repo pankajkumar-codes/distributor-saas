@@ -40,8 +40,10 @@ import { usePreview } from "./usePreview";
 import { useFormKey } from "../../kit/formKey";
 import { useSingleFlight } from "../../kit/singleFlight";
 import { NoAccess } from "../../kit/NoAccess";
+import { useDebounced } from "../../kit/useDebounced";
 
 type Product = components["schemas"]["ProductOut"];
+type Computation = components["schemas"]["ComputationOut"];
 
 // Invoice numbering is off until the CA confirms it (D-010), so every invoice made here is a practice one and the button says so.
 const PRACTICE_ONLY = true;
@@ -235,6 +237,25 @@ export function InvoicePage() {
       navigate(`/b/${businessId}/documents/${doc.id}`, { replace: true }),
   );
   const flags = useStockFlags(businessId, Boolean(business));
+  // #411: the server's computation of the form as typed, so the line totals and the paper move as the seller types. It is the
+  // same checks and arithmetic as a save, and nothing is stored; Save draft keeps the draft and finalize computes again. A form
+  // the server can't compute yet (a half-typed amount) gets no figures, and the page shows "—" as before.
+  const typed = form ? estimateBody(form) : "";
+  const savedBody = saved && form ? estimateBody(formOf(saved, names)) : null;
+  const settled = useDebounced(typed, 300);
+  const live = useQuery<Computation, ApiError>({
+    queryKey: ["b", businessId, "estimate", settled],
+    enabled: Boolean(business && form && form.lines.length > 0 && settled === typed && typed !== savedBody),
+    staleTime: 60_000,
+    retry: false,
+    queryFn: () =>
+      call(() =>
+        api.POST("/api/v1/b/{business_id}/drafts/estimate", {
+          params: { path: { business_id: businessId } },
+          body: JSON.parse(settled),
+        }),
+      ),
+  });
 
   if (businesses.isPending)
     return (
@@ -350,6 +371,15 @@ export function InvoicePage() {
 
   const c = saved?.computation ?? null;
   const fresh = !dirty; // the server's figures match what is on screen
+  // What the totals and the paper show: the last save while nothing changed, else the server's figures for the form as typed.
+  const estimate = dirty && settled === typed && live.data && !live.isFetching ? live.data : null;
+  const shown = fresh ? c : estimate;
+  const lineFigures = (l: FormLine, i: number) =>
+    estimate
+      ? estimate.lines.find((x) => x.line_no === i + 1)
+      : fresh || sameLine(l, saved?.lines?.[i])
+        ? c?.lines.find((x) => x.line_no === i + 1)
+        : undefined;
   const lineIssues = (n: number) =>
     [
       ...(c?.blocks ?? []).map((i) => ({ ...i, tone: "bad" })),
@@ -634,7 +664,6 @@ export function InvoicePage() {
                   businessId={businessId}
                   label="Add a product"
                   placeholder="Add a product: type a name, code or barcode"
-                  exclude={new Set(form.lines.map((l) => l.product_id))}
                   none={
                     <Link to={`/b/${businessId}/products/new`}>
                       Add a new product
@@ -688,9 +717,7 @@ export function InvoicePage() {
                       const p = products[l.product_id];
                       const name = l.name || p?.name || "Product";
                       const stock = onHand[l.product_id];
-                      const computed = sameLine(l, saved?.lines?.[i])
-                        ? c?.lines.find((x) => x.line_no === i + 1)
-                        : undefined;
+                      const computed = lineFigures(l, i);
                       const percent = l.discount_kind === "percent";
                       return (
                         <tr key={l.key}>
@@ -810,7 +837,7 @@ export function InvoicePage() {
                             {percent && <span className="sub2"> %</span>}
                           </td>
                           <td className="r num">
-                            {computed && fresh
+                            {computed && (fresh || estimate)
                               ? formatRupees(computed.base)
                               : "—"}
                           </td>
@@ -838,7 +865,7 @@ export function InvoicePage() {
                 <span>
                   {form.lines.length}{" "}
                   {form.lines.length === 1 ? "item" : "items"}
-                  {dirty && saved ? " · Totals are from your last save" : ""}
+                  {dirty && !estimate && form.lines.length > 0 ? " · Totals show once the amounts are complete" : ""}
                 </span>
                 <span>Total = rate × qty − discount, before GST.</span>
               </div>
@@ -878,7 +905,7 @@ export function InvoicePage() {
                   {saved && !c && !dirty
                     ? `Total as last saved: ${saved.total ? formatRupees(saved.total) : "—"}. Save to see the tax and any checks.`
                     : dirty && saved
-                      ? "Save draft to see the tax and any checks for your changes."
+                      ? "Totals include your changes. Save draft to keep them and see any checks."
                       : PRACTICE_ONLY
                         ? "Makes a practice invoice with a PR- number: not for your customer, locked once made."
                         : "Gives the invoice its number and locks it; later changes need a credit note."}
@@ -934,8 +961,8 @@ export function InvoicePage() {
 
           <aside className="paperwrap" aria-label="Preview">
             <Paper
-              c={c}
-              stale={dirty}
+              c={shown ?? c}
+              stale={!shown}
               practice={PRACTICE_ONLY}
               from={{ name: business.display_name, gstin: business.gstin }}
               to={buyerOnPaper}
@@ -943,9 +970,7 @@ export function InvoicePage() {
               states={stateNames}
               lines={form.lines.map((l, i) => {
                 const p = products[l.product_id];
-                const computed = sameLine(l, saved?.lines?.[i])
-                  ? c?.lines.find((x) => x.line_no === i + 1)
-                  : undefined;
+                const computed = lineFigures(l, i);
                 return {
                   key: l.key,
                   name: l.name || p?.name || "Product",
@@ -976,4 +1001,14 @@ export function InvoicePage() {
       </main>
     </>
   );
+}
+
+/**
+ * The body sent for the live figures (#411): what a save would send, except that a cash sale whose state isn't chosen yet goes
+ * without a buyer, so the lines can still be priced (the server would refuse an empty state).
+ */
+function estimateBody(f: Form): string {
+  const body = draftIn(f);
+  if (body.cash_buyer && !body.cash_buyer.state_code) body.cash_buyer = null;
+  return JSON.stringify(body);
 }
