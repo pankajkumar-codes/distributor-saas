@@ -1,10 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 
 import { api, call } from "../../api/client";
 import { errorText, type ApiError } from "../../api/errors";
 import type { components } from "../../api/schema";
+import { formatRupees } from "../../format/money";
 import { useDebounced } from "../../kit/useDebounced";
+import { gstText, hsnText } from "./lineFacts";
 
 type Customer = components["schemas"]["CustomerOut"];
 type Product = components["schemas"]["ProductOut"];
@@ -12,50 +14,69 @@ type Product = components["schemas"]["ProductOut"];
 type Props<T> = {
   businessId: string;
   label: string;
-  hint?: string;
+  placeholder?: string;
   error?: string;
   onPick: (item: T) => void;
+  /** Shown under the results when nothing matches, e.g. a link to add one. */
+  none?: ReactNode;
 };
 
-/** A search box over a list route; picking a result calls onPick and clears the box. */
-function Picker<T extends { id: string }>({ label, hint, error, onPick, kind, businessId, show, fetchItems }: Props<T> & {
+/**
+ * A search box over a list route (mocks v16): nothing is suggested before a letter is typed;
+ * from the first letter the server's own search answers. Picking a result calls onPick and
+ * clears the box. The server scopes the search to this business.
+ */
+function Picker<T extends { id: string }>({ label, placeholder, error, onPick, none, kind, businessId, show, fetchItems }: Props<T> & {
   kind: "customers" | "products";
-  show: (i: T) => string;
+  show: (i: T) => ReactNode;
   fetchItems: (q: string) => Promise<{ items: T[] }>;
 }) {
   const [text, setText] = useState("");
-  const q = useDebounced(text.trim());
+  const q = useDebounced(text.trim(), 200);
   const found = useQuery<{ items: T[] }, ApiError>({
     queryKey: ["b", businessId, "picker", kind, q],
     enabled: q.length > 0,
     queryFn: () => fetchItems(q),
   });
-  const id = `picker-${kind}`;
+  const id = useId();
+  const items = found.data?.items ?? [];
+  const open = text.trim().length > 0 && q.length > 0;
   return (
-    <div className="field">
-      <label htmlFor={id}>{label}</label>
-      <input id={id} type="search" autoComplete="off" value={text} onChange={(e) => setText(e.target.value)} aria-invalid={error ? true : undefined} />
-      {hint && <p className="hint">{hint}</p>}
+    <div className="pick">
+      <input
+        id={id}
+        className="inp"
+        type="search"
+        autoComplete="off"
+        aria-label={label}
+        placeholder={placeholder ?? label}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => e.key === "Escape" && setText("")}
+        aria-invalid={error ? true : undefined}
+      />
       {error && <p className="error">{error}</p>}
-      {found.error && <p className="error">{errorText(found.error)}</p>}
-      {q && found.isSuccess && found.data.items.length === 0 && <p className="hint">No match.</p>}
-      {found.data && found.data.items.length > 0 && (
-        <ul className="picker" aria-label={`${label} results`}>
-          {found.data.items.map((item) => (
-            <li key={item.id}>
-              <button
-                type="button"
-                className="btn btn-link"
-                onClick={() => {
-                  onPick(item);
-                  setText("");
-                }}
-              >
-                {show(item)}
-              </button>
-            </li>
+      {open && (found.error || found.isSuccess) && (
+        <div className="results drop-res" role="region" aria-label={`${label} results`}>
+          {found.error && <p className="empty error">{errorText(found.error)}</p>}
+          {found.isSuccess && items.length === 0 && (
+            <p className="empty">
+              Nothing matches “{q}”. {none}
+            </p>
+          )}
+          {items.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => {
+                onPick(item);
+                setText("");
+              }}
+            >
+              {show(item)}
+            </button>
           ))}
-        </ul>
+        </div>
       )}
     </div>
   );
@@ -63,29 +84,45 @@ function Picker<T extends { id: string }>({ label, hint, error, onPick, kind, bu
 
 const query = (q: string) => ({ status: "active" as const, q, limit: 8 });
 
-export const CustomerPicker = (p: Props<Customer>) => (
+export const CustomerPicker = (p: Props<Customer> & { stateNames: Record<string, string> }) => (
   <Picker<Customer>
     {...p}
     kind="customers"
-    show={(c) => (c.gstin ? `${c.name} · ${c.gstin}` : c.name)}
+    show={(c) => (
+      <>
+        <b>{c.name}</b>
+        <span className="sub2">
+          {c.gstin ? <span className="num">GSTIN {c.gstin}</span> : "No GSTIN (unregistered)"}
+          {c.billing?.state_code ? ` · ${p.stateNames[c.billing.state_code] ?? c.billing.state_code}` : ""}
+        </span>
+      </>
+    )}
     fetchItems={(q) => call(() => api.GET("/api/v1/b/{business_id}/customers", { params: { path: { business_id: p.businessId }, query: query(q) } }))}
   />
 );
+
 export const ProductPicker = (p: Props<Product>) => (
   <Picker<Product>
     {...p}
     kind="products"
-    show={(x) => (x.hsn ? `${x.name} · HSN ${x.hsn}` : x.name)}
+    show={(x) => (
+      <>
+        <b>{x.name}</b> <span className="sub2 num inline">{x.code}</span>
+        <span className="sub2">
+          {hsnText(x.hsn)} · {gstText(x)} · {x.uqc} · Rate {/^0*(\.0*)?$/.test(x.sale_rate) ? "—" : formatRupees(x.sale_rate)}
+        </span>
+      </>
+    )}
     fetchItems={(q) => call(() => api.GET("/api/v1/b/{business_id}/products", { params: { path: { business_id: p.businessId }, query: query(q) } }))}
   />
 );
 
 type Address = Customer["billing"];
-const addressText = (a: Address | null | undefined, stateNames: Record<string, string>) =>
+export const addressText = (a: Address | null | undefined, stateNames: Record<string, string>) =>
   a ? [a.line1, a.line2, a.city, a.pin, a.state_code && `${stateNames[a.state_code] ?? ""} (${a.state_code})`.trim()].filter(Boolean).join(", ") : "";
 
 /**
- * The customer on the invoice: name, GSTIN and billing address, with Change to pick another. The details come from the
+ * The customer on the invoice (#384): name, GSTIN and billing address, with Change to pick another. The details come from the
  * customer record (already in the cache after a pick; read once when a saved draft is opened). If that read fails, the
  * name alone is shown, which is what the draft itself stores.
  */
@@ -105,18 +142,18 @@ export function ChosenCustomer({ businessId, customerId, name, stateNames, onCha
   const billing = addressText(c?.billing, stateNames);
   const delivery = c && !c.delivery_same_as_billing ? addressText(c.delivery, stateNames) : "";
   return (
-    <section className="card" aria-label="Customer">
-      <div className="card-head">
-        <p>
-          Customer: <strong>{c?.name ?? name}</strong>
-        </p>
-        <button type="button" className="btn btn-link" onClick={onChange}>
-          Change
-        </button>
-      </div>
-      {c && <p>{c.gstin ? `GSTIN ${c.gstin}` : "No GSTIN (unregistered)"}</p>}
-      {billing && <p>Billing address: {billing}</p>}
-      {delivery && <p>Delivers to: {delivery}</p>}
+    <section className="ccard" aria-label="Customer">
+      <b>{c?.name ?? name}</b>
+      <button type="button" className="btn btn-secondary btn-sm" onClick={onChange}>
+        Change
+      </button>
+      {c && (
+        <span className="sub2">
+          {c.gstin ? <span className="num">GSTIN {c.gstin}</span> : "No GSTIN (unregistered)"}
+          {billing && ` · Bill to: ${billing}`}
+          {delivery && ` · Ship to: ${delivery}`}
+        </span>
+      )}
     </section>
   );
 }

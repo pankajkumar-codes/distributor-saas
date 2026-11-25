@@ -13541,6 +13541,59 @@
         ]
       }
     },
+    "/api/v1/b/{business_id}/drafts/estimate": {
+      "post": {
+        "description": "The tax computation for a draft as typed, without saving it (#411): the same checks and computation as a\nsave, nothing stored. New invoice calls it as the seller types so the totals and the paper move with them.\nNot a record: Save draft keeps the draft, and finalize computes again.",
+        "operationId": "estimate_draft_api_v1_b__business_id__drafts_estimate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DraftIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComputationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Estimate Draft",
+        "tags": [
+          "sales"
+        ]
+      }
+    },
     "/api/v1/b/{business_id}/drafts/{draft_id}": {
       "delete": {
         "operationId": "delete_draft_api_v1_b__business_id__drafts__draft_id__delete",

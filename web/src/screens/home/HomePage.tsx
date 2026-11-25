@@ -85,6 +85,11 @@ function NextStepCard({ step }: { step: NextStep }) {
           {step.action.label} <Arrow />
         </Link>
       )}
+      {step.alt && (
+        <Link className="alt" to={step.alt.to}>
+          {step.alt.label}
+        </Link>
+      )}
     </section>
   );
 }
