@@ -15,7 +15,7 @@ const cases = [
   ["/", { kartaa_in: "0" }, "/_landing/index.html"],
   ["/", { kartaa_in: "1" }, "/index.html"],
   ["/styles.css", {}, "/_landing/styles.css"],
-  ["/fonts/fraunces-latin-wght-normal.woff2", {}, "/_landing/fonts/fraunces-latin-wght-normal.woff2"],
+  ["/fonts/geist-latin-wght-normal.woff2", {}, "/_landing/fonts/geist-latin-wght-normal.woff2"],
   ["/signin", {}, "/index.html"],
   ["/signup", { kartaa_in: "1" }, "/index.html"],
   ["/b/abc/invoices/1", {}, "/index.html"],

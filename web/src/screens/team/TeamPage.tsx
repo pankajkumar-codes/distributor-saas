@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 
 import { errorText, type ApiError } from "../../api/errors";
 import { useMyBusinesses } from "../../auth/useMyBusinesses";
@@ -16,6 +16,10 @@ import { NoAccess } from "../../kit/NoAccess";
 import { useFormKey } from "../../kit/formKey";
 import { useSingleFlight } from "../../kit/singleFlight";
 import { Loading } from "../../kit/Loading";
+import { Tabs } from "../../kit/Tabs";
+import { SettingsEyebrow } from "../settings/SettingsEyebrow";
+
+const TEAM_TABS = ["members", "invite", "invitations"] as const;
 
 // members.manage (docs/PERMISSIONS.md); the server answers anyone else 404.
 export const TEAM_MANAGERS = new Set(["owner", "admin"]);
@@ -56,7 +60,7 @@ function InviteForm({ businessId }: { businessId: string }) {
     );
   };
   return (
-    <section aria-labelledby="invite-h">
+    <section className="panel pad" aria-labelledby="invite-h">
       <h2 id="invite-h">Invite someone</h2>
       <p className="hint">We email them a link. It works for 7 days, once, and only for that email address. We don't show the link here.</p>
       <form onSubmit={submit} noValidate>
@@ -160,6 +164,8 @@ export function TeamPage() {
   const resend = useResend(businessId);
   const cancel = useCancelInvite(businessId);
   const once = useSingleFlight();
+  const [params, setParams] = useSearchParams();
+  const tab = TEAM_TABS.find((t) => t === params.get("tab")) ?? "members";
 
   if (businesses.isPending) {
     return (
@@ -177,12 +183,9 @@ export function TeamPage() {
     <>
       <TopBar title={business.display_name} gstin={business.gstin} />
       <main className="page page-wide">
-        <p className="step">
-          <Link to={`/b/${businessId}/home`}>Home</Link>
-        </p>
+        <SettingsEyebrow businessId={businessId} here="Your team" />
         <h1>Your team</h1>
-        <p className="hint">Four roles: owner, admin, billing and CA. A role gives a fixed set of things; you can't pick them one by one.</p>
-        <InviteForm businessId={businessId} />
+        <p className="lead">Four roles: owner, admin, billing and CA. A role gives a fixed set of things; you can't pick them one by one.</p>
         {team.error && (
           <Banner tone="error">
             {errorText(team.error)}
@@ -191,45 +194,74 @@ export function TeamPage() {
         )}
         {team.isPending && <Loading query={team} />}
         {team.data && (
-          <>
-            <section aria-labelledby="members-h">
-              <h2 id="members-h">Members</h2>
-              <ul className="list">
-                {team.data.members.map((m) => (
-                  <MemberRow key={m.user_id} businessId={businessId} m={m} viewerIsOwner={business.role === "owner"} />
-                ))}
-              </ul>
-            </section>
-            {invites.length > 0 && (
-              <section aria-labelledby="invites-h">
-                <h2 id="invites-h">Invitations</h2>
-                <ul className="list">
-                  {invites.map((i) => (
-                    <li key={i.id}>
-                      {i.email} · {ROLE_LABEL[i.role] ?? i.role} · {INVITE_STATUS[i.status] ?? i.status}
-                      {i.status === "pending" && <span className="hint"> · until {formatDateTimeIst(i.expires_at)}</span>}{" "}
-                      {i.status !== "cancelled" && i.status !== "accepted" && (
-                        <>
-                          {i.status === "pending" && (
-                            <Button type="button" variant="link" disabled={resend.isPending} onClick={() => once((done) => resend.mutate(i.id, { onSettled: done }))} aria-label={`Resend the invitation to ${i.email}`}>
-                              Resend
-                            </Button>
-                          )}{" "}
-                          {i.status === "pending" && (
-                            <Button type="button" variant="link" disabled={cancel.isPending} onClick={() => cancel.mutate(i.id)} aria-label={`Cancel the invitation to ${i.email}`}>
-                              Cancel
-                            </Button>
-                          )}
-                        </>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-                {resend.error && <Banner tone="error">{words(resend.error)}</Banner>}
-                {cancel.error && <Banner tone="error">{words(cancel.error)}</Banner>}
-              </section>
-            )}
-          </>
+          <Tabs
+            label="Your team"
+            current={TEAM_TABS.indexOf(tab)}
+            onChange={(i) => setParams(i ? { tab: TEAM_TABS[i] } : {}, { replace: true })}
+            tabs={[
+              {
+                label: (
+                  <>
+                    Members <span className="chip">{team.data.members.length}</span>
+                  </>
+                ),
+                panel: (
+                  <section className="panel" aria-labelledby="members-h">
+                    <div className="panel-h">
+                      <h2 id="members-h">Members</h2>
+                    </div>
+                    <ul className="list pad">
+                      {team.data.members.map((m) => (
+                        <MemberRow key={m.user_id} businessId={businessId} m={m} viewerIsOwner={business.role === "owner"} />
+                      ))}
+                    </ul>
+                  </section>
+                ),
+              },
+              { label: "Invite someone", panel: <InviteForm businessId={businessId} /> },
+              {
+                label: (
+                  <>
+                    Invitations <span className="chip">{invites.length}</span>
+                  </>
+                ),
+                panel: (
+                  <section className="panel" aria-labelledby="invites-h">
+                    <div className="panel-h">
+                      <h2 id="invites-h">Invitations</h2>
+                    </div>
+                    {invites.length === 0 && <p className="pad hint">No invitations waiting.</p>}
+                    {invites.length > 0 && (
+                      <ul className="list pad">
+                        {invites.map((i) => (
+                          <li key={i.id}>
+                            {i.email} · {ROLE_LABEL[i.role] ?? i.role} · {INVITE_STATUS[i.status] ?? i.status}
+                            {i.status === "pending" && <span className="hint"> · until {formatDateTimeIst(i.expires_at)}</span>}{" "}
+                            {i.status !== "cancelled" && i.status !== "accepted" && (
+                              <>
+                                {i.status === "pending" && (
+                                  <Button type="button" variant="link" disabled={resend.isPending} onClick={() => once((done) => resend.mutate(i.id, { onSettled: done }))} aria-label={`Resend the invitation to ${i.email}`}>
+                                    Resend
+                                  </Button>
+                                )}{" "}
+                                {i.status === "pending" && (
+                                  <Button type="button" variant="link" disabled={cancel.isPending} onClick={() => cancel.mutate(i.id)} aria-label={`Cancel the invitation to ${i.email}`}>
+                                    Cancel
+                                  </Button>
+                                )}
+                              </>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {resend.error && <Banner tone="error">{words(resend.error)}</Banner>}
+                    {cancel.error && <Banner tone="error">{words(cancel.error)}</Banner>}
+                  </section>
+                ),
+              },
+            ]}
+          />
         )}
       </main>
     </>

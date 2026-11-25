@@ -24,12 +24,17 @@ const open = (path: string, role = "owner") => {
   render(<App />);
 };
 
+const tab = (name: RegExp) => fireEvent.click(screen.getByRole("tab", { name }));
+
 describe("your team", () => {
   it("lists members and invitations, and sends an invitation by email with a role and one key", async () => {
     server.reply(`${B}/members`, team([member(), member({ user_id: "u-2", name: "Ravi", email: "r@example.com", role: "billing" })], [invite()]));
     open("/b/b-1/settings/team");
     expect(await screen.findByText("Asha")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /^Members 2/ })).toHaveAttribute("aria-selected", "true");
+    tab(/^Invitations 1/);
     expect(screen.getByText(/ravi@example.com · Billing · Waiting/)).toBeInTheDocument();
+    tab(/^Invite someone/);
     expect(screen.queryByText(/copy/i)).toBeNull(); // mail only: no copy-link option
     expect(screen.getByText("Enter an email and choose a role to send the invitation.")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "ca@example.com" } });
@@ -49,6 +54,7 @@ describe("your team", () => {
     server.reply(`${B}/members`, team([member()]));
     open("/b/b-1/settings/team");
     await screen.findByText("Asha");
+    tab(/^Invite someone/);
     const mismatch = { status: 409, body: { error: { code: "idempotency_mismatch", message: "This Idempotency-Key was already used for a different request" } } };
     server.reply(`POST ${B}/invitations`, { status: 503 }, mismatch, { status: 201, body: invite({ id: "i-2", email: "ca@example.com", role: "ca" }) });
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "ca@example.com" } });
@@ -72,6 +78,7 @@ describe("your team", () => {
     server.reply(`${B}/members`, team([member()]));
     open("/b/b-1/settings/team");
     await screen.findByText("Asha");
+    tab(/^Invite someone/);
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "asha@example.com" } });
     fireEvent.change(screen.getByLabelText("Role"), { target: { value: "admin" } });
     server.reply(`POST ${B}/invitations`, { status: 422, body: { error: { code: "already_member", message: "This person is already a member", field: "email" } } });
@@ -81,7 +88,7 @@ describe("your team", () => {
 
   it("sends one email when Resend is pressed twice quickly", async () => {
     server.reply(`${B}/members`, team([member()], [invite()]));
-    open("/b/b-1/settings/team");
+    open("/b/b-1/settings/team?tab=invitations");
     await screen.findByText(/ravi@example.com/);
     server.reply(`POST ${B}/invitations/i-1/resend`, { status: 200, body: invite() });
     server.reply(`${B}/members`, team([member()], [invite()]));
@@ -95,7 +102,7 @@ describe("your team", () => {
 
   it("resends and cancels a waiting invitation", async () => {
     server.reply(`${B}/members`, team([member()], [invite()]));
-    open("/b/b-1/settings/team");
+    open("/b/b-1/settings/team?tab=invitations");
     await screen.findByText(/ravi@example.com/);
     server.reply(`POST ${B}/invitations/i-1/resend`, { status: 200, body: invite() });
     server.reply(`${B}/members`, team([member()], [invite()]));

@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { errorText } from "../../api/errors";
 import { useAuthStatus } from "../../auth/AuthProvider";
+import { AuthPage } from "../../kit/AuthPage";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { useAcceptInvite, useInvitePreview } from "./useTeam";
@@ -29,22 +30,22 @@ export function AcceptInvitePage() {
 
   if (status === "checking") {
     return (
-      <main className="page" aria-busy="true">
+      <AuthPage busy>
         <p>Loading…</p>
-      </main>
+      </AuthPage>
     );
   }
   if (status === "unavailable") {
     return (
-      <main className="page">
+      <AuthPage>
         <Banner tone="error">We couldn't reach the server. Check your connection and try again.</Banner>
-      </main>
+      </AuthPage>
     );
   }
   const here = `/invite/${token}`;
   if (!signedIn) {
     return (
-      <main className="page">
+      <AuthPage>
         <h1>You have been invited</h1>
         <p>Sign in with the email address this invitation was sent to, then come back to this page to accept it.</p>
         <p>
@@ -55,11 +56,11 @@ export function AcceptInvitePage() {
         <p>
           New here? <Link to="/signup">Create an account</Link> with the same email address, then open the link in your email again.
         </p>
-      </main>
+      </AuthPage>
     );
   }
   return (
-    <main className="page">
+    <AuthPage>
       <h1>You have been invited</h1>
       {preview.isPending && <Loading query={preview} />}
       {preview.error?.status === 404 && (
@@ -83,6 +84,6 @@ export function AcceptInvitePage() {
       <p>
         <Link to="/businesses">Your businesses</Link>
       </p>
-    </main>
+    </AuthPage>
   );
 }
