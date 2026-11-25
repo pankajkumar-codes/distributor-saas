@@ -504,3 +504,67 @@ html:has(.page-auth) { background: var(--sunk); min-height: 100%; }
 .panel > table.products { margin: 0; }
 .panel > table.products th, .panel > table.products td { padding-left: 16px; padding-right: 16px; }
 .panel > .pad, .panel > p.pad { margin: 0; }
+
+/* Onboarding on a laptop (mocks v16, #404): each step fits one screen. Parts are plain groups, not cards;
+   the address sits in two rows and the choices sit in a row as chips. */
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 16px; }
+.grid3 > * { min-width: 0; }
+.onboard .ob-part { margin: 0 0 6px; }
+.onboard .ob-part h2 { font-size: 14px; font-weight: 600; margin: 8px 0 6px; }
+@media (min-width: 761px) {
+  .onboard { padding-top: 20px; }
+  .onboard .field { margin-bottom: 8px; }
+  .onboard .field input, .onboard .field select { height: 36px; }
+  .onboard .radios { margin: 0 0 6px; }
+  .onboard .radios legend { margin-bottom: 6px; font-size: 13px; }
+  .onboard .radios .opt { display: inline-flex; margin: 0 8px 6px 0; border-width: 1px; border-radius: var(--r-md); }
+  .onboard .radios .opt label { min-height: 34px; padding: 2px 12px; font-size: 14px; }
+  .onboard .radios .opt .hint, .onboard .radios .opt .sub { display: none; }
+  .onboard .radios > .hint { margin: 0 0 6px; }
+  .onboard .actions { margin-top: 8px; }
+}
+@media (max-width: 760px) { .grid3 { grid-template-columns: minmax(0, 1fr); } }
+@media (min-width: 761px) {
+  .onboard { padding-bottom: 12px; }
+  .onboard .progress { margin-bottom: 8px; }
+  .onboard fieldset.field:has(.check-line) { display: flex; flex-wrap: wrap; gap: 0 18px; }
+  .onboard fieldset.field:has(.check-line) legend, .onboard fieldset.field:has(.check-line) > p { flex-basis: 100%; }
+  .onboard .radios { margin-bottom: 2px; }
+  .onboard .radios .opt label { min-height: 32px; }
+  .onboard .radios > .hint, .onboard .radios > .error { margin: -2px 0 6px; font-size: 12px; }
+  .onboard .hint { margin-top: 2px; }
+}
+@media (min-width: 761px) {
+  .page-auth-wide.onboard { max-width: 56rem; padding-top: 12px; }
+  .onboard h1 { margin-bottom: 6px; }
+  .onboard .step { margin: 0; }
+  .onboard .ob-part h2 { margin-top: 4px; }
+}
+@media (min-width: 761px) {
+  .onboard .radios legend { margin-bottom: 4px; }
+  .onboard .radios .opt { margin-bottom: 4px; }
+  .onboard .radios .opt label { min-height: 30px; }
+  .onboard .radios > .hint, .onboard .radios > .error { margin-bottom: 4px; }
+  .onboard .ob-part h2 { margin-bottom: 4px; }
+}
+/* Business details, Name and address tab (#404): business types as one row of ticks, the address in three rows. */
+@media (min-width: 761px) {
+  .setup-edit fieldset.field:has(.check-line) { display: flex; flex-wrap: wrap; gap: 0 18px; }
+  .setup-edit fieldset.field:has(.check-line) legend, .setup-edit fieldset.field:has(.check-line) > p { flex-basis: 100%; }
+  .setup-edit fieldset.plain > fieldset.radios:has(> .field) { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 12px; }
+  .setup-edit fieldset.plain > fieldset.radios:has(> .field) > * { min-width: 0; }
+  .setup-edit fieldset.plain > fieldset.radios:has(> .field) > .field:nth-of-type(-n + 2),
+  .setup-edit fieldset.plain > fieldset.radios:has(> .field) > p { grid-column: 1 / -1; }
+  .setup-edit fieldset.plain > fieldset { grid-row: auto; }
+  .setup-edit .card { padding: 8px 0; }
+  .setup-edit .card h2 { font-size: 14px; margin: 0 0 2px; }
+}
+@media (min-width: 761px) {
+  .setup-edit fieldset.plain:not(.turnover) > fieldset.radios:has(> .field) { grid-column: 2; grid-row: 1 / span 3; }
+  .setup-edit .card { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; padding: 0 0 4px; }
+  .setup-edit .card h2 { font-size: 14px; font-weight: 600; margin: 0; }
+  .setup-edit .card p { margin: 0; }
+}
+@media (min-width: 761px) {
+  .setup-edit fieldset.plain.turnover > fieldset:first-child { grid-column: 1 / -1; }
+}

@@ -15,6 +15,7 @@ import { Button } from "../../kit/Button";
 import { Field } from "../../kit/Field";
 import { NotFound } from "../../kit/NotFound";
 import { RadioGroup } from "../../kit/RadioGroup";
+import { Tabs } from "../../kit/Tabs";
 import { SetupFrame, SetupTitle } from "./SetupFrame";
 import { PlatformsSection } from "./PlatformsSection";
 import { BAND_OPTIONS } from "../onboarding/BusinessPage";
@@ -116,6 +117,8 @@ export function CompanyPage({ embedded = false }: { embedded?: boolean } = {}) {
   const fromState = (useLocation().state as { backTo?: unknown } | null)?.backTo;
   const backTo = typeof fromState === "string" && fromState.startsWith(`/b/${businessId}/invoices/`) ? fromState : null;
   const hash = useLocation().hash;
+  // Two tabs keep the form on one laptop screen (mocks v16); an invoice that needs last year's band opens the second.
+  const [tab, setTab] = useState(hash === "#last-year-band" || backTo ? 1 : 0);
   const valuesReady = Boolean(values);
   useEffect(() => {
     if (hash === "#last-year-band" && valuesReady) document.getElementById("last-year-band")?.scrollIntoView?.({ block: "center" });
@@ -190,6 +193,9 @@ export function CompanyPage({ embedded = false }: { embedded?: boolean } = {}) {
       setWarnings(out.warnings);
     },
     onError: (e) => {
+      // A field error on the other tab opens that tab, so the message is never hidden.
+      if (/^(einvoice_history|this_band|last_band)$/.test(e.field ?? "")) setTab(1);
+      else if (/^(legal_name|trade_name|business_types|address(\..+)?)$/.test(e.field ?? "")) setTab(0);
       // Part of the save landed: what we wrote is now what the edits are against, so it is
       // neither "someone else's change" nor sent again. The unsaved edits stay in the form.
       const ours = confirmed.current;
@@ -305,7 +311,15 @@ export function CompanyPage({ embedded = false }: { embedded?: boolean } = {}) {
         </section>
 
         <form onSubmit={submit} noValidate>
-          <fieldset disabled={!canEdit} className="plain">
+          <Tabs
+            label="Business details"
+            current={tab}
+            onChange={setTab}
+            tabs={[
+              {
+                label: "Name and address",
+                panel: (
+                  <fieldset disabled={!canEdit} className="plain">
             <Field
               label="Legal name"
               value={values.legal_name}
@@ -333,6 +347,13 @@ export function CompanyPage({ embedded = false }: { embedded?: boolean } = {}) {
               errorFor={(p) => errorFor(`address.${p}`) ?? (p === "line1" ? errorFor("address") : undefined)}
               hint={theirHint("address")}
             />
+                  </fieldset>
+                ),
+              },
+              {
+                label: "Turnover and e-invoicing",
+                panel: (
+                  <fieldset disabled={!canEdit} className="plain turnover">
             <RadioGroup<Einvoice>
               legend="Has your business's total turnover (all GSTINs on your PAN) been above the e-invoicing limit in any financial year since 2017-18?"
               name="einvoice_history"
@@ -363,7 +384,11 @@ export function CompanyPage({ embedded = false }: { embedded?: boolean } = {}) {
               }
             />
             </div>
-          </fieldset>
+                  </fieldset>
+                ),
+              },
+            ]}
+          />
           {canEdit && (
             <div className="actions">
               <Button type="submit" busy={save.isPending} disabled={!dirty}>
