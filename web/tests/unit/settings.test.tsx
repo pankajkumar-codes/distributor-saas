@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../../src/App";
@@ -42,7 +42,10 @@ describe("business setup page", () => {
     expect(await screen.findByRole("heading", { level: 2, name: "Filing frequency" })).toBeInTheDocument();
     expect(await screen.findByText(/Every month, from/)).toBeInTheDocument();
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1); // one page, one main heading
-    expect(screen.getByRole("link", { name: "Audit log" })).toHaveAttribute("href", "/b/b-1/settings/audit");
+    // While a form is open the sub-menu gives way (one laptop screen, #404); Back shows it again.
+    expect(screen.queryByRole("link", { name: "Audit log" })).toBeNull();
+    fireEvent.click(screen.getByRole("link", { name: "Back to Business setup" }));
+    expect(await screen.findByRole("link", { name: "Audit log" })).toHaveAttribute("href", "/b/b-1/settings/audit");
     expect(screen.getByRole("link", { name: "Support access" })).toBeInTheDocument();
   });
 
