@@ -53,6 +53,27 @@ describe("purchase invoices", () => {
     expect(within(file).getByText("This file isn't a photo we can keep.")).toBeInTheDocument();
   });
 
+  it("marks each hard-to-read field and reads the note out with it, without a list above the form (#412)", async () => {
+    const line = { id: "l-1", line_no: 1, page: 1, hsn: "6109", quantity: "2", unit: "PCS", taxable_value: "200.00", gst_rate: "18", igst: null, cgst: "18.00", sgst: "18.00", cess: null };
+    server.reply(`${B}/purchase-drafts/d-1`, {
+      status: 200,
+      body: draft({ unclear: ["supplier_gstin", "doc_date"], lines: [{ ...line, unclear: ["hsn", "quantity", "taxable_value", "cgst", "sgst", "gst_rate"] }] }),
+    });
+    server.reply(`${B}/products`, { status: 200, body: { items: [], has_more: false } });
+    open("/b/b-1/purchases/d-1");
+    const note = "Hard to read. Please check.";
+    expect(await screen.findByLabelText("Supplier GSTIN")).toHaveAccessibleDescription(note);
+    expect(screen.getByLabelText("Invoice date")).toHaveAccessibleDescription(note);
+    expect(screen.getByLabelText("Invoice number")).not.toHaveAccessibleDescription(note);
+    for (const f of ["HSN", "Quantity", "Taxable value", "CGST", "SGST", "GST rate %"]) expect(screen.getByLabelText(`${f}, line 1`)).toHaveAccessibleDescription(note);
+    expect(screen.getByLabelText("IGST, line 1")).not.toHaveAccessibleDescription(note);
+    expect(screen.getByLabelText("HSN, line 1")).toHaveClass("unclear");
+    expect(screen.getByLabelText("IGST, line 1")).not.toHaveClass("unclear");
+    expect(document.querySelectorAll("input.unclear")).toHaveLength(8);
+    expect(screen.getByText(/Fields in amber were hard to read/)).toBeInTheDocument();
+    expect(screen.queryByText(/^Please check:/)).toBeNull();
+  });
+
   it("shows what was read, and confirms exactly what is on the screen", async () => {
     server.reply(`${B}/purchase-drafts/d-1`, { status: 200, body: draft() });
     server.reply(`${B}/products`, { status: 200, body: { items: [], has_more: false } });

@@ -87,6 +87,22 @@ test("catalogue screens: MRP, pages of five, one screen each", async ({ page }, 
   await expect(page.getByRole("heading", { level: 1, name: "Check this invoice" })).toBeVisible();
   await fitsOneScreen(page);
 
+  // #412: a read invoice with every field hard to read still fits. No reader runs locally, so the draft is
+  // dressed up in the browser as if one had read it.
+  const LINE_FIELDS = ["hsn", "quantity", "unit", "taxable_value", "gst_rate", "igst", "cgst", "sgst", "cess"];
+  await page.route(/\/purchase-drafts\/[0-9a-f-]{36}$/, async (route) => {
+    const res = await route.fetch();
+    const body = await res.json();
+    const line = { id: "l-e2e", line_no: 1, page: 1, hsn: "3401", quantity: "1", unit: "NOS", taxable_value: "10.00", gst_rate: "18", igst: null, cgst: "0.90", sgst: "0.90", cess: null, unclear: LINE_FIELDS };
+    await route.fulfill({ response: res, json: { ...body, reader: "pdf_text_v1", unclear: ["supplier_gstin", "doc_number", "doc_date", "invoice_total"], lines: [line, { ...line, id: "l-e2e-2", line_no: 2 }] } });
+  });
+  await page.reload();
+  await expect(page.getByLabel("HSN, line 1")).toHaveValue("3401");
+  await expect(page.locator("input.unclear")).toHaveCount(4 + LINE_FIELDS.length);
+  await expect(page.getByLabel("HSN, line 1")).toHaveAccessibleDescription("Hard to read. Please check.");
+  await fitsOneScreen(page);
+  await page.unroute(/\/purchase-drafts\/[0-9a-f-]{36}$/);
+
   await page.goto(`${b}/settings/plan`);
   await expect(page.getByText(/of 10 used/)).toBeVisible();
   await fitsOneScreen(page);

@@ -58,6 +58,8 @@ h2 { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; margin: 20px 0 
 .banner p, .banner ul { margin: 0; }
 .field input:disabled, .field select:disabled { background: var(--sunk); color: var(--muted); cursor: not-allowed; }
 .field input.date-default { color: var(--muted); } /* the invoice date shown before one is picked (today, not saved) */
+.field input.unclear { border-color: var(--warn); box-shadow: inset 0 0 0 1px var(--warn); } /* the reader found this hard to read (#412) */
+.field-end { display: flex; align-items: flex-end; padding-bottom: 8px; }
 input[aria-invalid="true"], select[aria-invalid="true"] { border-color: var(--bad); }
 .hint, .note { color: var(--muted); font-size: 13px; margin: 4px 0 12px; }
 .error { color: var(--bad); font-size: 13px; font-weight: 600; margin: 4px 0 12px; }

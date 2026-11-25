@@ -86,6 +86,15 @@ export function startingState(d: Draft): { head: Head; lines: LineState[] } {
 
 const zero = (v: string) => v.trim() || "0";
 
+/**
+ * A field the reader found hard to read (#412) gets an amber border, and its note is read out with the field. The
+ * note is not drawn under each field: many unclear fields would push the page past one screen. The page's sub text
+ * explains the border once.
+ */
+export const UNCLEAR_NOTE = "Hard to read. Please check.";
+export const check = (unclear: string[], field: string) => (unclear.includes(field) ? { className: "unclear", describedBy: "unclear-note" } : {});
+const anyUnclear = (d: Draft) => d.reader !== "none" && (d.unclear.length > 0 || d.lines.some((l) => l.unclear.length > 0));
+
 /** The body the server confirms: exactly what is on the screen. Nothing is worked out for the business. */
 export function confirmBody(head: Head, lines: LineState[]) {
   return {
@@ -148,10 +157,15 @@ export function ReviewPage() {
           sub={
             draft.data?.reader === "none"
               ? "We couldn't read this one, so please type it in from the paper. The file is kept to check against. Nothing counts until you confirm."
-              : "Compare with the paper. Nothing counts until you confirm."
+              : draft.data && anyUnclear(draft.data)
+                ? "Compare with the paper. Fields in amber were hard to read. Nothing counts until you confirm."
+                : "Compare with the paper. Nothing counts until you confirm."
           }
         />
         {draft.error && <Banner tone="error">{errorText(draft.error)}</Banner>}
+        <span id="unclear-note" className="visually-hidden">
+          {UNCLEAR_NOTE}
+        </span>
         {draft.data && <Review key={draft.data.id} businessId={businessId} draft={draft.data} mayEdit={canUpload(business.role)} />}
       </main>
     </>
@@ -162,6 +176,8 @@ function Review({ businessId, draft, mayEdit }: { businessId: string; draft: Dra
   const navigate = useNavigate();
   const start = startingState(draft);
   const [head, setHead] = useState(start.head);
+  // A blank draft (no reader) marks every field unclear; its sub text already says to type it all in.
+  const headCheck = (field: string) => (draft.reader === "none" ? {} : check(draft.unclear, field));
   const [lines, setLines] = useState(start.lines);
   const [done, setDone] = useState<Confirmed | null>(null);
   const [lineTab, setLineTab] = useState(0);
@@ -218,15 +234,14 @@ function Review({ businessId, draft, mayEdit }: { businessId: string; draft: Dra
       }}
     >
       {draft.decision && <Banner>This invoice was {draft.decision}. It can't be changed.</Banner>}
-      {draft.unclear.length > 0 && draft.reader !== "none" && <Banner>Please check: {draft.unclear.join(", ").replaceAll("_", " ")}.</Banner>}
       <fieldset disabled={decided || !mayEdit} className="plain">
         <section className="panel" aria-label="Supplier invoice">
         <div className="f5 pad">
-        <Field label="Supplier GSTIN" value={head.gstin} onChange={(e) => setHead({ ...head, gstin: e.target.value })} error={fieldError(err, "supplier_gstin")} />
+        <Field label="Supplier GSTIN" {...headCheck("supplier_gstin")} value={head.gstin} onChange={(e) => setHead({ ...head, gstin: e.target.value })} error={fieldError(err, "supplier_gstin")} />
         <Field label="Supplier name (optional)" value={head.supplierName} onChange={(e) => setHead({ ...head, supplierName: e.target.value })} />
-        <Field label="Invoice number" value={head.number} onChange={(e) => setHead({ ...head, number: e.target.value })} error={fieldError(err, "doc_number")} />
-        <Field label="Invoice date" type="date" value={head.date} onChange={(e) => setHead({ ...head, date: e.target.value })} error={fieldError(err, "doc_date")} />
-        <Field label="Invoice total (optional)" inputMode="decimal" value={head.total} onChange={(e) => setHead({ ...head, total: e.target.value })} error={fieldError(err, "invoice_total")} />
+        <Field label="Invoice number" {...headCheck("doc_number")} value={head.number} onChange={(e) => setHead({ ...head, number: e.target.value })} error={fieldError(err, "doc_number")} />
+        <Field label="Invoice date" {...headCheck("doc_date")} type="date" value={head.date} onChange={(e) => setHead({ ...head, date: e.target.value })} error={fieldError(err, "doc_date")} />
+        <Field label="Invoice total (optional)" {...headCheck("invoice_total")} inputMode="decimal" value={head.total} onChange={(e) => setHead({ ...head, total: e.target.value })} error={fieldError(err, "invoice_total")} />
         </div>
         </section>
 
@@ -257,17 +272,16 @@ function Review({ businessId, draft, mayEdit }: { businessId: string; draft: Dra
             <fieldset key={i} className="plain">
               <legend className="visually-hidden">Line {i + 1}</legend>
               <div className="f6">
-              {l.unclear.length > 0 && <p className="hint">Please check: {l.unclear.join(", ").replaceAll("_", " ")}.</p>}
-              <Field label={`Product name, line ${i + 1}`} value={l.name} onChange={(ev) => setLine(i, { name: ev.target.value })} error={e("product_name")} />
-              <Field label={`HSN, line ${i + 1}`} value={l.hsn} onChange={(ev) => setLine(i, { hsn: ev.target.value })} error={e("hsn")} />
-              <Field label={`Quantity, line ${i + 1}`} inputMode="decimal" value={l.quantity} onChange={(ev) => setLine(i, { quantity: ev.target.value })} error={e("quantity")} />
-              <Field label={`Unit, line ${i + 1}`} value={l.unit} onChange={(ev) => setLine(i, { unit: ev.target.value })} error={e("unit")} />
-              <Field label={`Taxable value, line ${i + 1}`} inputMode="decimal" value={l.taxable} onChange={(ev) => setLine(i, { taxable: ev.target.value })} error={e("taxable_value")} />
-              <Field label={`GST rate %, line ${i + 1}`} inputMode="decimal" value={l.rate} onChange={(ev) => setLine(i, { rate: ev.target.value })} error={e("gst_rate")} />
-              <Field label={`IGST, line ${i + 1}`} inputMode="decimal" value={l.igst} onChange={(ev) => setLine(i, { igst: ev.target.value })} error={e("igst")} />
-              <Field label={`CGST, line ${i + 1}`} inputMode="decimal" value={l.cgst} onChange={(ev) => setLine(i, { cgst: ev.target.value })} error={e("cgst")} />
-              <Field label={`SGST, line ${i + 1}`} inputMode="decimal" value={l.sgst} onChange={(ev) => setLine(i, { sgst: ev.target.value })} error={e("sgst")} />
-              <Field label={`Cess, line ${i + 1}`} inputMode="decimal" value={l.cess} onChange={(ev) => setLine(i, { cess: ev.target.value })} error={e("cess")} />
+              <Field label={`Product name, line ${i + 1}`} value={l.name} onChange={(ev) => setLine(i, { name: ev.target.value })} {...check(l.unclear, "product_name")} error={e("product_name")} />
+              <Field label={`HSN, line ${i + 1}`} value={l.hsn} onChange={(ev) => setLine(i, { hsn: ev.target.value })} {...check(l.unclear, "hsn")} error={e("hsn")} />
+              <Field label={`Quantity, line ${i + 1}`} inputMode="decimal" value={l.quantity} onChange={(ev) => setLine(i, { quantity: ev.target.value })} {...check(l.unclear, "quantity")} error={e("quantity")} />
+              <Field label={`Unit, line ${i + 1}`} value={l.unit} onChange={(ev) => setLine(i, { unit: ev.target.value })} {...check(l.unclear, "unit")} error={e("unit")} />
+              <Field label={`Taxable value, line ${i + 1}`} inputMode="decimal" value={l.taxable} onChange={(ev) => setLine(i, { taxable: ev.target.value })} {...check(l.unclear, "taxable_value")} error={e("taxable_value")} />
+              <Field label={`GST rate %, line ${i + 1}`} inputMode="decimal" value={l.rate} onChange={(ev) => setLine(i, { rate: ev.target.value })} {...check(l.unclear, "gst_rate")} error={e("gst_rate")} />
+              <Field label={`IGST, line ${i + 1}`} inputMode="decimal" value={l.igst} onChange={(ev) => setLine(i, { igst: ev.target.value })} {...check(l.unclear, "igst")} error={e("igst")} />
+              <Field label={`CGST, line ${i + 1}`} inputMode="decimal" value={l.cgst} onChange={(ev) => setLine(i, { cgst: ev.target.value })} {...check(l.unclear, "cgst")} error={e("cgst")} />
+              <Field label={`SGST, line ${i + 1}`} inputMode="decimal" value={l.sgst} onChange={(ev) => setLine(i, { sgst: ev.target.value })} {...check(l.unclear, "sgst")} error={e("sgst")} />
+              <Field label={`Cess, line ${i + 1}`} inputMode="decimal" value={l.cess} onChange={(ev) => setLine(i, { cess: ev.target.value })} {...check(l.unclear, "cess")} error={e("cess")} />
 
               <div className="field">
                 <label htmlFor={`product-${i}`}>Add line {i + 1} to</label>
@@ -306,8 +320,9 @@ function Review({ businessId, draft, mayEdit }: { businessId: string; draft: Dra
                   )}
                 </>
               )}
-              </div>
+              {/* In the grid's last cell, so removing a line adds no row below the form. */}
               {lines.length > 1 && !decided && (
+                <div className="field-end">
                 <Button
                   type="button"
                   variant="link"
@@ -318,7 +333,9 @@ function Review({ businessId, draft, mayEdit }: { businessId: string; draft: Dra
                 >
                   Remove line {i + 1}
                 </Button>
+                </div>
               )}
+              </div>
             </fieldset>
             ),
           };
