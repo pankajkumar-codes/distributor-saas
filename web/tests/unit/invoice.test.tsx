@@ -119,6 +119,28 @@ describe("fixing a missing HSN on the invoice itself", () => {
     expect(screen.getByRole("button", { name: "Create practice invoice" })).toBeEnabled();
   });
 
+  it("after a stale save and the re-read, saves the HSN against the newer version (#418)", async () => {
+    server.reply(P1, { status: 200, body: noHsn }, { status: 200, body: { ...noHsn, version: 2 } });
+    server.reply(
+      `PATCH ${P1}`,
+      { status: 409, body: { error: { code: "stale_record", message: "Someone changed this product" } } },
+      { status: 200, body: { ...noHsn, hsn: "3304", version: 3 } },
+    );
+    server.reply(ONE, { status: 200, body: blocked() });
+    open("/b/b-1/invoices/d-1");
+    fireEvent.change(await screen.findByLabelText("HSN for Aloe Vera Gel 200 ml"), { target: { value: "3304" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save HSN" }));
+    expect(await screen.findByText(/It has been reloaded: press Save HSN again/)).toBeInTheDocument();
+    await waitFor(() => expect(sent(P1, "GET")).toHaveLength(2));
+    server.reply(ONE, { status: 200, body: draft({ computation: computation() }) }); // the stale answer re-reads the product
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save HSN" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Save HSN" }));
+    await waitFor(() => expect(screen.queryByLabelText("HSN for Aloe Vera Gel 200 ml")).toBeNull());
+    const [first, second] = sent(P1, "PATCH");
+    expect(first.headers.get("If-Match")).toBe("1");
+    expect(second.headers.get("If-Match")).toBe("2");
+  });
+
   it("refuses an HSN that is not digits without asking the server", async () => {
     server.reply(P1, { status: 200, body: noHsn });
     server.reply(ONE, { status: 200, body: blocked() });
@@ -280,6 +302,7 @@ describe("the draft invoice form", () => {
       { status: 200, body: draft() },
       { status: 409, body: { error: { code: "stale_record", message: "stale" } } },
       { status: 200, body: draft({ version: 3, invoice_discount: "5.00" }) },
+      { status: 200, body: draft({ version: 4, invoice_discount: "5.00" }) },
     );
     server.reply("/api/v1/b/b-1/products/p-1", { status: 200, body: product });
     open("/b/b-1/invoices/d-1");
@@ -294,6 +317,11 @@ describe("the draft invoice form", () => {
     fireEvent.click(screen.getByRole("button", { name: "Delivery, place of supply, invoice discount" }));
     expect(await screen.findByDisplayValue("5.00")).toBeInTheDocument();
     expect(screen.queryByText(/Someone saved this draft/)).toBeNull();
+    // The next save is against their version (#418).
+    fireEvent.change(screen.getByLabelText(/^Quantity of /), { target: { value: "13" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+    await waitFor(() => expect(sent(ONE, "PUT")).toHaveLength(2));
+    expect(sent(ONE, "PUT")[1].headers.get("If-Match")).toBe("3");
   });
 
   it("previews only the saved draft, and links the PDF once it is ready", async () => {

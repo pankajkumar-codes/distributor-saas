@@ -171,12 +171,14 @@ export function InvoicePage() {
       setSaved(loaded.data);
   }, [loaded.data, saved]);
 
-  const save = useMutation<Draft, ApiError, Form>({
-    mutationFn: (f) =>
+  // The form and the version it is against are taken when Save is pressed and passed to mutate(): useMutation
+  // updates its mutationFn in an effect, so one reading `saved` itself could send an old If-Match (#418).
+  const save = useMutation<Draft, ApiError, { form: Form; version: string }>({
+    mutationFn: ({ form: f, version }) =>
       draftId
         ? call(() =>
             api.PUT("/api/v1/b/{business_id}/drafts/{draft_id}", {
-              params: { path, header: { "If-Match": String(saved?.version) } },
+              params: { path, header: { "If-Match": version } },
               body: draftIn(f),
             }),
           )
@@ -190,7 +192,7 @@ export function InvoicePage() {
             }),
           ),
     onMutate: () => setStale(false),
-    onSuccess: (out, sent) => {
+    onSuccess: (out, { form: sent }) => {
       queryClient.setQueryData(["b", businessId, "draft", out.id], out);
       // The server fills a blank rate with the product's rate on save, so show the saved draft as it is:
       // otherwise the form reads as changed straight after saving and Preview and Finalize stay off.
@@ -211,11 +213,11 @@ export function InvoicePage() {
       if (e.code === "idempotency_mismatch") formKey.reset(); // the key was used by an earlier, different request: next press starts fresh
     },
   });
-  const remove = useMutation<unknown, ApiError>({
-    mutationFn: () =>
+  const remove = useMutation<unknown, ApiError, string>({
+    mutationFn: (version) =>
       call(() =>
         api.DELETE("/api/v1/b/{business_id}/drafts/{draft_id}", {
-          params: { path, header: { "If-Match": String(saved?.version) } },
+          params: { path, header: { "If-Match": version } },
         }),
       ),
     onSuccess: () => {
@@ -315,7 +317,7 @@ export function InvoicePage() {
       cashStateRef.current?.focus();
       return;
     }
-    save.mutate(form);
+    save.mutate({ form, version: String(saved?.version) });
   };
   // One press: save what is on screen (if anything changed), then finalize that saved version. A failed save or
   // finalize leaves the draft saved and says why.
@@ -333,7 +335,7 @@ export function InvoicePage() {
         let target = saved;
         if (dirty || !target) {
           try {
-            target = await save.mutateAsync(form);
+            target = await save.mutateAsync({ form, version: String(saved?.version) });
           } catch {
             return; // the save error is shown beside the form
           }
@@ -935,7 +937,7 @@ export function InvoicePage() {
                       type="button"
                       variant="secondary"
                       busy={remove.isPending}
-                      onClick={() => remove.mutate()}
+                      onClick={() => remove.mutate(String(saved?.version))}
                     >
                       Yes, delete
                     </Button>

@@ -42,13 +42,14 @@ export function HsnFix({
         }),
       ),
   });
-  const save = useMutation<Product, ApiError, string>({
-    mutationFn: (hsn) =>
+  // The version is taken when Save is pressed and passed to mutate(), not read here (#418, as #417).
+  const save = useMutation<Product, ApiError, { hsn: string; version: string }>({
+    mutationFn: ({ hsn, version }) =>
       call(() =>
         api.PATCH("/api/v1/b/{business_id}/products/{product_id}", {
           params: {
             path,
-            header: { "If-Match": String(product.data?.version) },
+            header: { "If-Match": version },
           },
           body: { hsn },
         }),
@@ -73,7 +74,7 @@ export function HsnFix({
       return;
     }
     setProblem(null);
-    save.mutate(hsn);
+    save.mutate({ hsn, version: String(product.data?.version) });
   };
 
   const error =

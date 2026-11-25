@@ -150,9 +150,14 @@ export function CompanyPage({ embedded = false }: { embedded?: boolean } = {}) {
       }),
     );
 
-  const save = useMutation<Updated, ApiError>({
-    mutationFn: async () => {
-      const from = valuesOf(opened!);
+  // The version and edits are taken when Save is pressed and passed to mutate(): useMutation updates its mutationFn
+  // in an effect, so one reading `opened` itself could still hold the render before a reload and send an old
+  // If-Match (#418, as #417 for products).
+  const save = useMutation<Updated, ApiError, { opened: Profile; values: Values }>({
+    mutationFn: async ({ opened, values }) => {
+      const thisFy = opened.turnover_band?.fy ?? fyIst();
+      const lastFy = opened.previous_turnover_band?.fy ?? previousFy(thisFy);
+      const from = valuesOf(opened);
       const keys = changedKeys(from, values!);
       let now: Profile = opened!;
       let out: string[] = [];
@@ -262,7 +267,7 @@ export function CompanyPage({ embedded = false }: { embedded?: boolean } = {}) {
   const stateOptions = (states.data ?? []).map((s) => ({ value: s.code, label: `${s.name} (${s.code})` }));
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (dirty) save.mutate();
+    if (dirty && values) save.mutate({ opened, values });
   };
 
   return (
