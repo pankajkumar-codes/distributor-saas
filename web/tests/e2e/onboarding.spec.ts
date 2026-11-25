@@ -48,7 +48,7 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   // The customer step opens the (still empty) customers list; add one, find it, go back Home.
   const homeUrl = page.url();
   await setup.getByRole("link", { name: "Add your first customer" }).click();
-  await expect(page.getByRole("heading", { name: "Customers" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Customers" })).toBeVisible();
   await expect(page.getByText("No customers yet. Add your first with New customer.")).toBeVisible();
   await noSeriousAxeFindings(page);
   await page.getByRole("link", { name: "New customer" }).click();
@@ -57,20 +57,19 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   await page.getByLabel("Credit days").fill("15");
   await noSeriousAxeFindings(page);
   await page.getByRole("button", { name: "Add customer" }).click();
-  await expect(page.getByRole("heading", { name: "Customers" })).toBeVisible(); // adding lands on the list
+  await expect(page.getByRole("heading", { level: 1, name: "Customers" })).toBeVisible(); // adding lands on the list
   await expect(page.getByText("Added Asha Stores.")).toBeVisible();
   const customer = page.getByRole("row").filter({ hasText: "Asha Stores" });
-  await expect(customer.getByText("Unregistered")).toBeVisible();
+  await expect(customer.getByText("None")).toBeVisible();
   await expect(customer.getByText("Maharashtra")).toBeVisible();
-  await expect(customer.getByRole("button", { name: "Archive Asha Stores" })).toBeVisible();
-  await expect(customer.getByRole("button", { name: "Delete Asha Stores" })).toBeVisible();
+  await expect(customer.getByRole("link", { name: "Asha Stores" })).toBeVisible();
   const overflowC = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflowC).toBeLessThanOrEqual(0);
   await page.goto(homeUrl);
 
   // The checklist's product step opens the (still empty) products list.
   await setup.getByRole("link", { name: "Add your first product" }).click();
-  await expect(page.getByRole("heading", { name: "Products" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Products" })).toBeVisible();
   await expect(page.getByText("No products yet. Add your first with New product.")).toBeVisible();
   await noSeriousAxeFindings(page);
 
@@ -85,10 +84,11 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   await page.getByLabel("GST rate", { exact: true }).selectOption("18");
   await noSeriousAxeFindings(page);
   await page.getByRole("button", { name: "Add product" }).click();
-  await expect(page.getByRole("heading", { name: "Products" })).toBeVisible(); // adding lands on the list
+  await expect(page.getByRole("heading", { level: 1, name: "Products" })).toBeVisible(); // adding lands on the list
   await expect(page.getByText("Added Neem soap.")).toBeVisible();
-  await page.getByRole("link", { name: "Edit Neem soap" }).click();
+  await page.getByRole("link", { name: "Neem soap" }).click();
   await expect(page.getByRole("heading", { name: "Neem soap" })).toBeVisible();
+  await page.getByRole("tab", { name: "Rate history" }).click();
 
   // The owner marks the first rate confirmed in the rate history; the list then has no chip.
   const history = page.getByRole("table").getByRole("row").filter({ hasText: "18%" });
@@ -120,7 +120,12 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   ].join("\r\n");
   await page.getByLabel("File").setInputFiles({ name: "products.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
   await page.getByRole("button", { name: "Upload and check" }).click();
-  await expect(page.getByText(/products\.csv: 1 new, 1 changed, 0 unchanged, 1 with errors/)).toBeVisible({ timeout: 15000 });
+  await expect(page.getByRole("heading", { name: "products.csv" })).toBeVisible({ timeout: 15000 });
+  const count = (label: string) => page.locator("dl.kvs > div").filter({ has: page.getByText(label, { exact: true }) }).locator("dd");
+  await expect(count("New products")).toHaveText("1");
+  await expect(count("Changes to existing products")).toHaveText("1");
+  await expect(count("Unchanged")).toHaveText("0");
+  await expect(count("Rows with errors")).toHaveText("1");
   const changed = page.getByRole("row").filter({ hasText: "SOAP-1" });
   await expect(changed.getByText(/→ 1300/)).toBeVisible();
   await expect(page.getByRole("row").filter({ hasText: "SOAP-3" }).getByText("Has errors")).toBeVisible();

@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../../src/App";
@@ -67,10 +67,12 @@ describe("the customers list when the server fails", () => {
 });
 
 describe("the customers list", () => {
-  it("has a Home link back to the business's filing home", async () => {
+  it("has a breadcrumb and a New customer link (v16 head)", async () => {
     server.reply(LIST, page([]));
     open();
-    await waitFor(() => expect(within(screen.getByRole("main")).getByRole("link", { name: "Home" })).toHaveAttribute("href", "/b/b-1/home"));
+    await screen.findByText(/No customers yet/);
+    expect(within(screen.getByRole("navigation", { name: "Breadcrumb" })).getByText("Customers")).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "New customer" })).toHaveAttribute("href", "/b/b-1/customers/new");
   });
 
   it("shows each customer's GSTIN, billing state and credit days as the server sends them, with its warnings", async () => {
@@ -96,11 +98,11 @@ describe("the customers list", () => {
     expect(await within(sharma).findByText("West Bengal")).toBeInTheDocument();
     expect(within(sharma).getByText("30")).toBeInTheDocument();
     const asha = screen.getByText("Asha Stores").closest("tr")!;
-    expect(within(asha).getByText("Unregistered")).toBeInTheDocument();
+    expect(within(asha).getByText("None")).toBeInTheDocument();
     expect(within(asha).getByText("Maharashtra")).toBeInTheDocument();
     expect(within(asha).getByText("Billing state differs from the GSTIN's state")).toBeInTheDocument();
     expect(within(asha).getByText("Archived")).toBeInTheDocument();
-    expect(queries()[0]).toEqual({ status: "active", limit: "50", offset: "0" });
+    expect(queries()[0]).toEqual({ status: "active", limit: "5", offset: "0" });
   });
 
   it("asks the server for each tab and keeps it in the URL", async () => {
@@ -134,14 +136,17 @@ describe("the customers list", () => {
     expect(screen.getByLabelText("Search by name or GSTIN")).toHaveValue("asha");
   });
 
-  it("loads the next page from where the last one ended", async () => {
+  it("pages five at a time with Previous and Next, and keeps the page in the URL", async () => {
     server.reply(LIST, page([customer()], true), page([customer({ id: "c-2", name: "Asha Stores" })]));
     open();
     await screen.findByText("Sharma Traders");
-    fireEvent.click(screen.getByRole("button", { name: "Load more" }));
+    expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(await screen.findByText("Asha Stores")).toBeInTheDocument();
-    expect(queries()[1]).toMatchObject({ offset: "50" });
-    expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
+    expect(screen.queryByText("Sharma Traders")).toBeNull();
+    expect(queries()[1]).toMatchObject({ limit: "5", offset: "5" });
+    expect(window.location.search).toBe("?page=2");
+    expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
   });
 
   it("puts the URL's search back in the box when the URL changes, as on Back", async () => {
@@ -156,77 +161,10 @@ describe("the customers list", () => {
     await vi.waitFor(() => expect(queries().map((q) => q.q)).toEqual(["sharma", "asha"]));
   });
 
-  it("shows a customer once even when it comes back on the next page", async () => {
-    server.reply(LIST, page([customer()], true), page([customer(), customer({ id: "c-2", name: "Asha Stores" })]));
-    open();
-    await screen.findByText("Sharma Traders");
-    fireEvent.click(screen.getByRole("button", { name: "Load more" }));
-    await screen.findByText("Asha Stores");
-    expect(screen.getAllByText("Sharma Traders")).toHaveLength(1);
-  });
-
   it("is NotFound for another business, without asking the server", async () => {
     open("/b/b-9/customers");
     expect(await screen.findByText(/couldn't find that page/i)).toBeInTheDocument();
     expect(server.paths()).not.toContain("/api/v1/b/b-9/customers");
-  });
-
-  describe("row actions", () => {
-    const ONE = `${LIST}/c-1`;
-
-    it("asks before archiving, then refreshes the list", async () => {
-      server.reply(`GET ${LIST}`, page([customer()]), page([]));
-      server.reply(`POST ${ONE}/archive`, { status: 200, body: customer({ status: "archived", version: 2 }) });
-      open();
-      fireEvent.click(await screen.findByRole("button", { name: "Archive Sharma Traders" }));
-      expect(server.sent.filter((x) => x.path === `${ONE}/archive`)).toHaveLength(0);
-      fireEvent.click(screen.getByRole("button", { name: "Keep it active" }));
-      expect(screen.getByRole("button", { name: "Archive Sharma Traders" })).toBeInTheDocument();
-      fireEvent.click(screen.getByRole("button", { name: "Archive Sharma Traders" }));
-      fireEvent.click(screen.getByRole("button", { name: "Yes, archive" }));
-      await screen.findByText(/No customers/);
-      expect(server.sent.filter((x) => x.path === `${ONE}/archive`)).toHaveLength(1);
-    });
-
-    it("deletes only after asking, sending the row's version", async () => {
-      server.reply(`GET ${LIST}`, page([customer({ version: 4 })]), page([]));
-      server.reply(`DELETE ${ONE}`, { status: 204 });
-      open();
-      fireEvent.click(await screen.findByRole("button", { name: "Delete Sharma Traders" }));
-      fireEvent.click(screen.getByRole("button", { name: "Yes, delete" }));
-      await screen.findByText(/No customers/);
-      expect(server.sent.filter((x) => x.path === ONE && x.method === "DELETE")[0].headers.get("If-Match")).toBe("4");
-    });
-
-    it("shows the server's reason when it refuses the delete", async () => {
-      server.reply(`GET ${LIST}`, page([customer()]));
-      server.reply(`DELETE ${ONE}`, {
-        status: 409,
-        body: { error: { code: "customer_in_use", message: "This customer is on invoices, so it can be archived but not deleted" } },
-      });
-      open();
-      fireEvent.click(await screen.findByRole("button", { name: "Delete Sharma Traders" }));
-      fireEvent.click(screen.getByRole("button", { name: "Yes, delete" }));
-      expect(await screen.findByText(/on invoices, so it can be archived but not deleted/)).toBeInTheDocument();
-    });
-
-    it("shows the server's reason when an archive fails", async () => {
-      server.reply(`GET ${LIST}`, page([customer()]));
-      server.reply(`POST ${ONE}/archive`, { status: 409, body: { error: { code: "customer_in_use", message: "x" } } });
-      open();
-      fireEvent.click(await screen.findByRole("button", { name: "Archive Sharma Traders" }));
-      fireEvent.click(screen.getByRole("button", { name: "Yes, archive" }));
-      expect(await screen.findByRole("alert")).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Archive Sharma Traders" })).toBeInTheDocument();
-    });
-
-    it("offers no Delete for a customer on invoices", async () => {
-      server.reply(`GET ${LIST}`, page([customer({ in_use: true })]));
-      open();
-      await screen.findByRole("button", { name: "Archive Sharma Traders" });
-      expect(screen.queryByRole("button", { name: "Delete Sharma Traders" })).toBeNull();
-      expect(screen.getByText("On invoices: archive only")).toBeInTheDocument();
-    });
   });
 });
 

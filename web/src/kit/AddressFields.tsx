@@ -24,6 +24,8 @@ export function AddressFields(props: {
   errorFor: (part: string) => string | undefined;
   hint?: string;
   stateHint?: string;
+  /** Two fields a row (mocks v16 forms), so an address fits beside the other details. */
+  compact?: boolean;
 }) {
   const { value, onChange, errorFor } = props;
   const set = (k: keyof Address) => (e: { target: { value: string } }) => onChange({ ...value, [k]: e.target.value });
@@ -31,10 +33,14 @@ export function AddressFields(props: {
     <fieldset className="field radios">
       <legend>{props.legend}</legend>
       {props.hint && <p className="hint">{props.hint}</p>}
-      <Field label="Address line 1" value={value.line1} onChange={set("line1")} error={errorFor("line1")} />
-      <Field label="Address line 2" value={value.line2} onChange={set("line2")} error={errorFor("line2")} />
-      <Field label="City or town" value={value.city} onChange={set("city")} error={errorFor("city")} />
-      <Field label="PIN code" inputMode="numeric" value={value.pin} onChange={set("pin")} error={errorFor("pin")} />
+      <div className={props.compact ? "f2" : undefined}>
+        <Field label="Address line 1" value={value.line1} onChange={set("line1")} error={errorFor("line1")} />
+        <Field label="Address line 2" value={value.line2} onChange={set("line2")} error={errorFor("line2")} />
+      </div>
+      <div className={props.compact ? "f2" : undefined}>
+        <Field label="City or town" value={value.city} onChange={set("city")} error={errorFor("city")} />
+        <Field label="PIN code" inputMode="numeric" value={value.pin} onChange={set("pin")} error={errorFor("pin")} />
+      </div>
       <SelectField label="State" options={props.states} value={value.state_code} onChange={set("state_code")} hint={props.stateHint} error={errorFor("state_code")} />
     </fieldset>
   );

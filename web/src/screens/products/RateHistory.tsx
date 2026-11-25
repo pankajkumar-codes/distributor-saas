@@ -104,7 +104,7 @@ export function RateHistory(props: {
       {product.rate_changed_within_warning_window && (
         <Banner>This product's GST rate changed recently. Check invoices dated around the change.</Banner>
       )}
-      {locked && <p className="hint">Save or undo your changes above before changing rates.</p>}
+      {locked && <p className="hint">Save or undo your changes on the Details tab before changing rates.</p>}
       <table className="products">
         <thead>
           <tr>

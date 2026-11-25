@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../../src/App";
@@ -49,7 +49,8 @@ describe("purchase invoices", () => {
     open("/b/b-1/purchases");
     expect(await screen.findByRole("link", { name: "Invoice SUP-1 from bill.pdf" })).toHaveAttribute("href", "/b/b-1/purchases/d-1");
     expect(screen.getByRole("link", { name: /Invoice to type in/ })).toBeInTheDocument();
-    expect(screen.getByText(/photo.jpg: This file isn't a photo we can keep/)).toBeInTheDocument();
+    const file = screen.getByText("photo.jpg").closest("tr")!;
+    expect(within(file).getByText("This file isn't a photo we can keep.")).toBeInTheDocument();
   });
 
   it("shows what was read, and confirms exactly what is on the screen", async () => {

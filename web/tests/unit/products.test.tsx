@@ -55,30 +55,43 @@ describe("the products list", () => {
     const row = (await screen.findByText("Neem soap")).closest("tr")!;
     expect(within(row).getByText("₹12,34,567.50")).toBeInTheDocument();
     expect(within(row).getByText("18%")).toBeInTheDocument();
+    expect(within(row).getByText("—")).toBeInTheDocument(); // no MRP: a dash, never ₹0.00 (#398)
     const rose = screen.getByText("Rose soap").closest("tr")!;
     expect(within(rose).getByText("HSN missing")).toBeInTheDocument();
     expect(within(rose).getByText("Not confirmed")).toBeInTheDocument();
-    expect(queries()[0]).toEqual({ status: "active", limit: "50", offset: "0" });
+    expect(queries()[0]).toEqual({ status: "active", limit: "5", offset: "0" });
   });
 
-  it("asks the server for each tab and filter, and keeps them in the URL", async () => {
+  it("shows a product's MRP from the server's string (#398)", async () => {
+    server.reply(LIST, page([product({ mrp: "60.50" })]));
+    open();
+    const row = (await screen.findByText("Neem soap")).closest("tr")!;
+    expect(within(row).getByText("₹60.50")).toBeInTheDocument();
+  });
+
+  it("asks the server for each view chip, and keeps it in the URL", async () => {
     server.reply(LIST, page([]), page([]), page([]));
     open();
     await screen.findByText(/No products yet/);
     fireEvent.click(screen.getByRole("button", { name: "Archived" }));
     await vi.waitFor(() => expect(queries()).toHaveLength(2));
-    fireEvent.click(screen.getByRole("button", { name: "No HSN" }));
+    expect(queries()[1]).toMatchObject({ status: "archived" });
+    expect(window.location.search).toBe("?view=archived");
+    fireEvent.click(screen.getByRole("button", { name: "HSN missing" }));
     await vi.waitFor(() => expect(queries()).toHaveLength(3));
-    expect(queries()[2]).toMatchObject({ status: "archived", filter: "no_hsn" });
-    expect(window.location.search).toBe("?status=archived&filter=no_hsn");
+    expect(queries()[2]).toMatchObject({ status: "active", filter: "no_hsn" });
+    expect(window.location.search).toBe("?view=no_hsn");
+    expect(screen.getByRole("button", { name: "HSN missing" })).toHaveAttribute("aria-pressed", "true");
     expect(await screen.findByText("No products match.")).toBeInTheDocument();
   });
 
-  it("has a Home link back to the business's filing home", async () => {
+  it("has a breadcrumb and no page of its own to scroll (v16 head)", async () => {
     server.reply(LIST, page([]));
     open();
     await screen.findByText(/No products yet/);
-    expect(within(screen.getByRole("main")).getByRole("link", { name: "Home" })).toHaveAttribute("href", "/b/b-1/home");
+    expect(within(screen.getByRole("navigation", { name: "Breadcrumb" })).getByText("Products")).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "New product" })).toHaveAttribute("href", "/b/b-1/products/new");
+    expect(screen.getByRole("link", { name: "Import from a file" })).toHaveAttribute("href", "/b/b-1/products/import");
   });
 
   it("opens on the filter a Home link names", async () => {
@@ -99,23 +112,35 @@ describe("the products list", () => {
     expect(queries().map((q) => q.q)).toEqual([undefined, "neem"]);
   });
 
-  it("loads the next page from where the last one ended", async () => {
-    server.reply(LIST, page([product()], true), page([product({ id: "p-2", name: "Rose soap" })]));
+  it("pages five at a time with Previous and Next, and keeps the page in the URL", async () => {
+    server.reply(LIST, page([product()], true), page([product({ id: "p-2", name: "Rose soap" })]), page([product()], true));
     open();
     await screen.findByText("Neem soap");
-    fireEvent.click(screen.getByRole("button", { name: "Load more" }));
+    expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(await screen.findByText("Rose soap")).toBeInTheDocument();
-    expect(queries()[1]).toMatchObject({ offset: "50" });
-    expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
+    expect(screen.queryByText("Neem soap")).toBeNull(); // a page replaces the last one
+    expect(queries()[1]).toMatchObject({ limit: "5", offset: "5" });
+    expect(window.location.search).toBe("?page=2");
+    expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Previous" }));
+    expect(await screen.findByText("Neem soap")).toBeInTheDocument();
+    expect(window.location.search).toBe("");
   });
 
-  it("puts the URL's search back in the box when the URL changes, and shows each product once", async () => {
-    server.reply(LIST, page([product()], true), page([product(), product({ id: "p-2", name: "Rose soap" })]), page([]));
+  it("goes back to the first page when the search changes", async () => {
+    server.reply(LIST, page([product()]), page([product()]));
+    open("/b/b-1/products?page=3");
+    await screen.findByText("Neem soap");
+    expect(queries()[0]).toMatchObject({ offset: "10" });
+    fireEvent.change(screen.getByLabelText("Search by name, code or barcode"), { target: { value: "neem" } });
+    await vi.waitFor(() => expect(window.location.search).toBe("?q=neem"));
+  });
+
+  it("puts the URL's search back in the box when the URL changes", async () => {
+    server.reply(LIST, page([product()]), page([]));
     open("/b/b-1/products?q=neem");
     await screen.findByText("Neem soap");
-    fireEvent.click(screen.getByRole("button", { name: "Load more" }));
-    await screen.findByText("Rose soap");
-    expect(screen.getAllByText("Neem soap")).toHaveLength(1);
     act(() => {
       window.history.pushState(null, "", "/b/b-1/products?q=rose");
       window.dispatchEvent(new PopStateEvent("popstate"));

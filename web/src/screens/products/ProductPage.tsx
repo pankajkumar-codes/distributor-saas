@@ -13,12 +13,14 @@ import { Banner } from "../../kit/Banner";
 import { ManageRecord } from "../../kit/ManageRecord";
 import { Button } from "../../kit/Button";
 import { Field } from "../../kit/Field";
+import { PageHead } from "../../kit/PageHead";
+import { Tabs } from "../../kit/Tabs";
 import { NotFound } from "../../kit/NotFound";
 import { RadioGroup } from "../../kit/RadioGroup";
 import { SelectField } from "../../kit/SelectField";
 import { TopBar } from "../../kit/TopBar";
 import { RateHistory } from "./RateHistory";
-import { saleRateProblem } from "./saleRate";
+import { mrpProblem, saleRateProblem } from "./saleRate";
 import { useGstRates } from "./useGstRates";
 import { NoAccess } from "../../kit/NoAccess";
 import { useFormKey } from "../../kit/formKey";
@@ -32,11 +34,12 @@ type Values = {
   hsn: string;
   uqc: string;
   sale_rate: string;
+  mrp: string;
   barcode: string;
   tax_category: Category | "";
   has_cess: boolean;
 };
-const EMPTY: Values = { code: "", name: "", hsn: "", uqc: "", sale_rate: "", barcode: "", tax_category: "", has_cess: false };
+const EMPTY: Values = { code: "", name: "", hsn: "", uqc: "", sale_rate: "", mrp: "", barcode: "", tax_category: "", has_cess: false };
 const CATEGORIES: { value: Category; label: string }[] = [
   { value: "taxable", label: "Taxable" },
   { value: "exempt", label: "Exempt" },
@@ -50,6 +53,7 @@ const valuesOf = (p: Detail): Values => ({
   hsn: p.hsn ?? "",
   uqc: p.uqc,
   sale_rate: p.sale_rate,
+  mrp: p.mrp ?? "",
   barcode: p.barcode ?? "",
   tax_category: p.tax_category as Category,
   has_cess: p.has_cess,
@@ -65,7 +69,7 @@ export function changedFields(from: Values, to: Values): components["schemas"]["
     if (typeof b === "boolean") {
       if (a !== b) out[key] = b;
     } else if ((a as string).trim() !== b.trim()) {
-      out[key] = key === "hsn" || key === "barcode" ? blank(b) : b.trim();
+      out[key] = key === "hsn" || key === "barcode" || key === "mrp" ? blank(b) : b.trim();
     }
   }
   return out;
@@ -136,6 +140,7 @@ export function ProductPage() {
   const [stale, setStale] = useState(false);
   const [rateMissing, setRateMissing] = useState(false);
   const [saleRateChecked, setSaleRateChecked] = useState(false); // a save was tried: a half-typed "10." is now a problem
+  const [tab, setTab] = useState(0);
   const latest = product.data ?? null;
 
   useEffect(() => {
@@ -186,6 +191,7 @@ export function ProductPage() {
           hsn: blank(values.hsn),
           uqc: values.uqc,
           sale_rate: values.sale_rate.trim(),
+          mrp: blank(values.mrp),
           barcode: blank(values.barcode),
           tax_category: values.tax_category as Category,
           has_cess: values.has_cess,
@@ -278,6 +284,10 @@ export function ProductPage() {
       const problem = saleRateProblem(values.sale_rate, saleRateChecked);
       if (problem) return problem;
     }
+    if (field === "mrp") {
+      const problem = mrpProblem(values.mrp, saleRateChecked);
+      if (problem) return problem;
+    }
     if (field === "rate" && rateMissing && !chosenRate) return "Choose a GST rate.";
     if (!error || formField(error.field) !== field) return undefined;
     // A server check on the rate can come back as pattern text; the owner only needs to know to choose one.
@@ -304,7 +314,7 @@ export function ProductPage() {
   const set = (field: keyof Values) => (e: { target: { value: string } }) => setValues({ ...values, [field]: e.target.value });
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (saleRateProblem(values.sale_rate, true)) {
+    if (saleRateProblem(values.sale_rate, true) || mrpProblem(values.mrp, true)) {
       setSaleRateChecked(true);
       return;
     }
@@ -316,19 +326,167 @@ export function ProductPage() {
   };
   const otherError = error && !formField(error.field) ? error : (archive.error ?? remove.error);
 
+  const details = (
+    <form onSubmit={submit} noValidate>
+      <fieldset disabled={!canEdit} className="plain">
+        <div className="cols2">
+          <section className="panel pad" aria-label="Product details">
+            <Field label="Name" value={values.name} onChange={set("name")} hint={hint("name")} error={errorFor("name")} />
+            <div className="f2">
+              <Field label="Product code" value={values.code} onChange={set("code")} hint={hint("code")} error={errorFor("code")} />
+              <SelectField
+                label="Unit"
+                placeholder={units.isPending ? "Loading units…" : "Choose…"}
+                options={(units.data ?? []).map((u) => ({ value: u.code, label: `${u.name} (${u.code})` }))}
+                value={values.uqc}
+                onChange={set("uqc")}
+                hint={hint("uqc")}
+                error={errorFor("uqc")}
+              />
+            </div>
+            {units.error && (
+              <Banner tone="error">
+                We couldn't load the list of units. {errorText(units.error)}{" "}
+                <Button type="button" variant="link" onClick={() => units.refetch()}>
+                  Try again
+                </Button>
+              </Banner>
+            )}
+            <div className="f2">
+              <Field label="HSN (optional)" inputMode="numeric" value={values.hsn} onChange={set("hsn")} hint={theirs("hsn")} describedBy="hsn-note" error={errorFor("hsn")} />
+              <Field label="Barcode (optional)" value={values.barcode} onChange={set("barcode")} hint={hint("barcode")} error={errorFor("barcode")} />
+            </div>
+            {/* A warning about the HSN takes this full-width line, so the form still fits one screen. */}
+            <p id="hsn-note" className="hint row-note">
+              {warningFor("hsn") ?? "HSN: digits only. Needed before invoicing a buyer with a GSTIN; ask your CA if unsure."}
+            </p>
+            <div className="f2">
+              <Field
+                label="Sale rate per unit, excluding GST (₹)"
+                inputMode="decimal"
+                value={values.sale_rate}
+                onChange={(e) => setValues({ ...values, sale_rate: e.target.value })}
+                hint={hint("sale_rate")}
+                error={errorFor("sale_rate")}
+              />
+              <Field
+                label="MRP, incl. GST (₹, optional)"
+                inputMode="decimal"
+                value={values.mrp}
+                onChange={set("mrp")}
+                hint={hint("mrp")}
+                describedBy="mrp-note"
+                error={errorFor("mrp")}
+              />
+            </div>
+            <p id="mrp-note" className="hint row-note">
+              MRP is shown on the invoice line only. GST is worked out from the sale rate.
+            </p>
+          </section>
+          <section className="panel pad" aria-label="GST">
+            <div className="radios-inline">
+              <RadioGroup<Category>
+                legend="GST treatment"
+                name="tax_category"
+                options={CATEGORIES}
+                value={values.tax_category}
+                onChange={(v) => setValues({ ...values, tax_category: v })}
+                hint={hint("tax_category", categoryNote)}
+                error={errorFor("tax_category")}
+              />
+            </div>
+            {needsRate && (
+              <>
+                <SelectField
+                  label="GST rate"
+                  placeholder={ratesPlaceholder}
+                  disabled={!ratesReady}
+                  options={(rates.data ?? []).map((r) => ({ value: r, label: formatRate(r) }))}
+                  value={chosenRate}
+                  onChange={(e) => {
+                    setRate(e.target.value);
+                    setRateMissing(false);
+                  }}
+                  hint={ratesNote ?? "The rate your CA advised. It applies from today; an earlier start date can be added in Rate history after saving."}
+                  error={errorFor("rate") ?? errorFor("valid_from")}
+                />
+                {rates.error && (
+                  <Banner tone="error">
+                    We couldn't load the GST rates. {errorText(rates.error)}{" "}
+                    <Button type="button" variant="link" onClick={() => rates.refetch()}>
+                      Try again
+                    </Button>
+                  </Banner>
+                )}
+              </>
+            )}
+            {!isNew && base?.tax_category === "taxable" && values.tax_category === "taxable" && base.rate_on && (
+              <p className="hint">
+                GST rate today: {formatRate(base.rate_on.rate)}
+                {base.rate_on.confirmed ? ", confirmed with your CA." : ", not confirmed with your CA yet."} Change or confirm it in Rate history.
+              </p>
+            )}
+            <label className="radio">
+              <input type="checkbox" checked={values.has_cess} onChange={(e) => setValues({ ...values, has_cess: e.target.checked })} />
+              This product attracts cess
+            </label>
+            {warningFor("has_cess") && <p className="hint">{warningFor("has_cess")}</p>}
+          </section>
+        </div>
+      </fieldset>
+      {canEdit && (
+        <div className="savebar">
+          <Button type="submit" busy={save.isPending}>
+            {isNew ? "Add product" : "Save changes"}
+          </Button>
+          <p className="hint" role="status">
+            {save.isSuccess && !isNew
+              ? "Saved. Invoices already finalized keep the details they were issued with."
+              : "Saved changes apply to new invoices. Invoices already issued keep the details they were issued with."}
+          </p>
+        </div>
+      )}
+    </form>
+  );
+  const showRates = !isNew && base && (base.tax_category === "taxable" || base.rates.length > 0);
+  const tabs = [{ label: "Details", panel: details }];
+  if (showRates)
+    tabs.push({
+      label: "Rate history",
+      panel: <RateHistory businessId={businessId} product={base} canEdit={canEdit} canConfirm={canConfirmRates(business.role)} locked={dirty} onSaved={saved} />,
+    });
+  if (canEdit && !isNew && base)
+    tabs.push({
+      label: base.status === "archived" ? "Unarchive or delete" : "Archive or delete",
+      panel: (
+        <ManageRecord
+          noun="product"
+          name={base.name}
+          archived={base.status === "archived"}
+          inUse={base.in_use}
+          dirty={dirty}
+          archiveBusy={archive.isPending}
+          deleteBusy={remove.isPending}
+          onArchive={(a) => archive.mutate(a)}
+          onDelete={() => remove.mutate()}
+        />
+      ),
+    });
+
   return (
     <>
       <TopBar title={business.display_name} gstin={business.gstin} />
-      <main className="page">
-        <p className="step">
-          <Link to={`/b/${businessId}/products`}>Products</Link>
-        </p>
-        <h1>{isNew ? "New product" : base?.name}</h1>
-        {backTo && (
-          <p>
-            <Link to={backTo}>Back to your invoice</Link>
-          </p>
-        )}
+      <main className="page page-wide">
+        <PageHead
+          crumbs={[{ label: "Sell" }, { label: "Products", to: `/b/${businessId}/products` }, { label: isNew ? "New product" : (base?.name ?? "") }]}
+          title={isNew ? "New product" : base?.name}
+        >
+          {backTo && (
+            <Link className="btn btn-secondary" to={backTo}>
+              Back to your invoice
+            </Link>
+          )}
+        </PageHead>
         {base?.status === "archived" && <Banner>This product is archived. It isn't offered on new invoices.</Banner>}
         {stale && (
           <Banner tone="error">
@@ -337,120 +495,7 @@ export function ProductPage() {
           </Banner>
         )}
         {otherError && <Banner tone="error">{otherError.fix ?? (otherError.message || errorText(otherError))}</Banner>}
-        {save.isSuccess && !isNew && <Banner>Saved. Invoices already finalized keep the details they were issued with.</Banner>}
-
-        <form onSubmit={submit} noValidate>
-          <fieldset disabled={!canEdit} className="plain">
-          <Field label="Product code" value={values.code} onChange={set("code")} hint={hint("code")} error={errorFor("code")} />
-          <Field label="Name" value={values.name} onChange={set("name")} hint={hint("name")} error={errorFor("name")} />
-          <Field
-            label="HSN (optional)"
-            inputMode="numeric"
-            value={values.hsn}
-            onChange={set("hsn")}
-            hint={hint("hsn", "Digits only. You can leave it for now, but an invoice can't be created for this product until it has an HSN; ask your CA if you're not sure.")}
-            error={errorFor("hsn")}
-          />
-          <SelectField
-            label="Unit"
-            placeholder={units.isPending ? "Loading units…" : "Choose…"}
-            options={(units.data ?? []).map((u) => ({ value: u.code, label: `${u.name} (${u.code})` }))}
-            value={values.uqc}
-            onChange={set("uqc")}
-            hint={hint("uqc")}
-            error={errorFor("uqc")}
-          />
-          {units.error && (
-            <Banner tone="error">
-              We couldn't load the list of units. {errorText(units.error)}{" "}
-              <Button type="button" variant="link" onClick={() => units.refetch()}>
-                Try again
-              </Button>
-            </Banner>
-          )}
-          <Field
-            label="Sale rate per unit, excluding GST (₹)"
-            inputMode="decimal"
-            value={values.sale_rate}
-            onChange={(e) => setValues({ ...values, sale_rate: e.target.value })}
-            hint={hint("sale_rate")}
-            error={errorFor("sale_rate")}
-          />
-          <Field label="Barcode (optional)" value={values.barcode} onChange={set("barcode")} hint={hint("barcode")} error={errorFor("barcode")} />
-          <RadioGroup<Category>
-            legend="GST treatment"
-            name="tax_category"
-            options={CATEGORIES}
-            value={values.tax_category}
-            onChange={(v) => setValues({ ...values, tax_category: v })}
-            hint={hint("tax_category", categoryNote)}
-            error={errorFor("tax_category")}
-          />
-          <label className="radio">
-            <input type="checkbox" checked={values.has_cess} onChange={(e) => setValues({ ...values, has_cess: e.target.checked })} />
-            This product attracts cess
-          </label>
-          {warningFor("has_cess") && <p className="hint">{warningFor("has_cess")}</p>}
-
-          {needsRate && (
-            <>
-              <SelectField
-                label="GST rate"
-                placeholder={ratesPlaceholder}
-                disabled={!ratesReady}
-                options={(rates.data ?? []).map((r) => ({ value: r, label: formatRate(r) }))}
-                value={chosenRate}
-                onChange={(e) => {
-                  setRate(e.target.value);
-                  setRateMissing(false);
-                }}
-                hint={ratesNote ?? "The rate your CA advised. It applies from today; an earlier start date can be added in Rate history after saving."}
-                error={errorFor("rate") ?? errorFor("valid_from")}
-              />
-              {rates.error && (
-                <Banner tone="error">
-                  We couldn't load the GST rates. {errorText(rates.error)}{" "}
-                  <Button type="button" variant="link" onClick={() => rates.refetch()}>
-                    Try again
-                  </Button>
-                </Banner>
-              )}
-            </>
-          )}
-          </fieldset>
-          {canEdit && (
-            <div className="actions">
-              <Button type="submit" busy={save.isPending}>
-                {isNew ? "Add product" : "Save changes"}
-              </Button>
-            </div>
-          )}
-        </form>
-
-        {!isNew && base && (base.tax_category === "taxable" || base.rates.length > 0) && (
-          <RateHistory
-            businessId={businessId}
-            product={base}
-            canEdit={canEdit}
-            canConfirm={canConfirmRates(business.role)}
-            locked={dirty}
-            onSaved={saved}
-          />
-        )}
-
-        {canEdit && !isNew && base && (
-          <ManageRecord
-            noun="product"
-            name={base.name}
-            archived={base.status === "archived"}
-            inUse={base.in_use}
-            dirty={dirty}
-            archiveBusy={archive.isPending}
-            deleteBusy={remove.isPending}
-            onArchive={(a) => archive.mutate(a)}
-            onDelete={() => remove.mutate()}
-          />
-        )}
+        {tabs.length > 1 ? <Tabs label="Product" tabs={tabs} current={tab} onChange={setTab} /> : details}
       </main>
     </>
   );
