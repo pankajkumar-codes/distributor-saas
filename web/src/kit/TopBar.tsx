@@ -119,15 +119,15 @@ export function TopBar({ title, gstin }: { title?: string; gstin?: string | null
               </span>
             )}
           </>
+        ) : title ? (
+          <div className="top-brand">
+            <span className="mark" aria-hidden="true">
+              {initials(title)}
+            </span>
+            <strong>{title}</strong>
+          </div>
         ) : (
-          <Link to="/" className="top-brand">
-            {title && (
-              <span className="mark" aria-hidden="true">
-                {initials(title)}
-              </span>
-            )}
-            {title && <strong>{title}</strong>}
-          </Link>
+          <span className="sp" />
         )}
         <Button type="button" variant="link" onClick={out}>
           Sign out
