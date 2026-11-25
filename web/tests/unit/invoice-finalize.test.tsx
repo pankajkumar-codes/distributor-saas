@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../../src/App";
@@ -51,6 +51,21 @@ describe("a sales invoice from the catalog", () => {
     expect(await screen.findByText(/No stock on hand\. You can still sell it/)).toBeInTheDocument();
     expect(screen.getByText(/has no selling price yet/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Create practice invoice" })).toBeEnabled();
+  });
+
+  it("shows one no-stock note on a line once the server's own check says so (#414)", async () => {
+    const computation = {
+      computed_pos: "19", pos_state_code: "19", is_inter_state: false, supply_class: "B2B", lines: [], gross_total: "0.00", line_discount_total: "0.00",
+      invoice_discount: "0.00", charges_total: "0.00", taxable_total: "0.00", cgst_total: "0.00", sgst_total: "0.00", utgst: false, igst_total: "0.00",
+      round_off: "0.00", doc_total: "0.00", amount_in_words: "", rounding_mode: "nearest_rupee", method_version: "1", blocks: [],
+      warnings: [{ code: "no_stock", fix: "No stock of AVG. You can still make this invoice.", field: "lines.0.quantity", line_no: 1 }],
+    }; // fmt: skip
+    server.reply(`GET ${ONE}`, { status: 200, body: draft({ computation }) }); // ahead of the plain draft queued above
+    open();
+    const items = await screen.findByRole("region", { name: "Items" });
+    expect(await within(items).findByText(/No stock of AVG\. You can still make this invoice\./)).toBeInTheDocument();
+    expect(within(items).queryByText(/No stock on hand\. You can still sell it/)).toBeNull();
+    expect(within(items).getAllByText(/No stock/)).toHaveLength(1);
   });
 
   it("finalizes a practice invoice, opens it, says so, and downloads its PDF", async () => {
