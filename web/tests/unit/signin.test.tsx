@@ -69,7 +69,7 @@ describe("sign-in", () => {
     server.reply(ME, { status: 200, body: { businesses: [A] } });
     await signIn();
     expect(await screen.findByRole("heading", { name: HOME })).toBeInTheDocument();
-    expect(screen.getByText("Vashi Essentials")).toBeInTheDocument();
+    expect(screen.getAllByText("Vashi Essentials")[0]).toBeInTheDocument(); // sidebar, and the phone top bar
     expect(window.location.pathname).toBe("/b/b-1/home");
     expect(window.location.href).not.toContain("vashi.example");
     expect(tokenStore.get()).toBe("tok");
@@ -284,7 +284,7 @@ it("drops the last user's cached businesses on sign-out, so the next user never 
   server.reply(ME, { status: 200, body: { businesses: [A] } });
   server.reply("/api/v1/auth/signout", { status: 204 });
   open("/b/b-1/home");
-  expect(await screen.findByText("Vashi Essentials")).toBeInTheDocument();
+  expect((await screen.findAllByText("Vashi Essentials"))[0]).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
   await screen.findByRole("heading", { name: "Sign in" });
 
@@ -298,7 +298,7 @@ it("drops the last user's cached businesses on sign-out, so the next user never 
   await waitFor(() => expect(window.location.pathname).toBe("/b/b-1/home"));
   expect(screen.queryByText("Vashi Essentials")).toBeNull(); // nothing from the cache while loading
   release();
-  expect(await screen.findByText("Their Shop")).toBeInTheDocument();
+  expect((await screen.findAllByText("Their Shop"))[0]).toBeInTheDocument();
   expect(server.paths().filter((p) => p === ME)).toHaveLength(2);
 });
 

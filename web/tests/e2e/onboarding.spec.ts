@@ -100,7 +100,7 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   await noSeriousAxeFindings(page);
   const overflow3 = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow3).toBeLessThanOrEqual(0);
-  await page.getByRole("link", { name: "Products" }).click();
+  await page.getByRole("main").getByRole("link", { name: "Products" }).click();
   const row = page.getByRole("row").filter({ hasText: "Neem soap" });
   await expect(row.getByText("₹1,234.50")).toBeVisible();
   await expect(row.getByText("18%")).toBeVisible();

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../../src/App";
@@ -120,7 +120,7 @@ describe("Documents issued (Table 13)", () => {
       server.reply("/api/v1/auth/refresh", { status: 200, body: { access_token: "t", expires_in: 3600 } });
       server.reply(DETAIL, detail(form, status));
       open(role);
-      await screen.findByText(/Draft/);
+      await waitFor(() => within(screen.getByRole("main")).getByText(/Draft/));
       expect(screen.queryByRole("heading", { name: /Documents issued/ })).toBeNull();
       expect(server.paths()).not.toContain(T13);
       document.body.innerHTML = "";

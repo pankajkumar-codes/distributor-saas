@@ -156,15 +156,16 @@ describe("Home", () => {
     expect(within(card).queryByText(/GSTR-/)).toBeNull();
   });
 
-  it("shows the top bar with the business tile and a Main nav that marks the current page", async () => {
+  it("shows the v16 sidebar with the business tile and a Main nav that marks the current page", async () => {
     server.reply(HOME, home());
     open();
     await screen.findByRole("heading", { level: 1, name: /, Asha$/ });
     const nav = screen.getByRole("navigation", { name: "Main" });
-    expect(within(nav).getByRole("link", { name: "Dashboard" })).toHaveAttribute("aria-current", "page");
-    expect(within(nav).getByRole("link", { name: "Filing home" })).toHaveAttribute("href", "/b/b-1/filing");
-    expect(within(nav).getByRole("link", { name: "Uploads" })).toHaveAttribute("href", "/b/b-1/uploads");
-    expect(within(nav).getByRole("link", { name: "Business setup" })).toHaveAttribute("href", "/b/b-1/settings");
+    expect(within(nav).getByRole("link", { name: "Home" })).toHaveAttribute("aria-current", "page");
+    expect(within(nav).getByRole("link", { name: "Your GST filing" })).toHaveAttribute("href", "/b/b-1/filing");
+    expect(within(nav).getByRole("link", { name: "Upload your reports" })).toHaveAttribute("href", "/b/b-1/uploads");
+    expect(within(nav).getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/b/b-1/settings");
+    expect(within(nav).getAllByRole("link", { current: "page" })).toHaveLength(1);
     expect(screen.getByText("VE")).toBeInTheDocument(); // brand tile initials, hidden from the accessibility tree
   });
 

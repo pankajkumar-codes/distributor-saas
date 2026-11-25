@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../../src/App";
@@ -70,7 +70,7 @@ describe("the customers list", () => {
   it("has a Home link back to the business's filing home", async () => {
     server.reply(LIST, page([]));
     open();
-    expect(await screen.findByRole("link", { name: "Home" })).toHaveAttribute("href", "/b/b-1/home");
+    await waitFor(() => expect(within(screen.getByRole("main")).getByRole("link", { name: "Home" })).toHaveAttribute("href", "/b/b-1/home"));
   });
 
   it("shows each customer's GSTIN, billing state and credit days as the server sends them, with its warnings", async () => {
@@ -227,5 +227,26 @@ describe("the customers list", () => {
       expect(screen.queryByRole("button", { name: "Delete Sharma Traders" })).toBeNull();
       expect(screen.getByText("On invoices: archive only")).toBeInTheDocument();
     });
+  });
+});
+
+describe("the top bar search (mocks v16)", () => {
+  it("suggests nothing until a letter is typed, then searches this business's customers and products", async () => {
+    server.reply(LIST, page([]));
+    open();
+    const box = await screen.findByRole("combobox", { name: "Search customers and products" });
+    const before = server.sent.length;
+    fireEvent.focus(box);
+    expect(screen.queryByRole("link", { name: /Sharma/ })).toBeNull();
+    expect(server.sent.slice(before).filter((s) => s.path.endsWith("/products"))).toHaveLength(0);
+
+    server.reply(LIST, page([customer()]));
+    server.reply("/api/v1/b/b-1/products", page([{ id: "p-1", name: "Sharp knife", code: "SK1" }]));
+    fireEvent.change(box, { target: { value: "sh" } });
+    const pop = await screen.findByRole("region", { name: "Customers" });
+    expect(within(pop).getByRole("link", { name: /Sharma Traders/ })).toHaveAttribute("href", "/b/b-1/customers/c-1");
+    expect(await screen.findByRole("link", { name: /Sharp knife/ })).toHaveAttribute("href", "/b/b-1/products/p-1");
+    const searched = server.sent.slice(before).filter((s) => new URL(s.url).searchParams.get("q") === "sh").map((s) => s.path);
+    expect(searched.sort()).toEqual(["/api/v1/b/b-1/customers", "/api/v1/b/b-1/products"]);
   });
 });

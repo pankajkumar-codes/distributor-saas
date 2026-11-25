@@ -5,4 +5,7 @@
  */
 export const FEATURES = {
   invoicing: true, // the Sell card on Home and the /invoices screens (R2)
+  // Invoice numbering is off until the CA confirms it (D-010): every invoice is a practice one,
+  // and the top bar says "Practice mode".
+  practiceOnly: true,
 } as const;
