@@ -56,14 +56,14 @@ describe("support staff reading filing (returns.view)", () => {
     expect(screen.getByText("October 2026")).toBeInTheDocument();
   });
 
-  it("shows the GST filing card on Home and asks for the periods", async () => {
+  it("shows the GSTR-1 next step on Home and asks for the periods", async () => {
     signedInAsSupport();
     server.reply(HOME, home);
     server.reply(RETURNS, list);
     open("/b/b-1/home");
-    const card = await screen.findByRole("navigation", { name: "GST filing" });
-    expect(within(card).getByRole("link", { name: "Open Filing home" })).toBeInTheDocument();
-    expect(await within(card).findByText(/GSTR-1/)).toBeInTheDocument();
+    const card = await screen.findByRole("region", { name: /GSTR-1 file ready/ });
+    expect(within(card).getByRole("link", { name: /Open the return|Upload your reports|Fix|Confirm|Make the file|Mark it filed/ })).toBeInTheDocument();
+    expect(server.paths()).toContain(RETURNS);
   });
 
   it("keeps billing turned away from Filing home, without asking for the list", async () => {

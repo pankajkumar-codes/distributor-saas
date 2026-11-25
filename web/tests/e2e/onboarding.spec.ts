@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { noSeriousAxeFindings, signUp } from "./helpers";
+import { fitsOneScreen, noSeriousAxeFindings, signUp } from "./helpers";
 
 test("create the business with a GSTIN and land on its Home", async ({ page }, info) => {
   await signUp(page, `e2e-onboard-${info.project.name}-${Date.now()}@example.com`);
@@ -33,21 +33,24 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   await expect(page.getByText("E2E Traders Private Limited").filter({ visible: true }).first()).toBeVisible(); // sidebar on desktop, top bar on phone
   // Whether Home shows a rule 61A warning depends on today's date against the window, so
   // the unit tests cover the warning words. The details and the frequency are both done.
-  const setup = page.getByRole("region", { name: "Set up your business" });
-  await expect(setup.getByText("3 of 6 done")).toBeVisible();
-  await expect(setup.getByRole("link", { name: "Invite your CA or a teammate" })).toBeVisible(); // the team screen exists now
+  // Home's next step (mocks v16): the setup path, details, frequency and marketplaces done, one button for the next step.
+  const setup = page.getByRole("region", { name: "Finish setting up your business" });
+  await expect(setup.getByText("Step 4 of 6")).toBeVisible();
+  await expect(setup.getByRole("link", { name: /Add your first product/ })).toHaveAttribute("href", /\/products$/);
+  await expect(setup.getByText("Invite your CA or a teammate")).toBeVisible();
+  if (!info.project.name.startsWith("phone")) await fitsOneScreen(page);
   // Filing home (R1-M2): the server's deadlines, none confirmed yet, so each row says to check the portal.
-  await page.getByRole("link", { name: "Open Filing home" }).click();
+  await page.goto(page.url().replace(/\/home$/, "/filing"));
   await expect(page.getByRole("heading", { name: "Your GST filing" })).toBeVisible();
   await expect(page.getByRole("table").getByText("GSTR-1").first()).toBeVisible();
   await expect(page.getByText("Check on the GST portal").first()).toBeVisible();
   await noSeriousAxeFindings(page);
   await page.getByRole("link", { name: "Home", exact: true }).first().click();
-  await expect(page.getByRole("region", { name: "Set up your business" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Finish setting up your business" })).toBeVisible();
 
-  // The customer step opens the (still empty) customers list; add one, find it, go back Home.
+  // The (still empty) customers list; add one, find it, go back Home.
   const homeUrl = page.url();
-  await setup.getByRole("link", { name: "Add your first customer" }).click();
+  await page.goto(homeUrl.replace(/\/home$/, "/customers"));
   await expect(page.getByRole("heading", { name: "Customers" })).toBeVisible();
   await expect(page.getByText("No customers yet. Add your first with New customer.")).toBeVisible();
   await noSeriousAxeFindings(page);
@@ -135,8 +138,7 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
 
   // Settings from Home: change the trade name, then see the frequency chosen at sign-up.
   await page.goto(homeUrl);
-  const settings = page.getByRole("navigation", { name: "Business setup" });
-  await settings.getByRole("link", { name: "Open Business setup" }).click();
+  await page.goto(homeUrl.replace(/\/home$/, "/settings"));
   await expect(page.getByLabel("Legal name")).toHaveValue("E2E Traders Private Limited");
   // Last year's band, given at sign-up, is shown here and stays editable.
   await expect(

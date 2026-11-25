@@ -38,7 +38,7 @@ test("the v16 shell: sidebar and search on a laptop, tab bar on a phone", async 
   await expect(nav.locator("a[aria-current=page]")).toHaveText("Settings");
 
   // Search suggests nothing until a letter is typed.
-  const search = page.getByRole("combobox", { name: "Search customers and products" });
+  const search = page.getByRole("combobox", { name: "Search invoices, customers and products" });
   await search.focus();
   await expect(page.getByRole("region", { name: "Customers" })).toHaveCount(0);
   await search.fill("zzzz-none");

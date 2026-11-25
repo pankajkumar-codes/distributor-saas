@@ -383,6 +383,7 @@ export interface paths {
         /**
          * List Documents
          * @description The business's finalized documents, newest first (practice ones included, each says `is_practice`). Read-only.
+         *     `q` narrows them to a number or buyer name containing it, or a buyer GSTIN starting with it.
          */
         get: operations["list_documents_api_v1_b__business_id__documents_get"];
         put?: never;
@@ -7332,6 +7333,7 @@ export interface operations {
     list_documents_api_v1_b__business_id__documents_get: {
         parameters: {
             query?: {
+                q?: string | null;
                 limit?: number;
                 offset?: number;
             };
