@@ -111,7 +111,7 @@ export function TopBar({ title, gstin }: { title?: string; gstin?: string | null
         {base && mine ? (
           <>
             <strong className="bizname">{title ?? mine.display_name}</strong>
-            <GlobalSearch businessId={businessId!} />
+            <GlobalSearch businessId={businessId!} invoices={FEATURES.invoicing && !!mine && canCreateDocuments(mine.role)} />
             <span className="sp" />
             {FEATURES.invoicing && FEATURES.practiceOnly && (
               <span className="practice">Practice invoices until numbering is confirmed</span>
