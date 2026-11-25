@@ -449,3 +449,20 @@ html:has(.page-auth) { background: var(--sunk); min-height: 100%; }
 .ltabpanel .list.pad { padding-top: 0; padding-bottom: 0; }
 .ltabpanel .list li.card { border: 0; border-bottom: 1px solid var(--line); border-radius: 0; padding: 10px 0; margin: 0; }
 .ltabpanel .list li.card:last-child { border-bottom: 0; }
+
+/* Audit log on a laptop (mocks v16, one screen): Export sits beside the filters, and each entry is one line.
+   A long name or detail ends in an ellipsis; the cell's title and the CSV export carry the full text. */
+.audit-bar { display: flex; gap: 16px; align-items: flex-start; }
+.audit-bar .filters { flex: 1; }
+.audit-bar .actions { margin-top: 24px; }
+@media (min-width: 761px) {
+  table.audit { table-layout: fixed; }
+  table.audit th:nth-child(1) { width: 160px; }
+  table.audit th:nth-child(2) { width: 22%; }
+  table.audit th:nth-child(3) { width: 24%; }
+  table.audit td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
+@media (max-width: 760px) {
+  .audit-bar { display: block; }
+  .audit-bar .actions { margin-top: 0; }
+}

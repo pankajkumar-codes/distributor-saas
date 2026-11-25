@@ -245,7 +245,8 @@ export function AuditPage() {
         <h1>Audit log</h1>
         <p className="lead">Everything that changed in this business, newest first. Entries can't be edited or deleted.</p>
 
-        <div className="filters" role="group" aria-label="Filters">
+        <div className="audit-bar">
+          <div className="filters" role="group" aria-label="Filters">
           <SelectField label="Kind" placeholder="All kinds" options={KINDS} value={kind} onChange={(e) => setKind(e.target.value)} />
           <SelectField label="Person" placeholder="Everyone" options={people} value={actor} onChange={(e) => setActor(e.target.value)} />
           <Field label="From" type="date" max={to || today} value={from} onChange={(e) => setFrom(e.target.value)} />
@@ -275,6 +276,7 @@ export function AuditPage() {
               . The link works for a minute. This export is in your audit log.
             </span>
           )}
+          </div>
         </div>
         {exportState?.status === "expired" && (
           <Banner>That file isn't available any more. Export again to get a fresh one.</Banner>
@@ -301,7 +303,7 @@ export function AuditPage() {
         {list.isSuccess && rows.length === 0 && <p>{narrowed ? "No entries match." : "No entries yet."}</p>}
 
         {rows.length > 0 && (
-          <table className="products">
+          <table className="products audit">
             <thead>
               <tr>
                 <th scope="col">When</th>
@@ -316,9 +318,9 @@ export function AuditPage() {
                 return (
                   <tr key={`${r.at}-${i}`}>
                     <td data-label="When">{formatDateTimeIst(r.at)}</td>
-                    <td data-label="Who">{r.actor.name}</td>
+                    <td data-label="Who" title={r.actor.name}>{r.actor.name}</td>
                     <td data-label="What happened">{path ? <Link to={path}>{r.action_label}</Link> : r.action_label}</td>
-                    <td data-label="Reason or detail">{detailText(r) || "—"}</td>
+                    <td data-label="Reason or detail" title={detailText(r) || undefined}>{detailText(r) || "—"}</td>
                   </tr>
                 );
               })}
