@@ -1,5 +1,5 @@
 import { MutationCache } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../../src/App";
@@ -196,17 +196,18 @@ describe("the prompt on Home", () => {
     server.reply(HOME, home);
     server.reply(ME, me(false));
     open("/b/b-1/home");
-    expect(await screen.findByRole("link", { name: "Turn on two-step sign-in" })).toHaveAttribute("href", "/b/b-1/settings/security");
-    expect(screen.getByRole("link", { name: "Two-step sign-in" })).toBeInTheDocument();
+    const attention = await screen.findByRole("region", { name: "Needs your attention" });
+    expect(await within(attention).findByText("Protect your account with two-step sign-in")).toBeInTheDocument();
+    expect(within(attention).getByRole("link", { name: "Turn on" })).toHaveAttribute("href", "/b/b-1/settings/security");
   });
 
   it("doesn't ask once it's on, and never asks other roles", async () => {
     server.reply(BUSINESSES, mine("billing"));
     server.reply(HOME, home);
     open("/b/b-1/home");
-    expect(await screen.findByRole("link", { name: "Two-step sign-in" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Needs your attention" })).toBeInTheDocument();
     expect(server.paths()).not.toContain(ME);
-    expect(screen.queryByText("Protect your account")).toBeNull();
+    expect(screen.queryByText(/Protect your account/)).toBeNull();
   });
 });
 
