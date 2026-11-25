@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../../src/App";
@@ -105,6 +105,8 @@ describe("a read-only role", () => {
     await screen.findByRole("heading", { name: "Neem soap" });
     expect(screen.getByLabelText("Name")).toBeDisabled();
     noButton("Save changes");
+    expect(screen.queryByRole("tab", { name: "Archive or delete" })).toBeNull();
+    fireEvent.click(screen.getByRole("tab", { name: "Rate history" }));
     noButton("Void");
     noButton("Mark confirmed");
     noButton("Add rate");
@@ -117,6 +119,7 @@ describe("a read-only role", () => {
     open("/b/b-1/products/p-1");
     await screen.findByRole("heading", { name: "Neem soap" });
     expect(screen.getByRole("button", { name: "Save changes" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("tab", { name: "Rate history" }));
     expect(screen.getByRole("button", { name: "Void" })).toBeInTheDocument();
     noButton("Mark confirmed"); // owner and admin only (L3-3)
   });

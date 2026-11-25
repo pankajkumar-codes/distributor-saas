@@ -17,3 +17,10 @@ export function saleRateProblem(raw: string, final = false): string | undefined 
   if (final && (whole === "" || decimals === "")) return "Enter a number, like 45 or 45.50.";
   return undefined;
 }
+
+/** The same for the optional MRP (#398): the server keeps 12 digits before the point (numeric(14, 2)). */
+export function mrpProblem(raw: string, final = false): string | undefined {
+  const problem = saleRateProblem(raw, final);
+  if (problem) return problem.replace("A price", "An MRP");
+  return raw.trim().split(".")[0].length > 12 ? "That number is too large." : undefined;
+}

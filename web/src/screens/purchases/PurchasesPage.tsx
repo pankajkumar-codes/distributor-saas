@@ -6,6 +6,8 @@ import { useMyBusinesses } from "../../auth/useMyBusinesses";
 import { Banner } from "../../kit/Banner";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
+import { PageHead } from "../../kit/PageHead";
+import { formatDateTimeIst } from "../../format/dates";
 import { useOpenDrafts, usePurchaseFiles, useSendPurchaseFile } from "./usePurchases";
 import { NoAccess } from "../../kit/NoAccess";
 import { Loading } from "../../kit/Loading";
@@ -44,19 +46,17 @@ export function PurchasesPage() {
   return (
     <>
       <TopBar title={business.display_name} gstin={business.gstin} />
-      <main className="page">
-        <h1>Purchase invoices</h1>
-        {canPrepareReturns(business.role) && (
-          <p>
-            <Link to={`/b/${businessId}/period-files`}>Monthly and quarterly files</Link>
-          </p>
-        )}
-        <>
-          <p className="hint">
-            Upload a supplier's invoice as a PDF, or a clear photo of the paper bill. You check every detail before anything is added to your products and stock.
-          </p>
-          {mayUpload && (
-            <div className="field">
+      <main className="page page-wide">
+        <PageHead crumbs={[{ label: "Sell" }, { label: "Purchase invoices" }]} title="Purchase invoices" sub="Upload a supplier invoice. We read it; you check it before it counts.">
+          {canPrepareReturns(business.role) && (
+            <Link className="btn btn-secondary" to={`/b/${businessId}/period-files`}>
+              Monthly and quarterly files
+            </Link>
+          )}
+        </PageHead>
+        {mayUpload && (
+          <section className="panel pad" aria-label="Upload">
+            <div className="field upload-box">
               <label htmlFor="purchase-file">Choose an invoice (PDF, JPG, PNG or HEIC)</label>
               <input
                 id="purchase-file"
@@ -69,36 +69,83 @@ export function PurchasesPage() {
                   e.target.value = "";
                 }}
               />
+              <p className="hint">A PDF, or a clear photo of the paper bill. You check every detail before anything is added to your products and stock.</p>
               {send.isPending && <p aria-busy="true">Sending…</p>}
               {send.error && <Banner tone="error">{errorText(send.error)}</Banner>}
             </div>
-          )}
+          </section>
+        )}
 
-          <h2>To check</h2>
+        <section className="panel" aria-labelledby="to-check">
+          <div className="panel-h">
+            <h2 id="to-check">To check</h2>
+            {!!drafts.data?.length && <span className="chip chip-warn">{drafts.data.length}</span>}
+          </div>
           {drafts.isPending && <Loading query={drafts} />}
           {drafts.error && <Banner tone="error">{errorText(drafts.error)}</Banner>}
-          {drafts.data?.length === 0 && <p className="hint">Nothing waiting. Uploaded invoices appear here once they are read.</p>}
-          <ul>
-            {drafts.data?.map((d) => (
-              <li key={d.id}>
-                <Link to={`/b/${businessId}/purchases/${d.id}`}>
-                  {d.doc_number ? `Invoice ${d.doc_number}` : "Invoice to type in"} from {d.file_name}
-                </Link>
-                {d.reader === "none" && <span className="hint"> We couldn't read this one, so you'll type it in.</span>}
-              </li>
-            ))}
-          </ul>
+          {drafts.data?.length === 0 && <p className="empty">Nothing waiting. Uploaded invoices appear here once they are read.</p>}
+          {!!drafts.data?.length && (
+            <div className="scrollpanel short" tabIndex={0} role="region" aria-label="Invoices to check">
+              <table className="ltable">
+                <thead>
+                  <tr>
+                    <th scope="col">Invoice</th>
+                    <th scope="col">Supplier GSTIN</th>
+                    <th scope="col">Read</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {drafts.data.map((d) => (
+                    <tr key={d.id}>
+                      <td>
+                        <Link className="pname" to={`/b/${businessId}/purchases/${d.id}`}>
+                          {d.doc_number ? `Invoice ${d.doc_number}` : "Invoice to type in"} from {d.file_name}
+                        </Link>
+                      </td>
+                      <td className={d.supplier_gstin ? "num" : undefined}>{d.supplier_gstin ?? "—"}</td>
+                      <td>
+                        {d.reader === "none" ? (
+                          <span className="chip chip-warn">Couldn't read: type it in</span>
+                        ) : (
+                          <span className="chip chip-ok">Read</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
 
-          <h2>Files</h2>
-          {files.data?.length === 0 && <p className="hint">No files yet.</p>}
-          <ul>
-            {files.data?.map((f) => (
-              <li key={f.id}>
-                {f.file_name}: {f.status === "rejected" ? (f.reject_message ?? "We couldn't read this file.") : f.status === "read" ? "read" : "being read…"}
-              </li>
-            ))}
-          </ul>
-        </>
+        <section className="panel" aria-labelledby="files-h">
+          <div className="panel-h">
+            <h2 id="files-h">Files</h2>
+          </div>
+          {files.data?.length === 0 && <p className="empty">No files yet.</p>}
+          {!!files.data?.length && (
+            <div className="scrollpanel short" tabIndex={0} role="region" aria-label="Uploaded files">
+              <table className="ltable">
+                <thead>
+                  <tr>
+                    <th scope="col">File</th>
+                    <th scope="col">Uploaded</th>
+                    <th scope="col">Result</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {files.data.map((f) => (
+                    <tr key={f.id}>
+                      <td>{f.file_name}</td>
+                      <td className="num">{formatDateTimeIst(f.created_at)}</td>
+                      <td>{f.status === "rejected" ? (f.reject_message ?? "We couldn't read this file.") : f.status === "read" ? "Read" : "Being read…"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
       </main>
     </>
   );

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 
 import { api, call } from "../../api/client";
 import { errorText, type ApiError } from "../../api/errors";
@@ -9,6 +9,7 @@ import { formatRupees } from "../../format/money";
 import { Banner } from "../../kit/Banner";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
+import { PageHead } from "../../kit/PageHead";
 import { Loading } from "../../kit/Loading";
 
 type Plan = components["schemas"]["InvoicingPlanOut"];
@@ -40,42 +41,52 @@ export function PlanPage() {
   return (
     <>
       <TopBar title={business.display_name} gstin={business.gstin} />
-      <main className="page">
-        <p className="step">
-          <Link to={`/b/${businessId}/home`}>Home</Link>
-        </p>
-        <h1>Invoicing plan</h1>
+      <main className="page page-wide">
+        <PageHead
+          crumbs={[{ label: "Settings", to: `/b/${businessId}/settings` }, { label: "Invoicing plan" }]}
+          title="Invoicing plan"
+          sub={p?.free_for_now ? "Free for now. Payments are not switched on yet." : undefined}
+        />
         {plan.error && <Banner tone="error">{errorText(plan.error)}</Banner>}
         {plan.isPending && <Loading query={plan} />}
         {p && (
-          <>
-            <section aria-labelledby="free-count">
-              <h2 id="free-count">Your free invoices</h2>
-              <p>
-                <strong>
-                  {p.used} of {p.free_invoices}
-                </strong>{" "}
-                used · {p.remaining_free} left
-              </p>
-              <p className="hint">Practice invoices count too.</p>
-              {p.needs_plan && !p.free_for_now && <Banner tone="error">You have used your free invoices. Choose a plan to keep creating invoices.</Banner>}
-            </section>
-            <section aria-labelledby="plan-name">
-              <h2 id="plan-name">{p.name}</h2>
-              {p.free_for_now ? (
-                <p>
-                  <strong>Free for now.</strong> Nothing is charged at the moment. These are the prices once plans start:
+          <div className="cols2 plan-cols">
+            <section className="panel" aria-labelledby="free-count">
+              <div className="panel-h">
+                <h2 id="free-count">Your free invoices</h2>
+                <span className={p.remaining_free > 0 ? "chip chip-ok" : "chip chip-warn"}>{p.remaining_free} left</span>
+              </div>
+              <div className="pad">
+                <p className="plan-used">
+                  <strong className="num">{p.used}</strong> <span className="num">of {p.free_invoices} used</span>
                 </p>
-              ) : (
-                <p>Prices:</p>
-              )}
-              <ul className="list">
-                <li>Monthly: {formatRupees(String(p.monthly_rupees))}</li>
-                <li>Quarterly: {formatRupees(String(p.quarterly_rupees))}</li>
-              </ul>
-              <p className="hint">{p.gst_note}</p>
+                <div className="home-bar" aria-hidden="true">
+                  <i style={{ width: `${Math.min(100, p.free_invoices ? (p.used / p.free_invoices) * 100 : 0)}%` }} />
+                </div>
+                <p className="hint">Practice invoices count too.</p>
+                {p.needs_plan && !p.free_for_now && <Banner tone="error">You have used your free invoices. Choose a plan to keep creating invoices.</Banner>}
+              </div>
             </section>
-          </>
+            <section className="panel" aria-labelledby="plan-name">
+              <div className="panel-h">
+                <h2 id="plan-name">{p.free_for_now ? `${p.name}: prices once plans start` : p.name}</h2>
+              </div>
+              <dl className="kvs">
+                <div>
+                  <dt>Monthly</dt>
+                  <dd className="num">{formatRupees(String(p.monthly_rupees))}</dd>
+                </div>
+                <div>
+                  <dt>Quarterly</dt>
+                  <dd className="num">{formatRupees(String(p.quarterly_rupees))}</dd>
+                </div>
+                <div>
+                  <dt>GST on the plan</dt>
+                  <dd>{p.gst_note}</dd>
+                </div>
+              </dl>
+            </section>
+          </div>
         )}
       </main>
     </>

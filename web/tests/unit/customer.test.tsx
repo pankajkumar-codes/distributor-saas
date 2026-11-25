@@ -52,6 +52,8 @@ const group = (name: string) => within(screen.getByRole("group", { name }));
 const type = (label: string, value: string, scope: Pick<typeof screen, "getByLabelText"> = screen) => fireEvent.change(scope.getByLabelText(label), { target: { value } });
 const sent = (path: string, method: string) => server.sent.filter((s) => s.path === path && s.method === method);
 
+const tab = (name: string) => fireEvent.click(screen.getByRole("tab", { name }));
+
 describe("a new customer", () => {
   it("is created once per form, with delivery null when it's the billing address", async () => {
     open("/b/b-1/customers/new");
@@ -69,8 +71,7 @@ describe("a new customer", () => {
     expect(await screen.findByRole("heading", { name: "Customers" })).toBeInTheDocument(); // lands on the list
     expect(window.location.pathname).toBe("/b/b-1/customers");
     expect(screen.getByText("Added Sharma Traders.")).toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: "Archive Sharma Traders" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Delete Sharma Traders" })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Sharma Traders" })).toHaveAttribute("href", "/b/b-1/customers/c-1");
     const [first, second] = sent(LIST, "POST");
     expect(second.headers.get("Idempotency-Key")).toBe(first.headers.get("Idempotency-Key"));
     expect(first.body).toEqual({
@@ -167,6 +168,7 @@ describe("a new customer", () => {
     await screen.findByRole("option", { name: "West Bengal (19)" });
     server.reply(LIST, { status: 422, body: { error: { code: "state_code_required", message: "Choose the state", field: "delivery.state_code" } } });
     type("Name", "Asha Stores");
+    tab("Delivery address");
     fireEvent.click(screen.getByRole("checkbox", { name: "Deliver to the billing address" }));
     type("City or town", "Pune", group("Delivery address"));
     fireEvent.click(screen.getByRole("button", { name: "Add customer" }));
@@ -247,8 +249,11 @@ describe("editing a customer", () => {
     open("/b/b-1/customers/c-1");
     await screen.findByRole("heading", { name: "Sharma Traders" });
     type("Credit days", "60");
+    tab("Archive or delete");
     expect(screen.getByRole("button", { name: "Archive" })).toBeDisabled();
+    tab("Details");
     type("Credit days", "30");
+    tab("Archive or delete");
     expect(screen.getByRole("button", { name: "Archive" })).toBeEnabled();
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     fireEvent.click(screen.getByRole("button", { name: "Yes, delete" }));
@@ -274,6 +279,7 @@ describe("editing a customer", () => {
     );
     open("/b/b-1/customers/c-1");
     await screen.findByRole("heading", { name: "Sharma Traders" });
+    tab("Archive or delete");
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     fireEvent.click(screen.getByRole("button", { name: "Yes, delete" }));
     expect(await screen.findByText(/can't be deleted. Archive it instead/)).toBeInTheDocument();
@@ -283,6 +289,7 @@ describe("editing a customer", () => {
     server.reply(ONE, { status: 200, body: detail({ in_use: true }) });
     open("/b/b-1/customers/c-1");
     await screen.findByRole("heading", { name: "Sharma Traders" });
+    tab("Archive or delete");
     expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
     expect(screen.getByText(/can be archived but not deleted/)).toBeInTheDocument();
   });

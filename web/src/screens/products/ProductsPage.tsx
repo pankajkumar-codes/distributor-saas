@@ -1,4 +1,4 @@
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Link, useLocation, useParams, useSearchParams } from "react-router-dom";
 
 import { api, call } from "../../api/client";
@@ -10,43 +10,29 @@ import { formatRate, formatRupees } from "../../format/money";
 import { Banner } from "../../kit/Banner";
 import { ErrorDetail } from "../../kit/ErrorDetail";
 import { Button } from "../../kit/Button";
-import { RowActions } from "../../kit/RowActions";
 import { NotFound } from "../../kit/NotFound";
+import { PageHead, SearchBox } from "../../kit/PageHead";
+import { Pager } from "../../kit/Pager";
 import { TopBar } from "../../kit/TopBar";
-import { uniqueById, useUrlSearch } from "../../kit/lists";
+import { ROWS_PER_PAGE, useUrlPage, useUrlSearch } from "../../kit/lists";
 import { Loading } from "../../kit/Loading";
 
 type Page = components["schemas"]["ProductPageOut"];
-type Product = components["schemas"]["ProductOut"];
-type Status = "active" | "archived" | "all";
+type Status = "active" | "archived";
 type Filter = "no_hsn" | "rate_unconfirmed";
 
-export const PAGE_SIZE = 50;
-const STATUSES: { value: Status; label: string }[] = [
-  { value: "active", label: "Active" },
-  { value: "archived", label: "Archived" },
-  { value: "all", label: "All" },
+/** The view chips (mocks v16): All active products, the two to-fix filters, and the archived ones. */
+const VIEWS: { key: string; label: string; status: Status; filter: Filter | null }[] = [
+  { key: "all", label: "All", status: "active", filter: null },
+  { key: "no_hsn", label: "HSN missing", status: "active", filter: "no_hsn" },
+  { key: "rate_unconfirmed", label: "Rate not confirmed", status: "active", filter: "rate_unconfirmed" },
+  { key: "archived", label: "Archived", status: "archived", filter: null },
 ];
-const FILTERS: { value: Filter; label: string }[] = [
-  { value: "no_hsn", label: "No HSN" },
-  { value: "rate_unconfirmed", label: "Rate not confirmed" },
-];
-
-function Chips({ p }: { p: Product }) {
-  const unconfirmed = p.rate_on && !p.rate_on.confirmed;
-  if (p.hsn && !unconfirmed && p.status === "active") return null;
-  return (
-    <span className="chips">
-      {!p.hsn && <span className="chip chip-warn">HSN missing</span>}
-      {unconfirmed && <span className="chip chip-warn">Not confirmed</span>}
-      {p.status === "archived" && <span className="chip">Archived</span>}
-    </span>
-  );
-}
 
 /**
- * M8 list (LLD-3 §10). Tab, filter and search live in the URL, so a Home link or a reload
- * lands on the same view. Rates and money are shown from the server's strings.
+ * M8 list (LLD-3 §10) in the v16 Ledger look: search, view chips and pages of five, so the
+ * screen never scrolls. View, search and page live in the URL, so a Home link or a reload
+ * lands on the same rows. Rates and money are shown from the server's strings.
  */
 export function ProductsPage() {
   const { businessId = "" } = useParams();
@@ -54,31 +40,34 @@ export function ProductsPage() {
   const added = (useLocation().state as { added?: string } | null)?.added;
   const businesses = useMyBusinesses();
   const business = businesses.data?.find((b) => b.business_id === businessId);
-  const status = (STATUSES.find((s) => s.value === params.get("status"))?.value ?? "active") as Status;
-  const filter = FILTERS.find((f) => f.value === params.get("filter"))?.value ?? null;
+  // Old links still work: ?filter=no_hsn and ?status=archived pick the matching chip.
+  const view =
+    VIEWS.find((v) => v.key === params.get("view")) ??
+    VIEWS.find((v) => v.filter && v.filter === params.get("filter")) ??
+    (params.get("status") === "archived" ? VIEWS[3] : VIEWS[0]);
   const { search, setSearch, q } = useUrlSearch(params, setParams);
+  const { page, setPage } = useUrlPage(params, setParams);
 
-  const set = (key: string, value: string | null) =>
+  const pick = (key: string) =>
     setParams((prev) => {
       const next = new URLSearchParams(prev);
-      if (value) next.set(key, value);
-      else next.delete(key);
+      for (const k of ["view", "filter", "status", "page"]) next.delete(k);
+      if (key !== "all") next.set("view", key);
       return next;
     });
 
-  const list = useInfiniteQuery<Page, ApiError>({
-    queryKey: ["b", businessId, "products", { status, filter, q }],
-    initialPageParam: 0,
-    queryFn: ({ pageParam }) =>
+  const list = useQuery<Page, ApiError>({
+    queryKey: ["b", businessId, "products", { status: view.status, filter: view.filter, q, page }],
+    queryFn: () =>
       call(() =>
         api.GET("/api/v1/b/{business_id}/products", {
           params: {
             path: { business_id: businessId },
-            query: { status, filter, q: q || undefined, limit: PAGE_SIZE, offset: pageParam as number },
+            query: { status: view.status, filter: view.filter, q: q || undefined, limit: ROWS_PER_PAGE, offset: page * ROWS_PER_PAGE },
           },
         }),
       ),
-    getNextPageParam: (last, pages) => (last.has_more ? pages.length * PAGE_SIZE : undefined),
+    placeholderData: keepPreviousData,
     enabled: Boolean(business),
   });
 
@@ -98,56 +87,35 @@ export function ProductsPage() {
   }
   if (!business) return <NotFound />;
 
-  const items = uniqueById(list.data?.pages.flatMap((p) => p.items) ?? []);
-  const narrowed = Boolean(q || filter || status !== "active");
+  const items = list.data?.items ?? [];
+  const narrowed = Boolean(q || view.key !== "all");
+  const canEdit = canEditCatalog(business.role);
 
   return (
     <>
       <TopBar title={business.display_name} gstin={business.gstin} />
       <main className="page page-wide">
-        <p className="step">
-          <Link to={`/b/${businessId}/home`}>Home</Link>
-        </p>
-        <div className="actions">
-          <h1>Products</h1>
-          {canEditCatalog(business.role) && (
+        <PageHead crumbs={[{ label: "Sell" }, { label: "Products" }]} title="Products">
+          {canEdit && (
             <>
+              <Link className="btn btn-secondary" to={`/b/${businessId}/products/import`}>
+                Import from a file
+              </Link>
               <Link className="btn btn-primary" to={`/b/${businessId}/products/new`}>
                 New product
-              </Link>{" "}
-              <Link to={`/b/${businessId}/products/import`}>Import from a file</Link>
+              </Link>
             </>
           )}
-        </div>
-        <div className="field">
-          <label htmlFor="product-search">Search by name, code or barcode</label>
-          <input id="product-search" type="search" value={search} onChange={(e) => setSearch(e.target.value)} />
-        </div>
-        <div className="tabs" role="group" aria-label="Show">
-          {STATUSES.map((s) => (
-            <button
-              key={s.value}
-              type="button"
-              className="tab"
-              aria-pressed={status === s.value}
-              onClick={() => set("status", s.value === "active" ? null : s.value)}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
-        <div className="tabs" role="group" aria-label="Filter">
-          {FILTERS.map((f) => (
-            <button
-              key={f.value}
-              type="button"
-              className="tab"
-              aria-pressed={filter === f.value}
-              onClick={() => set("filter", filter === f.value ? null : f.value)}
-            >
-              {f.label}
-            </button>
-          ))}
+        </PageHead>
+        <div className="toolbar">
+          <SearchBox id="product-search" label="Search by name, code or barcode" value={search} onChange={setSearch} />
+          <div className="row" role="group" aria-label="Show">
+            {VIEWS.map((v) => (
+              <button key={v.key} type="button" className="fchip" aria-pressed={view.key === v.key} onClick={() => pick(v.key)}>
+                {v.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {added && <Banner>Added {added}.</Banner>}
@@ -160,71 +128,68 @@ export function ProductsPage() {
           </Banner>
         )}
         {list.isPending && <Loading query={list} />}
-        {list.isSuccess && items.length === 0 && (
-          <p>{narrowed ? "No products match." : canEditCatalog(business.role) ? "No products yet. Add your first with New product." : "No products yet."}</p>
-        )}
 
-        {items.length > 0 && (
-          <table className="products">
-            <thead>
-              <tr>
-                <th scope="col">Product</th>
-                <th scope="col">HSN</th>
-                <th scope="col">Unit</th>
-                <th scope="col">Sale rate (excl. GST)</th>
-                <th scope="col">GST rate</th>
-                {canEditCatalog(business.role) && <th scope="col">Actions</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((p) => (
-                <tr key={p.id}>
-                  <td data-label="Product">
-                    <Link to={`/b/${businessId}/products/${p.id}`}>
-                      <strong>{p.name}</strong>
-                    </Link>{" "}
-                    <span className="hint">{p.code}</span> <Chips p={p} />
-                  </td>
-                  <td data-label="HSN">{p.hsn ?? "—"}</td>
-                  <td data-label="Unit">{p.uqc}</td>
-                  <td data-label="Sale rate (excl. GST)">{formatRupees(p.sale_rate)}</td>
-                  <td data-label="GST rate">
-                    {p.rate_on ? formatRate(p.rate_on.rate) : p.tax_category === "taxable" ? "—" : CATEGORY[p.tax_category] ?? "—"}
-                  </td>
-                  {canEditCatalog(business.role) && (
-                    <td data-label="Actions">
-                      <RowActions
-                        name={p.name}
-                        editTo={`/b/${businessId}/products/${p.id}`}
-                        archived={p.status === "archived"}
-                        inUse={p.in_use}
-                        listKey={["b", businessId, "products"]}
-                        archive={(a) =>
-                          call(() =>
-                            a
-                              ? api.POST("/api/v1/b/{business_id}/products/{product_id}/archive", { params: { path: { business_id: businessId, product_id: p.id } } })
-                              : api.POST("/api/v1/b/{business_id}/products/{product_id}/unarchive", { params: { path: { business_id: businessId, product_id: p.id } } }),
-                          )
-                        }
-                        remove={() =>
-                          call(() =>
-                            api.DELETE("/api/v1/b/{business_id}/products/{product_id}", {
-                              params: { path: { business_id: businessId, product_id: p.id }, header: { "If-Match": String(p.version) } },
-                            }),
-                          )
-                        }
-                      />
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-        {list.hasNextPage && (
-          <Button type="button" busy={list.isFetchingNextPage} onClick={() => list.fetchNextPage()}>
-            Load more
-          </Button>
+        {list.isSuccess && (
+          <section className="panel" aria-labelledby="products-h">
+            <div className="panel-h">
+              <h2 id="products-h">{view.key === "all" ? "All products" : view.label}</h2>
+            </div>
+            {items.length === 0 ? (
+              <p className="empty">
+                {page > 0 ? "No more products." : narrowed ? "No products match." : canEdit ? "No products yet. Add your first with New product." : "No products yet."}
+              </p>
+            ) : (
+              <div className="tablewrap">
+                <table className="ltable">
+                  <thead>
+                    <tr>
+                      <th scope="col">Product</th>
+                      <th scope="col">HSN</th>
+                      <th scope="col">Unit</th>
+                      <th scope="col" className="r">
+                        Sale rate (excl. GST)
+                      </th>
+                      <th scope="col" className="r">
+                        MRP
+                      </th>
+                      <th scope="col" className="r">
+                        GST rate
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((p) => (
+                      <tr key={p.id}>
+                        <td>
+                          <Link className="pname" to={`/b/${businessId}/products/${p.id}`}>
+                            {p.name}
+                          </Link>{" "}
+                          {p.status === "archived" && <span className="chip">Archived</span>}
+                          <span className="sub2 num">{p.code}</span>
+                        </td>
+                        <td className="num">{p.hsn ?? <span className="chip chip-warn">HSN missing</span>}</td>
+                        <td className="num">{p.uqc}</td>
+                        <td className="r num">{formatRupees(p.sale_rate)}</td>
+                        <td className="r num">{p.mrp ? formatRupees(p.mrp) : "—"}</td>
+                        <td className="r num">
+                          {p.rate_on ? formatRate(p.rate_on.rate) : p.tax_category === "taxable" ? "—" : CATEGORY[p.tax_category] ?? "—"}
+                          {p.rate_on && !p.rate_on.confirmed && (
+                            <>
+                              {" "}
+                              <span className="chip chip-warn">Not confirmed</span>
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {(page > 0 || list.data.has_more) && (
+              <Pager page={page} size={ROWS_PER_PAGE} shown={items.length} hasMore={list.data.has_more} noun="products" onPage={setPage} />
+            )}
+          </section>
         )}
       </main>
     </>

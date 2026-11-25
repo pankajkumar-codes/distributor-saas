@@ -13,6 +13,7 @@ import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
+import { PageHead } from "../../kit/PageHead";
 import { ImportRows, STATUS_LABEL, type RowStatus } from "./ImportRows";
 import { NoAccess } from "../../kit/NoAccess";
 
@@ -59,7 +60,14 @@ export function ImportPage() {
     queryFn: ({ pageParam }) =>
       call(() =>
         api.GET("/api/v1/b/{business_id}/product-imports/{import_id}", {
-          params: { path: { ...path, import_id: runId ?? "" }, query: { rows: tab ?? undefined, limit: PAGE, offset: pageParam as number } },
+          params: {
+            path: { ...path, import_id: runId ?? "" },
+            query: {
+              rows: tab ?? undefined,
+              limit: PAGE,
+              offset: pageParam as number,
+            },
+          },
         }),
       ),
     getNextPageParam: (last, pages) => (last.has_more ? pages.length * PAGE : undefined),
@@ -71,7 +79,10 @@ export function ImportPage() {
   const waiting = Boolean(jobId) && !job.error && !finished(job.data);
   const jobStatus = job.data?.status;
   useEffect(() => {
-    if (jobStatus === "done" || jobStatus === "failed") queryClient.invalidateQueries({ queryKey: ["b", businessId, "import", runId] });
+    if (jobStatus === "done" || jobStatus === "failed")
+      queryClient.invalidateQueries({
+        queryKey: ["b", businessId, "import", runId],
+      });
   }, [jobStatus, businessId, runId, queryClient]);
 
   const start = useMutation<void, ApiError>({
@@ -109,7 +120,9 @@ export function ImportPage() {
     onMutate: () => setConfirmError(null),
     onSuccess: (r) => {
       go({ job: r.job_id, rows: null });
-      queryClient.invalidateQueries({ queryKey: ["b", businessId, "import", runId] });
+      queryClient.invalidateQueries({
+        queryKey: ["b", businessId, "import", runId],
+      });
     },
     onError: async (e, apply) => {
       if (e.code !== "import_already_applied") return;
@@ -122,16 +135,27 @@ export function ImportPage() {
   });
 
   const discard = useMutation<unknown, ApiError>({
-    mutationFn: () =>
-      call(() => api.POST("/api/v1/b/{business_id}/product-imports/{import_id}/discard", { params: { path: { ...path, import_id: runId! } } })),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["b", businessId, "import", runId] }),
+    mutationFn: () => call(() => api.POST("/api/v1/b/{business_id}/product-imports/{import_id}/discard", { params: { path: { ...path, import_id: runId! } } })),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: ["b", businessId, "import", runId],
+      }),
   });
 
   const template = useMutation<void, ApiError>({
     mutationFn: async () => {
-      const text = await call(() => api.GET("/api/v1/b/{business_id}/products/import-template", { params: { path }, parseAs: "text" }));
+      const text = await call(() =>
+        api.GET("/api/v1/b/{business_id}/products/import-template", {
+          params: { path },
+          parseAs: "text",
+        }),
+      );
       const url = URL.createObjectURL(new Blob([text as string], { type: "text/csv" }));
-      const a = Object.assign(document.createElement("a"), { href: url, download: "products-template.csv", hidden: true });
+      const a = Object.assign(document.createElement("a"), {
+        href: url,
+        download: "products-template.csv",
+        hidden: true,
+      });
       document.body.append(a); // Firefox ignores a click on a link that is not in the page
       a.click();
       a.remove();
@@ -169,7 +193,9 @@ export function ImportPage() {
   };
   const table = (
     <>
-      <ImportRows rows={rows} />
+      <div className="scrollpanel" tabIndex={0} role="region" aria-label="Rows in the file">
+        <ImportRows rows={rows} />
+      </div>
       {run.hasNextPage && (
         <Button type="button" busy={run.isFetchingNextPage} onClick={() => run.fetchNextPage()}>
           Load more
@@ -182,10 +208,15 @@ export function ImportPage() {
     <>
       <TopBar title={business.display_name} gstin={business.gstin} />
       <main className="page page-wide">
-        <p className="step">
-          <Link to={`/b/${businessId}/products`}>Products</Link>
-        </p>
-        <h1>Import products from a file</h1>
+        <PageHead
+          crumbs={[{ label: "Sell" }, { label: "Products", to: `/b/${businessId}/products` }, { label: "Import" }]}
+          title="Import products from a file"
+          sub={
+            <>
+              Columns: <code>code, name, hsn, unit, sale_rate, gst_rate, gst_rate_valid_from, barcode, tax_category, has_cess, mrp</code>
+            </>
+          }
+        />
         {run.error && <Banner tone="error">{errorText(run.error)}</Banner>}
         {job.data?.status === "failed" && current && !ENDED.has(current.status) && (
           <Banner tone="error">
@@ -201,21 +232,17 @@ export function ImportPage() {
         ) : null}
 
         {!runId && (
-          <form onSubmit={submit} noValidate>
-            <p>
-              Use a CSV file, or the first sheet of an Excel file, with this header row:{" "}
-              <code>code, name, hsn, unit, sale_rate, gst_rate, gst_rate_valid_from, barcode, tax_category, has_cess</code>
+          <form onSubmit={submit} noValidate className="panel pad">
+            <p className="hint">
+              Use a CSV file, or the first sheet of an Excel file, with the header row above. The mrp column is optional: leave it out and no product's MRP
+              changes.
             </p>
             <p>
               <Button type="button" variant="link" busy={template.isPending} onClick={() => template.mutate()}>
                 Download the template
               </Button>
             </p>
-            {template.error && (
-              <Banner tone="error">
-                The template didn't download. {errorText(template.error)}
-              </Banner>
-            )}
+            {template.error && <Banner tone="error">The template didn't download. {errorText(template.error)}</Banner>}
             <div className="field">
               <label htmlFor="import-file">File</label>
               <input
@@ -238,10 +265,11 @@ export function ImportPage() {
                     : (start.error.fix ?? (start.error.message || errorText(start.error)))}
               </Banner>
             )}
-            <div className="actions">
+            <div className="savebar">
               <Button type="submit" busy={start.isPending} disabled={!file}>
                 Upload and check
               </Button>
+              <p className="hint">Nothing is saved until you check the rows and confirm.</p>
             </div>
           </form>
         )}
@@ -263,24 +291,54 @@ export function ImportPage() {
 
         {current?.status === "preview" && !waiting && (
           <>
-            <p role="status">
-              {current.file_name}: {n("new")} new, {n("changed")} changed, {n("unchanged")} unchanged, {n("invalid")} with errors,{" "}
-              {n("conflict")} with a repeated code.
-            </p>
-            {(n("invalid") > 0 || n("conflict") > 0) && (
-              <Banner>Rows with errors or a repeated code are never imported. Fix them in the file and upload it again.</Banner>
-            )}
-            <div className="tabs" role="group" aria-label="Show rows">
-              <button type="button" className="tab" aria-pressed={tab === null} onClick={() => go({ rows: null })}>
-                All
-              </button>
-              {TABS.map((t) => (
-                <button key={t} type="button" className="tab" aria-pressed={tab === t} onClick={() => go({ rows: t })}>
-                  {STATUS_LABEL[t]} ({n(t)})
-                </button>
-              ))}
+            <div className="cols2 cols-import">
+              <section className="panel" aria-labelledby="import-file-h">
+                <div className="panel-h">
+                  <h2 id="import-file-h">{current.file_name}</h2>
+                  <span className="chip chip-ok">Checked</span>
+                </div>
+                <div role="status">
+                  <dl className="kvs">
+                    <div>
+                      <dt>New products</dt>
+                      <dd className="num">{n("new")}</dd>
+                    </div>
+                    <div>
+                      <dt>Changes to existing products</dt>
+                      <dd className="num">{n("changed")}</dd>
+                    </div>
+                    <div>
+                      <dt>Unchanged</dt>
+                      <dd className="num">{n("unchanged")}</dd>
+                    </div>
+                    <div>
+                      <dt>Rows with errors</dt>
+                      <dd className="num">{n("invalid")}</dd>
+                    </div>
+                    <div>
+                      <dt>Repeated code</dt>
+                      <dd className="num">{n("conflict")}</dd>
+                    </div>
+                  </dl>
+                </div>
+              </section>
+              <section className="panel" aria-labelledby="import-rows-h">
+                <div className="panel-h">
+                  <h2 id="import-rows-h">Rows</h2>
+                  <div className="row" role="group" aria-label="Show rows">
+                    <button type="button" className="fchip" aria-pressed={tab === null} onClick={() => go({ rows: null })}>
+                      All
+                    </button>
+                    {TABS.map((t) => (
+                      <button key={t} type="button" className="fchip" aria-pressed={tab === t} onClick={() => go({ rows: t })}>
+                        {STATUS_LABEL[t]} ({n(t)})
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {table}
+              </section>
             </div>
-            {table}
             {n("changed") > 0 && (
               <label className="radio">
                 <input type="checkbox" checked={applyChanges} onChange={(e) => setApplyChanges(e.target.checked)} />
@@ -288,13 +346,16 @@ export function ImportPage() {
               </label>
             )}
             {discard.error && <Banner tone="error">{discard.error.message || errorText(discard.error)}</Banner>}
-            <div className="actions">
+            <div className="savebar">
               <Button type="button" busy={confirm.isPending} disabled={willApply === 0 || confirm.isSuccess} onClick={() => confirm.mutate(applyChanges)}>
                 {willApply === 0 ? "Nothing to import" : `Import ${willApply} product${willApply === 1 ? "" : "s"}`}
-              </Button>{" "}
-              <Button type="button" variant="link" busy={discard.isPending} onClick={() => discard.mutate()}>
+              </Button>
+              <Button type="button" variant="secondary" busy={discard.isPending} onClick={() => discard.mutate()}>
                 Discard
               </Button>
+              {(n("invalid") > 0 || n("conflict") > 0) && (
+                <p className="hint">Rows with errors or a repeated code are never imported. Fix them in the file and upload it again.</p>
+              )}
             </div>
           </>
         )}
@@ -302,8 +363,8 @@ export function ImportPage() {
         {current?.status === "applied" && (
           <>
             <Banner>
-              Imported: {n("applied")} applied, {n("skipped")} skipped, {n("stale")} not applied because the product or the GST rate
-              list changed after the preview. New GST rates are marked not confirmed until you confirm them with your CA.
+              Imported: {n("applied")} applied, {n("skipped")} skipped, {n("stale")} not applied because the product or the GST rate list changed after the
+              preview. New GST rates are marked not confirmed until you confirm them with your CA.
             </Banner>
             {n("stale") > 0 && <p>To bring in the rows that weren't applied, upload the file again for a fresh preview.</p>}
             {table}
@@ -320,8 +381,7 @@ export function ImportPage() {
           <Banner tone={current.status === "failed" ? "error" : undefined}>
             {current.superseded_by ? (
               <>
-                A newer upload of this file replaced this preview.{" "}
-                <Link to={`?run=${current.superseded_by}`}>Open the newer preview</Link>.
+                A newer upload of this file replaced this preview. <Link to={`?run=${current.superseded_by}`}>Open the newer preview</Link>.
               </>
             ) : (
               (current.error_message ?? "Nothing was saved.")

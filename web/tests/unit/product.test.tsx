@@ -54,6 +54,9 @@ function open(path: string) {
 const type = (label: string, value: string) => fireEvent.change(screen.getByLabelText(label), { target: { value } });
 const sent = (path: string, method: string) => server.sent.filter((s) => s.path === path && s.method === method);
 
+/** The product page keeps Rate history and Archive or delete on tabs (mocks v16 one-screen rule). */
+const tab = (name: string) => fireEvent.click(screen.getByRole("tab", { name }));
+
 describe("a new product", () => {
   it("is created once per form, with its first GST rate, and lands on the list", async () => {
     open("/b/b-1/products/new");
@@ -65,6 +68,7 @@ describe("a new product", () => {
     type("HSN (optional)", "3401");
     type("Unit", "NOS");
     type("Sale rate per unit, excluding GST (₹)", "45");
+    type("MRP, incl. GST (₹, optional)", " 52.50 ");
     server.reply(RATES, { status: 200, body: { on: todayIst(), rates: ["0.25", "3", "5", "12", "18", "28"] } });
     fireEvent.click(screen.getByRole("radio", { name: "Taxable" }));
     await screen.findByRole("option", { name: "18%" });
@@ -75,8 +79,7 @@ describe("a new product", () => {
     expect(await screen.findByRole("heading", { name: "Products" })).toBeInTheDocument(); // lands on the list
     expect(window.location.pathname).toBe("/b/b-1/products");
     expect(screen.getByText("Added Neem soap.")).toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: "Archive Neem soap" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Delete Neem soap" })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Neem soap" })).toHaveAttribute("href", "/b/b-1/products/p-1"); // archive and delete are on its page
 
     const [first, second] = sent(LIST, "POST");
     expect(second.headers.get("Idempotency-Key")).toBe(first.headers.get("Idempotency-Key"));
@@ -86,6 +89,7 @@ describe("a new product", () => {
       hsn: "3401",
       uqc: "NOS",
       sale_rate: "45",
+      mrp: "52.50",
       barcode: null,
       tax_category: "taxable",
       has_cess: false,
@@ -358,11 +362,16 @@ describe("editing a product", () => {
     server.reply(ONE, { status: 200, body: detail() });
     open("/b/b-1/products/p-1");
     await screen.findByRole("heading", { name: "Neem soap" });
+    tab("Archive or delete");
     expect(screen.getByRole("button", { name: "Archive" })).toBeEnabled();
+    tab("Details");
     type("Name", "Neem bath soap");
+    tab("Archive or delete");
     expect(screen.getByRole("button", { name: "Archive" })).toBeDisabled();
     expect(screen.getByText("Save or undo your changes first.")).toBeInTheDocument();
+    tab("Details");
     type("Name", "Neem soap");
+    tab("Archive or delete");
     expect(screen.getByRole("button", { name: "Archive" })).toBeEnabled();
   });
 
@@ -372,6 +381,7 @@ describe("editing a product", () => {
     server.reply(LIST, { status: 200, body: { items: [], has_more: false } });
     open("/b/b-1/products/p-1");
     await screen.findByRole("heading", { name: "Neem soap" });
+    tab("Archive or delete");
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     fireEvent.click(screen.getByRole("button", { name: "Yes, delete" }));
     await screen.findByRole("heading", { name: "Products" });
@@ -382,6 +392,7 @@ describe("editing a product", () => {
     server.reply(ONE, { status: 200, body: detail() });
     open("/b/b-1/products/p-1");
     await screen.findByRole("heading", { name: "Neem soap" });
+    tab("Archive or delete");
     expect(screen.getByText(/Invoices already made keep it/)).toBeInTheDocument();
     expect(screen.getByText(/never been on an invoice/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
@@ -398,6 +409,7 @@ describe("editing a product", () => {
     server.reply(`${ONE}/archive`, { status: 200, body: detail({ in_use: true, status: "archived", version: 4 }) });
     open("/b/b-1/products/p-1");
     await screen.findByRole("heading", { name: "Neem soap" });
+    tab("Archive or delete");
     expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Archive" }));
     expect(sent(`${ONE}/archive`, "POST")).toHaveLength(0); // asks first
@@ -425,14 +437,17 @@ describe("editing a product", () => {
 
 describe("helpers", () => {
   it("diffs the form against the opened version", () => {
-    const v = { code: "A", name: "N", hsn: "3401", uqc: "NOS", sale_rate: "1.00", barcode: "", tax_category: "taxable" as const, has_cess: false };
+    const v = { code: "A", name: "N", hsn: "3401", uqc: "NOS", sale_rate: "1.00", mrp: "", barcode: "", tax_category: "taxable" as const, has_cess: false };
     expect(changedFields(v, { ...v })).toEqual({});
     expect(changedFields(v, { ...v, name: " N " })).toEqual({});
     expect(changedFields(v, { ...v, barcode: "890", has_cess: true })).toEqual({ barcode: "890", has_cess: true });
+    // MRP (#398): set as typed, and a cleared box sends null.
+    expect(changedFields(v, { ...v, mrp: " 60.5 " })).toEqual({ mrp: "60.5" });
+    expect(changedFields({ ...v, mrp: "60.50" }, { ...v, mrp: "" })).toEqual({ mrp: null });
   });
 
   it("rebases the user's edits onto a newer version", () => {
-    const v = { code: "A", name: "N", hsn: "3401", uqc: "NOS", sale_rate: "1.00", barcode: "", tax_category: "taxable" as const, has_cess: false };
+    const v = { code: "A", name: "N", hsn: "3401", uqc: "NOS", sale_rate: "1.00", mrp: "", barcode: "", tax_category: "taxable" as const, has_cess: false };
     expect(rebase(v, { ...v, sale_rate: "2.00" }, { ...v, name: "M" })).toEqual({ ...v, name: "M", sale_rate: "2.00" });
     expect(rebase(v, { ...v, name: "Theirs" }, { ...v, name: "Mine" })).toEqual({ ...v, name: "Mine" });
   });

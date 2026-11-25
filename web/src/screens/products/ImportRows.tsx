@@ -21,6 +21,7 @@ const FIELD: Record<string, string> = {
   barcode: "Barcode",
   tax_category: "GST treatment",
   has_cess: "Cess",
+  mrp: "MRP",
   status: "Status",
 };
 const OUTCOME: Record<string, string> = {
