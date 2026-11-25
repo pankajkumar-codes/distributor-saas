@@ -48,25 +48,28 @@ describe("the customer on a new invoice", () => {
   it("hides the search once a customer is picked, shows their GSTIN and addresses, and Change picks another", async () => {
     server.reply("/api/v1/b/b-1/customers", { status: 200, body: { items: [delhi], has_more: false } }, { status: 200, body: { items: [howrah], has_more: false } });
     open("/b/b-1/invoices/new");
-    fireEvent.change(await screen.findByLabelText("Find a customer"), { target: { value: "delhi" } });
-    fireEvent.click(await screen.findByRole("button", { name: /Demo Distributor Delhi · 07DEMOE3333E1ZU/ }, { timeout: 3000 }));
+    const box = await screen.findByLabelText("Find a customer");
+    expect(server.paths()).not.toContain("/api/v1/b/b-1/customers"); // mocks v16: nothing suggested before a letter
+    expect(box).toHaveAttribute("placeholder", "Find a customer: type a name or GSTIN");
+    fireEvent.change(box, { target: { value: "delhi" } });
+    fireEvent.click(await screen.findByRole("button", { name: /Demo Distributor Delhi.*07DEMOE3333E1ZU/ }, { timeout: 3000 }));
 
     const card = await screen.findByRole("region", { name: "Customer" });
     expect(card).toHaveTextContent("Demo Distributor Delhi");
     expect(card).toHaveTextContent("GSTIN 07DEMOE3333E1ZU");
-    expect(card).toHaveTextContent("Billing address: 9 Demo Chowk, New Delhi, 110001, Delhi (07)");
-    expect(card).toHaveTextContent("Delivers to: 3 Demo Godown Road, Siliguri, 734001, West Bengal (19)");
+    expect(card).toHaveTextContent("Bill to: 9 Demo Chowk, New Delhi, 110001, Delhi (07)");
+    expect(card).toHaveTextContent("Ship to: 3 Demo Godown Road, Siliguri, 734001, West Bengal (19)");
     expect(screen.queryByLabelText("Find a customer")).toBeNull();
     // the picked customer came with its details, so nothing more was read
     expect(server.paths()).not.toContain("/api/v1/b/b-1/customers/c-1");
 
     fireEvent.click(screen.getByRole("button", { name: "Change" }));
     fireEvent.change(screen.getByLabelText("Find another customer"), { target: { value: "howrah" } });
-    fireEvent.click(await screen.findByRole("button", { name: "Howrah Stores" }, { timeout: 3000 }));
+    fireEvent.click(await screen.findByRole("button", { name: /^Howrah Stores/ }, { timeout: 3000 }));
     const again = await screen.findByRole("region", { name: "Customer" });
     expect(again).toHaveTextContent("Howrah Stores");
     expect(again).toHaveTextContent("No GSTIN (unregistered)");
-    expect(again).not.toHaveTextContent("Delivers to");
+    expect(again).not.toHaveTextContent("Ship to");
   });
 
   it("can back out of Change and keep the customer", async () => {
@@ -102,7 +105,7 @@ describe("the invoice date", () => {
     expect(date).toHaveValue(todayIst());
     expect(date).toHaveClass("date-default");
     expect(date).toHaveAttribute("max", todayIst());
-    expect(screen.getByText(/until you pick one: the invoice takes the day you finalize it/)).toBeInTheDocument();
+    expect(screen.getByText(/until you pick one: the invoice takes the day you create it/)).toBeInTheDocument();
   });
 
   it("keeps a picked date in normal ink, and clearing it goes back to today in grey", async () => {
@@ -111,7 +114,7 @@ describe("the invoice date", () => {
     fireEvent.change(date, { target: { value: "2026-11-02" } });
     expect(date).toHaveValue("2026-11-02");
     expect(date).not.toHaveClass("date-default");
-    expect(screen.getByText(/Clear the date to use the day you finalize/)).toBeInTheDocument();
+    expect(screen.getByText(/Clear the date to use the day you create it/)).toBeInTheDocument();
     fireEvent.change(date, { target: { value: "" } });
     expect(date).toHaveValue(todayIst());
     expect(date).toHaveClass("date-default");

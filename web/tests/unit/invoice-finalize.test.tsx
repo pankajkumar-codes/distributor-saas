@@ -48,7 +48,7 @@ const open = () => {
 describe("a sales invoice from the catalog", () => {
   it("warns about no stock and a missing price without blocking anything", async () => {
     open();
-    expect(await screen.findByText(/No stock on hand for this product. You can still sell it/)).toBeInTheDocument();
+    expect(await screen.findByText(/No stock on hand\. You can still sell it/)).toBeInTheDocument();
     expect(screen.getByText(/has no selling price yet/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Create practice invoice" })).toBeEnabled();
   });
@@ -76,7 +76,7 @@ describe("a sales invoice from the catalog", () => {
     server.reply(`POST ${ONE}/finalize`, { status: 200, body: doc });
     server.reply(`GET ${B}/documents/doc-1`, { status: 200, body: { ...docFull, stock_movements: 1, pdf: { status: "none" } } });
     open();
-    fireEvent.change(await screen.findByLabelText("Quantity"), { target: { value: "11" } });
+    fireEvent.change(await screen.findByLabelText(/^Quantity of /), { target: { value: "11" } });
     fireEvent.click(screen.getByRole("button", { name: "Create practice invoice" }));
     expect(await screen.findByText("Invoice PI-2026-27-0001")).toBeInTheDocument();
     expect(server.sent.find((s) => s.path === ONE && s.method === "PUT")!.headers.get("If-Match")).toBe("2");
@@ -88,7 +88,7 @@ describe("a sales invoice from the catalog", () => {
     server.reply(`POST ${ONE}/finalize`, { status: 200, body: doc });
     server.reply(`GET ${B}/documents/doc-1`, { status: 200, body: { ...docFull, stock_movements: 1, pdf: { status: "none" } } });
     open();
-    fireEvent.change(await screen.findByLabelText("Quantity"), { target: { value: "11" } });
+    fireEvent.change(await screen.findByLabelText(/^Quantity of /), { target: { value: "11" } });
     const create = screen.getByRole("button", { name: "Create practice invoice" });
     act(() => {
       create.click(); // both presses land before the page has re-rendered, as with a fast double click
@@ -104,7 +104,7 @@ describe("a sales invoice from the catalog", () => {
     server.reply(`POST ${ONE}/finalize`, { status: 503 }, { status: 200, body: doc });
     server.reply(`GET ${B}/documents/doc-1`, { status: 200, body: { ...docFull, stock_movements: 1, pdf: { status: "none" } } });
     open();
-    fireEvent.change(await screen.findByLabelText("Quantity"), { target: { value: "11" } });
+    fireEvent.change(await screen.findByLabelText(/^Quantity of /), { target: { value: "11" } });
     fireEvent.click(screen.getByRole("button", { name: "Create practice invoice" }));
     expect(await screen.findByText(/Something went wrong on our side/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Create practice invoice" }));
@@ -118,7 +118,7 @@ describe("a sales invoice from the catalog", () => {
   it("does not create the invoice when the save is refused", async () => {
     server.reply(`PUT ${ONE}`, { status: 422, body: { error: { code: "invalid", message: "Check the quantity" } } });
     open();
-    fireEvent.change(await screen.findByLabelText("Quantity"), { target: { value: "0" } });
+    fireEvent.change(await screen.findByLabelText(/^Quantity of /), { target: { value: "0" } });
     fireEvent.click(screen.getByRole("button", { name: "Create practice invoice" }));
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     expect(server.sent.filter((s) => s.path === `${ONE}/finalize`)).toHaveLength(0);

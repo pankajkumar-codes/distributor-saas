@@ -90,7 +90,8 @@ describe("a blocked Create", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Create practice invoice" }));
     await waitFor(() => expect(sent(`${ONE}/finalize`, "POST")).toHaveLength(1));
     expect(screen.queryByText("Fix these before finalizing.")).toBeNull();
-    expect(screen.getByText(/Add the product's HSN code/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Add the product's HSN code/)[0]).toBeInTheDocument();
+    expect(screen.queryAllByRole("alert").filter((a) => /Add the product's HSN code/.test(a.textContent ?? ""))).toHaveLength(0); // on the line and in the status, no extra banner
   });
 });
 
@@ -136,7 +137,7 @@ describe("fixing a missing HSN on the invoice itself", () => {
     fireEvent.change(await screen.findByLabelText("HSN for Aloe Vera Gel 200 ml"), { target: { value: "33" } });
     fireEvent.click(screen.getByRole("button", { name: "Save HSN" }));
     expect(await screen.findByText("That HSN is too short for this business.")).toBeInTheDocument();
-    expect(screen.getByText(/Add the product's HSN code\./)).toBeInTheDocument();
+    expect(screen.getAllByText(/Add the product's HSN code\./).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Create practice invoice" })).toBeDisabled();
   });
 });
@@ -150,9 +151,9 @@ describe("a missing HSN on an invoice to a buyer without a GSTIN (#344)", () => 
     server.reply(P1, { status: 200, body: noHsn });
     server.reply(ONE, { status: 200, body: draft({ ready: true, computation: computation({ warnings: [warning] }) }) });
     open("/b/b-1/invoices/d-1");
-    expect(await screen.findByText(/so we allow it\. Ask your CA to confirm/)).toBeInTheDocument();
-    expect(screen.getByText("Please check")).toBeInTheDocument();
-    expect(screen.queryByText("Fix before finalizing")).toBeNull();
+    expect((await screen.findAllByText(/so we allow it\. Ask your CA to confirm/))[0]).toBeInTheDocument();
+    expect(screen.getByText("Please check:")).toBeInTheDocument();
+    expect(screen.queryByText(/to fix:/)).toBeNull();
     expect(screen.getByRole("button", { name: "Create practice invoice" })).toBeEnabled();
     expect(screen.getByLabelText("HSN for Aloe Vera Gel 200 ml")).toBeInTheDocument();
   });
@@ -190,7 +191,7 @@ describe("a check that needs last year's turnover band", () => {
     server.reply(ONE, { status: 200, body: draft({ computation: computation({ blocks: [block] }) }) });
     open("/b/b-1/invoices/d-1");
     await screen.findByRole("link", { name: "Set last year's turnover band" });
-    fireEvent.change(screen.getByLabelText("Quantity"), { target: { value: "11" } });
+    fireEvent.change(screen.getByLabelText(/^Quantity of /), { target: { value: "11" } });
     expect(screen.queryByRole("link", { name: "Set last year's turnover band" })).toBeNull();
     expect(screen.getByText(/Save your changes first/)).toBeInTheDocument();
   });
@@ -202,10 +203,11 @@ describe("a check that says the business's own details are missing", () => {
     const block = { code: "business_not_ready", fix: "Your business's GSTIN is missing.", field: "business" };
     server.reply(ONE, { status: 200, body: draft({ ready: false, computation: computation({ blocks: [block] }) }) });
     open("/b/b-1/invoices/d-1");
-    expect(await screen.findByText(/Your business's GSTIN is missing/)).toBeInTheDocument();
+    expect((await screen.findAllByText(/Your business's GSTIN is missing/))[0]).toBeInTheDocument();
     const link = screen.getByRole("link", { name: "Open Business setup" });
     expect(link).toHaveAttribute("href", "/b/b-1/settings");
-    expect(screen.getByText("Fix the checks above and save again to finalize.")).toBeInTheDocument();
+    expect(screen.getByText("1 to fix:")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create practice invoice" })).toBeDisabled();
     expect(screen.queryByText(/After Save draft/)).toBeNull();
   });
 });
@@ -214,7 +216,7 @@ describe("a cash sale without the buyer's state", () => {
   it("says to choose the state beside the field and sends nothing", async () => {
     server.reply("/api/v1/b/b-1/products/p-1", { status: 200, body: product });
     open("/b/b-1/invoices/new");
-    fireEvent.click(await screen.findByLabelText("Cash sale (no GSTIN)"));
+    fireEvent.click(await screen.findByLabelText("Cash sale"));
     fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
     expect(await screen.findByText("Choose the buyer's state for a cash sale.")).toBeInTheDocument();
     expect(sent(DRAFTS, "POST")).toHaveLength(0);
@@ -232,22 +234,23 @@ describe("the draft invoice form", () => {
     server.reply(DRAFTS, { status: 503 }, { status: 201, body: draft({ computation: computation({ blocks: [{ code: "hsn_short", fix: "Add a 6-digit HSN", field: "lines", line_no: 1 }], warnings: [{ code: "rate_unconfirmed", fix: "The rate isn't confirmed with your CA", field: null, line_no: null }] }) }) });
     open("/b/b-1/invoices/new");
     fireEvent.change(await screen.findByLabelText("Find a customer"), { target: { value: "sharma" } });
-    fireEvent.click(await screen.findByRole("button", { name: /Sharma Traders · 19AAAAA0000A1Z5/ }, { timeout: 3000 }));
+    fireEvent.click(await screen.findByRole("button", { name: /Sharma Traders.*19AAAAA0000A1Z5/ }, { timeout: 3000 }));
     fireEvent.change(screen.getByLabelText("Add a product"), { target: { value: "aloe" } });
-    fireEvent.click(await screen.findByRole("button", { name: /Aloe Vera Gel 200 ml · HSN 3304/ }, { timeout: 3000 }));
-    fireEvent.change(screen.getByLabelText("Quantity"), { target: { value: " 10 " } });
+    fireEvent.click(await screen.findByRole("button", { name: /Aloe Vera Gel 200 ml.*HSN 3304/ }, { timeout: 3000 }));
+    fireEvent.change(screen.getByLabelText(/^Quantity of /), { target: { value: " 10 " } });
     fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
     expect(await screen.findByText(/Something went wrong on our side/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
-    expect(await screen.findByText("Line 1: Add a 6-digit HSN")).toBeInTheDocument();
+    expect(await screen.findByText("Line 1: Add a 6-digit HSN")).toBeInTheDocument(); // the status line
+    expect(screen.getByRole("cell", { name: /Add a 6-digit HSN/ })).toBeInTheDocument(); // and under the line
     expect(screen.getByText("The rate isn't confirmed with your CA")).toBeInTheDocument();
-    expect(screen.getByText("₹1,180.00")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Invoice preview" })).toHaveTextContent("₹1,180.00");
     const [first, second] = sent(DRAFTS, "POST");
     expect(second.headers.get("Idempotency-Key")).toBe(first.headers.get("Idempotency-Key"));
     expect(second.body).toMatchObject({ kind: "invoice", customer_id: "c-1", cash_buyer: null, ship_to: null, doc_date: null, lines: [{ product_id: "p-1", quantity: "10", unit_price: null, discount_kind: null }] });
     expect(await screen.findByRole("heading", { name: "Draft invoice" })).toBeInTheDocument();
     // The blank rate came back filled in by the server; the form shows it, so it is not "changed" and Finalize can be used.
-    expect(screen.getByLabelText("Rate (excl. GST)")).toHaveValue("100.00");
+    expect(screen.getByLabelText("Rate of Aloe Vera Gel 200 ml, excluding GST")).toHaveValue("100.00");
     expect(screen.getByRole("button", { name: "Save draft" })).toBeDisabled();
   });
 
@@ -259,9 +262,9 @@ describe("the draft invoice form", () => {
     server.reply(DRAFTS, mismatch, { status: 201, body: draft({ computation: computation() }) });
     open("/b/b-1/invoices/new");
     fireEvent.change(await screen.findByLabelText("Find a customer"), { target: { value: "sharma" } });
-    fireEvent.click(await screen.findByRole("button", { name: /Sharma Traders · 19AAAAA0000A1Z5/ }, { timeout: 3000 }));
+    fireEvent.click(await screen.findByRole("button", { name: /Sharma Traders.*19AAAAA0000A1Z5/ }, { timeout: 3000 }));
     fireEvent.change(screen.getByLabelText("Add a product"), { target: { value: "aloe" } });
-    fireEvent.click(await screen.findByRole("button", { name: /Aloe Vera Gel 200 ml · HSN 3304/ }, { timeout: 3000 }));
+    fireEvent.click(await screen.findByRole("button", { name: /Aloe Vera Gel 200 ml.*HSN 3304/ }, { timeout: 3000 }));
     fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
     await screen.findByRole("alert");
     fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
@@ -280,13 +283,15 @@ describe("the draft invoice form", () => {
     );
     server.reply("/api/v1/b/b-1/products/p-1", { status: 200, body: product });
     open("/b/b-1/invoices/d-1");
-    expect(await screen.findByText("Sharma Traders")).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Customer" })).toHaveTextContent("Sharma Traders");
     expect(screen.getByText(/Total as last saved:/)).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Quantity"), { target: { value: "12" } });
+    fireEvent.change(screen.getByLabelText(/^Quantity of /), { target: { value: "12" } });
     fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
     expect(await screen.findByText(/Someone saved this draft after you opened it/)).toBeInTheDocument();
     expect(sent(ONE, "PUT")[0].headers.get("If-Match")).toBe("1");
     fireEvent.click(screen.getByRole("button", { name: "Load their version" }));
+    await waitFor(() => expect(screen.queryByText(/Someone saved this draft/)).toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: "Delivery, place of supply, invoice discount" }));
     expect(await screen.findByDisplayValue("5.00")).toBeInTheDocument();
     expect(screen.queryByText(/Someone saved this draft/)).toBeNull();
   });
@@ -297,10 +302,10 @@ describe("the draft invoice form", () => {
     server.reply(`${ONE}/preview`, { status: 202, body: { job_id: "j-1", draft_version: 1 } });
     server.reply(`${ONE}/preview/j-1`, { status: 200, body: { status: "ready", url: "https://files.example/p.pdf" } });
     open("/b/b-1/invoices/d-1");
-    await screen.findByText("Sharma Traders");
-    fireEvent.change(screen.getByLabelText("Quantity"), { target: { value: "11" } });
+    await screen.findByRole("region", { name: "Customer" });
+    fireEvent.change(screen.getByLabelText(/^Quantity of /), { target: { value: "11" } });
     expect(screen.getByRole("button", { name: "Preview PDF" })).toBeDisabled();
-    fireEvent.change(screen.getByLabelText("Quantity"), { target: { value: "10" } });
+    fireEvent.change(screen.getByLabelText(/^Quantity of /), { target: { value: "10" } });
     fireEvent.click(screen.getByRole("button", { name: "Preview PDF" }));
     const link = await screen.findByRole("link", { name: "Open the preview (PDF)" });
     expect(link).toHaveAttribute("href", "https://files.example/p.pdf");
@@ -313,7 +318,7 @@ describe("the draft invoice form", () => {
       server.reply(ONE, { status: 200, body: draft() });
       server.reply("/api/v1/b/b-1/products/p-1", { status: 200, body: product });
       open("/b/b-1/invoices/d-1");
-      await screen.findByText("Sharma Traders");
+      await screen.findByRole("region", { name: "Customer" });
     };
     const press = () => fireEvent.click(screen.getByRole("button", { name: "Preview PDF" }));
     const started = { status: 202, body: { job_id: "j-1", draft_version: 1 } };
@@ -339,8 +344,8 @@ describe("the draft invoice form", () => {
 
     it("explains in practice terms what Create does", async () => {
       await opened();
-      expect(screen.getByText(/Create practice invoice saves your changes and makes a practice invoice/)).toBeInTheDocument();
-      expect(screen.queryByText(/Create invoice saves your changes/)).toBeNull();
+      expect(screen.getByText(/Practice invoices get a PR- number, are not for your customers and never go into GST filing/)).toBeInTheDocument();
+      expect(screen.queryByText(/Gives the invoice its number/)).toBeNull();
     });
 
     it("refreshes an expired token during polling and carries on to the link", async () => {
@@ -362,7 +367,7 @@ describe("the draft invoice form", () => {
       press();
       expect(await screen.findByText(/Your session has ended\. Your draft is saved\./)).toBeInTheDocument();
       expect(screen.queryByText("Preparing the preview…")).toBeNull();
-      expect(screen.getByText("Sharma Traders")).toBeInTheDocument();
+      expect(screen.getByRole("region", { name: "Customer" })).toHaveTextContent("Sharma Traders");
       fireEvent.click(screen.getByRole("button", { name: "Sign in again" }));
       await waitFor(() => expect(window.location.pathname).toBe("/signin"));
       expect(window.location.search).toBe(`?next=${encodeURIComponent("/b/b-1/invoices/d-1")}`);
@@ -416,8 +421,10 @@ describe("the draft invoice form", () => {
     server.reply(`${ONE}/preview`, { status: 202, body: { job_id: "j-1", draft_version: 1 } });
     server.reply(`${ONE}/preview/j-1`, { status: 200, body: { status: "queued" } });
     open("/b/b-1/invoices/d-1");
-    await screen.findByText("Sharma Traders");
+    await screen.findByRole("region", { name: "Customer" });
+    fireEvent.click(screen.getByRole("button", { name: "Delivery, place of supply, invoice discount" }));
     expect(screen.getByLabelText("Ship to a different address")).not.toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
     expect(screen.getByRole("button", { name: "Save draft" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Preview PDF" })).toBeEnabled();
     fireEvent.click(screen.getByRole("button", { name: "Preview PDF" }));
@@ -429,7 +436,8 @@ describe("the draft invoice form", () => {
     server.reply(ONE, { status: 200, body: draft({ ship_to: own, ship_to_third_party: true }) });
     server.reply("/api/v1/b/b-1/products/p-1", { status: 200, body: product });
     open("/b/b-1/invoices/d-1");
-    await screen.findByText("Sharma Traders");
+    await screen.findByRole("region", { name: "Customer" });
+    fireEvent.click(screen.getByRole("button", { name: "Delivery, place of supply, invoice discount" }));
     expect(screen.getByLabelText("Ship to a different address")).toBeChecked();
     expect(screen.getByLabelText("Ship-to name")).toHaveValue("Depot");
     expect(screen.getByLabelText(/Goods go to a third party/)).toBeChecked();
@@ -437,7 +445,8 @@ describe("the draft invoice form", () => {
 
   it("offers no third-party box on a cash sale", async () => {
     open("/b/b-1/invoices/new");
-    fireEvent.click(await screen.findByLabelText("Cash sale (no GSTIN)"));
+    fireEvent.click(await screen.findByLabelText("Cash sale"));
+    fireEvent.click(screen.getByRole("button", { name: "Delivery, place of supply, invoice discount" }));
     fireEvent.click(screen.getByLabelText("Ship to a different address"));
     expect(screen.queryByLabelText(/Goods go to a third party/)).toBeNull();
   });
@@ -488,10 +497,12 @@ describe("the form's body", () => {
     expect(sent("/api/v1/b/b-1/profile", "GET")).toHaveLength(0);
   });
 
-  it("shows Finalize and why every invoice is a practice one, before anything is saved", async () => {
+  it("says every invoice is a practice one, and keeps Create off until there is a buyer and an item", async () => {
     open("/b/b-1/invoices/new");
-    expect(await screen.findByText(/Practice mode\./)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Create practice invoice" })).toBeEnabled(); // it saves first, then creates
-    expect(screen.getByRole("button", { name: "Save draft" })).toBeEnabled();
+    expect(await screen.findByText(/Practice invoices get a PR- number/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create practice invoice" })).toBeDisabled(); // mocks v16: off until valid
+    expect(screen.getByText("2 to fix:")).toBeInTheDocument();
+    expect(screen.getByText("Choose a buyer.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save draft" })).toBeEnabled(); // a draft can still be saved
   });
 });

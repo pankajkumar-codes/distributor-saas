@@ -1,4 +1,9 @@
-import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
@@ -8,20 +13,27 @@ import type { components } from "../../api/schema";
 import { useStateCodes } from "../../api/useStateCodes";
 import { canCreateDocuments, canEditCatalog } from "../../auth/roles";
 import { useMyBusinesses } from "../../auth/useMyBusinesses";
-import { formatRupees } from "../../format/money";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
-import { Field } from "../../kit/Field";
 import { NotFound } from "../../kit/NotFound";
-import { RadioGroup } from "../../kit/RadioGroup";
-import { SelectField } from "../../kit/SelectField";
 import { TopBar } from "../../kit/TopBar";
-import { blankForm, draftIn, formOf, newLine, sameForm, type Draft, type Form } from "./draftForm";
+import {
+  blankForm,
+  draftIn,
+  formOf,
+  newLine,
+  sameForm,
+  type Draft,
+  type Form,
+} from "./draftForm";
 import { todayIst } from "../../format/dates";
+import { formatRupees } from "../../format/money";
 import { useStockFlags } from "../stock/useStock";
 import { ChosenCustomer, CustomerPicker, ProductPicker } from "./Pickers";
 import { HsnFix } from "./HsnFix";
-import { Totals } from "./Totals";
+import { IssueText, Issues, Paper, type Issue } from "./Totals";
+import { gstText, hsnText, mrpText } from "./lineFacts";
+import { DeliveryDialog } from "./DeliveryDialog";
 import { useFinalize } from "./useFinalize";
 import { PreviewPanel } from "./PreviewPanel";
 import { usePreview } from "./usePreview";
@@ -34,11 +46,26 @@ type Product = components["schemas"]["ProductOut"];
 // Invoice numbering is off until the CA confirms it (D-010), so every invoice made here is a practice one and the button says so.
 const PRACTICE_ONLY = true;
 
+type Stock = components["schemas"]["StockPageOut"];
+type SavedLine = Draft["lines"][number];
+type FormLine = Form["lines"][number];
+
+/** A form line still holds what was saved on the same line, so the server's figures for it are current. */
+const sameLine = (l: FormLine, s: SavedLine | undefined) =>
+  !!s &&
+  s.product_id === l.product_id &&
+  s.quantity === l.quantity.trim() &&
+  (l.unit_price.trim() === "" || s.unit_price === l.unit_price.trim()) &&
+  (s.discount_kind ?? "") === l.discount_kind &&
+  (l.discount_kind
+    ? (s.discount_value ?? "") === l.discount_value.trim()
+    : true);
+
 /**
- * M10 2a: a draft invoice. Everything shown about tax and totals is the server's computation
- * from the last save; the page never works out an amount. There is no Finalize here: it needs
- * the number series, which waits on the CA (LLD-4 L4-2); the server answers "not found" until
- * it is on, and the page says so. While live numbering is off every finalized invoice is a practice one.
+ * New invoice and a draft invoice (mocks v16): one laptop screen, no page scroll. Left: buyer, date, items, Create.
+ * Right: the invoice paper. Everything shown about tax and totals is the server's computation from the last save;
+ * the page never works out an amount (a line changed since shows "—" until it is saved). Delivery, place of supply
+ * and the invoice discount are in a small pop-up. While live numbering is off every invoice made is a practice one.
  */
 export function InvoicePage() {
   const { businessId = "", draftId } = useParams();
@@ -55,6 +82,7 @@ export function InvoicePage() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [cashStateMissing, setCashStateMissing] = useState(false);
   const [changingCustomer, setChangingCustomer] = useState(false);
+  const [delivery, setDelivery] = useState(false);
   const cashStateRef = useRef<HTMLSelectElement>(null);
   const path = { business_id: businessId, draft_id: draftId ?? "" };
 
@@ -63,18 +91,64 @@ export function InvoicePage() {
     enabled: Boolean(business && draftId),
     staleTime: Infinity, // the page moves it on each save; a re-read is the stale banner's choice
     refetchOnMount: "always", // coming back from another page (e.g. Business setup) shows the server's checks as they are now
-    queryFn: () => call(() => api.GET("/api/v1/b/{business_id}/drafts/{draft_id}", { params: { path } })),
+    queryFn: () =>
+      call(() =>
+        api.GET("/api/v1/b/{business_id}/drafts/{draft_id}", {
+          params: { path },
+        }),
+      ),
   });
-  const ids = [...new Set((form?.lines ?? loaded.data?.lines ?? []).map((l) => l.product_id))];
+  const ids = [
+    ...new Set(
+      (form?.lines ?? loaded.data?.lines ?? []).map((l) => l.product_id),
+    ),
+  ];
   const productQueries = useQueries({
     queries: ids.map((id) => ({
       queryKey: ["b", businessId, "product", id],
       staleTime: 5 * 60_000,
-      queryFn: () => call(() => api.GET("/api/v1/b/{business_id}/products/{product_id}", { params: { path: { business_id: businessId, product_id: id } } })),
+      queryFn: () =>
+        call(() =>
+          api.GET("/api/v1/b/{business_id}/products/{product_id}", {
+            params: { path: { business_id: businessId, product_id: id } },
+          }),
+        ),
     })),
   });
-  const names = Object.fromEntries(productQueries.flatMap((q, i) => (q.data ? [[ids[i], (q.data as Product).name]] : []))) as Record<string, string>;
-  const unitOf = Object.fromEntries(productQueries.flatMap((q, i) => (q.data ? [[ids[i], (q.data as Product).uqc]] : []))) as Record<string, string | undefined>;
+  const products = Object.fromEntries(
+    productQueries.flatMap((q, i) =>
+      q.data ? [[ids[i], q.data as Product]] : [],
+    ),
+  ) as Record<string, Product | undefined>;
+  const names = Object.fromEntries(
+    Object.entries(products).map(([id, p]) => [id, p!.name]),
+  ) as Record<string, string>;
+  // Stock on hand for each product on the invoice, from the stock list searched by its code (display only).
+  const codes = [...new Set(Object.values(products).map((p) => p!.code))];
+  const stockQueries = useQueries({
+    queries: codes.map((code) => ({
+      queryKey: ["b", businessId, "stock", "code", code],
+      staleTime: 30_000,
+      retry: false,
+      queryFn: () =>
+        call(() =>
+          api.GET("/api/v1/b/{business_id}/stock", {
+            params: {
+              path: { business_id: businessId },
+              query: { q: code, limit: 20 },
+            },
+          }),
+        ),
+    })),
+  });
+  const onHand = Object.fromEntries(
+    stockQueries.flatMap((q) =>
+      ((q.data as Stock | undefined)?.items ?? []).map((i) => [
+        i.product_id,
+        i.on_hand,
+      ]),
+    ),
+  ) as Record<string, string | undefined>;
 
   useEffect(() => {
     if (loaded.data && !saved) {
@@ -85,24 +159,50 @@ export function InvoicePage() {
   // The server recomputes a draft's checks whenever it is read (e.g. after the turnover band was set on Business setup).
   // The same version read again carries fresh checks; take them, leaving what the user has typed alone.
   useEffect(() => {
-    if (loaded.data && saved && loaded.data !== saved && loaded.data.id === saved.id && loaded.data.version === saved.version) setSaved(loaded.data);
+    if (
+      loaded.data &&
+      saved &&
+      loaded.data !== saved &&
+      loaded.data.id === saved.id &&
+      loaded.data.version === saved.version
+    )
+      setSaved(loaded.data);
   }, [loaded.data, saved]);
 
   const save = useMutation<Draft, ApiError, Form>({
     mutationFn: (f) =>
       draftId
-        ? call(() => api.PUT("/api/v1/b/{business_id}/drafts/{draft_id}", { params: { path, header: { "If-Match": String(saved?.version) } }, body: draftIn(f) }))
-        : call(() => api.POST("/api/v1/b/{business_id}/drafts", { params: { path: { business_id: businessId }, header: { "Idempotency-Key": formKey.current() } }, body: draftIn(f) })),
+        ? call(() =>
+            api.PUT("/api/v1/b/{business_id}/drafts/{draft_id}", {
+              params: { path, header: { "If-Match": String(saved?.version) } },
+              body: draftIn(f),
+            }),
+          )
+        : call(() =>
+            api.POST("/api/v1/b/{business_id}/drafts", {
+              params: {
+                path: { business_id: businessId },
+                header: { "Idempotency-Key": formKey.current() },
+              },
+              body: draftIn(f),
+            }),
+          ),
     onMutate: () => setStale(false),
     onSuccess: (out, sent) => {
       queryClient.setQueryData(["b", businessId, "draft", out.id], out);
       // The server fills a blank rate with the product's rate on save, so show the saved draft as it is:
       // otherwise the form reads as changed straight after saving and Preview and Finalize stay off.
-      setForm(formOf(out, Object.fromEntries(sent.lines.map((l) => [l.product_id, l.name]))));
+      setForm(
+        formOf(
+          out,
+          Object.fromEntries(sent.lines.map((l) => [l.product_id, l.name])),
+        ),
+      );
       queryClient.invalidateQueries({ queryKey: ["b", businessId, "drafts"] });
       setSaved(out);
       if (!draftId) formKey.reset();
-      if (!draftId) navigate(`/b/${businessId}/invoices/${out.id}`, { replace: true });
+      if (!draftId)
+        navigate(`/b/${businessId}/invoices/${out.id}`, { replace: true });
     },
     onError: (e) => {
       setStale(e.code === "stale_record");
@@ -110,35 +210,71 @@ export function InvoicePage() {
     },
   });
   const remove = useMutation<unknown, ApiError>({
-    mutationFn: () => call(() => api.DELETE("/api/v1/b/{business_id}/drafts/{draft_id}", { params: { path, header: { "If-Match": String(saved?.version) } } })),
+    mutationFn: () =>
+      call(() =>
+        api.DELETE("/api/v1/b/{business_id}/drafts/{draft_id}", {
+          params: { path, header: { "If-Match": String(saved?.version) } },
+        }),
+      ),
     onSuccess: () => {
-      queryClient.removeQueries({ queryKey: ["b", businessId, "draft", draftId] });
+      queryClient.removeQueries({
+        queryKey: ["b", businessId, "draft", draftId],
+      });
       queryClient.invalidateQueries({ queryKey: ["b", businessId, "drafts"] });
       navigate(`/b/${businessId}/home`, { replace: true });
     },
     onError: (e) => setStale(e.code === "stale_record"),
   });
   const preview = usePreview(businessId, draftId ?? "");
-  const finalize = useFinalize(businessId, draftId ?? "", saved?.version, `finalize-${draftId}-${saved?.version}`, (doc) => navigate(`/b/${businessId}/documents/${doc.id}`, { replace: true }));
+  const finalize = useFinalize(
+    businessId,
+    draftId ?? "",
+    saved?.version,
+    `finalize-${draftId}-${saved?.version}`,
+    (doc) =>
+      navigate(`/b/${businessId}/documents/${doc.id}`, { replace: true }),
+  );
   const flags = useStockFlags(businessId, Boolean(business));
 
-  if (businesses.isPending) return <main className="page" aria-busy="true"><p>Loading…</p></main>;
+  if (businesses.isPending)
+    return (
+      <main className="page" aria-busy="true">
+        <p>Loading…</p>
+      </main>
+    );
   if (!business) return <NotFound />;
-  if (!canCreateDocuments(business.role)) return <NoAccess businessId={businessId} />;
+  if (!canCreateDocuments(business.role))
+    return <NoAccess businessId={businessId} />;
   if (loaded.error?.status === 404) return <NotFound />;
-  if (loaded.error) return <main className="page"><Banner tone="error">{errorText(loaded.error)}</Banner></main>;
-  if (!form) return <main className="page" aria-busy="true"><p>Loading…</p></main>;
+  if (loaded.error)
+    return (
+      <main className="page">
+        <Banner tone="error">{errorText(loaded.error)}</Banner>
+      </main>
+    );
+  if (!form)
+    return (
+      <main className="page" aria-busy="true">
+        <p>Loading…</p>
+      </main>
+    );
 
   const set = (patch: Partial<Form>) => setForm({ ...form, ...patch });
   const dirty = !saved ? true : !sameForm(form, formOf(saved, names));
-  const stateOptions = (states.data ?? []).map((s) => ({ value: s.code, label: `${s.code} ${s.name}` }));
-  const stateNames = Object.fromEntries((states.data ?? []).map((s) => [s.code, s.name]));
+  const stateOptions = (states.data ?? []).map((s) => ({
+    value: s.code,
+    label: `${s.code} ${s.name}`,
+  }));
+  const stateNames = Object.fromEntries(
+    (states.data ?? []).map((s) => [s.code, s.name]),
+  );
   const error = save.error ?? remove.error;
   // A cash sale has no customer to work the place of supply out from, so the buyer's state is required: say so beside it.
   const cashStateError =
     cashStateMissing && !form.cash_state
       ? "Choose the buyer's state for a cash sale."
-      : save.error?.field?.startsWith("cash_buyer") && save.error.field.endsWith("state_code")
+      : save.error?.field?.startsWith("cash_buyer") &&
+          save.error.field.endsWith("state_code")
         ? "Choose the buyer's state for a cash sale."
         : undefined;
   const reload = async () => {
@@ -182,34 +318,106 @@ export function InvoicePage() {
           }
         }
         try {
-          await finalize.mutateAsync({ draftId: target.id, version: target.version });
+          await finalize.mutateAsync({
+            draftId: target.id,
+            version: target.version,
+          });
         } catch {
           // the finalize error is shown under the form
         }
       })().finally(done);
     });
   };
-  const setLine = (i: number, patch: Partial<Form["lines"][number]>) => set({ lines: form.lines.map((l, n) => (n === i ? { ...l, ...patch } : l)) });
-  const pickProduct = (p: Product) => set({ lines: [...form.lines, { ...newLine(), product_id: p.id, name: p.name }] });
+  const setLine = (i: number, patch: Partial<Form["lines"][number]>) =>
+    set({
+      lines: form.lines.map((l, n) => (n === i ? { ...l, ...patch } : l)),
+    });
+  const pickProduct = (p: Product) =>
+    set({
+      lines: [...form.lines, { ...newLine(), product_id: p.id, name: p.name }],
+    });
   const finalizeError = finalize.error;
   const finalizeWords = !finalizeError
     ? null
-    : finalizeError.code === "finalize_blocked" && saved?.computation && saved.computation.blocks.length > 0
+    : finalizeError.code === "finalize_blocked" &&
+        saved?.computation &&
+        saved.computation.blocks.length > 0
       ? null // the list under the form already says what to fix; a second generic banner only repeats it
       : finalizeError.status === 404
-      ? "Finalizing isn't switched on for your business yet. Your draft is saved."
-      : finalizeError.fix ?? (finalizeError.message || errorText(finalizeError));
+        ? "Finalizing isn't switched on for your business yet. Your draft is saved."
+        : (finalizeError.fix ??
+          (finalizeError.message || errorText(finalizeError)));
+
+  const c = saved?.computation ?? null;
+  const fresh = !dirty; // the server's figures match what is on screen
+  const lineIssues = (n: number) =>
+    [
+      ...(c?.blocks ?? []).map((i) => ({ ...i, tone: "bad" })),
+      ...(c?.warnings ?? []).map((i) => ({ ...i, tone: "warn" })),
+    ].filter((i) => i.line_no === n);
+  const docBlocks = (c?.blocks ?? []).filter((i) => !i.line_no);
+  const docWarnings = (c?.warnings ?? []).filter((i) => !i.line_no);
+  // What the page itself can see is missing before anything is sent; the server's checks follow on save.
+  const missing = [
+    form.buyer === "customer" && !form.customer_id ? "Choose a buyer." : null,
+    form.buyer === "cash" && !form.cash_state
+      ? "Choose the buyer's state."
+      : null,
+    form.lines.length === 0 ? "Add at least one item." : null,
+  ].filter((x): x is string => x !== null);
+  const blocks: string[] = [
+    ...missing,
+    ...(fresh
+      ? (c?.blocks ?? []).map((i) =>
+          i.line_no ? `Line ${i.line_no}: ${i.fix}` : i.fix,
+        )
+      : []),
+  ];
+  const checks = fresh
+    ? (c?.warnings ?? []).map((i) =>
+        i.line_no ? `Line ${i.line_no}: ${i.fix}` : i.fix,
+      )
+    : [];
+  const createOff =
+    missing.length > 0 || Boolean(saved && !dirty && saved.ready === false);
+  const pos = c?.pos_state_code;
+  const hsnFixFor = canEditCatalog(business.role)
+    ? (_n: number, productId: string) => (
+        <HsnFix
+          businessId={businessId}
+          productId={productId}
+          productName={names[productId] ?? "this product"}
+          onSaved={async () => {
+            const again = await loaded.refetch();
+            if (again.data) setSaved(again.data);
+          }}
+        />
+      )
+    : undefined;
+  const buyerOnPaper =
+    form.buyer === "cash" ? (
+      <b>{form.cash_name.trim() || "Cash sale"}</b>
+    ) : form.customer_id ? (
+      <b>{form.customer_name || "Customer"}</b>
+    ) : (
+      <span className="k inline">Buyer appears here</span>
+    );
 
   return (
     <>
       <TopBar title={business.display_name} gstin={business.gstin} />
-      <main className="page page-wide">
-        <h1>{draftId ? "Draft invoice" : "New invoice"}</h1>
-        <>
-        <p className="hint">Draft · gets its number when you finalize</p>
-        <Banner tone="info">
-          <strong>Practice mode.</strong> Invoice numbering isn't approved by your CA yet, so every invoice you finalize is a practice invoice: a PR- number, not for your customers, and never in GST Filing.
-        </Banner>
+      <main className="page page-wide invpage">
+        <div className="invhead">
+          <h1>{draftId ? "Draft invoice" : "New invoice"}</h1>
+          {PRACTICE_ONLY && (
+            <span className="chip chip-warn">Practice mode</span>
+          )}
+          <span className="hint">
+            Draft · gets its number when you create it.
+            {PRACTICE_ONLY &&
+              " Practice invoices get a PR- number, are not for your customers and never go into GST filing."}
+          </span>
+        </div>
         {stale && (
           <Banner tone="error">
             Someone saved this draft after you opened it.{" "}
@@ -219,217 +427,552 @@ export function InvoicePage() {
             (your unsaved changes here are replaced).
           </Banner>
         )}
-        {error && !stale && !cashStateError && <Banner tone="error">{error.fix ?? (error.message || errorText(error))}</Banner>}
-        <form onSubmit={submit} noValidate>
-          <RadioGroup<"customer" | "cash">
-            legend="Bill to"
-            name="buyer"
-            options={[{ value: "customer", label: "A customer" }, { value: "cash", label: "Cash sale (no GSTIN)" }]}
-            value={form.buyer}
-            onChange={(buyer) => set({ buyer })}
-          />
-          {form.buyer === "customer" ? (
-            <>
-              {form.customer_id && !changingCustomer ? (
-                <ChosenCustomer businessId={businessId} customerId={form.customer_id} name={form.customer_name} stateNames={stateNames} onChange={() => setChangingCustomer(true)} />
-              ) : (
-                <>
-                  <CustomerPicker
-                    businessId={businessId}
-                    label={form.customer_id ? "Find another customer" : "Find a customer"}
-                    onPick={(c) => {
-                      queryClient.setQueryData(["b", businessId, "customer", c.id], c); // the summary shows it without another read
-                      set({ customer_id: c.id, customer_name: c.name });
-                      setChangingCustomer(false);
-                    }}
-                  />
-                  {form.customer_id && (
-                    <Button type="button" variant="link" onClick={() => setChangingCustomer(false)}>
-                      Keep {form.customer_name || "the customer"}
-                    </Button>
-                  )}
-                </>
-              )}
-            </>
-          ) : (
-            <>
-              <SelectField
-                ref={cashStateRef}
-                label="Buyer's state"
-                options={stateOptions}
-                value={form.cash_state}
-                onChange={(e) => {
-                  set({ cash_state: e.target.value });
-                  setCashStateMissing(false);
-                }}
-                hint="Needed for a cash sale: it decides the place of supply and the tax."
-                error={cashStateError}
-              />
-              <Field label="Buyer's name (optional)" value={form.cash_name} onChange={(e) => set({ cash_name: e.target.value })} />
-              <Field label="Buyer's address (optional)" value={form.cash_address} onChange={(e) => set({ cash_address: e.target.value })} />
-            </>
-          )}
-          <Field
-            label="Invoice date"
-            type="date"
-            value={form.doc_date || todayIst()}
-            className={form.doc_date ? undefined : "date-default"}
-            max={todayIst()}
-            onChange={(e) => set({ doc_date: e.target.value })}
-            onClick={(e) => {
-              // Open the calendar from anywhere in the box, not only its icon. Browsers without showPicker keep their own behaviour.
-              try {
-                e.currentTarget.showPicker?.();
-              } catch {
-                // showPicker refuses outside a user gesture or in a cross-origin frame; typing the date still works
-              }
-            }}
-            hint={
-              form.doc_date
-                ? "Clear the date to use the day you finalize. The date is shown in the order your browser uses."
-                : "Today's date, in grey, until you pick one: the invoice takes the day you finalize it. The date is shown in the order your browser uses."
-            }
-          />
-
-          <h2>Items</h2>
-          {form.lines.map((l, i) => (
-            <fieldset key={l.key} className="line">
-              <legend>
-                {i + 1}. {l.name || names[l.product_id] || "Product"}
-              </legend>
-              {flags.noStock.has(l.product_id) && <p className="hint">No stock on hand for this product. You can still sell it; stock goes below zero until you add a purchase.</p>}
-              {flags.priceNeeded.has(l.product_id) && /^0*(\.0*)?$/.test(l.unit_price.trim()) && <p className="hint">This product has no selling price yet. Enter a rate here, or set its price under <Link to={`/b/${businessId}/stock?only=price_needed`}>Stock</Link>.</p>}
-              <Field label="Quantity" inputMode="decimal" value={l.quantity} onChange={(e) => setLine(i, { quantity: e.target.value })} hint={unitOf[l.product_id] ? `Unit: ${unitOf[l.product_id]}` : undefined} />
-              <Field label="Rate (excl. GST)" inputMode="decimal" value={l.unit_price} onChange={(e) => setLine(i, { unit_price: e.target.value })} hint="Blank uses the product's sale rate." />
-              <SelectField
-                label="Discount"
-                placeholder="None"
-                options={[{ value: "amount", label: "Amount" }, { value: "percent", label: "Percent" }]}
-                value={l.discount_kind}
-                onChange={(e) => setLine(i, { discount_kind: e.target.value as Form["lines"][number]["discount_kind"] })}
-              />
-              {l.discount_kind && <Field label="Discount value" inputMode="decimal" value={l.discount_value} onChange={(e) => setLine(i, { discount_value: e.target.value })} />}
-              <Button type="button" variant="link" onClick={() => set({ lines: form.lines.filter((_, n) => n !== i) })}>
-                Remove line {i + 1}
-              </Button>
-            </fieldset>
-          ))}
-          <ProductPicker businessId={businessId} label="Add a product" onPick={pickProduct} />
-          <Field label="Invoice discount (amount)" inputMode="decimal" value={form.invoice_discount} onChange={(e) => set({ invoice_discount: e.target.value })} />
-
-          <h2>Delivery</h2>
-          <label className="radio">
-            <input type="checkbox" checked={form.customer_collects} onChange={(e) => set({ customer_collects: e.target.checked })} /> The customer collects the goods
-          </label>
-          {!form.customer_collects && (
-            <label className="radio">
-              <input type="checkbox" checked={form.ship_different} onChange={(e) => set({ ship_different: e.target.checked })} /> Ship to a different address
-            </label>
-          )}
-          {form.ship_different && !form.customer_collects && (
-            <>
-              <Field label="Ship-to name" value={form.ship.name} onChange={(e) => set({ ship: { ...form.ship, name: e.target.value } })} />
-              <Field label="Ship-to address line 1" value={form.ship.line1} onChange={(e) => set({ ship: { ...form.ship, line1: e.target.value } })} />
-              <Field label="Ship-to address line 2" value={form.ship.line2} onChange={(e) => set({ ship: { ...form.ship, line2: e.target.value } })} />
-              <Field label="Ship-to city" value={form.ship.city} onChange={(e) => set({ ship: { ...form.ship, city: e.target.value } })} />
-              <Field label="Ship-to PIN" inputMode="numeric" value={form.ship.pin} onChange={(e) => set({ ship: { ...form.ship, pin: e.target.value } })} />
-              <SelectField label="Ship-to state" options={stateOptions} value={form.ship.state_code} onChange={(e) => set({ ship: { ...form.ship, state_code: e.target.value } })} />
-              {form.buyer === "customer" && (
-                <label className="radio">
-                  <input type="checkbox" checked={form.third_party} onChange={(e) => set({ third_party: e.target.checked })} /> Goods go to a third party, not the buyer
-                </label>
-              )}
-            </>
-          )}
-          <SelectField
-            label="Place of supply (only if it differs)"
-            placeholder="Worked out from the buyer"
-            options={stateOptions}
-            value={form.pos_override}
-            onChange={(e) => set({ pos_override: e.target.value })}
-          />
-          {form.pos_override && <Field label="Why it differs" value={form.pos_reason} onChange={(e) => set({ pos_reason: e.target.value })} />}
-
-          <div className="actions sticky-actions">
-            <Button type="button" variant="primary" busy={save.isPending || finalize.isPending} disabled={Boolean(saved && !dirty && saved.ready === false)} onClick={createInvoice}>
-              {PRACTICE_ONLY ? "Create practice invoice" : "Create invoice"}
-            </Button>
-            <Button type="submit" variant="secondary" busy={save.isPending} disabled={!dirty}>
-              Save draft
-            </Button>
-          </div>
-        </form>
-
-        {saved?.computation ? (
-          <Totals c={saved.computation} states={stateNames} canLeave={!dirty} productOf={(n) => saved.lines?.[n - 1]?.product_id}
-            hsnFix={
-              canEditCatalog(business.role)
-                ? (_n, productId) => (
-                    <HsnFix
-                      businessId={businessId}
-                      productId={productId}
-                      productName={names[productId] ?? "this product"}
-                      onSaved={async () => {
-                        const fresh = await loaded.refetch();
-                        if (fresh.data) setSaved(fresh.data);
-                      }}
-                    />
-                  )
-                : undefined
-            }
-          />
-        ) : (
-          saved && (
-            <p>
-              Total as last saved: <strong>{saved.total ? formatRupees(saved.total) : "—"}</strong>. Save to see the tax and any checks.
-            </p>
-          )
+        {error && !stale && !cashStateError && (
+          <Banner tone="error">
+            {error.fix ?? (error.message || errorText(error))}
+          </Banner>
         )}
-        {dirty && saved && <p className="hint">Totals and checks are from your last save.</p>}
+        <div className="inv">
+          <form className="invleft" onSubmit={submit} noValidate>
+            <div className="invtop">
+              <fieldset className="field seg2-field">
+                <legend className="flabel">Buyer</legend>
+                <div className="seg2">
+                  {(["customer", "cash"] as const).map((b) => (
+                    <label key={b}>
+                      <input
+                        type="radio"
+                        name="buyer"
+                        value={b}
+                        checked={form.buyer === b}
+                        onChange={() => set({ buyer: b })}
+                      />
+                      <span>
+                        {b === "customer" ? "A customer" : "Cash sale"}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+              <div className="field">
+                <span className="flabel" aria-hidden="true">
+                  {form.buyer === "cash" ? "Cash sale (no GSTIN)" : "Customer"}
+                </span>
+                {form.buyer === "customer" ? (
+                  form.customer_id && !changingCustomer ? (
+                    <ChosenCustomer
+                      businessId={businessId}
+                      customerId={form.customer_id}
+                      name={form.customer_name}
+                      stateNames={stateNames}
+                      onChange={() => setChangingCustomer(true)}
+                    />
+                  ) : (
+                    <div className="row-pick">
+                      <CustomerPicker
+                        businessId={businessId}
+                        stateNames={stateNames}
+                        label={
+                          form.customer_id
+                            ? "Find another customer"
+                            : "Find a customer"
+                        }
+                        placeholder={
+                          form.customer_id
+                            ? "Find another customer: type a name or GSTIN"
+                            : "Find a customer: type a name or GSTIN"
+                        }
+                        none={
+                          <Link to={`/b/${businessId}/customers/new`}>
+                            Add a new customer
+                          </Link>
+                        }
+                        onPick={(cu) => {
+                          queryClient.setQueryData(
+                            ["b", businessId, "customer", cu.id],
+                            cu,
+                          ); // the card shows it without another read
+                          set({ customer_id: cu.id, customer_name: cu.name });
+                          setChangingCustomer(false);
+                        }}
+                      />
+                      {form.customer_id && (
+                        <Button
+                          type="button"
+                          variant="link"
+                          onClick={() => setChangingCustomer(false)}
+                        >
+                          Keep {form.customer_name || "the customer"}
+                        </Button>
+                      )}
+                    </div>
+                  )
+                ) : (
+                  <div className="f2">
+                    <select
+                      ref={cashStateRef}
+                      className="inp"
+                      aria-label="Buyer's state"
+                      value={form.cash_state}
+                      aria-invalid={cashStateError ? true : undefined}
+                      onChange={(e) => {
+                        set({ cash_state: e.target.value });
+                        setCashStateMissing(false);
+                      }}
+                    >
+                      <option value="">Buyer's state…</option>
+                      {stateOptions.map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      className="inp"
+                      aria-label="Buyer's name (optional)"
+                      placeholder="Buyer's name (optional)"
+                      value={form.cash_name}
+                      onChange={(e) => set({ cash_name: e.target.value })}
+                    />
+                    {cashStateError && (
+                      <p className="error" role="alert">
+                        {cashStateError}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="field">
+                <label className="flabel" htmlFor="invoice-date">
+                  Invoice date
+                </label>
+                <input
+                  id="invoice-date"
+                  className={`inp num${form.doc_date ? "" : " date-default"}`}
+                  type="date"
+                  value={form.doc_date || todayIst()}
+                  max={todayIst()}
+                  aria-describedby="invoice-date-hint"
+                  title={
+                    form.doc_date
+                      ? "Clear the date to use the day you create it."
+                      : "Today's date, in grey, until you pick one: the invoice takes the day you create it."
+                  }
+                  onChange={(e) => set({ doc_date: e.target.value })}
+                  onClick={(e) => {
+                    // Open the calendar from anywhere in the box, not only its icon. Browsers without showPicker keep their own behaviour.
+                    try {
+                      e.currentTarget.showPicker?.();
+                    } catch {
+                      // showPicker refuses outside a user gesture or in a cross-origin frame; typing the date still works
+                    }
+                  }}
+                />
+                <span id="invoice-date-hint" className="visually-hidden">
+                  {form.doc_date
+                    ? "Clear the date to use the day you create it."
+                    : "Today's date, in grey, until you pick one: the invoice takes the day you create it."}
+                </span>
+              </div>
+            </div>
 
-        {saved && <PreviewPanel preview={preview} version={saved.version} dirty={dirty} />}
+            <div className="posline">
+              {pos && fresh ? (
+                <>
+                  <span
+                    className={`chip ${c?.is_inter_state ? "chip-blue" : "chip-ok"}`}
+                  >
+                    {c?.is_inter_state
+                      ? "IGST"
+                      : c?.utgst
+                        ? "CGST + UTGST"
+                        : "CGST + SGST"}
+                  </span>
+                  <span>
+                    Place of supply{" "}
+                    <b>
+                      {stateNames[pos] ?? ""} ({pos})
+                    </b>
+                    {form.pos_override
+                      ? ", chosen by hand."
+                      : ", from the buyer."}
+                  </span>
+                </>
+              ) : (
+                <span className="hint">
+                  {form.buyer === "cash"
+                    ? "The buyer's state decides the place of supply and the tax."
+                    : "The place of supply and tax type follow from the buyer."}
+                </span>
+              )}
+              <span className="sp" />
+              <Button
+                type="button"
+                variant="link"
+                onClick={() => setDelivery(true)}
+              >
+                Delivery, place of supply, invoice discount
+              </Button>
+            </div>
 
-        <section aria-label="Finalize">
-            <p className="hint">
-              {saved && saved.ready === false && !dirty
-                ? "Fix the checks above and save again to finalize."
-                : PRACTICE_ONLY
-                  ? "Create practice invoice saves your changes and makes a practice invoice with a PR- number: not for your customer, and locked once made."
-                  : "Create invoice saves your changes, gives the invoice its number and locks it; later changes need a credit note."}
-            </p>
+            <Issues
+              title="Fix before creating"
+              items={docBlocks}
+              tone="error"
+              canLeave={!dirty}
+            />
+            <Issues
+              title="Please check"
+              items={docWarnings}
+              tone="info"
+              canLeave={!dirty}
+            />
+
+            <section className="panel itemsp" aria-label="Items">
+              <div className="psearch">
+                <ProductPicker
+                  businessId={businessId}
+                  label="Add a product"
+                  placeholder="Add a product: type a name, code or barcode"
+                  exclude={new Set(form.lines.map((l) => l.product_id))}
+                  none={
+                    <Link to={`/b/${businessId}/products/new`}>
+                      Add a new product
+                    </Link>
+                  }
+                  onPick={pickProduct}
+                />
+              </div>
+              <div className="itemscroll">
+                <table className="items">
+                  <thead>
+                    <tr>
+                      <th scope="col">Product</th>
+                      <th scope="col" className="r">
+                        Qty
+                      </th>
+                      <th scope="col" className="r">
+                        MRP
+                      </th>
+                      <th
+                        scope="col"
+                        className="r"
+                        title="Rate per unit, excluding GST"
+                      >
+                        Rate
+                      </th>
+                      <th
+                        scope="col"
+                        className="r"
+                        title="Discount on the line, in rupees"
+                      >
+                        Discount
+                      </th>
+                      <th scope="col" className="r">
+                        Total
+                      </th>
+                      <th scope="col">
+                        <span className="visually-hidden">Remove</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {form.lines.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="empty">
+                          No items yet. Search for a product above to add it.
+                        </td>
+                      </tr>
+                    )}
+                    {form.lines.map((l, i) => {
+                      const p = products[l.product_id];
+                      const name = l.name || p?.name || "Product";
+                      const stock = onHand[l.product_id];
+                      const computed = sameLine(l, saved?.lines?.[i])
+                        ? c?.lines.find((x) => x.line_no === i + 1)
+                        : undefined;
+                      const percent = l.discount_kind === "percent";
+                      return (
+                        <tr key={l.key}>
+                          <td>
+                            <div className="pname">{name}</div>
+                            {p && (
+                              <div className="sub2 pdet">
+                                {p.hsn ? (
+                                  hsnText(p.hsn)
+                                ) : (
+                                  <span className="warn-text">HSN missing</span>
+                                )}{" "}
+                                · {gstText(p)} · {p.uqc}
+                                {stock !== undefined && (
+                                  <>
+                                    {" · "}
+                                    <span
+                                      className={
+                                        flags.noStock.has(l.product_id)
+                                          ? "bad-text"
+                                          : undefined
+                                      }
+                                    >
+                                      Stock {stock}
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                            )}
+                            {flags.noStock.has(l.product_id) && (
+                              <div className="lnote mute">
+                                No stock on hand. You can still sell it; stock
+                                goes below zero until you add a purchase.
+                              </div>
+                            )}
+                            {flags.priceNeeded.has(l.product_id) &&
+                              /^0*(\.0*)?$/.test(l.unit_price.trim()) && (
+                                <div className="lnote mute">
+                                  This product has no selling price yet. Enter a
+                                  rate here, or set its price under{" "}
+                                  <Link
+                                    to={`/b/${businessId}/stock?only=price_needed`}
+                                  >
+                                    Stock
+                                  </Link>
+                                  .
+                                </div>
+                              )}
+                            {lineIssues(i + 1).map((iss, n) => (
+                              <div
+                                key={`${iss.code}-${n}`}
+                                className={`lnote ${iss.tone}`}
+                              >
+                                <IssueText
+                                  issue={iss as Issue}
+                                  canLeave={!dirty}
+                                  productId={saved?.lines?.[i]?.product_id}
+                                  hsnFix={hsnFixFor}
+                                />
+                              </div>
+                            ))}
+                          </td>
+                          <td className="r">
+                            <input
+                              className="qty"
+                              inputMode="decimal"
+                              aria-label={`Quantity of ${name}`}
+                              value={l.quantity}
+                              onChange={(e) =>
+                                setLine(i, { quantity: e.target.value })
+                              }
+                            />
+                          </td>
+                          <td className="r num mrp">
+                            {p ? mrpText(p.mrp) : "—"}
+                          </td>
+                          <td className="r">
+                            <input
+                              className="qty rate"
+                              inputMode="decimal"
+                              aria-label={`Rate of ${name}, excluding GST`}
+                              placeholder={
+                                p && !/^0*(\.0*)?$/.test(p.sale_rate)
+                                  ? p.sale_rate
+                                  : "—"
+                              }
+                              title="Blank uses the product's sale rate."
+                              value={l.unit_price}
+                              onChange={(e) =>
+                                setLine(i, { unit_price: e.target.value })
+                              }
+                            />
+                          </td>
+                          <td className="r">
+                            <input
+                              className="qty rate"
+                              inputMode="decimal"
+                              aria-label={
+                                percent
+                                  ? `Discount on ${name} in percent`
+                                  : `Discount on ${name} in rupees`
+                              }
+                              placeholder="—"
+                              value={l.discount_value}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setLine(i, {
+                                  discount_value: v,
+                                  discount_kind: percent
+                                    ? "percent"
+                                    : v.trim()
+                                      ? "amount"
+                                      : "",
+                                });
+                              }}
+                            />
+                            {percent && <span className="sub2"> %</span>}
+                          </td>
+                          <td className="r num">
+                            {computed && fresh
+                              ? formatRupees(computed.base)
+                              : "—"}
+                          </td>
+                          <td className="r">
+                            <button
+                              type="button"
+                              className="xbtn"
+                              aria-label={`Remove ${name}`}
+                              onClick={() =>
+                                set({
+                                  lines: form.lines.filter((_, n) => n !== i),
+                                })
+                              }
+                            >
+                              ×
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div className="itemsfoot">
+                <span>
+                  {form.lines.length}{" "}
+                  {form.lines.length === 1 ? "item" : "items"}
+                  {dirty && saved ? " · Totals are from your last save" : ""}
+                </span>
+                <span>Total = rate × qty − discount, before GST.</span>
+              </div>
+            </section>
+
+            <div className="bar">
+              <Button
+                type="button"
+                variant="primary"
+                busy={save.isPending || finalize.isPending}
+                disabled={createOff}
+                onClick={createInvoice}
+              >
+                {PRACTICE_ONLY ? "Create practice invoice" : "Create invoice"}
+              </Button>
+              <Button
+                type="submit"
+                variant="secondary"
+                busy={save.isPending}
+                disabled={!dirty}
+              >
+                Save draft
+              </Button>
+              {blocks.length > 0 ? (
+                <span className="stat bad" role="status">
+                  <b>{blocks.length} to fix:</b> {blocks[0]}
+                  {blocks.length > 1 && (
+                    <span className="sub2"> +{blocks.length - 1} more</span>
+                  )}
+                </span>
+              ) : checks.length > 0 ? (
+                <span className="stat warn" role="status">
+                  <b>Please check:</b> {checks[0]}
+                </span>
+              ) : (
+                <span className="stat">
+                  {saved && !c && !dirty
+                    ? `Total as last saved: ${saved.total ? formatRupees(saved.total) : "—"}. Save to see the tax and any checks.`
+                    : dirty && saved
+                      ? "Save draft to see the tax and any checks for your changes."
+                      : PRACTICE_ONLY
+                        ? "Makes a practice invoice with a PR- number: not for your customer, locked once made."
+                        : "Gives the invoice its number and locks it; later changes need a credit note."}
+                </span>
+              )}
+            </div>
             {finalizeWords && (
               <Banner tone="error">
                 {finalizeWords}
                 {finalizeError?.code === "invoice_plan_required" && (
                   <>
                     {" "}
-                    <Link to={`/b/${businessId}/settings/plan`}>See the invoicing plan</Link>
+                    <Link to={`/b/${businessId}/settings/plan`}>
+                      See the invoicing plan
+                    </Link>
                   </>
                 )}
               </Banner>
             )}
-        </section>
-
-        {saved && (
-          <div className="actions">
-            {confirmDelete ? (
-              <>
-                <span>Delete this draft?</span>
-                <Button type="button" busy={remove.isPending} onClick={() => remove.mutate()}>
-                  Yes, delete
-                </Button>
-                <Button type="button" variant="link" onClick={() => setConfirmDelete(false)}>
-                  Keep it
-                </Button>
-              </>
-            ) : (
-              <Button type="button" variant="link" onClick={() => setConfirmDelete(true)}>
-                Delete draft
-              </Button>
+            {saved && (
+              <div className="row-actions del">
+                {confirmDelete ? (
+                  <>
+                    <span>Delete this draft?</span>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      busy={remove.isPending}
+                      onClick={() => remove.mutate()}
+                    >
+                      Yes, delete
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="link"
+                      onClick={() => setConfirmDelete(false)}
+                    >
+                      Keep it
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="link"
+                    onClick={() => setConfirmDelete(true)}
+                  >
+                    Delete draft
+                  </Button>
+                )}
+              </div>
             )}
-          </div>
+          </form>
+
+          <aside className="paperwrap" aria-label="Preview">
+            <Paper
+              c={c}
+              stale={dirty}
+              practice={PRACTICE_ONLY}
+              from={{ name: business.display_name, gstin: business.gstin }}
+              to={buyerOnPaper}
+              date={form.doc_date || todayIst()}
+              states={stateNames}
+              lines={form.lines.map((l, i) => {
+                const p = products[l.product_id];
+                const computed = sameLine(l, saved?.lines?.[i])
+                  ? c?.lines.find((x) => x.line_no === i + 1)
+                  : undefined;
+                return {
+                  key: l.key,
+                  name: l.name || p?.name || "Product",
+                  detail: p ? `${hsnText(p.hsn)} · ${gstText(p)}` : "",
+                  quantity: l.quantity,
+                  amount: computed?.base ?? null,
+                };
+              })}
+            />
+            {saved && (
+              <PreviewPanel
+                preview={preview}
+                version={saved.version}
+                dirty={dirty}
+              />
+            )}
+          </aside>
+        </div>
+        {delivery && (
+          <DeliveryDialog
+            form={form}
+            set={set}
+            buyerIsCash={form.buyer === "cash"}
+            stateOptions={stateOptions}
+            onClose={() => setDelivery(false)}
+          />
         )}
-        </>
       </main>
     </>
   );
