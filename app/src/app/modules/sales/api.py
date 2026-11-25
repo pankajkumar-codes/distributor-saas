@@ -579,9 +579,14 @@ class DocumentsOut(BaseModel):
 
 
 @router.get("/b/{business_id}/documents", response_model=DocumentsOut, dependencies=VIEW)
-def list_documents(uow: BusinessUoW, page: Annotated[PageParams, Depends(page_params)]):
-    """The business's finalized documents, newest first (practice ones included, each says `is_practice`). Read-only."""
-    found, more = finalize.list_documents(uow, page.limit, page.offset)
+def list_documents(
+    uow: BusinessUoW,
+    page: Annotated[PageParams, Depends(page_params)],
+    q: Annotated[str | None, Query(max_length=100)] = None,
+):
+    """The business's finalized documents, newest first (practice ones included, each says `is_practice`). Read-only.
+    `q` narrows them to a number or buyer name containing it, or a buyer GSTIN starting with it."""
+    found, more = finalize.list_documents(uow, page.limit, page.offset, q)
     return {"documents": [_document(d) for d in found], "has_more": more}
 
 

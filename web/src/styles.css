@@ -221,26 +221,59 @@ ol.steps > li::before { content: counter(s); position: absolute; left: 0; top: 1
 .list li { padding: 7px 0; }
 .card .list { margin: 0; }
 
-/* Home (mock v14): setup card on the left, GST filing / account / Business setup stacked on the right */
-.home-sub { margin: -6px 0 12px; }
-.home-cols { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
-.home-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-.home-col > .card { margin: 0; display: flex; flex-direction: column; gap: 10px; }
-.home-col > .card h2 { margin: 0; }
-.home-col > .card .hint { margin: 0; }
+/* Home (mocks v16): the "Your next step" card on the left; the month timeline and a tabbed panel on the right. */
 .between { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
 .kv { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; flex-wrap: wrap; }
-.home-bar { height: 6px; border-radius: 3px; background: var(--sunk); overflow: hidden; }
-.home-bar i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
-.home-steps { list-style: none; margin: 0; padding: 0; }
-.home-steps li { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 12px; align-items: center; min-height: 42px; padding: 0; border-top: 1px solid var(--line); }
-.home-steps .muted { color: var(--muted); }
-.home-dot { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; border: 2px solid var(--line); color: var(--muted); }
-.home-dot.done { background: var(--ok); border-color: var(--ok); color: var(--surface); }
-.home-dot.now { border-color: var(--accent); color: var(--accent); }
-.home-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-.home-links { display: flex; gap: 14px; flex-wrap: wrap; font-size: 14px; }
-@media (max-width: 760px) { .home-cols { grid-template-columns: minmax(0, 1fr); } }
+.eyebrow { font-size: 13px; color: var(--muted); margin: 0 0 4px; }
+h1 .muted { color: var(--faint); }
+.r { text-align: right !important; }
+.chip-blue { background: var(--accent-soft); color: var(--accent); }
+.homegrid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 14px; margin-top: 14px; align-items: start; }
+.homegrid .panel:first-child { margin-top: 0; }
+.guide { border: 1px solid var(--ink); border-radius: var(--r-lg); padding: 16px 20px; background: var(--bg); }
+.guide .gk { font-size: 13px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+.guide h2 { font-size: 19px; font-weight: 500; letter-spacing: -0.02em; margin: 6px 0 4px; }
+.guide .hint { margin: 0; }
+.guide .btn svg.arr { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+.path { list-style: none; margin: 10px 0 12px; padding: 0; }
+.path li { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.path .d { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--line2); display: grid; place-items: center; font-size: 11px; }
+.path li.done .d { background: var(--ink); border-color: var(--ink); color: #fff; }
+.path li.done .t { color: var(--muted); }
+.path li.cur .d { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.path li.cur .t { font-weight: 500; }
+.tl { padding: 14px 18px 12px; }
+.tl h2 { margin: 0; }
+.tl .hint { margin: 0; }
+.tl-track { position: relative; height: 56px; margin-top: 8px; }
+.tl-line { position: absolute; left: 0; right: 0; top: 26px; height: 4px; background: var(--panel); border-radius: 2px; }
+.tl-fill { position: absolute; left: 0; top: 26px; height: 4px; background: var(--ink); border-radius: 2px; }
+.tl-m { position: absolute; top: 0; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; font-size: 12px; white-space: nowrap; }
+.tl-m .d { width: 12px; height: 12px; border-radius: 50%; background: var(--bg); border: 2px solid var(--ink); margin-top: 22px; }
+.tl-m.due .d { border-color: var(--accent); background: var(--accent); }
+.tl-m.today .d { background: var(--ink); }
+.tl-m .lab { position: absolute; top: 0; font-weight: 500; }
+.tl-m .sub { position: absolute; top: 40px; color: var(--muted); }
+.tl-list { display: none; margin: 8px 0 0; }
+.tl-list div { display: flex; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.tl-list div:last-child { border: 0; }
+.tl-list dd { margin: 0; }
+.issue { display: flex; gap: 14px; align-items: flex-start; padding: 9px 16px; border-bottom: 1px solid var(--line); }
+.issue:last-child { border-bottom: 0; }
+.issue .ic { width: 22px; height: 22px; border-radius: 50%; background: var(--warn-soft); color: var(--warn); display: grid; place-items: center; font-size: 13px; font-weight: 600; flex: none; margin-top: 1px; }
+.issue.bad .ic { background: var(--bad-soft); color: var(--bad); }
+.issue .tx { flex: 1; min-width: 0; }
+.issue .tx b { font-weight: 500; display: block; }
+.issue .tx span { font-size: 13px; color: var(--muted); }
+.home .ltabs { margin: 0; padding: 0 8px; }
+.home .ltabpanel { padding-top: 0; }
+.home .ltabpanel table.products { margin: 0; }
+.home .ltabpanel table.products td, .home .ltabpanel table.products th { padding-left: 16px; padding-right: 16px; }
+@media (max-width: 760px) {
+  .homegrid { grid-template-columns: minmax(0, 1fr); }
+  .tl-track { display: none; }
+  .tl-list { display: block; }
+}
 
 /* Archive / delete on customer and product pages: two separate actions, each explained */
 .btn-danger { background: var(--surface); color: var(--bad); border: 1px solid rgba(179, 38, 30, 0.4); min-height: 40px; padding: 0 14px; font-size: 14px; }
@@ -458,3 +491,8 @@ td.num .chip, td .chip { font-family: var(--body); }
   .toolbar .search { max-width: none; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* Lists in a panel (mocks v16): the table sits flush in the panel, the Pager below it. */
+.panel > table.products { margin: 0; }
+.panel > table.products th, .panel > table.products td { padding-left: 16px; padding-right: 16px; }
+.panel > .pad, .panel > p.pad { margin: 0; }

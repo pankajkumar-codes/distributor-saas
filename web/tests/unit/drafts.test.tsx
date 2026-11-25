@@ -29,8 +29,34 @@ const open = (path: string, role = "owner") => {
   render(<App />);
 };
 
+const DOCS = "/api/v1/b/b-1/documents";
+const doc = (n: number) => ({ id: `doc-${n}`, doc_number: `PR-${String(n).padStart(4, "0")}`, doc_date: "2026-12-07", counterparty_name: "Arora Wholesale", doc_total: "8000.40", is_practice: true });
+
+describe("issued invoices", () => {
+  it("pages eight at a time with Previous and Next, practice ones marked", async () => {
+    server.reply(DOCS, { status: 200, body: { documents: [1, 2, 3, 4, 5, 6, 7, 8].map(doc), has_more: true } }, { status: 200, body: { documents: [doc(9)], has_more: false } });
+    open("/b/b-1/documents");
+    expect(await screen.findByRole("link", { name: "PR-0001" })).toHaveAttribute("href", "/b/b-1/documents/doc-1");
+    expect(screen.getAllByText("Practice")).toHaveLength(8);
+    expect(screen.getByText("Invoices 1–8")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(await screen.findByRole("link", { name: "PR-0009" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "PR-0001" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+    const asked = server.sent.filter((s) => s.path === DOCS).map((s) => new URL(s.url).searchParams);
+    expect(asked.map((q) => [q.get("limit"), q.get("offset")])).toEqual([["8", "0"], ["8", "8"]]);
+  });
+
+  it("says none are issued yet", async () => {
+    server.reply(DOCS, { status: 200, body: { documents: [], has_more: false } });
+    open("/b/b-1/documents");
+    expect(await screen.findByText(/No invoices issued yet/)).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "New invoice" }).find((a) => a.classList.contains("btn-primary"))).toHaveAttribute("href", "/b/b-1/invoices/new");
+  });
+});
+
 describe("draft invoices", () => {
-  it("lists open invoice drafts with buyer, total and whether each is ready, and pages with the cursor", async () => {
+  it("lists open invoice drafts with buyer, total and whether each is ready, a page at a time with the cursor", async () => {
     server.reply(
       DRAFTS,
       { status: 200, body: { items: [draft(), draft({ id: "d-2", customer_id: null, bill_to: null, cash_buyer: { name: null, state_code: "19" }, total: null, ready: false })], has_more: true, next_cursor: "abc" } },
@@ -40,21 +66,30 @@ describe("draft invoices", () => {
     const first = await screen.findByRole("link", { name: "Sharma Traders" });
     expect(first).toHaveAttribute("href", "/b/b-1/invoices/d-1");
     expect(screen.getByText("₹1,180.00")).toBeInTheDocument();
-    expect(screen.getByText("Ready to finalize")).toBeInTheDocument();
+    expect(screen.getByText("Ready to create")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Cash sale" })).toHaveAttribute("href", "/b/b-1/invoices/d-2");
     expect(screen.getByText("Needs fixes")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Load more" }));
+    expect(screen.getByText("Drafts 1–2")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(await screen.findByRole("link", { name: "No buyer yet" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Sharma Traders" })).toBeNull(); // a page replaces the last, the screen never grows
     expect(screen.getByText("Not checked yet")).toBeInTheDocument();
+    expect(screen.getByText("Day you create it")).toBeInTheDocument(); // no date yet
+    expect(screen.getByText("Drafts 9–9")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Previous" }));
+    expect(await screen.findByRole("link", { name: "Sharma Traders" })).toBeInTheDocument(); // the first cursor again
     const asked = server.sent.filter((s) => s.path === DRAFTS).map((s) => new URL(s.url).searchParams);
-    expect(asked.map((q) => [q.get("kind"), q.get("cursor")])).toEqual([["invoice", null], ["invoice", "abc"]]);
+    expect(asked.slice(0, 2).map((q) => [q.get("kind"), q.get("limit"), q.get("cursor")])).toEqual([["invoice", "8", null], ["invoice", "8", "abc"]]);
+    expect(asked.slice(2).every((q) => q.get("cursor") === null)).toBe(true);
   });
 
   it("says there are none, with a way to start one", async () => {
     server.reply(DRAFTS, { status: 200, body: { items: [], has_more: false, next_cursor: null } });
     open("/b/b-1/drafts");
     expect(await screen.findByText(/No drafts\./)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Start a new invoice" })).toHaveAttribute("href", "/b/b-1/invoices/new");
+    for (const link of screen.getAllByRole("link", { name: "Start a new invoice" })) expect(link).toHaveAttribute("href", "/b/b-1/invoices/new");
   });
 
   it("is not offered to a role that can't make invoices", async () => {

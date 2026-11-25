@@ -13104,7 +13104,7 @@
     },
     "/api/v1/b/{business_id}/documents": {
       "get": {
-        "description": "The business's finalized documents, newest first (practice ones included, each says `is_practice`). Read-only.",
+        "description": "The business's finalized documents, newest first (practice ones included, each says `is_practice`). Read-only.\n`q` narrows them to a number or buyer name containing it, or a buyer GSTIN starting with it.",
         "operationId": "list_documents_api_v1_b__business_id__documents_get",
         "parameters": [
           {
@@ -13114,6 +13114,23 @@
             "schema": {
               "title": "Business Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 100,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
             }
           },
           {

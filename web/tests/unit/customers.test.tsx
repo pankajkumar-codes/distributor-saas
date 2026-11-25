@@ -169,10 +169,11 @@ describe("the customers list", () => {
 });
 
 describe("the top bar search (mocks v16)", () => {
-  it("suggests nothing until a letter is typed, then searches this business's customers and products", async () => {
+  it("suggests nothing until a letter is typed, then searches this business's invoices, customers and products", async () => {
     server.reply(LIST, page([]));
     open();
-    const box = await screen.findByRole("combobox", { name: "Search customers and products" });
+    const box = await screen.findByRole("combobox", { name: "Search invoices, customers and products" });
+    expect(box).toHaveAttribute("placeholder", "Search invoices, customers, products");
     const before = server.sent.length;
     fireEvent.focus(box);
     expect(screen.queryByRole("link", { name: /Sharma/ })).toBeNull();
@@ -180,11 +181,29 @@ describe("the top bar search (mocks v16)", () => {
 
     server.reply(LIST, page([customer()]));
     server.reply("/api/v1/b/b-1/products", page([{ id: "p-1", name: "Sharp knife", code: "SK1" }]));
+    server.reply("/api/v1/b/b-1/documents", { status: 200, body: { documents: [{ id: "doc-1", doc_number: "PR-0042", counterparty_name: "Sharma Traders", doc_total: "8000.40" }], has_more: false } });
     fireEvent.change(box, { target: { value: "sh" } });
     const pop = await screen.findByRole("region", { name: "Customers" });
     expect(within(pop).getByRole("link", { name: /Sharma Traders/ })).toHaveAttribute("href", "/b/b-1/customers/c-1");
     expect(await screen.findByRole("link", { name: /Sharp knife/ })).toHaveAttribute("href", "/b/b-1/products/p-1");
+    const invoices = await screen.findByRole("region", { name: "Invoices" });
+    expect(within(invoices).getByRole("link", { name: /PR-0042 Sharma Traders/ })).toHaveAttribute("href", "/b/b-1/documents/doc-1");
+    expect(within(invoices).getByText("₹8,000.40")).toBeInTheDocument();
     const searched = server.sent.slice(before).filter((s) => new URL(s.url).searchParams.get("q") === "sh").map((s) => s.path);
-    expect(searched.sort()).toEqual(["/api/v1/b/b-1/customers", "/api/v1/b/b-1/products"]);
+    expect(searched.sort()).toEqual(["/api/v1/b/b-1/customers", "/api/v1/b/b-1/documents", "/api/v1/b/b-1/products"]);
+  });
+
+  it("leaves invoices out of the search for a role that can't see them (the server would refuse)", async () => {
+    server = fakeApi();
+    server.reply("/api/v1/auth/refresh", { status: 200, body: { access_token: "t", expires_in: 3600 } });
+    server.reply("/api/v1/me/businesses", { status: 200, body: { businesses: [{ business_id: "b-1", display_name: "Vashi Essentials", gstin: null, role: "ca" }] } });
+    server.reply(LIST, page([]));
+    open();
+    const box = await screen.findByRole("combobox", { name: "Search customers and products" });
+    server.reply(LIST, page([customer()]));
+    server.reply("/api/v1/b/b-1/products", page([]));
+    fireEvent.change(box, { target: { value: "sh" } });
+    await screen.findByRole("region", { name: "Customers" });
+    expect(server.paths()).not.toContain("/api/v1/b/b-1/documents");
   });
 });

@@ -127,13 +127,20 @@ def get_document(uow: UnitOfWork, document_id: uuid.UUID) -> dict:
     return dict(row)
 
 
-def list_documents(uow: UnitOfWork, limit: int, offset: int) -> tuple[list[dict], bool]:
-    """This business's finalized documents, newest first."""
+def list_documents(uow: UnitOfWork, limit: int, offset: int, q: str | None = None) -> tuple[list[dict], bool]:
+    """This business's finalized documents, newest first. `q` matches part of the number or the
+    buyer's name, or the start of the buyer's GSTIN; the business filter is always applied."""
+    where = ["business_id = :b"]
+    params: dict = {"b": _business(uow), "n": limit + 1, "o": offset}
+    if q and q.strip():
+        needle = q.strip().lower().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        where.append("(doc_number ilike :frag or counterparty_name ilike :frag or counterparty_gstin like :prefix)")
+        params.update(frag=f"%{needle}%", prefix=f"{needle.upper().replace(' ', '')}%")
     rows = (
         uow.tx.execute(
-            text(f"select {_DOCUMENT_COLUMNS} from sales.documents where business_id = :b"
+            text(f"select {_DOCUMENT_COLUMNS} from sales.documents where {' and '.join(where)}"
                  " order by finalized_at desc, id desc limit :n offset :o"),
-            {"b": _business(uow), "n": limit + 1, "o": offset},
+            params,
         )
         .mappings()
         .all()

@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { noSeriousAxeFindings, signUp } from "./helpers";
+import { fitsOneScreen, noSeriousAxeFindings, signUp } from "./helpers";
 
 // The R2 happy path in a real browser (R2-M8): business type, a purchase invoice kept as a photo and typed in, confirm
 // into products and stock, the selling price, a practice sales invoice that takes the stock out, and its PDF request.
@@ -115,6 +115,22 @@ test("R2: purchase, stock, price, practice invoice, PDF request", async ({ page 
   await expect(page.getByRole("heading", { name: "Issued invoices" })).toBeVisible();
   const issued = page.getByRole("row").filter({ hasText: "Asha Stores" });
   await expect(issued.getByText("Practice", { exact: true })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Pages of invoices" })).toBeVisible();
+  if (!info.project.name.startsWith("phone")) {
+    // Mocks v16 one-screen rule: the lists page instead of scrolling, and Home with its tabs fits too.
+    await fitsOneScreen(page);
+    await page.goto(`/b/${businessId}/drafts`);
+    await expect(page.getByRole("heading", { name: "Draft invoices" })).toBeVisible();
+    await fitsOneScreen(page);
+    await page.goto(`/b/${businessId}/home`);
+    await page.getByRole("tab", { name: "Recent invoices" }).click();
+    await expect(page.getByRole("row").filter({ hasText: "Asha Stores" })).toBeVisible();
+    await fitsOneScreen(page);
+    // The top bar finds the invoice by its buyer.
+    await page.getByRole("combobox", { name: "Search invoices, customers and products" }).fill("Asha");
+    await expect(page.getByRole("region", { name: "Invoices" }).getByRole("link", { name: /Asha Stores/ })).toBeVisible();
+    await page.goto(`/b/${businessId}/documents`);
+  }
   await issued.getByRole("link").click();
   await expect(page.getByRole("button", { name: "Download practice PDF" })).toBeVisible();
 
