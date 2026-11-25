@@ -30,7 +30,7 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   await page.getByRole("button", { name: "Finish and see my filing home" }).click();
   await expect(page.getByRole("heading", { name: /^(Welcome|Good (morning|afternoon|evening))/ })).toBeVisible();
   expect(page.url()).toMatch(/\/b\/[0-9a-f-]{36}\/home$/);
-  await expect(page.getByText("E2E Traders Private Limited")).toBeVisible();
+  await expect(page.getByText("E2E Traders Private Limited").filter({ visible: true }).first()).toBeVisible(); // sidebar on desktop, top bar on phone
   // Whether Home shows a rule 61A warning depends on today's date against the window, so
   // the unit tests cover the warning words. The details and the frequency are both done.
   const setup = page.getByRole("region", { name: "Set up your business" });

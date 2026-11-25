@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Link, NavLink, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { signOut } from "../auth/session";
 import type { Membership } from "../auth/landing";
@@ -89,16 +89,17 @@ export function TopBar({ title, gstin }: { title?: string; gstin?: string | null
                 <div key={g.label} className="side-grp">
                   {g.label !== "Home" && g.label !== "Settings" && <div className="grp">{g.label}</div>}
                   {items.map((item) => (
-                    <NavLink
+                    // A plain Link: the shell alone decides which item is current, so GSTR-1 and
+                    // GSTR-3B (which fall back to /filing) never light up with Your GST filing.
+                    <Link
                       key={item.key}
                       to={href(item)}
-                      end
                       className="side-link"
                       aria-current={current === item.key ? "page" : undefined}
                     >
                       <Icon d={item.icon} />
                       {item.label}
-                    </NavLink>
+                    </Link>
                   ))}
                 </div>
               );

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../../src/App";
@@ -154,6 +154,14 @@ describe("Home", () => {
     const card = await screen.findByRole("navigation", { name: "GST filing" });
     expect(within(card).getByRole("link", { name: "Open Filing home" })).toBeInTheDocument();
     expect(within(card).queryByText(/GSTR-/)).toBeNull();
+  });
+
+  it("marks only Your GST filing on the filing page, though GSTR-1 and GSTR-3B fall back to it", async () => {
+    open("/b/b-1/filing");
+    const nav = await screen.findByRole("navigation", { name: "Main" });
+    await waitFor(() => expect(within(nav).getAllByRole("link", { current: "page" })).toHaveLength(1));
+    expect(within(nav).getByRole("link", { current: "page" })).toHaveTextContent("Your GST filing");
+    expect(within(nav).getByRole("link", { name: "GSTR-1" })).toHaveAttribute("href", "/b/b-1/filing");
   });
 
   it("shows the v16 sidebar with the business tile and a Main nav that marks the current page", async () => {

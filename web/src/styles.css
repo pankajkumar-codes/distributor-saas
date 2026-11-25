@@ -335,7 +335,6 @@ table.products td select { max-width: 100%; }
 .side-link:hover { background: var(--panel); }
 .side-link[aria-current="page"] { background: var(--panel); color: var(--ink); box-shadow: inset 2px 0 0 var(--accent); }
 .side-link[aria-current="page"] svg { stroke: var(--ink); }
-.side-link.active:not([aria-current]) { background: none; box-shadow: none; } /* only the shell decides which item is current */
 .top { position: sticky; top: 0; z-index: 15; height: 60px; display: flex; align-items: center; gap: 12px; padding: 0 32px; border-bottom: 1px solid var(--line); background: var(--bg); }
 .top-app { margin-left: var(--side-w); }
 .top .sp { flex: 1; }
