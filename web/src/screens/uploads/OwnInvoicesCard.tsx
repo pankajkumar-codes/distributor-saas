@@ -1,15 +1,18 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useId, useRef, useState, type FormEvent } from "react";
+import { useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 
 import { errorText, type ApiError } from "../../api/errors";
 import { formatDateTimeIst } from "../../format/dates";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
+import { Panel } from "../filing/ledger";
 import { HeldLink } from "./HeldLink";
 import { OWN_INVOICE_TYPES, ownInvoiceProblem, ownInvoiceSection, settled, statusText, type Upload } from "./sections";
 import { sendFile, uploadsKey, useUploads } from "./useUpload";
 
-type Props = { businessId: string; label: string; hint: string; canUpload: boolean };
+type Props = { businessId: string; label: string; hint: string; canUpload: boolean; note?: ReactNode };
+
+const SHOWN = 1; // the newest files; the rest fold away so the page stays on one screen
 
 /**
  * Your own sales invoices: an Excel sheet, PDF invoices, or both, several files at once. Each file goes
@@ -17,7 +20,7 @@ type Props = { businessId: string; label: string; hint: string; canUpload: boole
  * server still decides everything about a file and answers in words; this card only shows them.
  * A zip of PDFs is not offered until the server takes one.
  */
-export function OwnInvoicesCard({ businessId, label, hint, canUpload }: Props) {
+export function OwnInvoicesCard({ businessId, label, hint, canUpload, note }: Props) {
   const id = useId();
   const queryClient = useQueryClient();
   const input = useRef<HTMLInputElement>(null);
@@ -61,25 +64,28 @@ export function OwnInvoicesCard({ businessId, label, hint, canUpload }: Props) {
     if (left.length === 0 && input.current) input.current.value = "";
   };
 
+  const line = (u: Upload) => (
+    <li key={u.id}>
+      <FileLine upload={u} />
+      <HeldLink businessId={businessId} upload={u} />
+    </li>
+  );
   return (
-    <section className="card" aria-labelledby={`${id}-h`}>
-      <h2 id={`${id}-h`}>{label}</h2>
-      <p className="hint">{hint}</p>
+    <Panel title={label} aside={uploads.length > 0 ? <span className="chip">{uploads.length === 1 ? "1 file" : `${uploads.length} files`}</span> : undefined}>
+      <p className="pad-x hint">{hint}</p>
 
-      {uploads.length > 0 && (
-        <ul className="list">
-          {uploads.map((u) => (
-            <li key={u.id}>
-              <FileLine upload={u} />
-              <HeldLink businessId={businessId} upload={u} />
-            </li>
-          ))}
-        </ul>
+      {uploads.length > 0 && <ul className="list files">{uploads.slice(0, SHOWN).map(line)}</ul>}
+      {uploads.length > SHOWN && (
+        <details className="earlier">
+          <summary>Earlier files ({uploads.length - SHOWN})</summary>
+          <ul className="list files">{uploads.slice(SHOWN).map(line)}</ul>
+        </details>
       )}
+      {note}
       {(sheets.error || pdfs.error) && <Banner tone="error">{errorText((sheets.error ?? pdfs.error)!)}</Banner>}
 
       {canUpload ? (
-        <form onSubmit={submit} noValidate>
+        <form onSubmit={submit} noValidate className="drop">
           <div className="field">
             <label htmlFor={`${id}-file`}>{uploads.length > 0 ? "Add more files" : "Choose files"}</label>
             <input
@@ -101,6 +107,9 @@ export function OwnInvoicesCard({ businessId, label, hint, canUpload }: Props) {
               </div>
             )}
           </div>
+          <Button type="submit" variant="secondary" className="btn-sm" busy={sending}>
+            {sending ? "Sending…" : "Upload"}
+          </Button>
           {failed.length > 0 && (
             <Banner tone="error">
               {failed.map((f) => (
@@ -111,26 +120,24 @@ export function OwnInvoicesCard({ businessId, label, hint, canUpload }: Props) {
               Press Upload to send these again.
             </Banner>
           )}
-          <Button type="submit" busy={sending}>
-            {sending ? "Sending…" : "Upload"}
-          </Button>
         </form>
       ) : (
-        <p className="hint">Only an owner or admin can upload files.</p>
+        <p className="pad hint">Only an owner or admin can upload files.</p>
       )}
-    </section>
+    </Panel>
   );
 }
 
 function FileLine({ upload }: { upload: Upload }) {
   const rejected = upload.status === "rejected";
   return (
-    <>
-      <strong>{upload.file_name}</strong> · {formatDateTimeIst(upload.created_at)}
-      <br />
-      <span className={rejected ? "error" : "hint"} role={rejected ? "alert" : undefined} aria-busy={!settled(upload) || undefined}>
+    <div className={rejected ? "kv bad" : "kv"}>
+      <span>
+        <span>{upload.file_name}</span> · {formatDateTimeIst(upload.created_at)}
+      </span>
+      <span role={rejected ? "alert" : undefined} aria-busy={!settled(upload) || undefined}>
         {statusText(upload)}
       </span>
-    </>
+    </div>
   );
 }

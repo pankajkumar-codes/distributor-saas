@@ -114,7 +114,7 @@ describe("file from your own invoices", () => {
       body: gate({ reasons: ["platform_files_missing"], platform_files: [{ platform: "amazon", missing_months: [finished.start.slice(0, 7)] }] }),
     });
     choose(finished.start);
-    expect(await screen.findByText(/Amazon, [A-Z][a-z]{2} \d{4}: no file yet/)).toBeInTheDocument();
+    expect(await screen.findByRole("row", { name: /^Amazon [A-Z][a-z]{2} \d{4} No file yet/ })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Upload it" })).toHaveAttribute("href", "/b/b-1/uploads");
     expect(screen.getByText("Add the files of the marketplaces you sell on, or say there were no sales.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Get my GSTR-1 file" })).toBeDisabled();

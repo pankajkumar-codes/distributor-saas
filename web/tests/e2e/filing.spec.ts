@@ -51,3 +51,32 @@ test("the v16 GST filing screens fit one laptop screen", async ({ page }, info) 
   await noSeriousAxeFindings(page);
   await everyTabFits(page);
 });
+
+// Part 2 of #399: the upload screen and the two period screens, on one laptop screen and with no serious axe finding.
+test("the v16 upload and period screens fit one laptop screen", async ({ page }, info) => {
+  test.skip(info.project.name.startsWith("phone"), "phones may scroll (mocks v16 one-screen rule is for laptops)");
+  await signUp(page, `e2e-uploads-${Date.now()}@example.com`);
+  await createBusiness(page);
+  const nav = page.getByRole("navigation", { name: "Main" });
+
+  await nav.getByRole("link", { name: "Upload your reports" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Upload your reports" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "A zip of your reports" })).toBeVisible();
+  await noSeriousAxeFindings(page);
+  await fitsOneScreen(page);
+  await page.setViewportSize({ width: 1280, height: 800 });
+
+  await nav.getByRole("link", { name: "File from own invoices" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "File from your own invoices" })).toBeVisible();
+  await page.getByLabel("Month").selectOption({ index: 1 });
+  await expect(page.getByRole("button", { name: "Get my GSTR-1 file" })).toBeVisible();
+  await noSeriousAxeFindings(page);
+  await fitsOneScreen(page);
+  await page.setViewportSize({ width: 1280, height: 800 });
+
+  await nav.getByRole("link", { name: /^Monthly\/quarterly files$/ }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Monthly and quarterly files" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Files made before" })).toBeVisible();
+  await noSeriousAxeFindings(page);
+  await fitsOneScreen(page);
+});

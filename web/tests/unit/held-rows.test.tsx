@@ -120,6 +120,7 @@ describe("held rows screen", () => {
     server.reply(resolve("row-1"), decided(1, "pick_state", "27", "Same buyer"));
     server.reply(resolve("row-2"), { status: 409, body: { error: { code: "run_not_staged", message: "This file's preview has been closed, so its rows can't be changed." } } });
     await screen.findByText("Row 1 of b2b-oct.csv");
+    fireEvent.click(await screen.findByRole("button", { name: "Decide several rows" }));
     fireEvent.click(screen.getByRole("button", { name: "Select all 2" }));
     const bulk = await screen.findByRole("form", { name: "Decide the selected rows" });
     fireEvent.change(within(bulk).getByLabelText("Place of supply"), { target: { value: "27" } });
@@ -137,6 +138,7 @@ describe("held rows screen", () => {
     server.reply(resolve("row-1"), decided(1, "set_aside", null, "Duplicates"));
     server.reply(resolve("row-2"), decided(2, "set_aside", null, "Duplicates"));
     await screen.findByText("Row 1 of b2b-oct.csv");
+    fireEvent.click(await screen.findByRole("button", { name: "Decide several rows" }));
     fireEvent.click(screen.getByRole("button", { name: "Select all 2" }));
     const bulk = await screen.findByRole("form", { name: "Decide the selected rows" });
     fireEvent.change(within(bulk).getByLabelText("What to do"), { target: { value: "set_aside" } });

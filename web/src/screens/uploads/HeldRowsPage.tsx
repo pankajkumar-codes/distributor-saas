@@ -1,4 +1,4 @@
-import { Fragment, useRef, useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { errorText, type ApiError } from "../../api/errors";
@@ -14,7 +14,10 @@ import { Loading } from "../../kit/Loading";
 import { NoAccess } from "../../kit/NoAccess";
 import { NotFound } from "../../kit/NotFound";
 import { SelectField } from "../../kit/SelectField";
+import { Pager } from "../../kit/Pager";
+import { Tabs } from "../../kit/Tabs";
 import { TopBar } from "../../kit/TopBar";
+import { LedgerHead } from "../filing/ledger";
 import { useDecide, useHeldRows, useRun, type Action, type HeldRow } from "./useHeldRows";
 
 const NOTE_MAX = 500;
@@ -57,6 +60,8 @@ export function HeldRowsPage() {
   const rows = useHeldRows(businessId, runId, allowed);
   const states = useStateCodes();
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulk, setBulk] = useState(false);
+  const [tab, setTab] = useState(0);
 
   if (businesses.isPending) {
     return (
@@ -84,18 +89,67 @@ export function HeldRowsPage() {
     });
   const chosen = undecided.filter((r) => selected.has(r.row_id));
 
+  const tabs = groups.map((g, i) => {
+    const left = g.rows.filter((r) => !r.resolution).length;
+    return {
+      key: String(i),
+      label: (
+        <>
+          {g.label} <span className={`chip ${left > 0 ? "chip-warn" : "chip-ok"}`}>{left > 0 ? `${left} to decide` : "Decided"}</span>
+        </>
+      ),
+      panel: (
+        <GroupRows
+          label={g.label}
+          rows={g.rows}
+          render={(r) => (
+            <HeldRowCard
+              key={r.row_id}
+              businessId={businessId}
+              runId={runId}
+              row={r}
+              open={open}
+              bulk={bulk}
+              states={states.data ?? []}
+              ticked={selected.has(r.row_id)}
+              onTick={() => toggle(r.row_id)}
+            />
+          )}
+        />
+      ),
+    };
+  });
+  const at = Math.min(tab, Math.max(tabs.length - 1, 0));
+
   return (
     <>
       <TopBar title={business.display_name} gstin={business.gstin} />
-      <main className="page page-wide">
-        <p className="step">
-          <Link to={`/b/${businessId}/uploads`}>Upload your reports</Link>
-        </p>
-        <h1>Held rows</h1>
-        <p className="hint">
-          These rows are left out of your return until you decide them. Nothing is guessed: each decision is kept with your note, and the row in your file is
-          never changed.
-        </p>
+      <main className="page page-wide ledger">
+        <LedgerHead
+          trail={
+            <>
+              <Link to={`/b/${businessId}/filing`}>GST filing</Link> / <Link to={`/b/${businessId}/uploads`}>Upload your reports</Link> / Held rows
+            </>
+          }
+          title={
+            <>
+              Held rows {rows.data && <span className="muted num">{undecided.length}</span>}
+            </>
+          }
+          lead="Rows we could not use as the file states them. Decide each one; every choice is kept with its note, and your file is never changed."
+          actions={
+            <>
+              {open && undecided.length > 0 && (
+                <Button type="button" variant="secondary" aria-expanded={bulk} onClick={() => setBulk((b) => !b)}>
+                  Decide several rows
+                </Button>
+              )}
+              <Link className="btn btn-secondary" to={`/b/${businessId}/uploads`}>
+                Back to uploads
+              </Link>
+            </>
+          }
+        />
         {(run.isPending || rows.isPending) && !run.error && !rows.error && <Loading query={rows.isPending ? rows : run} />}
         {(run.error || rows.error) && (
           <Banner tone="error">
@@ -106,19 +160,18 @@ export function HeldRowsPage() {
           </Banner>
         )}
         {caRows.length > 0 && (
-          <Banner>
-            <b>Needs a CA check.</b> How these rows are treated has not been confirmed by a chartered accountant yet. Your choice and note are kept so your CA can
-            review them. Check with your CA before relying on them for a return.
+          <Banner tone="warn">
+            <b>Needs a CA check.</b> How these rows are treated is not yet confirmed by a chartered accountant. Your choice and note are kept for your CA to review.
           </Banner>
         )}
         {closed && <Banner>This file's preview is closed, so its rows can't be changed.</Banner>}
         {!closed && !mayDecide && rows.data && list.length > 0 && <Banner>Only an owner or admin can decide these rows.</Banner>}
         {rows.data && list.length === 0 && (
-          <section className="card">
-            <p>No rows are held. Nothing to decide.</p>
+          <section className="panel">
+            <p className="pad">No rows are held. Nothing to decide.</p>
           </section>
         )}
-        {open && undecided.length > 0 && (
+        {open && bulk && undecided.length > 0 && (
           <BulkBar
             businessId={businessId}
             runId={runId}
@@ -130,73 +183,61 @@ export function HeldRowsPage() {
             onDone={() => setSelected(new Set())}
           />
         )}
-        {groups.map((g) => (
-          <section key={g.label} className="card" aria-label={g.label}>
-            <div className="card-head">
-              <h2>{g.label}</h2>
-              <span className="chip chip-warn">
-                {g.rows.filter((r) => !r.resolution).length} to decide · {g.rows.length} in all
-              </span>
-            </div>
-            <ul className="list held-rows">
-              {g.rows.map((r) => (
-                <HeldRowCard
-                  key={r.row_id}
-                  businessId={businessId}
-                  runId={runId}
-                  row={r}
-                  open={open}
-                  states={states.data ?? []}
-                  ticked={selected.has(r.row_id)}
-                  onTick={() => toggle(r.row_id)}
-                />
-              ))}
-            </ul>
-          </section>
-        ))}
+        {tabs.length > 0 && <Tabs label="Why the rows are held" tabs={tabs} current={at} onChange={setTab} keepMounted />}
         {rows.hasNextPage && (
-          <div className="row">
-            <Button type="button" variant="secondary" busy={rows.isFetchingNextPage} onClick={() => rows.fetchNextPage()}>
+          <div className="toolbar">
+            <Button type="button" variant="secondary" className="btn-sm" busy={rows.isFetchingNextPage} onClick={() => rows.fetchNextPage()}>
               Show more rows
             </Button>
           </div>
         )}
-        <div className="row">
-          <Link className="btn btn-secondary" to={`/b/${businessId}/uploads`}>
-            Back to uploads
-          </Link>
-        </div>
       </main>
     </>
+  );
+}
+
+const HELD_PAGE = 2; // held rows a page, so a group with its decide form stays on one laptop screen
+
+/** One reason's rows, a page at a time. */
+function GroupRows({ label, rows, render }: { label: string; rows: HeldRow[]; render: (r: HeldRow) => ReactNode }) {
+  const [page, setPage] = useState(0);
+  const last = Math.max(Math.ceil(rows.length / HELD_PAGE) - 1, 0);
+  const at = Math.min(page, last);
+  const slice = rows.slice(at * HELD_PAGE, (at + 1) * HELD_PAGE);
+  return (
+    <section className="panel" aria-label={label}>
+      <ul className="list held-rows">{slice.map(render)}</ul>
+      {rows.length > HELD_PAGE && <Pager page={at} size={HELD_PAGE} shown={slice.length} total={rows.length} noun="rows" onPage={setPage} />}
+    </section>
   );
 }
 
 type StateOption = { code: string; name: string };
 const stateOptions = (states: StateOption[]) => states.map((s) => ({ value: s.code, label: `${s.name} (${s.code})` }));
 
-function HeldRowCard({ businessId, runId, row, open, states, ticked, onTick }: { businessId: string; runId: string; row: HeldRow; open: boolean; states: StateOption[]; ticked: boolean; onTick: () => void }) {
+function HeldRowCard({ businessId, runId, row, open, bulk, states, ticked, onTick }: { businessId: string; runId: string; row: HeldRow; open: boolean; bulk: boolean; states: StateOption[]; ticked: boolean; onTick: () => void }) {
   const decided = row.resolution;
   const cells = CELLS.filter(([k]) => row.values[k]);
   const label = `Row ${row.row_number} of ${row.file_name}`;
   return (
     <li className="held-row">
-      <div className="card-head">
+      <div className="held-h">
         <h3>
-          {open && !decided && <input type="checkbox" checked={ticked} onChange={onTick} aria-label={`Select ${label}`} />} {label}
+          {open && bulk && !decided && <input type="checkbox" checked={ticked} onChange={onTick} aria-label={`Select ${label}`} />} {label}
         </h3>
-        {row.needs_ca_check && <span className="chip chip-warn">Needs a CA check</span>}
+        {decided ? <span className="chip chip-ok">Decided</span> : row.needs_ca_check && <span className="chip chip-warn">Needs a CA check</span>}
       </div>
       {cells.length > 0 && (
         <dl className="facts">
           {cells.map(([k, name]) => (
-            <Fragment key={k}>
+            <div key={k}>
               <dt>{name}</dt>
               <dd className="num">{shown(k, row.values[k])}</dd>
-            </Fragment>
+            </div>
           ))}
         </dl>
       )}
-      {row.ca_check_note && <p className="hint">{row.ca_check_note}</p>}
+      {row.ca_check_note && !bulk && <p className="hint">{row.ca_check_note}</p>}
       {decided ? (
         <p role="status">
           <b>{ACTION_NAME[decided.action] ?? decided.action}</b>
@@ -206,7 +247,7 @@ function HeldRowCard({ businessId, runId, row, open, states, ticked, onTick }: {
         </p>
       ) : (
         <>
-          {open && row.allowed_actions.length > 0 && <Decide businessId={businessId} runId={runId} row={row} states={states} />}
+          {open && !bulk && row.allowed_actions.length > 0 && <Decide businessId={businessId} runId={runId} row={row} states={states} />}
         </>
       )}
     </li>
@@ -248,13 +289,13 @@ function Decide({ businessId, runId, row, states }: { businessId: string; runId:
     <div className="stack">
       <div className="row">
         {row.allowed_actions.map((a) => (
-          <Button key={a.action} type="button" variant={a.action === "set_aside" ? "secondary" : "primary"} aria-pressed={action === a.action} onClick={() => pick(a.action)}>
+          <Button key={a.action} type="button" className="btn-sm" variant={a.action === "set_aside" ? "secondary" : "primary"} aria-pressed={action === a.action} onClick={() => pick(a.action)}>
             {a.label}
           </Button>
         ))}
       </div>
       {action && offered && (
-        <form onSubmit={submit} noValidate aria-label={offered.label}>
+        <form onSubmit={submit} noValidate aria-label={offered.label} className="f-line">
           {action === "pick_state" && (
             <SelectField label="Place of supply" placeholder="Choose a state…" options={stateOptions(states)} value={value} onChange={(e) => setValue(e.target.value)} error={fieldErr("value")} />
           )}
@@ -318,22 +359,23 @@ function BulkBar({ businessId, runId, chosen, total, states, onAll, onNone, onDo
   };
 
   return (
-    <section className="card" aria-label="Decide several rows">
-      <div className="card-head">
+    <section className="panel bulk" aria-label="Decide several rows">
+      <div className="panel-h">
         <h2>Decide several rows</h2>
-        <span className="chip">{chosen.length} selected</span>
+        <span className="row-actions">
+          <span className="chip">{chosen.length} selected</span>
+          <Button type="button" variant="secondary" className="btn-sm" onClick={onAll}>
+            Select all {total}
+          </Button>
+          <Button type="button" variant="secondary" className="btn-sm" onClick={onNone} disabled={chosen.length === 0}>
+            Clear
+          </Button>
+        </span>
       </div>
-      <div className="row">
-        <Button type="button" variant="secondary" onClick={onAll}>
-          Select all {total}
-        </Button>
-        <Button type="button" variant="secondary" onClick={onNone} disabled={chosen.length === 0}>
-          Clear
-        </Button>
-      </div>
-      {chosen.length > 0 && !canPick && !canAside && <p className="hint">The selected rows don't offer the same action. Select rows of one kind.</p>}
+      {chosen.length === 0 && <p className="pad hint">Tick the rows to decide together, or select all. Pick rows of one kind.</p>}
+      {chosen.length > 0 && !canPick && !canAside && <p className="pad hint">The selected rows don't offer the same action. Select rows of one kind.</p>}
       {chosen.length > 0 && (canPick || canAside) && (
-        <form onSubmit={submit} noValidate aria-label="Decide the selected rows">
+        <form onSubmit={submit} noValidate aria-label="Decide the selected rows" className="pad f-line">
           <div className="field">
             <label htmlFor="bulk-action">What to do</label>
             <select id="bulk-action" value={effective} onChange={(e) => { setAction(e.target.value as "pick_state" | "set_aside"); setSure(false); }}>
