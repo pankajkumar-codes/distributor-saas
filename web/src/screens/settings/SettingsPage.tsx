@@ -3,6 +3,7 @@ import { Link, Navigate, useParams } from "react-router-dom";
 import { errorText } from "../../api/errors";
 import { SUPPORT_ROLE, useMyBusinesses } from "../../auth/useMyBusinesses";
 import { Banner } from "../../kit/Banner";
+import { FEATURES } from "../../features";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
 import { AUDIT_VIEWERS } from "./AuditPage";
@@ -58,7 +59,7 @@ export function SettingsPage() {
         )}
 
         <nav className="card" aria-labelledby="set-more">
-          <h2 id="set-more">Access and security</h2>
+          <h2 id="set-more">Team, security and plan</h2>
           <ul className="list">
             {TEAM_MANAGERS.has(business.role) && (
               <li>
@@ -78,6 +79,11 @@ export function SettingsPage() {
             {member && (
               <li>
                 <Link to={`${base}/security`}>Two-step sign-in</Link>
+              </li>
+            )}
+            {member && FEATURES.invoicing && (
+              <li>
+                <Link to={`${base}/plan`}>Invoicing plan</Link>
               </li>
             )}
           </ul>

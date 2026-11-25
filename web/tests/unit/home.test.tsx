@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../../src/App";
@@ -156,15 +156,24 @@ describe("Home", () => {
     expect(within(card).queryByText(/GSTR-/)).toBeNull();
   });
 
-  it("shows the top bar with the business tile and a Main nav that marks the current page", async () => {
+  it("marks only Your GST filing on the filing page, though GSTR-1 and GSTR-3B fall back to it", async () => {
+    open("/b/b-1/filing");
+    const nav = await screen.findByRole("navigation", { name: "Main" });
+    await waitFor(() => expect(within(nav).getAllByRole("link", { current: "page" })).toHaveLength(1));
+    expect(within(nav).getByRole("link", { current: "page" })).toHaveTextContent("Your GST filing");
+    expect(within(nav).getByRole("link", { name: "GSTR-1" })).toHaveAttribute("href", "/b/b-1/filing");
+  });
+
+  it("shows the v16 sidebar with the business tile and a Main nav that marks the current page", async () => {
     server.reply(HOME, home());
     open();
     await screen.findByRole("heading", { level: 1, name: /, Asha$/ });
     const nav = screen.getByRole("navigation", { name: "Main" });
-    expect(within(nav).getByRole("link", { name: "Dashboard" })).toHaveAttribute("aria-current", "page");
-    expect(within(nav).getByRole("link", { name: "Filing home" })).toHaveAttribute("href", "/b/b-1/filing");
-    expect(within(nav).getByRole("link", { name: "Uploads" })).toHaveAttribute("href", "/b/b-1/uploads");
-    expect(within(nav).getByRole("link", { name: "Business setup" })).toHaveAttribute("href", "/b/b-1/settings");
+    expect(within(nav).getByRole("link", { name: "Home" })).toHaveAttribute("aria-current", "page");
+    expect(within(nav).getByRole("link", { name: "Your GST filing" })).toHaveAttribute("href", "/b/b-1/filing");
+    expect(within(nav).getByRole("link", { name: "Upload your reports" })).toHaveAttribute("href", "/b/b-1/uploads");
+    expect(within(nav).getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/b/b-1/settings");
+    expect(within(nav).getAllByRole("link", { current: "page" })).toHaveLength(1);
     expect(screen.getByText("VE")).toBeInTheDocument(); // brand tile initials, hidden from the accessibility tree
   });
 

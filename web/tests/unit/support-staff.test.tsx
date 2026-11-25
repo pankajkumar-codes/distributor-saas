@@ -102,7 +102,7 @@ describe("support staff", () => {
     server.reply(HOME, home);
     open("/b/b-1/home");
     expect(await screen.findByText("Support view · read-only · ends 25-Oct-2099, 14:20")).toBeInTheDocument();
-    expect(screen.getByText("Vashi Essentials")).toBeInTheDocument();
+    expect(screen.getAllByText("Vashi Essentials")[0]).toBeInTheDocument();
     // A support user's Settings has no Support access link (owners and admins only).
     expect(screen.queryByRole("link", { name: "Support access" })).toBeNull();
   });
@@ -111,7 +111,7 @@ describe("support staff", () => {
     server.reply(ME, { status: 200, body: { businesses: [{ business_id: "b-1", display_name: "Vashi Essentials", gstin: null, role: "owner" }], is_support: false } });
     server.reply(HOME, home);
     open("/b/b-1/home");
-    expect(await screen.findByText("Vashi Essentials")).toBeInTheDocument();
+    expect((await screen.findAllByText("Vashi Essentials"))[0]).toBeInTheDocument();
     expect(screen.queryByText(/Support view/)).toBeNull();
     expect(server.paths()).not.toContain(GRANTS);
   });

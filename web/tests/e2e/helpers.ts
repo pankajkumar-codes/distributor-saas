@@ -76,3 +76,22 @@ export async function signInContinuingHere(page: Page) {
   await expect(yes.or(page.getByRole("button", { name: "Sign out" })).first()).toBeVisible();
   if (await yes.isVisible()) await yes.click();
 }
+
+/**
+ * Mocks v16 one-screen rule (BRD UI rules): on a laptop a signed-in screen needs no page
+ * scrolling. Phone views and the public landing page are exempt. Use it at 1366x696,
+ * 1280x720 and 1536x864, as `docs/mocks/mocks-v16-one-screen-check.js` does for the mocks.
+ */
+export const LAPTOPS = [
+  { width: 1366, height: 696 },
+  { width: 1280, height: 720 },
+  { width: 1536, height: 864 },
+] as const;
+
+export async function fitsOneScreen(page: Page) {
+  for (const size of LAPTOPS) {
+    await page.setViewportSize(size);
+    const extra = await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight);
+    expect(extra, `page scrolls by ${extra}px at ${size.width}x${size.height}`).toBeLessThanOrEqual(0);
+  }
+}

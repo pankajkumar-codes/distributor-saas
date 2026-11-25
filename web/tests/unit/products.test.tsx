@@ -78,7 +78,7 @@ describe("the products list", () => {
     server.reply(LIST, page([]));
     open();
     await screen.findByText(/No products yet/);
-    expect(screen.getByRole("link", { name: "Home" })).toHaveAttribute("href", "/b/b-1/home");
+    expect(within(screen.getByRole("main")).getByRole("link", { name: "Home" })).toHaveAttribute("href", "/b/b-1/home");
   });
 
   it("opens on the filter a Home link names", async () => {
