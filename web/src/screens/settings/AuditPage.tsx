@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 
 import { api, call } from "../../api/client";
@@ -17,6 +17,10 @@ import { TopBar } from "../../kit/TopBar";
 import { warningText } from "../onboarding/warnings";
 import { NoAccess } from "../../kit/NoAccess";
 import { Loading } from "../../kit/Loading";
+import { Pager } from "../../kit/Pager";
+import { SettingsEyebrow } from "./SettingsEyebrow";
+
+const PER = 6;
 
 type Page = components["schemas"]["AuditPageOut"];
 type Row = components["schemas"]["AuditRowOut"];
@@ -148,7 +152,10 @@ export function AuditPage() {
   const [actor, setActor] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [page, setPage] = useState(0);
   const today = todayIst();
+  // A new filter starts again at the first page.
+  useEffect(() => setPage(0), [kind, actor, from, to]);
   const filters = { kind: (kind || undefined) as Kind | undefined, actor: actor || undefined, from: from || undefined, to: to || undefined };
 
   const list = useInfiniteQuery<Page, ApiError>({
@@ -212,7 +219,16 @@ export function AuditPage() {
   if (!canView) return <NoAccess businessId={businessId} />;
   if (list.error?.status === 404) return <NotFound />;
 
-  const rows = list.data?.pages.flatMap((p) => p.items) ?? [];
+  const all = list.data?.pages.flatMap((p) => p.items) ?? [];
+  // One screen at a time (mocks v16): PER rows per page; Next asks the server for more when the loaded rows run out.
+  const lastPage = Math.max(0, Math.ceil(all.length / PER) - 1);
+  const at = Math.min(page, lastPage);
+  const rows = all.slice(at * PER, at * PER + PER);
+  const more = all.length > (at + 1) * PER || Boolean(list.hasNextPage);
+  const toPage = (n: number) => {
+    if (n > at && all.length <= n * PER && list.hasNextPage) void list.fetchNextPage().then(() => setPage(n));
+    else setPage(n);
+  };
   const people = (members.data?.members ?? []).map((m) => ({ value: m.user_id, label: m.name || m.email || "Former member" }));
   const narrowed = Boolean(kind || actor || from || to);
   const exportState = exported.data;
@@ -225,11 +241,9 @@ export function AuditPage() {
     <>
       <TopBar title={business.display_name} gstin={business.gstin} />
       <main className="page page-wide">
-        <p className="step">
-          <Link to={`/b/${businessId}/home`}>Home</Link>
-        </p>
+        <SettingsEyebrow businessId={businessId} here="Audit log" />
         <h1>Audit log</h1>
-        <p className="hint">Everything that changed in this business, newest first. Entries can't be edited or deleted.</p>
+        <p className="lead">Everything that changed in this business, newest first. Entries can't be edited or deleted.</p>
 
         <div className="filters" role="group" aria-label="Filters">
           <SelectField label="Kind" placeholder="All kinds" options={KINDS} value={kind} onChange={(e) => setKind(e.target.value)} />
@@ -311,10 +325,8 @@ export function AuditPage() {
             </tbody>
           </table>
         )}
-        {list.hasNextPage && (
-          <Button type="button" busy={list.isFetchingNextPage} onClick={() => list.fetchNextPage()}>
-            Load more
-          </Button>
+        {all.length > 0 && (
+          <Pager page={at} size={PER} shown={rows.length} hasMore={more} noun="entries" onPage={toPage} />
         )}
       </main>
     </>

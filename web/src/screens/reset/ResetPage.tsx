@@ -5,6 +5,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { api, call } from "../../api/client";
 import type { components } from "../../api/schema";
 import { errorText, type ApiError } from "../../api/errors";
+import { AuthPage } from "../../kit/AuthPage";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { Field } from "../../kit/Field";
@@ -71,7 +72,7 @@ function EmailStep({ email, onEmail, onSent }: { email: string; onEmail: (v: str
   };
   const error = request.error;
   return (
-    <main className="page">
+    <AuthPage>
       <h1>Reset your password</h1>
       <form onSubmit={submit} noValidate>
         {error && !error.field && <Banner tone="error">{errorText(error)}</Banner>}
@@ -91,7 +92,7 @@ function EmailStep({ email, onEmail, onSent }: { email: string; onEmail: (v: str
       <p className="note">
         <Link to="/signin">Back to sign in</Link>
       </p>
-    </main>
+    </AuthPage>
   );
 }
 
@@ -133,7 +134,7 @@ function CodeStep({ state, onResent, onBack, onDone }: { state: CodeState; onRes
   const left = Math.min(ttl, state.sentAt + ttl - now);
 
   return (
-    <main className="page">
+    <AuthPage>
       <h1>Check your email</h1>
       <form onSubmit={submit} noValidate>
         {bannerError && <Banner tone="error">{bannerError}</Banner>}
@@ -182,6 +183,6 @@ function CodeStep({ state, onResent, onBack, onDone }: { state: CodeState; onRes
           </Button>
         </div>
       </form>
-    </main>
+    </AuthPage>
   );
 }

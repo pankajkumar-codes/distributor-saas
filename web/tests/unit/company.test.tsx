@@ -39,9 +39,9 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
-function open(role = "owner") {
+function open(role = "owner", path = "/b/b-1/settings/company") {
   server.reply(ME, me(role), me(role));
-  window.history.replaceState(null, "", "/b/b-1/settings/company");
+  window.history.replaceState(null, "", path);
   render(<App />);
 }
 const type = (label: string, value: string) => fireEvent.change(screen.getByLabelText(label), { target: { value } });
@@ -321,8 +321,8 @@ describe("where you sell", () => {
   });
   const ready = async (role = "owner") => {
     server.reply(PROFILE, { status: 200, body: profile() });
-    open(role);
-    await screen.findByRole("heading", { name: "Where you sell" });
+    open(role, "/b/b-1/settings"); // its own panel on Business setup
+    await screen.findByRole("heading", { name: "Marketplaces you sell on" });
     await vi.waitFor(() => expect(screen.getByRole("checkbox", { name: "Amazon" })).toBeChecked());
   };
 

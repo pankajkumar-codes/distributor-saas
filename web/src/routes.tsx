@@ -83,9 +83,9 @@ export const routes: RouteObject[] = [
       ]
     : []),
   { path: "/b/:businessId/settings", element: <PageTitle title="Business setup"><RequireAuth><SettingsPage /></RequireAuth></PageTitle> },
-  { path: "/b/:businessId/settings/company", element: <RequireAuth><ToBusinessSetup /></RequireAuth> },
+  { path: "/b/:businessId/settings/company", element: <RequireAuth><ToBusinessSetup part="company" /></RequireAuth> },
   { path: "/b/:businessId/onboarding/marketplaces", element: <PageTitle title="Marketplaces you sell on"><RequireAuth><MarketplacesPage /></RequireAuth></PageTitle> },
-  { path: "/b/:businessId/settings/filing", element: <RequireAuth><ToBusinessSetup /></RequireAuth> },
+  { path: "/b/:businessId/settings/filing", element: <RequireAuth><ToBusinessSetup part="filing" /></RequireAuth> },
   { path: "/b/:businessId/settings/support", element: <PageTitle title="Support access"><RequireAuth><SupportPage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/settings/audit", element: <PageTitle title="Audit log"><RequireAuth><AuditPage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/settings/team", element: <PageTitle title="Your team"><RequireAuth><TeamPage /></RequireAuth></PageTitle> },

@@ -87,7 +87,7 @@ export function TopBar({ title, gstin }: { title?: string; gstin?: string | null
               if (!items.length) return null;
               return (
                 <div key={g.label} className="side-grp">
-                  {g.label !== "Home" && g.label !== "Settings" && <div className="grp">{g.label}</div>}
+                  {g.label !== "Home" && <div className="grp">{g.label}</div>}
                   {items.map((item) => (
                     // A plain Link: the shell alone decides which item is current, so GSTR-1 and
                     // GSTR-3B (which fall back to /filing) never light up with Your GST filing.
@@ -114,9 +114,15 @@ export function TopBar({ title, gstin }: { title?: string; gstin?: string | null
             <GlobalSearch businessId={businessId!} />
             <span className="sp" />
             {FEATURES.invoicing && FEATURES.practiceOnly && (
-              <span className="practice" title="Invoice numbering is off until your CA confirms it">
-                Practice mode
-              </span>
+              <span className="practice">Practice invoices until numbering is confirmed</span>
+            )}
+            {FEATURES.invoicing && canCreateDocuments(mine.role) && (
+              <Link className="btn btn-secondary btn-sm top-new" to={`${base}/invoices/new`}>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                New invoice
+              </Link>
             )}
           </>
         ) : title ? (
