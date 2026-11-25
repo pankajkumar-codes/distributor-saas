@@ -15,6 +15,7 @@ import { DemoTwoStepNote } from "../../kit/DemoNote";
 import { NotFound } from "../../kit/NotFound";
 import { OtpInput } from "../../kit/OtpInput";
 import { TopBar } from "../../kit/TopBar";
+import { SettingsEyebrow } from "./SettingsEyebrow";
 
 /** The key URI authenticator apps read (LLD-1 §5.9): issuer and account in the label, issuer again as a parameter. */
 export function otpauthUri(secret: string, email: string, issuer = APP_NAME): string {
@@ -151,11 +152,15 @@ export function SecurityPage() {
     <>
       <TopBar title={business?.display_name} gstin={business?.gstin} />
       <main className="page">
-        <p className="step">
-          <Link to={business ? `/b/${business.business_id}/home` : "/support"}>{business ? "Home" : "Businesses you can view"}</Link>
-        </p>
+        {business ? (
+          <SettingsEyebrow businessId={business.business_id} here="Two-step sign-in" />
+        ) : (
+          <p className="eyebrow">
+            <Link to="/support">Businesses you can view</Link>
+          </p>
+        )}
         <h1>Two-step sign-in</h1>
-        <p className="hint">
+        <p className="lead">
           With it on, signing in asks for your password and a 6-digit code from an authenticator app on your phone, so a
           stolen password alone can't open your account.
         </p>

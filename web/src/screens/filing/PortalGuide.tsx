@@ -1,5 +1,3 @@
-import { Banner } from "../../kit/Banner";
-
 /**
  * How to put the GSTR-1 file on the GST portal (R1-M10). The steps follow GSTN's own "FAQs and User Manual: Returns
  * Offline Tool" (sections 9 and F, no version or date printed on the document). Nobody here has opened the live portal
@@ -10,7 +8,7 @@ type Step = { text: string; check?: string };
 
 export const GUIDE_STEPS = (periodLabel: string): Step[] => [
   {
-    text: "Download the file above and keep it somewhere you can find it. If we made more than one part, upload each part in turn.",
+    text: "Download the file from File and lock on your GSTR-1 and keep it somewhere you can find it. If we made more than one part, upload each part in turn.",
   },
   {
     text: "The portal does not take a file of 5 MB or more. If ours would be that large, we stop and tell you instead of making it.",
@@ -43,33 +41,9 @@ export const GUIDE_STEPS = (periodLabel: string): Step[] => [
   { text: "Come back to this page and mark the return as filed." },
 ];
 
-export function PortalGuide({ periodLabel, readyToUpload }: { periodLabel: string; readyToUpload: boolean }) {
-  const steps = GUIDE_STEPS(periodLabel);
-  return (
-    <section className="stack" aria-labelledby="portal-guide">
-      <h3 id="portal-guide">Put it on the GST portal</h3>
-      <p className="hint">
-        These steps follow the GST Network's own guide for its offline tool. We have not checked them against the live portal yet, so a button may be named a little differently. Steps marked "Not checked" are the ones to look at twice.
-      </p>
-      {!readyToUpload && (
-        <Banner tone="error">This file has not been through the GST portal yet, so the portal may refuse it. Check what the portal says before you rely on it.</Banner>
-      )}
-      <ol className="steps">
-        {steps.map((s) => (
-          <li key={s.text}>
-            {s.text}
-            {s.check && (
-              <>
-                {" "}
-                <span className="chip chip-warn" title={s.check}>
-                  Not checked
-                </span>
-                <span className="hint"> {s.check}</span>
-              </>
-            )}
-          </li>
-        ))}
-      </ol>
-    </section>
-  );
-}
+/** The guide's tabs, so each fits one laptop screen: key, name, first step (from 0) and the step after the last. */
+export const GUIDE_PARTS: [string, string, number, number][] = [
+  ["ready", "Get ready", 0, 4],
+  ["upload", "Upload", 4, 8],
+  ["file", "Check and file", 8, 99],
+];

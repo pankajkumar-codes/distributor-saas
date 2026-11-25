@@ -43,9 +43,12 @@ describe("GSTR-3B portal guide", () => {
     const steps = within(screen.getByRole("list")).getAllByRole("listitem");
     expect(steps).toHaveLength(GUIDE_3B_STEPS("October 2026").length);
     for (const li of steps) expect(within(li).getByText("Not checked").getAttribute("title")).toBe(GUIDE_3B_NOT_CHECKED);
-    for (const li of steps) expect(within(li).getByText(GUIDE_3B_NOT_CHECKED)).toBeTruthy();
+    expect(screen.getByText(/Every step below is marked “Not checked”: not checked on the live portal yet/)).toBeTruthy(); // said once, above the list
     expect(screen.getByText(/October 2026/, { selector: "p" }).textContent).toContain("enter and submit it on the GST portal yourself");
     expect(screen.getAllByText(/To be confirmed/).length).toBeGreaterThan(0);
+    // The switch to the GSTR-1 guide of the same period, and the way back to the worksheet.
+    expect(screen.getByRole("link", { name: "GSTR-1 upload" })).toHaveAttribute("href", `/b/b-1/filing/${G1}/portal-guide`);
+    expect(screen.getByRole("link", { name: "Back to the worksheet" })).toHaveAttribute("href", `/b/b-1/filing/${G3}/worksheet`);
   });
 
   it("never says a return is filed or ready to file, and shows no payable amount", async () => {

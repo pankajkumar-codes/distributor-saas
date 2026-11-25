@@ -39,8 +39,11 @@ export function PlatformsSection({ businessId, canEdit }: { businessId: string; 
   };
 
   return (
-    <section className="card" aria-labelledby="platforms">
-      <h2 id="platforms">Where you sell</h2>
+    <section className="panel" aria-labelledby="platforms">
+      <div className="panel-h">
+        <h2 id="platforms">Marketplaces you sell on</h2>
+      </div>
+      <div className="pad">
       {saved.isError && <Banner tone="error">We couldn't load this. {errorText(saved.error)}</Banner>}
       {shown && (
         <form onSubmit={submit} noValidate>
@@ -67,6 +70,7 @@ export function PlatformsSection({ businessId, canEdit }: { businessId: string; 
           )}
         </form>
       )}
+      </div>
     </section>
   );
 }

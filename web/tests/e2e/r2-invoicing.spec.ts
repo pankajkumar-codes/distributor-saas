@@ -14,13 +14,13 @@ const JPEG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.from("
 async function createDistributor(page: Page) {
   await page.getByLabel("GSTIN").fill("27AAPFU0939F1ZV");
   await page.getByLabel("Legal name (as on GST certificate)").fill("E2E Distributors Private Limited");
-  await page.getByRole("group", { name: "Turnover this financial year (declared)" }).getByRole("radio", { name: "Up to the limit for quarterly filing (QRMP)" }).check();
-  await page.getByRole("radio", { name: "No", exact: true }).check();
   await page.getByLabel("Address line 1").fill("12 Market Road");
   await page.getByLabel("City or town").fill("Pune");
   await page.getByLabel("PIN code").fill("411001");
   await page.getByRole("checkbox", { name: "Distributor" }).check();
   await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("group", { name: "Turnover this financial year (declared)" }).getByRole("radio", { name: "Up to the limit for quarterly filing (QRMP)" }).check();
+  await page.getByRole("radio", { name: "No", exact: true }).check();
   await page.getByRole("checkbox", { name: "Amazon" }).check();
   await page.getByRole("radio", { name: "Quarterly (QRMP)" }).check();
   await page.getByRole("button", { name: "Finish and see my filing home" }).click();
@@ -84,15 +84,17 @@ test("R2: purchase, stock, price, practice invoice, PDF request", async ({ page 
   await page.getByRole("button", { name: "Asha Stores" }).click();
   await page.getByLabel("Add a product").fill("Neem");
   await page.getByRole("button", { name: /Neem soap/ }).first().click();
-  await page.getByLabel("Quantity").fill("3");
+  await page.getByLabel("Quantity of Neem soap").fill("3");
+  // Mocks v16: the product shows its HSN, GST and unit under the name, and the whole form fits one laptop screen.
+  await expect(page.getByRole("region", { name: "Items" }).getByRole("row").filter({ hasText: "Neem soap" })).toContainText("HSN 340111 · GST 18% · NOS");
+  if (!info.project.name.startsWith("phone")) await fitsOneScreen(page);
   await page.getByRole("button", { name: /^Save/ }).click();
   await expect(page.getByRole("heading", { name: "Draft invoice" })).toBeVisible();
   await page.getByRole("button", { name: /^Create (practice )?invoice/ }).click();
   await expect(page.getByRole("heading", { name: "Invoice issued" })).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText("Practice invoice.")).toBeVisible();
-  await expect(page.getByText("It is not a tax invoice and is not in any GST return.")).toBeVisible();
+  await expect(page.getByText(/Not for customers: it is not a tax invoice and is not in any GST return\./)).toBeVisible();
   // The issued page shows the buyer, the line with its tax split and the totals, and fits the screen.
-  await expect(page.getByText("Practice · not for customers")).toBeVisible();
   await expect(page.getByText("Asha Stores").first()).toBeVisible();
   const line = page.getByRole("row").filter({ hasText: "Neem soap" });
   await expect(line).toContainText("HSN 340111");
@@ -103,6 +105,7 @@ test("R2: purchase, stock, price, practice invoice, PDF request", async ({ page 
   await expect(page.getByText("Taxable value", { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await noSeriousAxeFindings(page);
+  if (!info.project.name.startsWith("phone")) await fitsOneScreen(page);
 
   // The PDF is asked for in the background; the button survives a reload.
   const asked = page.waitForResponse((r) => /\/documents\/[0-9a-f-]{36}\/pdf$/.test(r.url()) && r.request().method() === "POST");

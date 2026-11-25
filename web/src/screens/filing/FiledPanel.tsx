@@ -8,6 +8,7 @@ import { Button } from "../../kit/Button";
 import { Field } from "../../kit/Field";
 import { FileResult } from "./ExportPanel";
 import { useChanges, useLockFile, useMarkFiled, useUnlock } from "./export";
+import { Panel } from "./ledger";
 import type { ReturnDetail } from "./returns";
 
 type Instance = ReturnDetail["instance"];
@@ -63,10 +64,12 @@ function MarkFiled({ businessId, instance }: { businessId: string; instance: Ins
   };
   const fieldError = (name: string) => (mark.isError && mark.error.field === name ? errorText(mark.error) : undefined);
   return (
-    <form onSubmit={submit} noValidate className="stack">
+    <form onSubmit={submit} noValidate className="pad">
       <p className="hint">File the return on the GST portal first. Then tell us when you filed it and the ARN the portal gave you, and we lock this return as it is.</p>
-      <Field label="Date you filed it" type="date" value={filedOn} min={instance.period_end} onChange={(e) => setFiledOn(e.target.value)} error={fieldError("filed_on")} required />
-      <Field label="ARN from the portal" value={arn} onChange={(e) => setArn(e.target.value)} error={fieldError("arn")} maxLength={32} autoComplete="off" required />
+      <div className="f2">
+        <Field label="Date you filed it" type="date" value={filedOn} min={instance.period_end} onChange={(e) => setFiledOn(e.target.value)} error={fieldError("filed_on")} required />
+        <Field label="ARN from the portal" value={arn} onChange={(e) => setArn(e.target.value)} error={fieldError("arn")} maxLength={32} autoComplete="off" required />
+      </div>
       {differs && (
         <>
           <Banner tone="error">
@@ -77,7 +80,7 @@ function MarkFiled({ businessId, instance }: { businessId: string; instance: Ins
         </>
       )}
       {mark.isError && !differs && !mark.error.field && <Banner tone="error">{errorText(mark.error)}</Banner>}
-      <Button type="submit" busy={mark.isPending} disabled={!filedOn || !arn.trim() || (differs && !reason.trim())}>
+      <Button type="submit" variant="secondary" busy={mark.isPending} disabled={!filedOn || !arn.trim() || (differs && !reason.trim())}>
         {differs ? "Lock with this reason" : "Mark as filed and lock"}
       </Button>
     </form>
@@ -90,14 +93,22 @@ function Locked({ businessId, instance, role }: { businessId: string; instance: 
   const [reason, setReason] = useState("");
   const [asking, setAsking] = useState(false);
   return (
-    <div className="stack">
-      <p>
-        Filed{instance.filed_on ? ` on ${formatDate(instance.filed_on)}` : ""}
-        {instance.arn ? `, ARN ${instance.arn}` : ""}. This return is locked: new invoices dated in this period are refused.
-      </p>
-      <Button variant="secondary" busy={kept.isPending} onClick={() => kept.mutate()}>
-        Download the file we kept
-      </Button>
+    <div>
+      <div className="kv">
+        <span>Filed on</span>
+        <span className="num">{instance.filed_on ? formatDate(instance.filed_on) : "—"}</span>
+      </div>
+      <div className="kv">
+        <span>ARN from the portal</span>
+        <span className="num">{instance.arn ?? "—"}</span>
+      </div>
+      <div className="pad stack">
+      <p className="hint">This return is locked: new invoices dated in this period are refused.</p>
+      <div className="row">
+        <Button variant="secondary" className="btn-sm" busy={kept.isPending} onClick={() => kept.mutate()}>
+          Download the file we kept
+        </Button>
+      </div>
       {kept.isError && <Banner tone="error">{errorText(kept.error)}</Banner>}
       {kept.data && <FileResult file={kept.data} title={`The file kept when you filed (version ${kept.data.version})`} />}
       {canUnlockReturns(role) &&
@@ -117,10 +128,14 @@ function Locked({ businessId, instance, role }: { businessId: string; instance: 
             </Button>
           </form>
         ) : (
-          <Button variant="link" onClick={() => setAsking(true)}>
-            Unlock this return
-          </Button>
+          <p className="hint">
+            <Button variant="link" onClick={() => setAsking(true)}>
+              Unlock this return
+            </Button>{" "}
+            You give a reason. Your earlier file and ARN are kept.
+          </p>
         ))}
+      </div>
     </div>
   );
 }
@@ -129,16 +144,15 @@ function Locked({ businessId, instance, role }: { businessId: string; instance: 
 export function FiledPanel({ businessId, instance, role }: { businessId: string; instance: Instance; role: string }) {
   if (instance.status !== "open" && instance.status !== "unlocked" && instance.status !== "filed_locked") return null;
   return (
-    <section className="card" aria-labelledby="filed">
-      <h2 id="filed">{instance.status === "filed_locked" ? "Filed" : "After you file on the portal"}</h2>
+    <Panel title={instance.status === "filed_locked" ? "Filed" : "After you file on the portal"} aside={instance.status === "filed_locked" ? <span className="chip chip-ok">Filed and locked</span> : undefined}>
       {instance.status === "unlocked" && <Banner>This return was unlocked. File it again on the portal if you need to, then mark it filed again.</Banner>}
       {instance.status === "filed_locked" ? (
         <Locked businessId={businessId} instance={instance} role={role} />
       ) : canLockReturns(role) ? (
         <MarkFiled businessId={businessId} instance={instance} />
       ) : (
-        <p className="hint">The owner, an admin or the CA marks a return filed once it is filed on the portal.</p>
+        <p className="pad hint">The owner, an admin or the CA marks a return filed once it is filed on the portal.</p>
       )}
-    </section>
+    </Panel>
   );
 }

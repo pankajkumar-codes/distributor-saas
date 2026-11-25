@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 
 import { errorText } from "../../api/errors";
@@ -12,10 +13,18 @@ import { useDocumentPdfRequest, type DocumentDetail } from "./useFinalize";
 const nonzero = (amount: string) => /[1-9]/.test(amount);
 const lines = (parts: string[]) => (parts.length ? parts.join(", ") : "—");
 
+const Kv = ({ k, children, total }: { k: ReactNode; children: ReactNode; total?: boolean }) => (
+  <div className={total ? "kv total" : "kv"}>
+    <span>{k}</span>
+    <span className="num">{children}</span>
+  </div>
+);
+
 /**
- * A finalized invoice: the number, buyer, every line with its tax split, the totals as stored, and the PDF. While live
- * numbering is off every invoice is a practice one, and says so here and on the PDF. Every figure is the server's string
- * and the PDF state is the server's; nothing is worked out in the page.
+ * A finalized invoice in the Ledger look (mocks v16, R.doc): the number in the heading, Parties on the left, Items and
+ * Totals on the right, and the PDF as the one primary button. While live numbering is off every invoice is a practice
+ * one, and says so here and on the PDF. Every figure is the server's string and the PDF state is the server's; nothing
+ * is worked out in the page.
  */
 export function FinalizedPanel({ businessId, doc }: { businessId: string; doc: DocumentDetail }) {
   const queryClient = useQueryClient();
@@ -24,130 +33,154 @@ export function FinalizedPanel({ businessId, doc }: { businessId: string; doc: D
   const s = doc.pdf.status;
   const working = ask.isPending || s === "queued" || s === "rendering";
   return (
-    <section aria-labelledby="done">
-      <h2 id="done">Invoice {doc.doc_number}</h2>
-      {doc.is_practice && (
-        <Banner tone="info">
-          <strong>Practice invoice.</strong> It is not a tax invoice and is not in any GST return. Live invoice numbers start once your CA confirms the numbering.
-        </Banner>
-      )}
-      <p>
-        Dated {formatDate(doc.doc_date)} · Total <strong>{formatRupees(doc.doc_total)}</strong> · <span className="chip">Issued, locked</span>
-        {doc.is_practice && <span className="chip chip-warn"> Practice · not for customers</span>}
+    <>
+      <p className="eyebrow">
+        <Link to={`/b/${businessId}/documents`}>Sell / Issued invoices</Link> / <span className="num">{doc.doc_number}</span>
       </p>
-      <section aria-labelledby="parties">
-        <h3 id="parties">Parties</h3>
-        <dl className="facts">
-          <dt>Buyer</dt>
-          <dd>
-            {doc.buyer?.name ?? doc.counterparty_name ?? "Cash sale"}
-            {doc.buyer?.gstin && <> · GSTIN {doc.buyer.gstin}</>}
-            {doc.buyer && doc.buyer.address.length > 0 && <><br />{lines(doc.buyer.address)}</>}
-          </dd>
-          {doc.ship_to && (
-            <>
-              <dt>Ship to</dt>
-              <dd>{[...doc.ship_to.address, doc.ship_to.state].filter(Boolean).join(", ") || "—"}</dd>
-            </>
-          )}
-          <dt>Place of supply</dt>
-          <dd>
-            {doc.place_of_supply ?? "—"} · {doc.is_inter_state ? "Inter-state (IGST)" : "Within the state (CGST + SGST)"}
-            <br />
-            <span className="hint">{posBasisText(doc.pos_basis, doc.pos_override_reason)}</span>
-          </dd>
-          <dt>Seller GSTIN</dt>
-          <dd>{doc.gstin}</dd>
-          {doc.due_date && (
-            <>
-              <dt>Due date</dt>
-              <dd>{formatDate(doc.due_date)}</dd>
-            </>
-          )}
-        </dl>
-      </section>
-      <section aria-labelledby="items">
-        <h3 id="items">Items</h3>
-        <div className="tablewrap">
-          <table className="products">
-            <thead>
-              <tr>
-                <th scope="col">Item</th>
-                <th scope="col">Qty</th>
-                <th scope="col">Rate</th>
-                <th scope="col">Taxable</th>
-                <th scope="col">Tax</th>
-                <th scope="col">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {doc.lines.map((l) => (
-                <tr key={l.no}>
-                  <td data-label="Item">
-                    <strong>{l.description}</strong>
-                    <br />
-                    <span className="hint">HSN {l.hsn}</span>
-                  </td>
-                  <td data-label="Qty">
-                    {l.quantity} {l.uqc}
-                  </td>
-                  <td data-label="Rate">{l.unit_price ? formatRupees(l.unit_price) : "—"}</td>
-                  <td data-label="Taxable">
-                    {formatRupees(l.taxable)}
-                    {l.discount && <><br /><span className="hint">after discount {formatRupees(l.discount)}</span></>}
-                  </td>
-                  <td data-label="Tax">
-                    {l.taxes.length === 0 ? "—" : l.taxes.map((t) => <span key={t.component} className="taxpart">{t.component} {t.rate}% {formatRupees(t.amount)}</span>)}
-                  </td>
-                  <td data-label="Amount">{formatRupees(l.total)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <div className="between docact">
+        <h1>
+          Invoice issued <span className="muted num">{doc.doc_number}</span>
+        </h1>
+        <div className="row">
+          <Link to={`/b/${businessId}/documents`}>Issued invoices</Link>
+          <Link className="btn btn-secondary" to={`/b/${businessId}/invoices/new`}>
+            New invoice
+          </Link>
+          <Button type="button" variant="primary" busy={working} onClick={() => once((done) => ask.mutate(undefined, { onSettled: done }))}>
+            {doc.is_practice ? "Download practice PDF" : "Download PDF"}
+          </Button>
         </div>
-      </section>
-      <section aria-labelledby="totals">
-        <h3 id="totals">Totals</h3>
-        <dl className="facts totals">
-          {nonzero(doc.line_discount_total) && (<><dt>Line discounts</dt><dd>{formatRupees(doc.line_discount_total)}</dd></>)}
-          {nonzero(doc.invoice_discount) && (<><dt>Invoice discount</dt><dd>{formatRupees(doc.invoice_discount)}</dd></>)}
-          {nonzero(doc.charges_total) && (<><dt>{doc.charges_label ?? "Charges"}</dt><dd>{formatRupees(doc.charges_total)}</dd></>)}
-          <dt>Taxable value</dt>
-          <dd>{formatRupees(doc.taxable_total)}</dd>
-          {doc.is_inter_state ? (
-            <><dt>IGST</dt><dd>{formatRupees(doc.igst_total)}</dd></>
-          ) : (
-            <>
-              <dt>CGST</dt>
-              <dd>{formatRupees(doc.cgst_total)}</dd>
-              <dt>{doc.utgst ? "UTGST" : "SGST"}</dt>
-              <dd>{formatRupees(doc.sgst_total)}</dd>
-            </>
-          )}
-          {nonzero(doc.cess_total) && (<><dt>Cess</dt><dd>{formatRupees(doc.cess_total)}</dd></>)}
-          {nonzero(doc.round_off) && (<><dt>Round off</dt><dd>{formatRupees(doc.round_off)}</dd></>)}
-          <dt><strong>Total</strong></dt>
-          <dd><strong>{formatRupees(doc.doc_total)}</strong></dd>
-        </dl>
-        <p className="hint">{doc.amount_in_words}</p>
-      </section>
-      <Button type="button" busy={working} onClick={() => once((done) => ask.mutate(undefined, { onSettled: done }))}>
-        {doc.is_practice ? "Download practice PDF" : "Download PDF"}
-      </Button>
+      </div>
       {ask.error && <Banner tone="error">{errorText(ask.error)}</Banner>}
       {s === "failed" && <Banner tone="error">We couldn't make the PDF. Try again. Your invoice is saved.</Banner>}
       {s === "ready" && doc.pdf.url && (
-        <p>
+        <p className="hint">
           <a href={doc.pdf.url} target="_blank" rel="noopener noreferrer">
             Open the PDF
           </a>{" "}
-          <span className="hint">The link works for a minute; ask again for a new one.</span>
+          The link works for a minute; ask again for a new one.
         </p>
       )}
-      <p>
-        <Link to={`/b/${businessId}/invoices/new`}>New invoice</Link> · <Link to={`/b/${businessId}/documents`}>Issued invoices</Link> · <Link to={`/b/${businessId}/stock`}>Stock</Link>
-      </p>
-    </section>
+      {doc.is_practice ? (
+        <Banner tone="warn">
+          <strong>Practice invoice.</strong> Not for customers: it is not a tax invoice and is not in any GST return. Live invoice numbers start once your CA confirms the
+          numbering. Issued, locked · {formatDate(doc.doc_date)}
+        </Banner>
+      ) : (
+        <p className="hint">Issued, locked · {formatDate(doc.doc_date)}</p>
+      )}
+      <div className="grid2 docgrid">
+        <section className="panel" aria-labelledby="parties">
+          <div className="panel-h">
+            <h2 id="parties">Parties</h2>
+          </div>
+          <div className="pad">
+            <div className="kv">
+              <span>Buyer</span>
+              <span className="r">
+                <b>{doc.buyer?.name ?? doc.counterparty_name ?? "Cash sale"}</b>
+                {doc.buyer?.gstin && (
+                  <>
+                    <br />
+                    <span className="num sub2">GSTIN {doc.buyer.gstin}</span>
+                  </>
+                )}
+                {doc.buyer && doc.buyer.address.length > 0 && (
+                  <>
+                    <br />
+                    <span className="sub2">{lines(doc.buyer.address)}</span>
+                  </>
+                )}
+              </span>
+            </div>
+            {doc.ship_to && (
+              <div className="kv">
+                <span>Ship to</span>
+                <span className="r">{[...doc.ship_to.address, doc.ship_to.state].filter(Boolean).join(", ") || "—"}</span>
+              </div>
+            )}
+            <div className="kv">
+              <span>Place of supply</span>
+              <span className="r">
+                <b>{doc.place_of_supply ?? "—"}</b> · {doc.is_inter_state ? "Inter-state (IGST)" : "Within the state (CGST + SGST)"}
+                <br />
+                <span className="sub2 why">{posBasisText(doc.pos_basis, doc.pos_override_reason)}</span>
+              </span>
+            </div>
+            <Kv k="Seller GSTIN">{doc.gstin}</Kv>
+            {doc.due_date && <Kv k="Due date">{formatDate(doc.due_date)}</Kv>}
+          </div>
+        </section>
+        <div>
+          <section className="panel" aria-labelledby="items">
+            <div className="panel-h">
+              <h2 id="items">Items</h2>
+            </div>
+            <div className="tablewrap">
+              <table className="products">
+                <thead>
+                  <tr>
+                    <th scope="col">Item</th>
+                    <th scope="col" className="r">Qty</th>
+                    <th scope="col" className="r">Rate</th>
+                    <th scope="col" className="r">Taxable</th>
+                    <th scope="col" className="r">Tax</th>
+                    <th scope="col" className="r">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {doc.lines.map((l) => (
+                    <tr key={l.no}>
+                      <td data-label="Item">
+                        {l.description}
+                        <div className="sub2 num">HSN {l.hsn}</div>
+                      </td>
+                      <td data-label="Qty" className="r num">
+                        {l.quantity} {l.uqc}
+                      </td>
+                      <td data-label="Rate" className="r num">{l.unit_price ? formatRupees(l.unit_price) : "—"}</td>
+                      <td data-label="Taxable" className="r num">
+                        {formatRupees(l.taxable)}
+                        {l.discount && <div className="sub2">after discount {formatRupees(l.discount)}</div>}
+                      </td>
+                      <td data-label="Tax" className="r num">
+                        {l.taxes.length === 0 ? "—" : l.taxes.map((t) => <span key={t.component} className="taxpart">{t.component} {t.rate}% {formatRupees(t.amount)}</span>)}
+                      </td>
+                      <td data-label="Amount" className="r num">{formatRupees(l.total)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+          <section className="panel" aria-labelledby="totals">
+            <div className="panel-h">
+              <h2 id="totals">Totals</h2>
+            </div>
+            <div className="pad">
+              {nonzero(doc.line_discount_total) && <Kv k="Line discounts">{formatRupees(doc.line_discount_total)}</Kv>}
+              {nonzero(doc.invoice_discount) && <Kv k="Invoice discount">{formatRupees(doc.invoice_discount)}</Kv>}
+              {nonzero(doc.charges_total) && <Kv k={doc.charges_label ?? "Charges"}>{formatRupees(doc.charges_total)}</Kv>}
+              <Kv k="Taxable value">{formatRupees(doc.taxable_total)}</Kv>
+              {doc.is_inter_state ? (
+                <Kv k="IGST">{formatRupees(doc.igst_total)}</Kv>
+              ) : (
+                <>
+                  <Kv k="CGST">{formatRupees(doc.cgst_total)}</Kv>
+                  <Kv k={doc.utgst ? "UTGST" : "SGST"}>{formatRupees(doc.sgst_total)}</Kv>
+                </>
+              )}
+              {nonzero(doc.cess_total) && <Kv k="Cess">{formatRupees(doc.cess_total)}</Kv>}
+              {nonzero(doc.round_off) && <Kv k="Round off">{formatRupees(doc.round_off)}</Kv>}
+              <Kv k="Total" total>
+                {formatRupees(doc.doc_total)}
+              </Kv>
+              <p className="hint words">{doc.amount_in_words}</p>
+            </div>
+          </section>
+        </div>
+      </div>
+    </>
   );
 }
 

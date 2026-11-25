@@ -10,10 +10,6 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   await page.getByLabel("GSTIN").fill("27AAPFU0939F1ZV");
   await expect(page.getByText(/Format and check digit look right\. State code 27 \(Maharashtra\)/)).toBeVisible();
   await page.getByLabel("Legal name (as on GST certificate)").fill("E2E Traders Private Limited");
-  await page.getByRole("group", { name: "Turnover this financial year (declared)" }).getByRole("radio", { name: "Up to the limit for quarterly filing (QRMP)" }).check();
-  const lastYear = page.getByRole("group", { name: /^What was your turnover last financial year \(FY \d{4}-\d{2}\)\? \(optional\)$/ });
-  await lastYear.getByRole("radio", { name: "Up to the limit for quarterly filing (QRMP)" }).check();
-  await page.getByRole("radio", { name: "No", exact: true }).check();
   await page.getByLabel("Address line 1").fill("12 Market Road");
   await page.getByLabel("City or town").fill("Pune");
   await page.getByLabel("PIN code").fill("411001");
@@ -23,7 +19,11 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   expect(overflow).toBeLessThanOrEqual(0);
 
   await page.getByRole("button", { name: "Continue" }).click();
-  await expect(page.getByRole("heading", { name: "Where you sell and how you file" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "How you sell and file" })).toBeVisible();
+  await page.getByRole("group", { name: "Turnover this financial year (declared)" }).getByRole("radio", { name: "Up to the limit for quarterly filing (QRMP)" }).check();
+  const lastYear = page.getByRole("group", { name: /^What was your turnover last financial year \(FY \d{4}-\d{2}\)\? \(optional\)$/ });
+  await lastYear.getByRole("radio", { name: "Up to the limit for quarterly filing (QRMP)" }).check();
+  await page.getByRole("radio", { name: "No", exact: true }).check();
   await page.getByRole("checkbox", { name: "Amazon" }).check();
   await page.getByRole("radio", { name: "Quarterly (QRMP)" }).check();
   await noSeriousAxeFindings(page);
@@ -144,20 +144,27 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   // Settings from Home: change the trade name, then see the frequency chosen at sign-up.
   await page.goto(homeUrl);
   await page.goto(homeUrl.replace(/\/home$/, "/settings"));
+  // Business setup shows what is saved (mocks v16); Change opens the form on the same page.
+  await expect(page.getByRole("main").getByText("E2E Traders Private Limited")).toBeVisible();
+  await expect(page.getByText(/^Every quarter \(QRMP\), from \d{2}-[A-Z][a-z]{2}-\d{4}\.$/)).toBeVisible();
+  await page.getByRole("link", { name: "Change business details" }).click();
   await expect(page.getByLabel("Legal name")).toHaveValue("E2E Traders Private Limited");
-  // Last year's band, given at sign-up, is shown here and stays editable.
+  // Last year's band, given at sign-up, is shown here (second tab) and stays editable.
+  await page.getByRole("tab", { name: "Turnover and e-invoicing" }).click();
   await expect(
     page.getByRole("group", { name: /^Turnover last financial year/ }).getByRole("radio", { name: "Up to the limit for quarterly filing (QRMP)" }),
   ).toBeChecked();
+  await page.getByRole("tab", { name: "Name and address" }).click();
   await page.getByLabel("Trade name (optional)").fill("E2E Traders");
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByText(/Saved\. Invoices already finalized keep/)).toBeVisible();
   await noSeriousAxeFindings(page);
   const overflow5 = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow5).toBeLessThanOrEqual(0);
-  // Business setup is one page: the filing frequency is on it already.
+  // Back on Business setup, Change on the filing frequency opens its chooser.
+  await page.getByRole("link", { name: "Back to Business setup" }).click();
   await expect(page.getByRole("heading", { level: 2, name: "Filing frequency" })).toBeVisible();
-  await expect(page.getByText(/^Every quarter \(QRMP\), from \d{2}-[A-Z][a-z]{2}-\d{4}\.$/)).toBeVisible();
+  await page.getByRole("link", { name: "Change filing frequency" }).click();
   // The current frequency is already chosen; Save frequency appears only once another one is picked.
   await expect(page.getByRole("radio", { name: "Every quarter (QRMP)" })).toBeChecked();
   await expect(page.getByRole("button", { name: "Save frequency" })).toHaveCount(0);

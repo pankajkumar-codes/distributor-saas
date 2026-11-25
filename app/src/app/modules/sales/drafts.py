@@ -301,6 +301,16 @@ def delete(uow: UnitOfWork, draft_id: uuid.UUID, if_match: int | None) -> None:
     audit.record(uow, "draft.deleted", "draft", draft_id, data={})
 
 
+def estimate(uow: UnitOfWork, body: dict, today: date) -> Computation:
+    """The computation a save of `body` would store, without saving anything (#411). The same checks as a save
+    (`_checked`), then the same `computation`, over the draft as it would be stored. New invoice shows it while
+    the seller types; the saved draft and finalize stay the record."""
+    if body.get("kind", "invoice") != "invoice":
+        raise Invalid("kind_unsupported", "Only invoices can be drafted for now", field="kind")
+    cols, lines = _checked(uow, body, today)
+    return computation(uow, {**cols, "lines": lines}, today=today)
+
+
 def computation(uow: UnitOfWork, d: dict, *, today: date) -> Computation:
     """The draft's tax computation (LLD-4 §3): `compute(load_inputs(...))` over the stored
     draft `d` (as `get` returns it). Raises Invalid when the amounts can't be computed (a

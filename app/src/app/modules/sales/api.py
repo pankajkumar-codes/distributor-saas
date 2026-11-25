@@ -323,6 +323,14 @@ def create_draft(
                                     operation=create))
 
 
+@router.post("/b/{business_id}/drafts/estimate", response_model=ComputationOut, dependencies=EDIT)
+def estimate_draft(body: DraftIn, uow: BusinessUoW, clock: Annotated[Clock, Depends(get_clock)]):
+    """The tax computation for a draft as typed, without saving it (#411): the same checks and computation as a
+    save, nothing stored. New invoice calls it as the seller types so the totals and the paper move with them.
+    Not a record: Save draft keeps the draft, and finalize computes again."""
+    return _computed(drafts.estimate(uow, body.model_dump(mode="json"), clock.today()))
+
+
 @router.get("/b/{business_id}/drafts/{draft_id}", response_model=DraftOut, dependencies=EDIT)
 def get_draft(draft_id: str, uow: BusinessUoW, response: Response, clock: Annotated[Clock, Depends(get_clock)]):
     """Reading a draft checks it again as of today, so a fixed product, or a business setting changed
