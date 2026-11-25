@@ -145,7 +145,7 @@ export function Table13Panel({ businessId, instanceId, t }: { businessId: string
       }
       aside={t.data.confirmed && !t.data.stale ? <span className="chip chip-ok">Confirmed</span> : <span className="chip chip-warn">To confirm</span>}
     >
-      <p className="pad hint">The GST portal wants the first and last number of every series of invoices and credit notes issued in this period. We found these in your invoices. Check them, then confirm.</p>
+      <p className="pad hint">The first and last number of each series of invoices and credit notes issued in this period, from your invoices. Check them, then confirm.</p>
       {!t.data.required && t.data.rows.length === 0 && <p className="pad">This return has no sales yet, so the portal does not ask for this.</p>}
       <Rows key={`${t.data.fingerprint}-${t.data.version ?? 0}`} businessId={businessId} instanceId={instanceId} data={t.data} />
     </Panel>
