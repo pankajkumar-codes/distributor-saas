@@ -36,8 +36,9 @@ export const PLATFORM_OPTIONS: { value: keyof Channels; label: string; sub?: str
   { value: "own_invoices", label: "Own sales invoices", sub: "Invoices you make yourself, as PDF and/or Excel" },
 ];
 export const NO_PLATFORMS: Channels = { amazon: false, flipkart: false, meesho: false, own_invoices: false };
-/** The fields that belong to step 3; a refusal naming one sends the user back there. */
-const STEP3_FIELDS = /^(registration|legal_name|trade_name|turnover_band|einvoice_history|business_types?|address)(\.|$)/;
+/** The fields that belong to step 3; a refusal naming one sends the user back there. Turnover and
+ * e-invoicing are asked on step 4 with how you sell and file (mocks v16: each step fits one laptop screen). */
+const STEP3_FIELDS = /^(registration|legal_name|trade_name|business_types?|address)(\.|$)/;
 
 export const BAND_OPTIONS: { value: Band; label: string }[] = [
   { value: "up_to_threshold", label: "Up to the limit for quarterly filing (QRMP)" },
@@ -250,12 +251,12 @@ export function BusinessPage() {
             "registration.enrolment_number": enrolment.trim() ? undefined : "Enter the enrolment number.",
             "registration.state_code": enrolState ? undefined : "Choose the state you're enrolled in.",
           };
-    found.turnover_band = band ? undefined : "Choose one.";
-    found.einvoice_history = einvoice ? undefined : "Choose one.";
     found["address.pin"] = !pin.trim() || /^[0-9]{6}$/.test(pin.trim()) ? undefined : INVALID["address.pin"];
     return found;
   };
   const step4Errors = (): Errors => ({
+    turnover_band: band ? undefined : "Choose one.",
+    einvoice_history: einvoice ? undefined : "Choose one.",
     platforms: Object.values(platforms).some(Boolean) ? undefined : "Pick at least one to continue.",
     frequency: kind === "gstin" && !frequency ? "Choose how often you file GST." : undefined,
   });
@@ -361,8 +362,8 @@ export function BusinessPage() {
   return (
     <>
       <TopBar />
-      <main className="page page-auth-wide">
-        <StepProgress step={step} title={step === 3 ? "Your business and GST" : "Where you sell and how you file"} />
+      <main className="page page-auth-wide onboard">
+        <StepProgress step={step} title={step === 3 ? "Your business and GST" : "How you sell and file"} />
         <form onSubmit={step === 3 ? next : submit} noValidate>
           {bannerError &&
             (bannerError.code === "idempotency_mismatch" ? (
@@ -377,7 +378,7 @@ export function BusinessPage() {
 
           {step === 3 && (
             <>
-          <section className="card" aria-labelledby="ob-reg">
+          <section className="ob-part" aria-labelledby="ob-reg">
           <h2 id="ob-reg">Registration</h2>
           {kind === "gstin" ? (
             <>
@@ -440,7 +441,57 @@ export function BusinessPage() {
           </div>
           </section>
 
-          <section className="card" aria-labelledby="ob-turnover">
+          <section className="ob-part" aria-labelledby="ob-address">
+          <h2 id="ob-address">Principal place of business</h2>
+          <div className="grid2">
+          <Field
+            label="Address line 1"
+            autoComplete="address-line1"
+            value={line1}
+            onChange={(e) => setLine1(e.target.value)}
+            error={err("address.line1")}
+          />
+          <Field
+            label="Address line 2 (optional)"
+            autoComplete="address-line2"
+            value={line2}
+            onChange={(e) => setLine2(e.target.value)}
+            error={err("address.line2")}
+          />
+          </div>
+          <div className="grid3">
+            <Field
+              label="City or town"
+              autoComplete="address-level2"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              error={err("address.city")}
+            />
+            <Field
+              label="PIN code"
+              autoComplete="postal-code"
+              inputMode="numeric"
+              maxLength={6}
+              value={pin}
+              onChange={(e) => setPin(e.target.value)}
+              error={err("address.pin")}
+            />
+          <SelectField
+            label="State"
+            options={stateOptions}
+            value={addressStateShown}
+            onChange={(e) => setAddressState(e.target.value)}
+            hint={regState && addressStateShown && addressStateShown !== regState ? warningText("address_state_mismatch") : undefined}
+            error={err("address.state_code")}
+          />
+          </div>
+          </section>
+              <Button type="submit">Continue</Button>
+            </>
+          )}
+          {step === 4 && (
+            <>
+          <section className="ob-part" aria-labelledby="ob-turnover">
           <h2 id="ob-turnover">Turnover and e-invoicing</h2>
 
           <RadioGroup<Band>
@@ -458,7 +509,7 @@ export function BusinessPage() {
             options={[...BAND_OPTIONS, { value: "not_sure", label: "Not sure" }]}
             value={lastBand}
             onChange={setLastBand}
-            hint="This decides whether 4-digit HSN codes are enough on your invoices. You can change it later in Settings → Business details."
+            hint="This decides whether 4-digit HSN codes are enough on your invoices. You can change it later in Business setup."
           />
           <RadioGroup<Einvoice>
             legend="Has your business's total turnover (all GSTINs on your PAN) been above the e-invoicing limit in any financial year since 2017-18?"
@@ -475,58 +526,6 @@ export function BusinessPage() {
 
           </section>
 
-          <section className="card" aria-labelledby="ob-address">
-          <h2 id="ob-address">Principal place of business</h2>
-          <Field
-            label="Address line 1"
-            autoComplete="address-line1"
-            value={line1}
-            onChange={(e) => setLine1(e.target.value)}
-            error={err("address.line1")}
-          />
-          <Field
-            label="Address line 2 (optional)"
-            autoComplete="address-line2"
-            value={line2}
-            onChange={(e) => setLine2(e.target.value)}
-            error={err("address.line2")}
-          />
-          <div className="grid2">
-            <Field
-              label="City or town"
-              autoComplete="address-level2"
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              error={err("address.city")}
-            />
-            <Field
-              label="PIN code"
-              autoComplete="postal-code"
-              inputMode="numeric"
-              maxLength={6}
-              value={pin}
-              onChange={(e) => setPin(e.target.value)}
-              error={err("address.pin")}
-            />
-          </div>
-          <SelectField
-            label="State"
-            options={stateOptions}
-            value={addressStateShown}
-            onChange={(e) => setAddressState(e.target.value)}
-            hint={
-              regState && addressStateShown && addressStateShown !== regState
-                ? warningText("address_state_mismatch")
-                : "If the address is in another state, we warn you: a GSTIN belongs to one state."
-            }
-            error={err("address.state_code")}
-          />
-          </section>
-              <Button type="submit">Continue</Button>
-            </>
-          )}
-          {step === 4 && (
-            <>
           <CheckboxGroup<keyof Channels>
             legend="Which platforms do you sell on?"
             options={PLATFORM_OPTIONS}

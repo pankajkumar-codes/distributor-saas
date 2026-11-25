@@ -59,8 +59,6 @@ const THIS_YEAR = "Turnover this financial year (declared)";
 function fillGstinBusiness() {
   type("GSTIN", GSTIN);
   type("Legal name (as on GST certificate)", "Vashi Essentials Pvt Ltd");
-  pickIn(THIS_YEAR, "Up to the limit for quarterly filing (QRMP)");
-  pick("No");
   type("Address line 1", "12 Market Road");
   type("City or town", "Pune");
   type("PIN code", "411001");
@@ -68,10 +66,18 @@ function fillGstinBusiness() {
 
 const CHANNELS = "/api/v1/b/b-1/channels";
 const channelsSaved = { status: 200, body: { amazon: true, flipkart: false, meesho: false, own_invoices: false, answered: true } };
-/** Step 3's Continue, then step 4: one platform, quarterly, Finish. A test that wants the channels call to fail queues its reply first. */
-function submitAll(frequency: string | null = "Quarterly (QRMP)") {
+/** Step 4's turnover and e-invoicing answers (asked with how you sell and file, mocks v16). */
+function answerTurnover() {
+  pickIn(THIS_YEAR, "Up to the limit for quarterly filing (QRMP)");
+  pick("No");
+}
+/** Step 3's Continue, then step 4: turnover, one platform, quarterly, Finish. `onStep4` runs after the turnover answers.
+ *  A test that wants the channels call to fail queues its reply first. */
+function submitAll(frequency: string | null = "Quarterly (QRMP)", onStep4?: () => void) {
   server.reply(CHANNELS, channelsSaved);
   fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+  answerTurnover();
+  onStep4?.();
   pickPlatform("Amazon");
   if (frequency) pick(frequency);
   finish();
@@ -157,6 +163,7 @@ describe("where you sell (step 2 of the form)", () => {
     fillGstinBusiness();
     server.reply(CHANNELS, channelsSaved);
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    answerTurnover();
     pickPlatform("Flipkart");
     pickPlatform("Own sales invoices");
     pick("Monthly");
@@ -183,6 +190,7 @@ describe("where you sell (step 2 of the form)", () => {
     fillGstinBusiness();
     server.reply(CHANNELS, { status: 400, body: { error: { code: "invalid", message: "x" } } });
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    answerTurnover();
     pickPlatform("Amazon");
     pick("Quarterly (QRMP)");
     finish();
@@ -227,8 +235,7 @@ describe("saving the business", () => {
     server.reply(FREQUENCY, chosen([]));
     server.reply(ME, me);
     fillGstinBusiness();
-    pickIn(`What was your turnover last financial year (FY ${previousFy(fyIst())})? (optional)`, "Above that limit");
-    submitAll();
+    submitAll(undefined, () => pickIn(`What was your turnover last financial year (FY ${previousFy(fyIst())})? (optional)`, "Above that limit"));
     expect(await screen.findByRole("heading", { name: HOME })).toBeInTheDocument();
     const [band] = sentTo(BAND);
     expect(band.method).toBe("PUT");
@@ -245,9 +252,10 @@ describe("saving the business", () => {
     server.reply(ME, me);
     fillGstinBusiness();
     const lastYear = `What was your turnover last financial year (FY ${previousFy(fyIst())})? (optional)`;
-    pickIn(lastYear, "Not sure");
-    pickIn(lastYear, "Up to the limit for quarterly filing (QRMP)");
-    submitAll();
+    submitAll(undefined, () => {
+      pickIn(lastYear, "Not sure");
+      pickIn(lastYear, "Up to the limit for quarterly filing (QRMP)");
+    });
     expect(await screen.findByRole("heading", { name: HOME })).toBeInTheDocument();
     expect(screen.getByText(/We couldn't save last year's turnover\. Add it in Settings → Business details\./)).toBeInTheDocument();
   });
@@ -261,8 +269,7 @@ describe("saving the business", () => {
     server.reply(FREQUENCY, chosen([]));
     server.reply(ME, me);
     fillGstinBusiness();
-    pickIn(/^What was your turnover last financial year/, "Above that limit");
-    submitAll();
+    submitAll(undefined, () => pickIn(/^What was your turnover last financial year/, "Above that limit"));
     expect(await screen.findByRole("heading", { name: HOME })).toBeInTheDocument();
     expect(screen.queryByText(/We couldn't save last year's turnover/)).toBeNull();
   });
@@ -273,8 +280,7 @@ describe("saving the business", () => {
     server.reply(FREQUENCY, chosen([]));
     server.reply(ME, me);
     fillGstinBusiness();
-    pickIn(/^What was your turnover last financial year/, "Not sure");
-    submitAll();
+    submitAll(undefined, () => pickIn(/^What was your turnover last financial year/, "Not sure"));
     expect(await screen.findByRole("heading", { name: HOME })).toBeInTheDocument();
     expect(server.paths().some((p) => p.includes("/turnover-bands/"))).toBe(false);
   });
@@ -311,11 +317,11 @@ describe("saving the business", () => {
     await open();
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     expect(screen.getByText("Enter your GSTIN.")).toBeInTheDocument();
-    expect(screen.getAllByText("Choose one.")).toHaveLength(2);
     expect(screen.queryByRole("checkbox", { name: "Amazon" })).toBeNull(); // still on step 3
     fillGstinBusiness();
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     finish();
+    expect(screen.getAllByText("Choose one.")).toHaveLength(2); // turnover and e-invoicing, now on step 4
     expect(screen.getByText("Pick at least one to continue.")).toBeInTheDocument();
     expect(screen.getByText("Choose how often you file GST.")).toBeInTheDocument();
     expect(sentTo(CREATE)).toHaveLength(0);
@@ -329,9 +335,7 @@ describe("saving the business", () => {
     fireEvent.click(screen.getByRole("button", { name: "Use enrolment number" }));
     type("Enrolment number", " EN123 ");
     type("State you're enrolled in", "19");
-    pickIn(THIS_YEAR, "Up to the limit for quarterly filing (QRMP)");
-    pickIn(/e-invoicing limit/, "Not sure");
-    submitAll(null);
+    submitAll(null, () => pickIn(/e-invoicing limit/, "Not sure"));
     await screen.findByRole("heading", { name: HOME });
     expect(sentTo(CREATE)[0].body).toMatchObject({
       registration: { kind: "enrolment", enrolment_number: "EN123", state_code: "19" },

@@ -185,7 +185,8 @@ export function SettingsPage() {
       <main className="page page-wide">
         <SettingsEyebrow businessId={businessId} />
         <h1>Business setup</h1>
-        <p className="lead">Change how you file or where you sell at any time. Deadlines update straight away.</p>
+        {/* While a part's form is open, the lead gives way so the form fits one laptop screen (#404). */}
+        {!part && <p className="lead">Change how you file or where you sell at any time. Deadlines update straight away.</p>}
 
         {part ? (
           <>
@@ -193,7 +194,6 @@ export function SettingsPage() {
               <Link to={base}>Back to Business setup</Link>
             </p>
             <div className="panel pad setup-edit">{part === "company" ? <CompanyPage embedded /> : <FilingPage embedded />}</div>
-            {more}
           </>
         ) : (
           <div className="grid2 setup-grid">

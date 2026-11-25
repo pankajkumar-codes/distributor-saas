@@ -102,8 +102,10 @@ describe("business details", () => {
     type("Trade name (optional)", "Vashi");
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     expect(await screen.findByText(/Someone changed these details since you opened them\. Your changes are still here/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Turnover and e-invoicing" }));
     expect(screen.getByText("Someone else changed this.")).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "Yes" })).toBeChecked();
+    fireEvent.click(screen.getByRole("tab", { name: "Name and address" }));
     expect(screen.getByLabelText("Trade name (optional)")).toHaveValue("Vashi");
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     await screen.findByText(/Saved\./);
@@ -127,7 +129,9 @@ describe("business details", () => {
       server.reply(BAND(THIS), { status: 200, body: band(THIS, "above_threshold", 3) });
       server.reply(BAND(LAST), { status: 200, body: { ...band(LAST, "up_to_threshold", 1), declared_turnover: null } });
       open();
-      expect(await screen.findByText(`Not set yet. This decides whether 4-digit HSN codes are enough on your invoices.`)).toBeInTheDocument();
+      await screen.findByLabelText("Legal name");
+      fireEvent.click(screen.getByRole("tab", { name: "Turnover and e-invoicing" }));
+      expect(screen.getByText(`Not set yet. This decides whether 4-digit HSN codes are enough on your invoices.`)).toBeInTheDocument();
       fireEvent.click(group(/^Turnover this financial year/).getByRole("radio", { name: "Above that limit" }));
       fireEvent.click(group(/^Turnover last financial year/).getByRole("radio", { name: "Up to the limit for quarterly filing (QRMP)" }));
       fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
@@ -145,6 +149,7 @@ describe("business details", () => {
       server.reply(BAND(LAST), { status: 422, body: { error: { code: "if_match_required", message: "Send the version you edited as If-Match", field: "If-Match" } } });
       open();
       await screen.findByLabelText("Legal name");
+      fireEvent.click(screen.getByRole("tab", { name: "Turnover and e-invoicing" }));
       fireEvent.click(group(/^Turnover last financial year/).getByRole("radio", { name: "Up to the limit for quarterly filing (QRMP)" }));
       fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
       expect(await screen.findByText(/Someone changed these details since you opened them/)).toBeInTheDocument();
@@ -160,11 +165,13 @@ describe("business details", () => {
       server.reply(PROFILE, { status: 200, body: { profile: withBands({ trade_name: "Vashi", version: 5 }), warnings: [] } });
       server.reply(BAND(THIS), { status: 500 }, { status: 200, body: band(THIS, "above_threshold", 3) });
       type("Trade name (optional)", "Vashi");
+      fireEvent.click(screen.getByRole("tab", { name: "Turnover and e-invoicing" }));
       fireEvent.click(group(/^Turnover this financial year/).getByRole("radio", { name: "Above that limit" }));
       fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
       expect(await screen.findByText(/Something went wrong on our side/)).toBeInTheDocument();
-      expect(screen.getByLabelText("Trade name (optional)")).toHaveValue("Vashi");
       expect(group(/^Turnover this financial year/).getByRole("radio", { name: "Above that limit" })).toBeChecked();
+      fireEvent.click(screen.getByRole("tab", { name: "Name and address" }));
+      expect(screen.getByLabelText("Trade name (optional)")).toHaveValue("Vashi");
       expect(screen.queryByText(/Someone changed these details/)).toBeNull();
       // The retry sends only what didn't land, against the version our PATCH left.
       fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
@@ -184,11 +191,13 @@ describe("business details", () => {
       );
       server.reply(BAND(LAST), { status: 409, body: { error: { code: "stale_record", message: "This band changed since you opened it.", field: "If-Match" } } });
       type("Trade name (optional)", "Vashi");
+      fireEvent.click(screen.getByRole("tab", { name: "Turnover and e-invoicing" }));
       fireEvent.click(group(/^Turnover last financial year/).getByRole("radio", { name: "Up to the limit for quarterly filing (QRMP)" }));
       fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
       expect(await screen.findByText(/Someone changed these details since you opened them/)).toBeInTheDocument();
       expect(screen.getByText("Now saved as: Above that limit")).toBeInTheDocument();
-      expect(screen.getAllByText(/Someone else changed this|Now saved as/)).toHaveLength(1); // the band only, not the trade name
+      fireEvent.click(screen.getByRole("tab", { name: "Name and address" }));
+      expect(screen.queryByText(/Someone else changed this|Now saved as/)).toBeNull(); // the band only, not the trade name
       expect(screen.getByLabelText("Trade name (optional)")).toHaveValue("Vashi");
     });
   });
@@ -242,6 +251,19 @@ describe("business details", () => {
     expect(await screen.findByText(/Saved\./)).toBeInTheDocument();
     type("Legal name", "Vashi Essentials Pvt Ltd");
     expect(screen.queryByText(/Saved\./)).toBeNull();
+  });
+
+  it("opens the tab that holds a field the server refused, so its message is in view", async () => {
+    server.reply(PROFILE, { status: 200, body: profile() });
+    open();
+    await screen.findByLabelText("Legal name");
+    fireEvent.click(screen.getByRole("tab", { name: "Turnover and e-invoicing" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Yes" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Name and address" }));
+    server.reply(PROFILE, { status: 422, body: { error: { code: "invalid", message: "Choose yes or no", field: "einvoice_history" } } });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(await screen.findByText("Choose yes or no")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Turnover and e-invoicing" })).toHaveAttribute("aria-selected", "true");
   });
 
   it("puts the server's field error on its field", async () => {
