@@ -747,7 +747,8 @@ export function InvoicePage() {
                                 )}
                               </div>
                             )}
-                            {flags.noStock.has(l.product_id) && (
+                            {/* #414: the page's note until the server's own no_stock check covers the line, so it shows once. */}
+                            {flags.noStock.has(l.product_id) && !lineIssues(i + 1).some((x) => x.code === "no_stock") && (
                               <div className="lnote mute">
                                 No stock on hand. You can still sell it; stock
                                 goes below zero until you add a purchase.
