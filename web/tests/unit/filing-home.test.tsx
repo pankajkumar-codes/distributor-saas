@@ -83,7 +83,7 @@ describe("Filing home", () => {
     expect(within(add).getByRole("link", { name: "Upload your reports" })).toHaveAttribute("href", "/b/b-1/uploads");
   });
 
-  it("shows four returns a page, opening on the page with the return due now, and pages back to the earlier ones", async () => {
+  it("shows two periods a page, opening on the page with the return due now, and pages back to the earlier ones", async () => {
     const q = (n: number, start: string, end: string, status = "open") => [
       row({ form: "GSTR1", period: `2026-Q${n}`, period_label: `Q${n} 2026`, period_start: start, period_end: end, status }),
       row({ form: "GSTR3B", period: `2026-Q${n}`, period_label: `Q${n} 2026`, period_start: start, period_end: end, status }),
@@ -97,10 +97,37 @@ describe("Filing home", () => {
     const table = await screen.findByRole("table");
     expect(within(table).getAllByRole("row")).toHaveLength(5); // the header and four returns
     expect(within(table).getAllByText("Q3 2026")).toHaveLength(2); // today (25-Nov-2026) is in Q3
-    expect(screen.getByText("5–8 of 8 returns")).toBeInTheDocument();
+    expect(screen.getByText("3–4 of 4 periods")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Previous" }));
     expect(within(screen.getByRole("table")).getAllByText("Q1 2026")).toHaveLength(2);
     expect(screen.getAllByText("Marked as filed")).toHaveLength(4);
+  });
+
+  it("keeps each month's GSTR-1 and GSTR-3B on one page when last year has a lone open return (#410)", async () => {
+    const m = (ym: string, label: string, status = "open") => [
+      row({ form: "GSTR1", period: ym, period_label: label, period_start: `${ym}-01`, period_end: `${ym}-28`, status }),
+      row({ form: "GSTR3B", period: ym, period_label: label, period_start: `${ym}-01`, period_end: `${ym}-28`, status }),
+    ];
+    const lastYear = [row({ form: "GSTR3B", period: "2026-03", period_label: "March 2026", period_start: "2026-03-01", period_end: "2026-03-31", status: "open" })];
+    const year = [...m("2026-04", "April 2026", "filed_locked"), ...m("2026-05", "May 2026", "filed_locked"), ...m("2026-06", "June 2026"), ...m("2026-07", "July 2026")];
+    server.reply(NOW, ok(year, "monthly"), ok(lastYear, "monthly"));
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-07-10T06:00:00Z"));
+    onTestFinished(() => void vi.useRealTimers());
+    open();
+    expect(await screen.findByText("5–5 of 5 periods")).toBeInTheDocument(); // opens on July, the month running now
+    for (let i = 0; i < 2; i++) fireEvent.click(screen.getByRole("button", { name: "Previous" }));
+    expect(screen.getByText("1–2 of 5 periods")).toBeInTheDocument();
+    for (let i = 0; i < 3; i++) {
+      const table = screen.getByRole("table");
+      for (const label of ["April 2026", "May 2026", "June 2026", "July 2026"]) {
+        const n = within(table).queryAllByText(label).length;
+        expect(n === 0 || n === 2).toBe(true); // a month shows with both its returns, or not at all
+      }
+      const next = screen.getByRole("button", { name: "Next" });
+      if ((next as HTMLButtonElement).disabled) break;
+      fireEvent.click(next);
+    }
   });
 
   it("shows no date at all when the server hasn't confirmed it, with the source link only when it is https", async () => {

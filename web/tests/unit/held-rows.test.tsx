@@ -150,6 +150,31 @@ describe("held rows screen", () => {
     expect(sent(resolve("row-1"))[0].body).toEqual({ action: "set_aside", note: "Duplicates" });
   });
 
+  it("names the reasons of selected rows that are on another tab or page (#419)", async () => {
+    const hsn = { action: "enter_hsn", label: "Enter the HSN", effect_note: "The row uses the HSN." };
+    open("owner", [row(1), row(2), row(3), row(4, { hold_reason: "hsn_missing", reason_label: "HSN missing", allowed_actions: [ASIDE, hsn] })]);
+    fireEvent.click(await screen.findByRole("button", { name: "Decide several rows" }));
+    fireEvent.click(screen.getByRole("button", { name: "Select all 4" }));
+    const bulk = await screen.findByRole("form", { name: "Decide the selected rows" });
+    // Rows 1 and 2 are on screen (first tab, first page); row 3 is on page 2 and row 4 on the HSN tab.
+    expect(within(bulk).getByText(/2 selected rows are not on screen: Bill-to and ship-to states differ \(1\), HSN missing \(1\)\./)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(within(bulk).getByText(/3 selected rows are not on screen: Bill-to and ship-to states differ \(2\), HSN missing \(1\)\./)).toBeInTheDocument(); // page 2 shows only row 3
+  });
+
+  it("clears the selection when bulk mode closes (#419)", async () => {
+    open();
+    const toggle = await screen.findByRole("button", { name: "Decide several rows" });
+    fireEvent.click(toggle);
+    fireEvent.click(screen.getByRole("button", { name: "Select all 2" }));
+    expect(screen.getByText("2 selected")).toBeInTheDocument();
+    fireEvent.click(toggle);
+    expect(screen.queryByRole("region", { name: "Decide several rows" })).toBeNull();
+    fireEvent.click(toggle);
+    expect(screen.getByText("0 selected")).toBeInTheDocument();
+    expect(screen.getByLabelText("Select Row 1 of b2b-oct.csv")).not.toBeChecked();
+  });
+
   it("shows a decided row as decided, with its note, and offers nothing more", async () => {
     open("owner", [row(1, { resolution: { action: "pick_state", note: "Pune office", at: "2026-11-19T10:00:00Z", value: "27" } })]);
     expect(await screen.findByText(/State picked/)).toBeInTheDocument();
