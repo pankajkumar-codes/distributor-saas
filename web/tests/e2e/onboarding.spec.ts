@@ -137,6 +137,10 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   await page.goto(homeUrl);
   const settings = page.getByRole("navigation", { name: "Business setup" });
   await settings.getByRole("link", { name: "Open Business setup" }).click();
+  // Business setup shows what is saved (mocks v16); Change opens the form on the same page.
+  await expect(page.getByRole("main").getByText("E2E Traders Private Limited")).toBeVisible();
+  await expect(page.getByText(/^Every quarter \(QRMP\), from \d{2}-[A-Z][a-z]{2}-\d{4}\.$/)).toBeVisible();
+  await page.getByRole("link", { name: "Change business details" }).click();
   await expect(page.getByLabel("Legal name")).toHaveValue("E2E Traders Private Limited");
   // Last year's band, given at sign-up, is shown here and stays editable.
   await expect(
@@ -148,9 +152,10 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   await noSeriousAxeFindings(page);
   const overflow5 = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow5).toBeLessThanOrEqual(0);
-  // Business setup is one page: the filing frequency is on it already.
+  // Back on Business setup, Change on the filing frequency opens its chooser.
+  await page.getByRole("link", { name: "Back to Business setup" }).click();
   await expect(page.getByRole("heading", { level: 2, name: "Filing frequency" })).toBeVisible();
-  await expect(page.getByText(/^Every quarter \(QRMP\), from \d{2}-[A-Z][a-z]{2}-\d{4}\.$/)).toBeVisible();
+  await page.getByRole("link", { name: "Change filing frequency" }).click();
   // The current frequency is already chosen; Save frequency appears only once another one is picked.
   await expect(page.getByRole("radio", { name: "Every quarter (QRMP)" })).toBeChecked();
   await expect(page.getByRole("button", { name: "Save frequency" })).toHaveCount(0);
