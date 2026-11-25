@@ -152,3 +152,85 @@ main.ledger .head h1 { margin: 0; }
   .ledger table.lt.deadlines td:nth-child(5) .btn { width: 100%; min-height: 44px; }
   .ledger .head .actions-r { width: 100%; }
 }
+
+/* Upload your reports (mocks v16 R.uploads): a panel per section, the file as a key/value row, a one-line chooser. */
+.ledger .pad-x, .top ~ .ledger .pad-x.hint { padding: 6px 16px 0; margin: 0; font-size: 13px; }
+.ledger .kv.bad > span:last-child { color: var(--bad); }
+.ledger form.drop { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: flex-end; padding: 8px 16px 10px; }
+.ledger form.drop { align-items: center; }
+.ledger form.drop .field { flex: 1; min-width: 12rem; margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.ledger form.drop .field label { font-size: 13px; font-weight: 500; margin: 0; white-space: nowrap; }
+.ledger form.drop .field .error { flex-basis: 100%; }
+.ledger form.drop input[type="file"] { flex: 1; min-width: 0; width: auto; height: 34px; padding: 2px 4px; border: 1px dashed var(--line); border-radius: 8px; background: var(--bg); font-size: 13px; }
+.ledger form.drop input[type="file"]::file-selector-button { font: inherit; font-size: 13px; height: 26px; padding: 0 10px; margin-right: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface, #fff); cursor: pointer; }
+.ledger form.drop > .banner { flex-basis: 100%; margin: 0; }
+.ledger details.earlier { border-top: 1px solid var(--line); padding: 6px 16px; font-size: 13px; }
+.ledger details.earlier > summary { cursor: pointer; color: var(--muted); }
+.ledger details.earlier .list { max-height: 9rem; overflow-y: auto; margin: 4px 0 0; }
+.ledger .list.files { margin: 0; padding: 0 16px; font-size: 13px; }
+.ledger .list.files li { padding: 4px 0; }
+.ledger .list.files li > .kv { padding: 0; border: 0; }
+.ledger .list.files .issue { padding: 6px 0 0; border: 0; }
+.ledger .panel.bundle .panel-h { flex-wrap: wrap; }
+.ledger .panel.bundle .panel-h .hint { margin: 0; font-size: 13px; }
+
+/* Held rows (mocks v16 R.held): tabs per reason, a few rows a page, facts in a row. */
+.ledger .held-rows { margin: 0; padding: 0 16px; }
+.ledger .held-rows > li.held-row { padding: 6px 0; }
+.ledger .held-h { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.ledger .held-h h3 { margin: 0; font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 8px; }
+.ledger dl.facts { display: flex; flex-wrap: wrap; gap: 4px 28px; margin: 4px 0; }
+.ledger dl.facts > div { white-space: nowrap; }
+.ledger dl.facts dt { font-size: 12px; color: var(--muted); }
+.ledger dl.facts > div, .ledger dl.facts dd { margin: 0; font-size: 13px; }
+.ledger .held-row .hint { margin: 0; font-size: 13px; }
+.ledger .held-row .stack { gap: 4px; }
+.ledger form.f2 > p, .ledger form.f2 > .banner, .ledger form.f2 > button, .ledger form.f2 > .btn { grid-column: 1 / -1; justify-self: start; }
+.ledger form.f2 .field { margin-bottom: 6px; }
+.ledger .panel.bulk .row-actions { display: inline-flex; gap: 8px; align-items: center; }
+.ledger .tabpanel > .panel:first-child, .ledger [role="tabpanel"] > .panel:first-child { margin-top: 0; }
+
+/* File from your own invoices and monthly files (mocks v16 R.fileperiod, R.periodfiles). */
+.ledger fieldset.checks { border: 0; margin: 0; min-width: 0; padding: 8px 16px; }
+.ledger fieldset.checks label.check { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; padding: 2px 0; }
+.ledger fieldset.checks .hint { margin: 0 0 4px 24px; font-size: 12px; }
+.ledger .panel.period .hint { margin: 6px 0 0; }
+.ledger .panel.period .field, .ledger .panel.pad .f2 .field { margin-bottom: 8px; }
+.top ~ .ledger p.reasons, .ledger p.reasons { margin: 0; font-size: 13px; flex: 1; min-width: 220px; }
+.ledger .ret { margin-top: 6px; }
+.ledger .ret .head2 { display: flex; align-items: center; gap: 12px; }
+.ledger .ret .head2 > a { margin-left: auto; }
+.ledger .ret .head2 h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.ledger .ret .grid2 > .panel { margin-top: 8px; }
+.ledger .files-made { margin-top: 8px; }
+.ledger .files-made p { margin: 4px 0; font-size: 13px; }
+.ledger .panel.pad > form > .btn { margin-top: 4px; }
+.ledger .panel.pad > .banner { margin: 8px 0 0; }
+.ledger form.drop { padding: 6px 16px 8px; }
+.ledger .held-link .tx, .ledger .panel > .issue .tx { display: flex; flex-wrap: wrap; gap: 0 8px; align-items: baseline; }
+.ledger .panel > .issue, .ledger .held-link { padding: 7px 16px; align-items: center; }
+.ledger .list.files .held-link { padding: 6px 0 0; }
+.ledger .panel.bundle.one-line { display: flex; flex-wrap: wrap; align-items: center; }
+.ledger .panel.bundle.one-line > .panel-h { border-bottom: 0; flex: 1 1 26rem; display: block; }
+.ledger .panel.bundle.one-line > .panel-h .hint { display: block; }
+.ledger .panel.bundle.one-line > form.drop { flex: 1 1 24rem; padding: 8px 16px; }
+/* Cards flow in two columns, so a short card does not leave a gap under it. */
+.ledger .cardgrid.flow2 { display: block; columns: 2; column-gap: 14px; }
+.ledger .cardgrid.flow2 > .panel { break-inside: avoid; margin: 0 0 12px; }
+.ledger .cardgrid.flow2 + .panel { margin-top: 0; }
+.ledger form.drop input[type="file"] { line-height: 26px; }
+.ledger .cardgrid.flow2 { margin-top: 12px; }
+@media (max-width: 900px) { .ledger .cardgrid.flow2 { columns: 1; } }
+/* A decision on one line: the boxes side by side, the button at the end, the effect in grey under them. */
+.ledger form.f-line { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: flex-end; }
+.ledger form.f-line > .field { flex: 1 1 12rem; margin: 0; }
+.ledger form.f-line .field input, .ledger form.f-line .field select { height: 36px; }
+.ledger form.f-line .field label { font-size: 13px; margin-bottom: 2px; }
+.ledger form.f-line > .btn { flex: none; min-height: 36px; }
+.top ~ .ledger form.f-line > p, .ledger form.f-line > p, .ledger form.f-line > .banner { flex-basis: 100%; margin: 0; order: 9; }
+.ledger .panel.bulk form.f-line { padding: 6px 16px 8px; }
+.ledger .panel.bulk > .panel-h { padding-top: 6px; padding-bottom: 6px; }
+/* The return under "File from your own invoices": the same file and lock boxes, a little tighter so the page stays on one screen. */
+.ledger .ret .dl { padding: 8px 16px; gap: 4px; margin-top: 8px; }
+.ledger .ret .dl p { font-size: 13px; }
+.ledger .ret .head2:not(.bar) { margin-top: 4px; }

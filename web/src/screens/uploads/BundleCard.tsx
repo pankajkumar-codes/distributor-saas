@@ -36,14 +36,13 @@ export function BundleCard({ businessId, bundleId, onBundle }: Props) {
   const data = bundle.data;
 
   return (
-    <section className="card" aria-labelledby={`${id}-h`}>
-      <h2 id={`${id}-h`}>A zip of your reports</h2>
-      <p className="hint">
-        Put your Amazon, Flipkart and Meesho files and your own sales invoices in one zip. We sort them by what is inside, show you the list, and read
-        them only after you say so.
-      </p>
+    <section className={`panel bundle${bundleId ? "" : " one-line"}`} aria-labelledby={`${id}-h`}>
+      <div className="panel-h">
+        <h2 id={`${id}-h`}>A zip of your reports</h2>
+        <span className="hint">One zip with several reports: we sort them by what is inside, and read them only after you check the list.</span>
+      </div>
       {!bundleId && <StartForm businessId={businessId} onBundle={onBundle} />}
-      {bundleId && bundle.isPending && <p aria-busy="true">Loading…</p>}
+      {bundleId && bundle.isPending && <p className="pad" aria-busy="true">Loading…</p>}
       {bundleId && bundle.error && (
         <Banner tone="error">
           We couldn't load this zip. {errorText(bundle.error)}
@@ -57,6 +56,7 @@ export function BundleCard({ businessId, bundleId, onBundle }: Props) {
         </Banner>
       )}
       {data && (
+        <div className="pad">
         <BundleView
           businessId={businessId}
           bundle={data}
@@ -67,6 +67,7 @@ export function BundleCard({ businessId, bundleId, onBundle }: Props) {
             onBundle(null);
           }}
         />
+        </div>
       )}
     </section>
   );
@@ -96,7 +97,7 @@ function StartForm({ businessId, onBundle }: { businessId: string; onBundle: (id
   };
 
   return (
-    <form onSubmit={submit} noValidate>
+    <form onSubmit={submit} noValidate className="drop">
       <div className="field">
         <label htmlFor={`${id}-file`}>Choose a zip file</label>
         <input
@@ -125,7 +126,7 @@ function StartForm({ businessId, onBundle }: { businessId: string; onBundle: (id
           <ErrorDetail error={error} />
         </Banner>
       )}
-      <Button type="submit" busy={sending}>
+      <Button type="submit" variant="secondary" className="btn-sm" busy={sending}>
         {sending ? "Sending…" : "Send the zip"}
       </Button>
     </form>

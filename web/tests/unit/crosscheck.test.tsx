@@ -49,7 +49,8 @@ describe("own invoices cross-check", () => {
   it("lists each difference with both values as the server sent them, and offers no way to pick a side", async () => {
     server.reply(CROSS, cross());
     open("/b/b-1/uploads/crosscheck");
-    expect(await screen.findByRole("heading", { level: 1, name: "PDF and Excel don't match everywhere" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Your PDFs and your Excel sheet" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: "PDF and Excel don't match everywhere" })).toBeInTheDocument();
     const table = screen.getByRole("table");
     expect(within(table).getByText("INV-0412")).toBeInTheDocument();
     expect(within(table).getByText("₹12,000.00")).toBeInTheDocument(); // PDF

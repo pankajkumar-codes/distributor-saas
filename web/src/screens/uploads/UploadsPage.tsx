@@ -7,6 +7,7 @@ import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
+import { LedgerHead } from "../filing/ledger";
 import { sectionsFor } from "./sections";
 import { BundleCard } from "./BundleCard";
 import { OwnInvoicesCard } from "./OwnInvoicesCard";
@@ -58,16 +59,42 @@ export function UploadsPage() {
     });
 
   const shown = channels.data ? sectionsFor(channels.data) : [];
+  const differ = cross.data ? cross.data.mismatches.length + cross.data.only_in_excel.length + cross.data.only_in_pdf.length : 0;
+  // The cross-check lives with your own invoices (mocks v16): the validate note, or the result with a link to it.
+  const ownNote = hasOwn && cross.data && (
+    <>
+      {cross.data.show_validate_note && (
+        <Banner>
+          <b>Upload your invoices as PDFs and we can validate.</b> With your PDF invoices we check every row of your Excel sheet against the invoice itself.
+        </Banner>
+      )}
+      {cross.data.compared && (
+        <div className={`issue ${differ > 0 ? "bad" : "ok"}`} role="status">
+          <span className="ic" aria-hidden="true">
+            {differ > 0 ? "!" : "✓"}
+          </span>
+          <div className="tx">
+            <b>{differ > 0 ? `${differ} invoices differ between your PDFs and your Excel sheet.` : "Your PDFs and your Excel sheet match."}</b>
+          </div>
+          <Link to={`/b/${businessId}/uploads/crosscheck`}>{differ > 0 ? "Review the differences" : "See the cross-check"}</Link>
+        </div>
+      )}
+    </>
+  );
 
   return (
     <>
       <TopBar title={business.display_name} gstin={business.gstin} />
-      <main className="page page-wide">
-        <p className="step">
-          <Link to={`/b/${businessId}/filing`}>GST filing</Link>
-        </p>
-        <h1>Upload your reports</h1>
-        <p className="hint">Every section is optional. Add what you have; you can come back and add more.</p>
+      <main className="page page-wide ledger">
+        <LedgerHead
+          trail={
+            <>
+              <Link to={`/b/${businessId}/filing`}>GST filing</Link> / Upload your reports
+            </>
+          }
+          title="Upload your reports"
+          lead="Every section is optional. Add what you have; you can come back and add more."
+        />
         {channels.isPending && <Loading query={channels} />}
         {channels.error && (
           <Banner tone="error">
@@ -82,44 +109,25 @@ export function UploadsPage() {
             You haven't said where you sell yet. <Link to={`/b/${businessId}/settings`}>Choose it in Business details</Link>, then come back to add your files.
           </Banner>
         )}
-        {hasOwn && cross.data && cross.data.show_validate_note && (
-          <Banner>
-            <b>Upload your invoices as PDFs and we can validate.</b> With your PDF invoices we check every row of your Excel sheet against the invoice itself.
-          </Banner>
-        )}
-        {hasOwn && cross.data && cross.data.compared && (
-          <Banner tone={cross.data.mismatches.length + cross.data.only_in_excel.length + cross.data.only_in_pdf.length > 0 ? "error" : "info"}>
-            {cross.data.mismatches.length + cross.data.only_in_excel.length + cross.data.only_in_pdf.length > 0 ? (
-              <>
-                {cross.data.mismatches.length + cross.data.only_in_excel.length + cross.data.only_in_pdf.length} invoices differ between your PDFs and your Excel sheet.{" "}
-                <Link to={`/b/${businessId}/uploads/crosscheck`}>Review the differences</Link>
-              </>
+        <div className="cardgrid flow2">
+          {shown.map((s) =>
+            s.id === "own_invoices_excel" ? (
+              <OwnInvoicesCard key={s.id} businessId={businessId} label={s.label} hint={s.hint} canUpload={canUpload(business.role)} note={ownNote} />
             ) : (
-              <>Your PDFs and your Excel sheet match. <Link to={`/b/${businessId}/uploads/crosscheck`}>See the cross-check</Link></>
-            )}
-          </Banner>
-        )}
-        {shown.length > 0 && canUpload(business.role) && <BundleCard businessId={businessId} bundleId={params.get("bundle")} onBundle={(id) => follow("bundle", id)} />}
-        <div className="uploads-grid">
-        {shown.map((s) =>
-          s.id === "own_invoices_excel" ? (
-            <div key={s.id} className="span-all">
-              <OwnInvoicesCard businessId={businessId} label={s.label} hint={s.hint} canUpload={canUpload(business.role)} />
-            </div>
-          ) : (
-          <UploadCard
-            key={s.id}
-            businessId={businessId}
-            section={s.id}
-            label={s.label}
-            hint={s.hint}
-            canUpload={canUpload(business.role)}
-            uploadId={params.get(s.id)}
-            onUpload={(id) => follow(s.id, id)}
-          />
-          ),
-        )}
+              <UploadCard
+                key={s.id}
+                businessId={businessId}
+                section={s.id}
+                label={s.label}
+                hint={s.hint}
+                canUpload={canUpload(business.role)}
+                uploadId={params.get(s.id)}
+                onUpload={(id) => follow(s.id, id)}
+              />
+            ),
+          )}
         </div>
+        {shown.length > 0 && canUpload(business.role) && <BundleCard businessId={businessId} bundleId={params.get("bundle")} onBundle={(id) => follow("bundle", id)} />}
       </main>
     </>
   );

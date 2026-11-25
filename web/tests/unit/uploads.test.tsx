@@ -67,7 +67,7 @@ describe("upload page", () => {
     open("owner", "/b/b-1/uploads", { amazon: false, flipkart: true, meesho: false, own_invoices: false });
     expect(await card("Flipkart")).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Your own sales invoices" })).toBeNull();
-    expect(screen.getAllByRole("region").map((r) => r.getAttribute("aria-labelledby") && r.querySelector("h2")?.textContent)).toEqual(["A zip of your reports", "Flipkart"]);
+    expect(screen.getAllByRole("region").map((r) => r.getAttribute("aria-labelledby") && r.querySelector("h2")?.textContent)).toEqual(["Flipkart", "A zip of your reports"]); // the zip sits under the cards (mocks v16)
   });
 
   it("sends the person to Business details when nothing is chosen yet", async () => {

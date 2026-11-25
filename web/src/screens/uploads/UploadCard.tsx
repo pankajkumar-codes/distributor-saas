@@ -5,6 +5,7 @@ import { formatDateTimeIst } from "../../format/dates";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { acceptFor, settled, sectionChip, statusText, wrongType, SECTIONS, type Section, type Upload } from "./sections";
+import { Panel } from "../filing/ledger";
 import { HeldLink } from "./HeldLink";
 import { useStartUpload, useUpload, useUploads } from "./useUpload";
 
@@ -53,27 +54,27 @@ export function UploadCard({ businessId, section, label, hint, canUpload, upload
 
   const upload = current.data;
   const busy = start.isPending || Boolean(uploadId && !settled(upload) && !current.error);
-  const others = (recent.data ?? []).filter((u) => u.id !== uploadId);
+
+  // Only a real server state is shown: nothing while the list loads, and no claim if it failed.
+  // The file just sent may be newer than the list, so it replaces its own row (or leads the list).
+  const rows = upload ? [upload, ...(recent.data ?? []).filter((u) => u.id !== upload.id)] : (recent.data ?? []);
+  const chip = sectionChip(rows);
+  // The newest file shows as a row (mocks v16); the ones before it fold away.
+  const latest = rows[0];
+  const others = rows.slice(1);
+  const aside = chip ? (
+    <span className={`chip ${chip.tone}`.trim()}>{chip.label}</span>
+  ) : recent.isSuccess ? (
+    <span className="chip">Nothing uploaded yet</span>
+  ) : recent.isError ? (
+    <span className="chip">We couldn't load this</span>
+  ) : null;
 
   return (
-    <section className="card" aria-labelledby={`${id}-h`}>
-      <div className="card-head">
-        <h2 id={`${id}-h`}>{label}</h2>
-        {(() => {
-          // Only a real server state is shown: nothing while the list loads, and no claim if it failed.
-          // The file just sent may be newer than the list, so it replaces its own row (or leads the list).
-          const rows = upload ? [upload, ...(recent.data ?? []).filter((u) => u.id !== upload.id)] : (recent.data ?? []);
-          const chip = sectionChip(rows);
-          if (chip) return <span className={`chip ${chip.tone}`.trim()}>{chip.label}</span>;
-          if (recent.isSuccess) return <span className="chip">Nothing uploaded yet</span>;
-          if (recent.isError) return <span className="chip">We couldn't load this</span>;
-          return null;
-        })()}
-      </div>
-      <p className="hint">{hint}</p>
-
-      {upload && <Result upload={upload} />}
-      {upload && <HeldLink businessId={businessId} upload={upload} />}
+    <Panel title={label} aside={aside}>
+      <p className="pad-x hint">{hint}</p>
+      {latest && <Result upload={latest} />}
+      {latest && <HeldLink businessId={businessId} upload={latest} />}
       {uploadId && current.error && (
         <Banner tone="error">
           {errorText(current.error)} <Button type="button" variant="link" onClick={() => current.refetch()}>Try again</Button>
@@ -81,9 +82,9 @@ export function UploadCard({ businessId, section, label, hint, canUpload, upload
       )}
 
       {canUpload ? (
-        <form onSubmit={submit} noValidate>
+        <form onSubmit={submit} noValidate className="drop">
           <div className="field">
-            <label htmlFor={`${id}-file`}>{upload ? "Add another file" : "Choose a file"}</label>
+            <label htmlFor={`${id}-file`}>{latest ? "Add another file" : "Choose a file"}</label>
             <input
               ref={input}
               id={`${id}-file`}
@@ -99,18 +100,18 @@ export function UploadCard({ businessId, section, label, hint, canUpload, upload
               </p>
             )}
           </div>
-          {start.error && <Banner tone="error">{start.error.message || errorText(start.error)}</Banner>}
-          <Button type="submit" busy={busy}>
+          <Button type="submit" variant="secondary" className="btn-sm" busy={busy}>
             {start.isPending ? "Sending…" : busy ? "Reading…" : "Upload"}
           </Button>
+          {start.error && <Banner tone="error">{start.error.message || errorText(start.error)}</Banner>}
         </form>
       ) : (
-        <p className="hint">Only an owner or admin can upload files.</p>
+        <p className="pad hint">Only an owner or admin can upload files.</p>
       )}
 
       {others.length > 0 && (
-        <>
-          <h3>Earlier files</h3>
+        <details className="earlier">
+          <summary>Earlier files ({others.length})</summary>
           <ul className="list">
             {others.map((u) => (
               <li key={u.id}>
@@ -121,9 +122,9 @@ export function UploadCard({ businessId, section, label, hint, canUpload, upload
               </li>
             ))}
           </ul>
-        </>
+        </details>
       )}
-    </section>
+    </Panel>
   );
 }
 
@@ -131,10 +132,9 @@ function Result({ upload }: { upload: Upload }) {
   const failed = upload.status === "rejected";
   const text = statusText(upload);
   return (
-    <div role={failed ? "alert" : "status"} className={failed ? "banner banner-error" : "banner banner-info"} aria-busy={!settled(upload) || undefined}>
-      <strong>{upload.file_name}</strong>
-      <br />
-      {text}
+    <div role={failed ? "alert" : "status"} className={failed ? "kv bad" : "kv"} aria-busy={!settled(upload) || undefined}>
+      <span>{upload.file_name}</span>
+      <span>{text}</span>
     </div>
   );
 }

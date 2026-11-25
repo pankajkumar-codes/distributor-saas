@@ -24,11 +24,19 @@ function RunHeld({ businessId, runId, label }: { businessId: string; runId: stri
   const held = run.data && run.data.status === "staged" ? (run.data.counts.held ?? 0) : 0;
   if (held === 0) return null;
   return (
-    <p className="held-link">
-      <span className="chip chip-warn">
-        {held} row{held === 1 ? "" : "s"} held{label}
-      </span>{" "}
-      <Link to={`/b/${businessId}/uploads/runs/${runId}/held`}>Review held rows{label}</Link>
-    </p>
+    <div className="issue held-link">
+      <span className="ic" aria-hidden="true">
+        !
+      </span>
+      <div className="tx">
+        <b>
+          {held} row{held === 1 ? "" : "s"} held{label}
+        </b>
+        <span>They stay out of the return until you decide.</span>
+      </div>
+      <Link className="btn btn-primary btn-sm" to={`/b/${businessId}/uploads/runs/${runId}/held`}>
+        Review held rows{label}
+      </Link>
+    </div>
   );
 }
