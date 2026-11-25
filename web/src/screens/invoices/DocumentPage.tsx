@@ -24,11 +24,15 @@ export function DocumentPage() {
   return (
     <>
       <TopBar title={business.display_name} gstin={business.gstin} />
-      <main className="page">
-        <p className="step">
-          <Link to={`/b/${businessId}/documents`}>Issued invoices</Link>
-        </p>
-        <h1>Invoice issued</h1>
+      <main className="page page-wide">
+        {!doc.data && (
+          <>
+            <p className="eyebrow">
+              <Link to={`/b/${businessId}/documents`}>Sell / Issued invoices</Link>
+            </p>
+            <h1>Invoice issued</h1>
+          </>
+        )}
         {doc.error && <Banner tone="error">{errorText(doc.error)}</Banner>}
         {doc.isPending && <Loading query={doc} />}
         {doc.data && <FinalizedPanel businessId={businessId} doc={doc.data} />}

@@ -110,7 +110,7 @@ function gstr1Path(row: Gstr1Row, build: Gstr1Build | undefined, fileTaken: bool
     current,
     action: actions[current] ?? null,
     // No sales found: the seller may simply have had none. The return page takes a nil return through the same steps.
-    alt: current === 0 && canUpload ? { label: "No sales this month? Go on to a nil return", to: ret } : null,
+    alt: current === 0 && canUpload ? { label: `No sales in ${row.period_label}? Go on to a nil return`, to: ret } : null,
   };
 }
 

@@ -288,7 +288,7 @@ describe("next step and timeline (pure)", () => {
     expect(at(b({ members_count: 0 }))).toEqual([0, "Upload your reports"]);
     // #406: a month with no sales is not a dead end; the card offers the nil return too.
     const nil = nextStep({ businessId: "b-1", today: "2026-12-07", checklist: [], gstr1: row, build: b({ members_count: 0 }), canUpload: true });
-    expect(nil.alt).toEqual({ label: "No sales this month? Go on to a nil return", to: "/b/b-1/filing/r-1" });
+    expect(nil.alt).toEqual({ label: "No sales in November 2026? Go on to a nil return", to: "/b/b-1/filing/r-1" });
     expect(nil.steps[0].sub).toBe("None found yet");
     expect(nextStep({ businessId: "b-1", today: "2026-12-07", checklist: [], gstr1: row, build: b(), canUpload: true }).alt).toBeNull();
     expect(at(b({ members_count: 0 }), null, false)).toEqual([0, "Open the return"]);
