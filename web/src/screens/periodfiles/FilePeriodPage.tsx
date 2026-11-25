@@ -10,7 +10,7 @@ import { Button } from "../../kit/Button";
 import { NotFound } from "../../kit/NotFound";
 import { SelectField } from "../../kit/SelectField";
 import { TopBar } from "../../kit/TopBar";
-import { ExportPanel } from "../filing/ExportPanel";
+import { ExportPanel, type ExportJob } from "../filing/ExportPanel";
 import { FiledPanel } from "../filing/FiledPanel";
 import { useReturnDetail } from "../filing/returns";
 import { finishedPeriods, type PeriodKind } from "./periods";
@@ -66,6 +66,7 @@ function Checks({ gate, businessId, kind, start }: { gate: Gate; businessId: str
  */
 function ReturnControls({ businessId, instanceId, role }: { businessId: string; instanceId: string; role: string }) {
   const detail = useReturnDetail(businessId, instanceId);
+  const [job, setJob] = useState<ExportJob>(null);
   if (detail.isPending) return <p aria-busy="true">Loading the return…</p>;
   if (detail.isError) return <Banner tone="error">{errorText(detail.error)}</Banner>;
   const d = detail.data;
@@ -74,7 +75,7 @@ function ReturnControls({ businessId, instanceId, role }: { businessId: string; 
       <h3>
         {d.instance.form} return, {d.instance.period_label}
       </h3>
-      {d.export && d.instance.status !== "filed_locked" && <ExportPanel businessId={businessId} instanceId={instanceId} gate={d.export} fingerprint={d.fingerprint} periodLabel={d.instance.period_label} />}
+      {d.export && d.instance.status !== "filed_locked" && <ExportPanel businessId={businessId} instanceId={instanceId} gate={d.export} fingerprint={d.fingerprint} job={job && job.madeFor === d.fingerprint ? job : null} onJob={setJob} guideHref={`/b/${businessId}/filing/${instanceId}/portal-guide`} />}
       <FiledPanel businessId={businessId} instance={d.instance} role={role} />
       <p>
         <Link to={`/b/${businessId}/filing/${instanceId}`}>Open the full return</Link>

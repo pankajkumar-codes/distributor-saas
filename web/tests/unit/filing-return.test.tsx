@@ -51,18 +51,18 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
-function open(role = "owner") {
+function open(role = "owner", tab?: string) {
   server.reply("/api/v1/me/businesses", mine(role));
-  window.history.replaceState(null, "", `/b/b-1/filing/${INST}`);
+  window.history.replaceState(null, "", `/b/b-1/filing/${INST}${tab ? `?tab=${tab}` : ""}`);
   render(<App />);
 }
 
 describe("A return (read-only)", () => {
-  it("shows the draft banner, totals, and checks with plain words, blocking first, A-01 as one group", async () => {
+  it("shows the draft note, totals, and checks with plain words, blocking first, A-01 as one group", async () => {
     server.reply(DETAIL, detail());
     open();
     expect(await screen.findByText(/Draft: not filed/)).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /GSTR-1 for October 2026/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "GSTR-1, October 2026" })).toBeInTheDocument();
     const summaries = screen.getAllByText(/Look at this first|Please check/).map((e) => e.textContent);
     expect(summaries[0]).toBe("Look at this first"); // blocking group first
     expect(screen.getByText("HSN code missing")).toBeInTheDocument();
@@ -70,48 +70,63 @@ describe("A return (read-only)", () => {
     expect(within(tax).getByText("2 items")).toBeInTheDocument();
     expect(within(tax).getByText("Needs a CA check")).toBeInTheDocument();
     expect(within(tax).getByText(/A-01 message 2/)).toBeInTheDocument();
-    expect(screen.getByText(/1 item to look at first/)).toBeInTheDocument();
+    // 1 blocking item and 2 warnings not yet accepted: 3 to fix, on the tab and the step.
+    expect(screen.getByRole("tab", { name: /Checks and totals/ })).toHaveTextContent("3 to fix");
+    expect(screen.getByRole("button", { name: /Fix the checks/ })).toHaveTextContent("3 to fix");
+    expect(screen.getByRole("tab", { name: /Checks and totals/ })).toHaveAttribute("aria-selected", "true"); // opens where the work is
     expect(screen.queryByRole("link", { name: /download/i })).toBeNull(); // nothing to download until a file is made
+  });
+
+  it("shows a nil amount as a dash, never ₹0.00, and the totals match when the HSN summary agrees", async () => {
+    server.reply(DETAIL, detail());
+    open();
+    await screen.findByText(/Draft: not filed/);
+    const totals = screen.getByRole("region", { name: "Totals" });
+    expect(within(totals).getByText("Matches")).toBeInTheDocument();
+    expect(within(totals).getByText("₹200.00")).toBeInTheDocument();
+    expect(within(totals).queryByText("₹0.00")).toBeNull();
+    expect(within(totals).getAllByText("—").length).toBeGreaterThan(0);
   });
 
   it("loads a section's rows only when it is opened, with the source of each row", async () => {
     server.reply(DETAIL, detail());
     server.reply(B2B, page());
-    open();
+    open("owner", "contents");
     await screen.findByText(/Draft: not filed/);
     expect(server.paths()).not.toContain(B2B);
-    const section = screen.getByText("Sales to businesses (B2B)").closest("details")!;
-    section.open = true;
-    fireEvent(section, new Event("toggle"));
+    fireEvent.click(screen.getByRole("button", { name: "See the rows of Sales to businesses (B2B)" }));
+    const section = await screen.findByRole("region", { name: /Sales to businesses/ });
     expect(await within(section).findByText("INV-3")).toBeInTheDocument();
     expect(within(section).getByText("₹236.00")).toBeInTheDocument();
     expect(within(section).getByText("a.xlsx row 2")).toBeInTheDocument();
+    expect(within(section).getByText("1–1 of 1 rows")).toBeInTheDocument();
+    fireEvent.click(within(section).getByRole("button", { name: "All sections" }));
+    expect(await screen.findByRole("region", { name: "What is in the return" })).toBeInTheDocument();
   });
 
   it("stops and asks for a reload when a page comes from a different build", async () => {
     server.reply(DETAIL, detail());
     server.reply(B2B, page("fp-2"));
-    open();
+    open("owner", "contents");
     await screen.findByText(/Draft: not filed/);
-    const section = screen.getByText("Sales to businesses (B2B)").closest("details")!;
-    section.open = true;
-    fireEvent(section, new Event("toggle"));
-    expect(await within(section).findByText(/This return changed while you were reading it/)).toBeInTheDocument();
-    expect(within(section).queryByText("INV-3")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "See the rows of Sales to businesses (B2B)" }));
+    expect(await screen.findByText(/This return changed while you were reading it/)).toBeInTheDocument();
+    expect(screen.queryByText("INV-3")).toBeNull();
   });
 
-  it("stops when a later page comes from a different build, and hides the rows already shown", async () => {
-    server.reply(DETAIL, detail());
-    server.reply(B2B, page("fp-1", { has_more: true, next_cursor: "100" }), page("fp-2"));
-    open();
+  it("asks the server for the next lot only when a page needs it, and stops when that lot comes from a different build", async () => {
+    const many = (fp: string, from: number, n: number, more: boolean) =>
+      page(fp, { has_more: more, next_cursor: more ? "100" : null, rows: Array.from({ length: n }, (_, i) => ({ ...page().body.rows[0], invoice_number: `INV-${from + i}` })) });
+    server.reply(DETAIL, detail({ sections: [{ name: "b2b", rows_count: 12, totals: heads("200.00") }] }));
+    server.reply(B2B, many("fp-1", 1, 8, true), many("fp-2", 9, 4, false));
+    open("owner", "contents");
     await screen.findByText(/Draft: not filed/);
-    const section = screen.getByText("Sales to businesses (B2B)").closest("details")!;
-    section.open = true;
-    fireEvent(section, new Event("toggle"));
-    expect(await within(section).findByText("INV-3")).toBeInTheDocument();
-    fireEvent.click(within(section).getByRole("button", { name: "Show more rows" }));
-    expect(await within(section).findByText(/This return changed while you were reading it/)).toBeInTheDocument();
-    expect(within(section).queryByText("INV-3")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "See the rows of Sales to businesses (B2B)" }));
+    expect(await screen.findByText("INV-8")).toBeInTheDocument();
+    expect(screen.getByText("1–8 of 12 rows")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(await screen.findByText(/This return changed while you were reading it/)).toBeInTheDocument();
+    expect(screen.queryByText("INV-3")).toBeNull();
   });
 
   it("shows the debit-note notice", async () => {
@@ -139,7 +154,7 @@ describe("A return (read-only)", () => {
       const view = render(<App />);
       if (linked) {
         await screen.findByText("October 2026");
-        expect(screen.queryAllByRole("link", { name: "Review the draft" }).length).toBeGreaterThan(0); // the fixture answers both years with one row
+        expect(screen.queryAllByRole("link", { name: "Open GSTR-1 for October 2026" }).length).toBeGreaterThan(0); // the fixture answers both years with one row
       } else {
         await screen.findByText(/You don't have access to this page/); // returns.view: billing is turned away, and nothing was fetched
         expect(server.sent.some((s) => s.path.endsWith("/returns"))).toBe(false);

@@ -2,11 +2,11 @@ import { Link, useParams } from "react-router-dom";
 
 import { canViewReturns } from "../../auth/roles";
 import { useMyBusinesses } from "../../auth/useMyBusinesses";
-import { previousFy } from "../../format/dates";
 import { Banner } from "../../kit/Banner";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
-import { useReturns } from "./returns";
+import { GuideStep, GuideSwitch, useReturnRow } from "./guideShared";
+import { LedgerHead, Panel } from "./ledger";
 import { NoAccess } from "../../kit/NoAccess";
 
 /**
@@ -25,17 +25,13 @@ export const GUIDE_3B_STEPS = (periodLabel: string): string[] => [
 
 export const GUIDE_3B_NOT_CHECKED = "Not checked on the live portal yet.";
 
-/** /b/:id/filing/:instanceId/portal-guide-3b: the steps for one GSTR-3B period. Needs `returns.prepare`, like the worksheet. */
+/** /b/:id/filing/:instanceId/portal-guide-3b (mocks v16 "Portal guides", GSTR-3B entry): the steps for one GSTR-3B period. */
 export function Portal3bGuidePage() {
   const { businessId = "", instanceId = "" } = useParams();
   const businesses = useMyBusinesses();
   const business = businesses.data?.find((b) => b.business_id === businessId);
   const may = Boolean(business && canViewReturns(business.role));
-  const now = useReturns(businessId, undefined, may);
-  const found = now.data?.returns.find((r) => r.instance_id === instanceId);
-  // A late return of last year is not in the current year's list: look there too, but only when it is not found yet.
-  const before = useReturns(businessId, now.data ? previousFy(now.data.fy) : undefined, may && now.isSuccess && !found);
-  const row = found ?? before.data?.returns.find((r) => r.instance_id === instanceId);
+  const { row, loading, sibling } = useReturnRow(businessId, instanceId, may);
 
   if (businesses.isPending) {
     return (
@@ -46,7 +42,6 @@ export function Portal3bGuidePage() {
   }
   if (!business) return <NotFound />;
   if (!canViewReturns(business.role)) return <NoAccess businessId={businessId} />;
-  const loading = now.isPending || (!found && now.isSuccess && before.isPending && before.fetchStatus !== "idle");
   if (loading) {
     return (
       <main className="page" aria-busy="true">
@@ -59,34 +54,37 @@ export function Portal3bGuidePage() {
   return (
     <>
       <TopBar title={business.display_name} gstin={business.gstin} />
-      <main className="page">
-        <p className="step">
-          <Link to={`/b/${businessId}/filing`}>Your GST filing</Link>
-        </p>
-        <h1>Enter GSTR-3B on the GST portal</h1>
-        <p className="hint">Use your worksheet for {row.period_label}. You enter and submit it on the GST portal yourself.</p>
+      <main className="page page-wide ledger">
+        <LedgerHead
+          trail={
+            <>
+              <Link to={`/b/${businessId}/filing`}>Your GST filing</Link> / Portal guides
+            </>
+          }
+          title="Enter GSTR-3B on the GST portal"
+          lead={`Use your worksheet for ${row.period_label}. You enter and submit it on the GST portal yourself.`}
+          actions={
+            <Link className="btn btn-primary" to={`/b/${businessId}/filing/${row.instance_id}/worksheet`}>
+              Back to the worksheet
+            </Link>
+          }
+        />
+        <GuideSwitch businessId={businessId} current="gstr3b" gstr1={sibling("GSTR1")} gstr3b={row} />
         <Banner>
           Do this after you have submitted your GSTR-1 on the portal. The outward figures on the portal follow your GSTR-1, so they should match this worksheet.{" "}
-          <span className="chip chip-warn">To be confirmed</span>
+          <span className="chip chip-warn">To be confirmed</span> Every step below is marked “Not checked”: {GUIDE_3B_NOT_CHECKED.toLowerCase()}
         </Banner>
-        <section className="card" aria-labelledby="steps-3b">
-          <h2 id="steps-3b">Steps</h2>
-          <ol className="steps">
-            {GUIDE_3B_STEPS(row.period_label).map((text) => (
-              <li key={text}>
-                {text}{" "}
-                <span className="chip chip-warn" title={GUIDE_3B_NOT_CHECKED}>
-                  Not checked
-                </span>
-                <span className="hint"> {GUIDE_3B_NOT_CHECKED}</span>
-              </li>
+        <Panel title={`${GUIDE_3B_STEPS(row.period_label).length} steps`}>
+          <ol className="path">
+            {GUIDE_3B_STEPS(row.period_label).map((text, i) => (
+              <GuideStep key={text} n={i + 1} text={text} mark={GUIDE_3B_NOT_CHECKED} />
             ))}
           </ol>
-          <p className="hint">
+          <p className="pad hint">
             Draft wording. The step order and screen names are checked against the live portal before launch, in the same test as the GSTR-1 guide. The official GSTR-3B Excel utility can also make a file for the portal's offline upload, for Tables 3.1, 3.1.1 and 3.2 only. Whether we offer that file in a later release is not decided.{" "}
             <span className="chip chip-warn">Not checked</span> We have not tried that utility.
           </p>
-        </section>
+        </Panel>
       </main>
     </>
   );

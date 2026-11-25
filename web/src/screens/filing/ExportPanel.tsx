@@ -1,11 +1,10 @@
-import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
 import { errorText } from "../../api/errors";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { useExportStatus, useStartExport, type ExportStatus } from "./export";
 import { PlanNotice } from "./PlanNotice";
-import { PortalGuide } from "./PortalGuide";
 import type { ReturnDetail } from "./returns";
 
 /** What a person reads for each reason the file could not be made (the job's code). */
@@ -22,7 +21,9 @@ const FAILED: Record<string, string> = {
 export function FileResult({ file, title }: { file: ExportStatus; title: string }) {
   return (
     <div className="stack">
-      <h3>{title}</h3>
+      <p>
+        <b>{title}</b>
+      </p>
       <ul>
         {file.files.map((f) => (
           <li key={f.part}>
@@ -55,26 +56,23 @@ export function FileResult({ file, title }: { file: ExportStatus; title: string 
   );
 }
 
-/**
- * Make the GSTR-1 file (R1-M8 S6). The button is off, with the reason beside it, while the server's gate says no; once
- * pressed the file is made in the background and this panel asks until it is done. Nothing here says "ready to upload"
- * unless the server says the file is.
- */
-export function ExportPanel({ businessId, instanceId, gate, fingerprint, periodLabel }: { businessId: string; instanceId: string; gate: ReturnDetail["export"]; fingerprint: string; periodLabel: string }) {
-  const [jobId, setJobId] = useState<string | null>(null);
-  const start = useStartExport(businessId, instanceId);
-  const status = useExportStatus(businessId, instanceId, jobId);
-  const [madeFor, setMadeFor] = useState<string | null>(null);
-  useEffect(() => {
-    if (jobId !== null && madeFor !== null && madeFor !== fingerprint) setJobId(null); // the return moved on: the old file is not this return's
-  }, [fingerprint, jobId, madeFor]);
+/** The file being made or last made on this screen, and the build of the return it was made from. */
+export type ExportJob = { id: string; madeFor: string } | null;
 
+/**
+ * Make the GSTR-1 file (R1-M8 S6; mocks v16 "File and lock"). The button is off, with the reason beside it, while the
+ * server's gate says no; once pressed the file is made in the background and this box asks until it is done. Nothing
+ * here says "ready to upload" unless the server says the file is. The page holds the job, so the step strip above can
+ * show that a file was made and a tab switch does not lose it.
+ */
+export function ExportPanel({ businessId, instanceId, gate, fingerprint, job, onJob, guideHref }: { businessId: string; instanceId: string; gate: ReturnDetail["export"]; fingerprint: string; job: ExportJob; onJob: (job: ExportJob) => void; guideHref: string }) {
+  const start = useStartExport(businessId, instanceId);
+  const status = useExportStatus(businessId, instanceId, job?.id ?? null);
   const s = status.data;
   const busy = start.isPending || s?.status === "preparing";
   return (
-    <section className="card" aria-labelledby="file">
+    <section className="dl" aria-labelledby="file">
       <h2 id="file">Your GSTR-1 file</h2>
-      <PlanNotice businessId={businessId} />
       {!gate.ready && (
         <div className="stack">
           {gate.reasons.map((r) => (
@@ -82,29 +80,30 @@ export function ExportPanel({ businessId, instanceId, gate, fingerprint, periodL
               {r.message}
             </Banner>
           ))}
-          {gate.to_accept > 0 && <p>{gate.to_accept === 1 ? "1 warning still needs" : `${gate.to_accept} warnings still need`} you to accept {gate.to_accept === 1 ? "it" : "them"} as shown. Open the check above and choose “Accept as shown”.</p>}
+          {gate.to_accept > 0 && <p>{gate.to_accept === 1 ? "1 warning still needs" : `${gate.to_accept} warnings still need`} you to accept {gate.to_accept === 1 ? "it" : "them"} as shown. Open the check on Checks and totals and choose “Accept as shown”.</p>}
         </div>
       )}
-      {gate.ready && !s && <p>The checks are done. Make the file for the GST portal from this return as it is now.</p>}
-      <Button
-        busy={busy}
-        disabled={!gate.ready}
-        onClick={() =>
-          start.mutate(undefined, {
-            onSuccess: (r) => {
-              setJobId(r.job_id);
-              setMadeFor(fingerprint);
-            },
-          })
-        }
-      >
-        {busy ? "Making your file…" : s?.status === "ready" ? "Make the file again" : "Make my GSTR-1 file"}
-      </Button>
+      {gate.ready && !s && <p>The checks are done. Make the file for the GST portal from this return as it is now. We prepare it; we don't file it for you.</p>}
+      {s?.status === "ready" && <FileResult file={s} title={`Your file (version ${s.version})`} />}
+      {s?.status === "ready" && (
+        <p>
+          You upload it on the GST portal yourself and file it there. <Link to={guideHref}>Open the upload guide</Link>
+        </p>
+      )}
+      <div className="row">
+        <Button
+          variant={s?.status === "ready" ? "secondary" : "primary"}
+          busy={busy}
+          disabled={!gate.ready}
+          onClick={() => start.mutate(undefined, { onSuccess: (r) => onJob({ id: r.job_id, madeFor: fingerprint }) })}
+        >
+          {busy ? "Making your file…" : s?.status === "ready" ? "Make the file again" : "Make my GSTR-1 file"}
+        </Button>
+      </div>
       {start.isError && <Banner tone="error">{errorText(start.error)}</Banner>}
       {status.isError && <Banner tone="error">We couldn't check on your file. {errorText(status.error)}</Banner>}
       {s?.status === "failed" && <Banner tone="error">{FAILED[s.error_code ?? ""] ?? "We couldn't make the file. Try again, or contact support."}</Banner>}
-      {s?.status === "ready" && <FileResult file={s} title={`Your file (version ${s.version})`} />}
-      {s?.status === "ready" && <PortalGuide periodLabel={periodLabel} readyToUpload={s.ready_to_upload} />}
+      <PlanNotice businessId={businessId} />
     </section>
   );
 }

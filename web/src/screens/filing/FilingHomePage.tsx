@@ -1,7 +1,8 @@
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { errorText } from "../../api/errors";
-import { formatDate, previousFy } from "../../format/dates";
+import { formatDate, previousFy, todayIst } from "../../format/dates";
 import { canPrepareReturns, canViewReturns, canViewUploads } from "../../auth/roles";
 import { useMyBusinesses } from "../../auth/useMyBusinesses";
 import { Banner } from "../../kit/Banner";
@@ -10,6 +11,9 @@ import { TopBar } from "../../kit/TopBar";
 import { useChannels } from "../uploads/useChannels";
 import { useReturns, type ReturnRow } from "./returns";
 import { NoAccess } from "../../kit/NoAccess";
+import { Pager } from "../../kit/Pager";
+import { useReturnLinks } from "../../kit/useReturnLinks";
+import { Code, LedgerHead, Panel } from "./ledger";
 
 const PLATFORMS: [string, string][] = [
   ["amazon", "Amazon"],
@@ -37,7 +41,8 @@ function DueDate({ row }: { row: ReturnRow }) {
   if (row.due_date && row.due_date_confirmed) {
     return (
       <>
-        {formatDate(row.due_date)} <span className="chip chip-info">Confirmed on GST portal</span>
+        <span className="num">{formatDate(row.due_date)}</span>
+        <div className="sub2">Confirmed on GST portal</div>
       </>
     );
   }
@@ -45,7 +50,7 @@ function DueDate({ row }: { row: ReturnRow }) {
     <>
       <span className="hint">{row.due_date ? "Check on the GST portal" : "No date available. Check on the GST portal."}</span>
       {row.due_date_source_url && /^https:\/\//.test(row.due_date_source_url) && (
-        <div className="hint">
+        <div className="sub2">
           <a href={row.due_date_source_url} target="_blank" rel="noreferrer noopener">
             Where this date comes from
           </a>
@@ -55,10 +60,21 @@ function DueDate({ row }: { row: ReturnRow }) {
   );
 }
 
+/** Deadlines a page at a time (mocks v16 one-screen rule): four rows, so a month's GSTR-1 and GSTR-3B stay on one page. */
+const PAGE = 4;
+
+/** The page to open on: the one with the next open return whose period has ended or is running now. */
+function startPage(rows: ReturnRow[], today: string): number {
+  const open = (r: ReturnRow) => r.status === "open" || r.status === "unlocked";
+  let i = rows.findIndex((r) => open(r) && r.period_start <= today && r.period_end >= today);
+  if (i < 0) i = rows.findIndex((r) => open(r) && r.period_end < today);
+  if (i < 0) i = rows.findIndex(open);
+  return i < 0 ? 0 : Math.floor(i / PAGE);
+}
+
 /**
- * /b/:id/filing (R1-M2). The periods, due dates and statuses are the server's; this screen
- * keeps its order, shows the GSTR-1 and GSTR-3B rows only, and offers no filing action yet
- * (the upload screens come in R1-M3).
+ * /b/:id/filing (R1-M2; mocks v16 "Your GST filing"). The periods, due dates and statuses are the
+ * server's; this screen keeps its order and shows the GSTR-1 and GSTR-3B rows only, a page at a time.
  */
 export function FilingHomePage() {
   const { businessId = "" } = useParams();
@@ -72,6 +88,8 @@ export function FilingHomePage() {
     now.data ? previousFy(now.data.fy) : undefined,
     may && now.isSuccess && now.data.filing_frequency !== null,
   );
+  const links = useReturnLinks(businessId, may);
+  const [page, setPage] = useState<number | null>(null);
 
   const channels = useChannels(businessId, Boolean(business) && business?.role !== "support");
 
@@ -92,110 +110,139 @@ export function FilingHomePage() {
     ...(now.data?.returns ?? []),
   ].filter((r) => r.form in FORMS);
   const frequency = now.data?.filing_frequency;
+  const today = todayIst();
+  const at = Math.min(page ?? startPage(rows, today), Math.max(0, Math.ceil(rows.length / PAGE) - 1));
+  const shown = rows.slice(at * PAGE, at * PAGE + PAGE);
+  const prepare = canPrepareReturns(business.role);
+  const href = (r: ReturnRow) => (r.form === "GSTR1" ? `/b/${businessId}/filing/${r.instance_id}` : `/b/${businessId}/filing/${r.instance_id}/worksheet`);
+  // One blue button on the screen: the GSTR-1 to work on next. Every other row has a plain one.
+  const next = (r: ReturnRow) => r.instance_id === links.gstr1Id;
 
   return (
     <>
       <TopBar title={business.display_name} gstin={business.gstin} />
-      <main className="page page-wide">
-        <p className="step">
-          <Link to={`/b/${businessId}/home`}>Home</Link>
-        </p>
-        <h1>Your GST filing</h1>
-        {frequency && <p className="hint">{frequency === "quarterly" ? "Quarterly (QRMP)" : "Monthly"} filer.</p>}
-        <Banner>We prepare your files and a step-by-step guide. You file on the GST portal yourself.</Banner>
+      <main className="page page-wide ledger">
+        <LedgerHead
+          trail={<span>GST filing</span>}
+          title="Your GST filing"
+          lead="We prepare your files and a step-by-step guide. You file on the GST portal yourself."
+          actions={
+            !notSet && (
+              <Link className="btn btn-secondary" to={`/b/${businessId}/settings`}>
+                Change how often you file
+              </Link>
+            )
+          }
+        />
         {now.isPending && business && <p aria-busy="true">Loading…</p>}
         {notSet && (
-          <section className="card">
-            <p>You haven't chosen how often you file yet.</p>
-            <p>
-              <Link to={`/b/${businessId}/settings`}>Choose your filing frequency</Link>
-            </p>
-          </section>
+          <Panel title="How often you file">
+            <div className="pad">
+              <p>You haven't chosen how often you file yet.</p>
+              <Link className="btn btn-primary" to={`/b/${businessId}/settings`}>
+                Choose your filing frequency
+              </Link>
+            </div>
+          </Panel>
         )}
         {now.isError && <Banner tone="error">We couldn't load your deadlines. {errorText(now.error)}</Banner>}
         {now.isSuccess && !notSet && (
-          <section className="card" aria-labelledby="deadlines">
-            <h2 id="deadlines">Deadlines</h2>
+          <Panel title="Deadlines" aside={frequency && <span className="hint">{frequency === "quarterly" ? "Quarterly (QRMP) filer." : "Monthly filer."}</span>}>
             {rows.length === 0 ? (
-              <p>No returns to show yet.</p>
+              <p className="pad">No returns to show yet.</p>
             ) : (
-              <table className="products deadlines">
-                <thead>
-                  <tr>
-                    <th scope="col">Period</th>
-                    <th scope="col">Return</th>
-                    <th scope="col">Due date</th>
-                    <th scope="col">Status</th>
-                    {canPrepareReturns(business.role) && <th scope="col">Action</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((r) => (
-                    <tr key={r.instance_id}>
-                      <td>
-                        <b>{r.period_label}</b>
-                        <div className="hint">
-                          {formatDate(r.period_start)} to {formatDate(r.period_end)}
-                        </div>
-                      </td>
-                      <td>{FORMS[r.form]}</td>
-                      <td>
-                        <DueDate row={r} />
-                      </td>
-                      <td>
-                        <span className={`chip ${TONE[r.status] ?? ""}`.trim()}>{STATUS[r.status] ?? r.status}</span>
-                      </td>
-                      {canPrepareReturns(business.role) && (
-                        <td>
-                          {r.form === "GSTR1" && (
-                            <Link className="btn btn-secondary" to={`/b/${businessId}/filing/${r.instance_id}`}>
-                              Review the draft
-                            </Link>
-                          )}
-                          {r.form === "GSTR3B" && (
-                            <Link className="btn btn-secondary" to={`/b/${businessId}/filing/${r.instance_id}/worksheet`}>
-                              Open the worksheet
-                            </Link>
-                          )}
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <>
+                <div className="tablewrap">
+                  <table className="lt deadlines">
+                    <thead>
+                      <tr>
+                        <th scope="col">Period</th>
+                        <th scope="col">Return</th>
+                        <th scope="col">Due date</th>
+                        <th scope="col">Status</th>
+                        {prepare && (
+                          <th scope="col" className="r">
+                            <span className="visually-hidden">Action</span>
+                          </th>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {shown.map((r) => {
+                        const late = (r.status === "open" || r.status === "unlocked") && r.period_end < today;
+                        return (
+                          <tr key={r.instance_id}>
+                            <td className="nowrap">
+                              {r.period_label}
+                              {/* A quarter says which months it covers; a month's name says it already. */}
+                              {r.period_start.slice(0, 7) !== r.period_end.slice(0, 7) && (
+                                <div className="sub2 num">
+                                  {formatDate(r.period_start)} to {formatDate(r.period_end)}
+                                </div>
+                              )}
+                            </td>
+                            <td className="nowrap">
+                              {FORMS[r.form]}
+                              <Code>{r.form === "GSTR1" ? "Outward sales" : "Summary and tax"}</Code>
+                            </td>
+                            <td>
+                              <DueDate row={r} />
+                            </td>
+                            <td>
+                              <span className={`chip ${r.status === "open" ? (late ? "chip-warn" : "") : (TONE[r.status] ?? "")}`.trim()}>{STATUS[r.status] ?? r.status}</span>
+                              {r.status === "filed_locked" && r.arn && <div className="sub2 num">ARN {r.arn}</div>}
+                            </td>
+                            {prepare && (
+                              <td className="r">
+                                <Link className={`btn btn-sm ${next(r) ? "btn-primary" : "btn-secondary"}`} to={href(r)} aria-label={`${r.form === "GSTR1" ? (r.status === "filed_locked" ? "View GSTR-1" : "Open GSTR-1") : "Open the GSTR-3B worksheet"} for ${r.period_label}`}>
+                                  {r.form === "GSTR1" ? (r.status === "filed_locked" ? "View" : "Open") : "Worksheet"}
+                                </Link>
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                {rows.length > PAGE && <Pager page={at} size={PAGE} shown={shown.length} total={rows.length} noun="returns" onPage={setPage} />}
+              </>
             )}
-            <p>
-              <Link to={`/b/${businessId}/settings`}>Change how often you file</Link>
-            </p>
-          </section>
+          </Panel>
         )}
-        {now.isSuccess && !notSet && business.role !== "support" && (
-          <section className="card" aria-labelledby="add">
-            <h2 id="add">What you can add</h2>
-            <div className="grid2">
-              <div>
-                <div className="label">Platforms</div>
-                <p>
-                  {channels.data
-                    ? PLATFORMS.filter(([k]) => channels.data[k as "amazon" | "flipkart" | "meesho"]).map(([, n]) => n).join(", ") || "None chosen yet"
-                    : channels.isError
-                      ? "We couldn't load this."
-                      : "…"}
-                </p>
-              </div>
-              <div>
-                <div className="label">Own sales invoices</div>
-                <p>{channels.data ? (channels.data.own_invoices ? "PDF and/or Excel" : "Not chosen") : "…"}</p>
-              </div>
-            </div>
-            {canViewUploads(business.role) && (
-              <div className="row">
-                <Link className="btn btn-primary" to={`/b/${businessId}/uploads`}>
-                  Continue to uploads
-                </Link>
-              </div>
+        {now.isSuccess && !notSet && (
+          <div className="grid2">
+            {business.role !== "support" && (
+              <Panel
+                title="What you can add"
+                aside={
+                  canViewUploads(business.role) && (
+                    <Link className="btn btn-secondary btn-sm" to={`/b/${businessId}/uploads`}>
+                      Upload your reports
+                    </Link>
+                  )
+                }
+              >
+                <div className="kv">
+                  <span>Platforms</span>
+                  <span>
+                    {channels.data
+                      ? PLATFORMS.filter(([k]) => channels.data[k as "amazon" | "flipkart" | "meesho"]).map(([, n]) => n).join(", ") || "None chosen yet"
+                      : channels.isError
+                        ? "We couldn't load this."
+                        : "…"}
+                  </span>
+                </div>
+                <div className="kv">
+                  <span>Own sales invoices</span>
+                  <span>{channels.data ? (channels.data.own_invoices ? "PDF and/or Excel" : "Not chosen") : "…"}</span>
+                </div>
+              </Panel>
             )}
-          </section>
+            <Panel title="Due dates">
+              <p className="pad hint">Dates come from the national GST calendar. A date extended for your state shows here once it is published. If a date is missing, check on the GST portal.</p>
+            </Panel>
+          </div>
         )}
       </main>
     </>

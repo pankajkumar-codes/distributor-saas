@@ -88,10 +88,11 @@ describe("GSTR-3B worksheet", () => {
     server.reply(WS, sheet({ entries: { "t4a.other.cgst": "100.00", "t4a.other.sgst": "100.00" }, entries_seq: 3, net_itc: { igst: "0.00", cgst: "100.00", sgst: "100.00", cess: "0.00" } }));
     server.reply(`${WS}/entries`, { status: 200, body: { entries: {}, entries_seq: 4, net_itc: {} } });
     open();
-    const other = (await screen.findByText("(5) All other ITC")).closest("fieldset") as HTMLElement;
-    const central = within(other).getByLabelText("Central Tax (State/UT Tax is the same)");
+    const other = (await screen.findByText("(5) All other ITC")).closest("tr") as HTMLElement;
+    const central = within(other).getByLabelText("Central Tax (State/UT Tax is the same), (5) All other ITC");
     expect(central).toHaveValue("100.00");
-    expect(within(other).queryByLabelText("State/UT Tax")).toBeNull();
+    expect(within(other).queryByLabelText(/^State\/UT Tax/)).toBeNull();
+    expect(within(other).getByText("Same as Central")).toBeInTheDocument();
     fireEvent.change(central, { target: { value: "250.50" } });
     fireEvent.click(screen.getByRole("button", { name: "Save what I entered" }));
     await waitFor(() => expect(sentTo(`${WS}/entries`, "PUT")).toHaveLength(1));
@@ -103,18 +104,19 @@ describe("GSTR-3B worksheet", () => {
     server.reply(WS, sheet({ entries: { "t4a.other.cgst": "100.00", "t4a.other.sgst": "100.00" }, entries_seq: 3 }), sheet({ entries: { "t4a.other.cgst": "999.00", "t4a.other.sgst": "999.00" }, entries_seq: 4 }));
     server.reply(`${WS}/entries`, { status: 409, body: { error: { code: "worksheet_changed", message: "Changed." } } }, { status: 409, body: { error: { code: "worksheet_changed", message: "Changed." } } });
     open();
-    const other = (await screen.findByText("(5) All other ITC")).closest("fieldset") as HTMLElement;
-    fireEvent.change(within(other).getByLabelText("Central Tax (State/UT Tax is the same)"), { target: { value: "250.50" } });
+    const other = (await screen.findByText("(5) All other ITC")).closest("tr") as HTMLElement;
+    const box = "Central Tax (State/UT Tax is the same), (5) All other ITC";
+    fireEvent.change(within(other).getByLabelText(box), { target: { value: "250.50" } });
     fireEvent.click(screen.getByRole("button", { name: "Save what I entered" }));
     expect(await screen.findByText(/Someone else saved this worksheet while you were typing/)).toBeInTheDocument();
     await waitFor(() => expect(sentTo(WS, "GET")).toHaveLength(2)); // the refetch has happened
-    expect(within(other).getByLabelText("Central Tax (State/UT Tax is the same)")).toHaveValue("250.50"); // not replaced
+    expect(within(other).getByLabelText(box)).toHaveValue("250.50"); // not replaced
     expect(screen.getByText(/Someone else saved this worksheet/)).toBeInTheDocument(); // not cleared by the refetch
     fireEvent.click(screen.getByRole("button", { name: "Save what I entered" }));
     await waitFor(() => expect(sentTo(`${WS}/entries`, "PUT")).toHaveLength(2));
     expect(sentTo(`${WS}/entries`, "PUT")[1].body).toEqual({ entries: { "t4a.other.cgst": "250.50" }, based_on_seq: 3 }); // still the old save
     fireEvent.click(await screen.findByRole("button", { name: "Show what was saved instead" }));
-    expect(within(other).getByLabelText("Central Tax (State/UT Tax is the same)")).toHaveValue("999.00");
+    expect(within(other).getByLabelText(box)).toHaveValue("999.00");
     expect(screen.queryByText(/Someone else saved this worksheet/)).toBeNull();
   });
 
@@ -134,7 +136,7 @@ describe("GSTR-3B worksheet", () => {
     server.reply(`${WS}/pdf/job-1`, { status: 200, body: { status: "queued" } }, { status: 200, body: { status: "ready", url: "https://files.example/w.pdf" } });
     open();
     expect(await screen.findByRole("link", { name: "How to enter this on the GST portal" })).toHaveAttribute("href", `/b/b-1/filing/${INST}/portal-guide-3b`);
-    fireEvent.click(screen.getByRole("button", { name: "Make a PDF" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Make a PDF" }));
     expect(await screen.findByRole("button", { name: "Making the PDF…" })).toBeDisabled();
     expect(await screen.findByRole("link", { name: "Download the PDF" }, { timeout: 4000 })).toHaveAttribute("href", "https://files.example/w.pdf");
   });
@@ -179,14 +181,50 @@ describe("GSTR-3B worksheet", () => {
     expect(screen.queryByRole("button", { name: "Make a PDF" })).toBeNull();
   });
 
+  it("keeps the boxes of every tab when the person moves between tabs, and saves them all at once", async () => {
+    server.reply(WS, sheet({ entries_seq: 1 }));
+    server.reply(`${WS}/entries`, { status: 200, body: { entries: {}, entries_seq: 2, net_itc: {} } });
+    open();
+    fireEvent.click(await screen.findByRole("tab", { name: "4(A) Credit" }));
+    fireEvent.change(screen.getByLabelText("Integrated Tax, (5) All other ITC"), { target: { value: "21600.00" } });
+    fireEvent.click(screen.getByRole("tab", { name: "5 Exempt and interest" }));
+    expect(screen.getByLabelText("Integrated Tax, (5) All other ITC")).not.toBeVisible(); // hidden with its tab, still holding what was typed
+    fireEvent.change(screen.getByLabelText("Integrated Tax, Interest"), { target: { value: "12.00" } });
+    fireEvent.click(screen.getByRole("tab", { name: "4(A) Credit" }));
+    expect(screen.getByLabelText("Integrated Tax, (5) All other ITC")).toHaveValue("21600.00");
+    fireEvent.click(screen.getByRole("button", { name: "Save what I entered" }));
+    await waitFor(() => expect(sentTo(`${WS}/entries`, "PUT")).toHaveLength(1));
+    expect(sentTo(`${WS}/entries`, "PUT")[0].body).toEqual({ entries: { "t4a.other.igst": "21600.00", "t5_1.interest.igst": "12.00" }, based_on_seq: 1 });
+  });
+
   it("puts the server's words under the box it names", async () => {
     server.reply(WS, sheet());
     server.reply(`${WS}/entries`, { status: 422, body: { error: { code: "entry_invalid", message: "x", field: "t4b.rev_other.igst", fix: "An amount cannot be negative." } } });
     open();
-    const rev = (await screen.findByText("(2) Others", { selector: "legend" })).closest("fieldset") as HTMLElement;
-    fireEvent.change(within(rev).getByLabelText("Integrated Tax"), { target: { value: "-5" } });
+    const rev = (await screen.findByText("(2) Others")).closest("tr") as HTMLElement;
+    const box = within(rev).getByLabelText("Integrated Tax, (2) Others");
+    fireEvent.change(box, { target: { value: "-5" } });
     fireEvent.click(screen.getByRole("button", { name: "Save what I entered" }));
     expect((await within(rev).findAllByText("An amount cannot be negative.")).length).toBeGreaterThan(0);
+    expect(box).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("opens the tab that holds a refused box and names it, when the save is made from another tab", async () => {
+    server.reply(WS, sheet());
+    server.reply(`${WS}/entries`, { status: 422, body: { error: { code: "entry_invalid", message: "x", field: "t4a.other.igst", fix: "An amount cannot be negative." } } });
+    open();
+    fireEvent.click(await screen.findByRole("tab", { name: "4(A) Credit" }));
+    const box = screen.getByLabelText("Integrated Tax, (5) All other ITC");
+    fireEvent.change(box, { target: { value: "-5" } });
+    fireEvent.click(screen.getByRole("tab", { name: "3.1 Outward" }));
+    expect(box).not.toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Save what I entered" }));
+    await waitFor(() => expect(screen.getByRole("tab", { name: "4(A) Credit" })).toHaveAttribute("aria-selected", "true"));
+    expect(box).toBeVisible();
+    expect(box).toHaveAttribute("aria-invalid", "true");
+    const row = box.closest("tr") as HTMLElement;
+    expect(within(row).getAllByText("An amount cannot be negative.").length).toBeGreaterThan(0);
+    expect(screen.getByText(/Some amounts need a change in 4\(A\) Credit/)).toBeInTheDocument();
   });
 
   it("is a not-found page for billing, which the server refuses", async () => {

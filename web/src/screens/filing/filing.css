@@ -1,0 +1,154 @@
+/* GST filing screens in the Ledger look (mocks v16, #399). Every rule sits under .ledger, the class on these
+   screens' <main>, so nothing here changes another screen. Each screen fits one laptop screen: long pages use
+   tabs (kit/Tabs) and lists use pages (kit/Pager). */
+.ledger { --row-pad: 7px 16px; }
+.ledger .eyebrow { font-size: 13px; color: var(--muted); margin: 0 0 4px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ledger .eyebrow a { color: var(--muted); }
+.ledger .head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+.ledger .head h1 { margin: 0; }
+.ledger .head .actions-r { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.ledger .lead { color: var(--muted); font-size: 14px; margin: 4px 0 0; max-width: 120ch; }
+.ledger .code { font-family: var(--mono); font-size: 11px; color: var(--faint); border: 1px solid var(--line); border-radius: 3px; padding: 0 5px; margin-left: 6px; white-space: nowrap; font-weight: 400; }
+.ledger .panel { margin-top: 12px; overflow: hidden; }
+.ledger .panel-h h2 { font-size: 15px; font-weight: 600; }
+.ledger .panel > .banner { margin: 10px 16px; }
+.ledger .banner { margin: 10px 0 0; padding: 8px 14px; }
+.ledger .grid2 { gap: 14px; align-items: start; }
+.ledger .grid2 > .panel { margin-top: 12px; }
+.ledger .kv { display: flex; justify-content: space-between; gap: 12px; padding: var(--row-pad); border-bottom: 1px solid var(--line); font-size: 14px; flex-wrap: nowrap; }
+.ledger .kv:last-child { border-bottom: 0; }
+.ledger .kv > span:first-child { color: var(--muted); }
+.ledger .kv.total { font-weight: 600; }
+.ledger .kv.total > span:first-child { color: var(--ink); }
+/* Hints keep the filing spacing: the shared laptop-density rule (.top ~ .page .hint) is for forms, not these panels. */
+.top ~ .ledger .hint, .ledger .hint { margin: 4px 0; }
+.ledger .pad > .hint:first-child { margin-top: 0; }
+.ledger .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.ledger table.lt { width: 100%; border-collapse: collapse; font-size: 14px; }
+.ledger table.lt th { text-align: left; font-size: 12px; font-weight: 500; color: var(--muted); padding: var(--row-pad); border-bottom: 1px solid var(--line); white-space: nowrap; background: var(--sunk); }
+.ledger table.lt td { text-align: left; padding: var(--row-pad); border-bottom: 1px solid var(--line); vertical-align: middle; }
+.ledger table.lt tr:last-child td { border-bottom: 0; }
+.ledger table.lt .r { text-align: right; }
+.ledger table.lt.dense { font-size: 13px; }
+.ledger table.lt.dense th, .ledger table.lt.dense td { padding: 6px 10px; white-space: nowrap; }
+.ledger table.lt input:not([type="checkbox"]), .ledger table.lt select { height: 32px; padding: 0 8px; border: 1px solid var(--control); border-radius: var(--r-sm); background: var(--surface); width: 8.5em; max-width: 100%; }
+.ledger table.lt input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); }
+.ledger .tablewrap { overflow-x: auto; }
+
+/* A check: round mark, words, action on the right (mock .issue). */
+.ledger .issue { display: flex; gap: 12px; align-items: flex-start; padding: 9px 16px; border-bottom: 1px solid var(--line); }
+.ledger .issue:last-child { border-bottom: 0; }
+.ledger .issue .ic { width: 22px; height: 22px; border-radius: 50%; background: var(--warn-soft); color: var(--warn); display: grid; place-items: center; font-size: 13px; font-weight: 600; flex: none; margin-top: 1px; }
+.ledger .issue.bad .ic { background: var(--bad-soft); color: var(--bad); }
+.ledger .issue.fixed .ic, .ledger .issue.ok .ic { background: var(--ok-soft); color: var(--ok); }
+.ledger .issue .tx { flex: 1; min-width: 0; }
+.ledger .issue .tx > b { font-weight: 500; display: block; }
+.ledger .issue .tx > span { font-size: 13px; color: var(--muted); }
+.ledger details.issue > summary { list-style: none; cursor: pointer; display: flex; gap: 12px; align-items: flex-start; width: 100%; }
+.ledger details.issue { display: block; }
+.ledger details.issue > summary::-webkit-details-marker { display: none; }
+.ledger details.issue > summary .more { font-size: 13px; color: var(--accent); white-space: nowrap; }
+.ledger details.issue[open] > summary .more::after { content: " ▴"; }
+.ledger details.issue:not([open]) > summary .more::after { content: " ▾"; }
+.ledger .issue-body { padding: 6px 0 2px 34px; }
+.ledger .issue-body ul { margin: 0 0 6px; padding-left: 18px; font-size: 13px; max-height: 128px; overflow-y: auto; }
+.ledger .issue-body .field { margin-bottom: 8px; }
+.ledger .issue-body .field input { height: 36px; }
+
+/* The five steps of a return (mock .steps); each one opens its tab. */
+.ledger .flow { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin-top: 10px; border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; list-style: none; padding: 0; }
+.ledger .flow li { border-right: 1px solid var(--line); min-width: 0; }
+.ledger .flow li:last-child { border-right: 0; }
+.ledger .flow button { width: 100%; height: 100%; text-align: left; background: none; border: 0; padding: 6px 12px; font-size: 13px; color: var(--muted); cursor: pointer; }
+.ledger .flow button:hover { background: var(--sunk); }
+.ledger .flow b { display: block; color: var(--ink); font-weight: 500; font-size: 14px; margin-top: 2px; }
+.ledger .flow .n { font-family: var(--mono); font-size: 12px; }
+.ledger .flow .done { background: var(--sunk); }
+.ledger .flow .done .n { color: var(--ok); }
+.ledger .flow .cur { box-shadow: inset 0 2px 0 var(--accent); }
+.ledger .flow .cur .n { color: var(--accent); }
+
+/* The file box (mock .dl): ink border, the one primary action. */
+.ledger .dl { border: 1px solid var(--ink); border-radius: var(--r-lg); padding: 14px 18px; margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+.ledger .dl h2 { margin: 0; font-size: 16px; }
+.ledger .dl p { margin: 0; color: var(--muted); font-size: 14px; }
+.ledger .dl ul { margin: 0; padding-left: 18px; font-size: 14px; }
+.ledger .dl .banner { margin: 0; }
+
+/* Numbered guide steps (mock .path). */
+.ledger ol.path { list-style: none; margin: 0; padding: 2px 16px; }
+.ledger ol.path li { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 10px; align-items: start; padding: 7px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.ledger ol.path li:first-child { border-top: 0; }
+.ledger ol.path .d { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--line2); display: grid; place-items: center; font-size: 11px; font-family: var(--mono); margin-top: 1px; }
+.ledger ol.path .sub2 { display: block; }
+
+.ledger .filters { display: flex; gap: 6px; margin: 12px 0 0; flex-wrap: wrap; }
+.ledger .fchip { display: inline-flex; align-items: center; min-height: 30px; padding: 0 12px; border: 1px solid var(--line); border-radius: 15px; background: none; font-size: 13px; cursor: pointer; color: var(--ink); text-decoration: none; }
+.ledger .fchip[aria-current="page"], .ledger .fchip[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+.ledger .toolbar { display: flex; gap: 10px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+.ledger .bar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 10px 0 0; margin-top: 12px; border-top: 1px solid var(--line); }
+.ledger .bar .hint { flex: 1; min-width: 220px; margin: 0; }
+.ledger .f2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+.ledger .cardgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; align-items: start; }
+.ledger .ltabpanel { padding-top: 0; }
+.ledger .ltabs { margin-top: 10px; }
+.ledger .stack { gap: 8px; }
+
+@media (max-width: 760px) {
+  .ledger .flow { grid-template-columns: 1fr; }
+  .ledger .flow li { border-right: 0; border-bottom: 1px solid var(--line); }
+  .ledger .grid2, .ledger .cardgrid, .ledger .f2 { grid-template-columns: minmax(0, 1fr); }
+  .ledger .kv { flex-wrap: wrap; }
+}
+.ledger .panel .stack { gap: 0; }
+.ledger .panel .stack > .banner { margin: 8px 16px 0; width: auto; }
+.ledger .panel .error { margin: 2px 0 0; }
+.ledger .bar.pad { margin-top: 0; padding: 10px 16px; }
+/* GSTR-3B worksheet: the portal's rows as a grid of boxes. */
+.ledger table.ws th.rowname { font-weight: 400; color: var(--ink); white-space: normal; min-width: 16em; max-width: 30em; background: none; font-size: 13px; }
+.ledger table.ws tr.grp th { background: var(--sunk); color: var(--ink); font-weight: 600; white-space: normal; }
+.ledger table.ws td input { width: 7.5em; text-align: right; }
+.ledger table.ws td .error { font-size: 12px; white-space: normal; max-width: 12em; margin-left: auto; }
+.ledger .ws-itc { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+.ledger .bar .banner { margin: 0; }
+@media (max-width: 760px) { .ledger .ws-itc { grid-template-columns: minmax(0, 1fr); } }
+.ledger .btn-sm, .ledger .btn-secondary.btn-sm { min-height: 32px; padding: 0 12px; font-size: 13px; }
+.ledger td.r .btn-link { min-height: 0; }
+.ledger .issue .chips { margin-top: 2px; }
+.ledger .checks-grid { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+.ledger table.ws tfoot th, .ledger table.ws tfoot td { border-top: 1px solid var(--line); background: var(--sunk); font-weight: 600; }
+@media (max-width: 760px) { .ledger .checks-grid { grid-template-columns: minmax(0, 1fr); } }
+.ledger .issue .tx { display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: center; }
+.ledger .issue .tx > b { display: inline; }
+.ledger .issue .chips { margin-top: 0; }
+.ledger table.ws th.rowname { width: 42%; }
+.ledger table.ws td input { width: 7em; }
+.ledger ol.path li { padding: 6px 0; }
+main.ledger .head h1 { margin: 0; }
+.ledger .flow button { padding: 7px 12px; }
+.ledger .flow b { display: inline; margin: 0 0 0 6px; }
+.ledger .flow .t { display: block; font-size: 12px; }
+.ledger td.nowrap { white-space: nowrap; }
+.ledger table.t13 td input:not([type="checkbox"]) { width: 5.5em; }
+.ledger table.t13 td:first-child { white-space: normal; min-width: 14em; }
+.ledger .caflags > summary { cursor: pointer; list-style: none; }
+.ledger .caflags > summary::-webkit-details-marker { display: none; }
+.ledger .caflags .more { color: var(--accent); text-decoration: underline; white-space: nowrap; }
+.ledger .caflags[open] .more { display: none; }
+.ledger .caflags ul { margin: 6px 0 0; padding-left: 18px; max-height: 120px; overflow-y: auto; }
+.ledger .tablewrap { position: relative; } /* keeps a visually hidden header inside the scroll box, so a phone page never widens */
+/* Phone: each deadline is a small card (period and status on top, return and due date under, the button full width). */
+@media (max-width: 760px) {
+  .ledger table.lt.deadlines thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .ledger table.lt.deadlines, .ledger table.lt.deadlines tbody { display: block; }
+  .ledger table.lt.deadlines tr { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+  .ledger table.lt.deadlines tr:last-child { border-bottom: 0; }
+  .ledger table.lt.deadlines td { display: block; padding: 0; border: 0; white-space: normal; text-align: left; }
+  .ledger table.lt.deadlines td:nth-child(1) { grid-column: 1; grid-row: 1; font-weight: 600; }
+  .ledger table.lt.deadlines td:nth-child(4) { grid-column: 2; grid-row: 1; justify-self: end; text-align: right; }
+  .ledger table.lt.deadlines td:nth-child(2) { grid-column: 1 / -1; grid-row: 2; }
+  .ledger table.lt.deadlines td:nth-child(3) { grid-column: 1 / -1; grid-row: 3; }
+  .ledger table.lt.deadlines td:nth-child(5) { grid-column: 1 / -1; grid-row: 4; margin-top: 4px; }
+  .ledger table.lt.deadlines td:nth-child(5) .btn { width: 100%; min-height: 44px; }
+  .ledger .head .actions-r { width: 100%; }
+}
