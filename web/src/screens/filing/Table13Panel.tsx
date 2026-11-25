@@ -3,6 +3,7 @@ import { useState } from "react";
 import { errorText } from "../../api/errors";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
+import { Code, Panel } from "./ledger";
 import { NATURES, problem, toBody, toDraft, useConfirmTable13, useTable13, type Draft, type Table13 } from "./table13";
 
 const SOURCE: Record<string, string> = { own_live: "Your invoices here", uploaded_own: "Your uploaded invoices", marketplace: "Marketplace", manual: "Added by you" };
@@ -23,10 +24,10 @@ function Rows({ businessId, instanceId, data }: { businessId: string; instanceId
     <div className="stack">
       {data.stale && <Banner tone="error">The documents in this period have changed since you confirmed these rows. Check them and confirm again.</Banner>}
       {data.required && !standing && counted === 0 && <Banner tone="error">The GST portal will not let you generate the summary until at least one series below is counted. Tick a series, or add your own.</Banner>}
-      {rows.length === 0 && <p>We found no invoice series in this period. Add the series you issued, with its first and last number.</p>}
+      {rows.length === 0 && <p className="pad">We found no invoice series in this period. Add the series you issued, with its first and last number.</p>}
       {rows.length > 0 && (
         <div className="tablewrap">
-          <table className="products">
+          <table className="lt dense t13">
             <thead>
               <tr>
                 <th scope="col">Kind of document</th>
@@ -34,7 +35,7 @@ function Rows({ businessId, instanceId, data }: { businessId: string; instanceId
                 <th scope="col">To</th>
                 <th scope="col">Total issued</th>
                 <th scope="col">Cancelled</th>
-                <th scope="col">Net issued</th>
+                <th scope="col" className="r">Net issued</th>
                 <th scope="col">Count it</th>
               </tr>
             </thead>
@@ -56,9 +57,14 @@ function Rows({ businessId, instanceId, data }: { businessId: string; instanceId
                       ) : (
                         r.label
                       )}
-                      <div>
-                        <span className="chip">{SOURCE[r.source] ?? r.source}</span>
-                        {r.ca && <span className="chip chip-warn">Needs CA check</span>}
+                      <div className="sub2">
+                        {SOURCE[r.source] ?? r.source}
+                        {r.ca && (
+                          <>
+                            {" "}
+                            <span className="chip chip-warn">Needs CA check</span>
+                          </>
+                        )}
                       </div>
                       {r.missing > 0 && <p className="hint">{r.missing === 1 ? "1 number in this range is" : `${r.missing} numbers in this range are`} not in your files. Enter them as cancelled, or lower the total.</p>}
                       {problems[i] && <p className="error" role="alert">{problems[i]}</p>}
@@ -73,7 +79,7 @@ function Rows({ businessId, instanceId, data }: { businessId: string; instanceId
                     <td data-label="Cancelled">
                       <input aria-label={`Cancelled, ${name}`} inputMode="numeric" value={r.cancelled} onChange={(e) => edit(r.key, { cancelled: e.target.value })} />
                     </td>
-                    <td data-label="Net issued">{net}</td>
+                    <td data-label="Net issued" className="r num">{net}</td>
                     <td data-label="Count it">
                       <label>
                         <input type="checkbox" aria-label={`Count ${name}`} checked={r.counted} onChange={(e) => edit(r.key, { counted: e.target.checked })} /> Count
@@ -91,8 +97,10 @@ function Rows({ businessId, instanceId, data }: { businessId: string; instanceId
           </table>
         </div>
       )}
+      <div className="bar pad">
       <Button
         variant="secondary"
+        className="btn-sm"
         onClick={() => {
           setRows((rs) => [...rs, { key: next, nature: 1, from_no: "", to_no: "", total: "0", cancelled: "0", counted: true, manual: true, source: "manual", label: NATURES[0].label, missing: 0, ca: false }]);
           setNext(next + 1);
@@ -101,7 +109,6 @@ function Rows({ businessId, instanceId, data }: { businessId: string; instanceId
         Add a series
       </Button>
       <p className="hint">Marketplace series are off until you count them. Whether they belong in your own list is a question for your CA.</p>
-      {confirm.isError && <Banner tone="error">{errorText(confirm.error)}</Banner>}
       {standing ? (
         <p>
           <span className="chip chip-ok">Confirmed</span> Version {data.version}. Change a row to confirm again.
@@ -111,6 +118,8 @@ function Rows({ businessId, instanceId, data }: { businessId: string; instanceId
           Confirm these rows
         </Button>
       )}
+      </div>
+      {confirm.isError && <Banner tone="error">{errorText(confirm.error)}</Banner>}
     </div>
   );
 }
@@ -120,19 +129,25 @@ const COUNT_OK = (r: Draft) => /^\d{1,8}$/.test(r.total) && /^\d{1,8}$/.test(r.c
 /**
  * Documents issued (Table 13), the step before the GSTR-1 file. The server finds the series in the return's own invoices;
  * the person types the cancelled count, may add series by hand, and confirms. Check C-08 stays on until they do, and again
- * when the documents change after. Docs/TABLE13_SPEC.md section 5; mocks v15 have no such screen, so this follows the kit.
+ * when the documents change after. Docs/TABLE13_SPEC.md section 5; mocks v16 "Documents issued" tab of the GSTR-1 return. The
+ * page holds the query (its step strip needs it too), so the rows are asked for once.
  */
-export function Table13Panel({ businessId, instanceId }: { businessId: string; instanceId: string }) {
-  const t = useTable13(businessId, instanceId, true);
+export function Table13Panel({ businessId, instanceId, t }: { businessId: string; instanceId: string; t: ReturnType<typeof useTable13> }) {
   if (t.isPending) return <p aria-busy="true">Loading documents issued…</p>;
   if (t.isError) return <Banner tone="error">We couldn't load the documents issued. {errorText(t.error)}</Banner>;
   if (!t.data.applies) return null;
   return (
-    <section className="card" aria-labelledby="table13">
-      <h2 id="table13">Documents issued (Table 13)</h2>
-      <p className="hint">The GST portal wants the first and last number of every series of invoices and credit notes issued in this period. We found these in your invoices. Check them, then confirm.</p>
-      {!t.data.required && t.data.rows.length === 0 && <p>This return has no sales yet, so the portal does not ask for this.</p>}
+    <Panel
+      title={
+        <>
+          Documents issued <Code>Table 13</Code>
+        </>
+      }
+      aside={t.data.confirmed && !t.data.stale ? <span className="chip chip-ok">Confirmed</span> : <span className="chip chip-warn">To confirm</span>}
+    >
+      <p className="pad hint">The GST portal wants the first and last number of every series of invoices and credit notes issued in this period. We found these in your invoices. Check them, then confirm.</p>
+      {!t.data.required && t.data.rows.length === 0 && <p className="pad">This return has no sales yet, so the portal does not ask for this.</p>}
       <Rows key={`${t.data.fingerprint}-${t.data.version ?? 0}`} businessId={businessId} instanceId={instanceId} data={t.data} />
-    </section>
+    </Panel>
   );
 }

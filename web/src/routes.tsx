@@ -7,6 +7,7 @@ import { NotFound } from "./kit/NotFound";
 import { BusinessesPage } from "./screens/businesses/BusinessesPage";
 import { FilingHomePage } from "./screens/filing/FilingHomePage";
 import { Portal3bGuidePage } from "./screens/filing/Portal3bGuidePage";
+import { PortalGuidePage } from "./screens/filing/PortalGuidePage";
 import { WorksheetPage } from "./screens/filing/WorksheetPage";
 import { ReturnPage } from "./screens/filing/ReturnPage";
 import { PurchasesPage } from "./screens/purchases/PurchasesPage";
@@ -56,6 +57,7 @@ export const routes: RouteObject[] = [
   { path: "/b/:businessId/filing", element: <PageTitle title="Your GST filing"><RequireAuth><FilingHomePage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/filing/:instanceId/worksheet", element: <PageTitle title="GSTR-3B worksheet"><RequireAuth><WorksheetPage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/filing/:instanceId", element: <PageTitle title="Your return"><RequireAuth><ReturnPage /></RequireAuth></PageTitle> },
+  { path: "/b/:businessId/filing/:instanceId/portal-guide", element: <PageTitle title="Upload GSTR-1 on the GST portal"><RequireAuth><PortalGuidePage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/filing/:instanceId/portal-guide-3b", element: <PageTitle title="Enter GSTR-3B on the GST portal"><RequireAuth><Portal3bGuidePage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/uploads/crosscheck", element: <PageTitle title="Cross-check"><RequireAuth><CrosscheckPage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/uploads/runs/:runId/held", element: <PageTitle title="Held rows"><RequireAuth><HeldRowsPage /></RequireAuth></PageTitle> },

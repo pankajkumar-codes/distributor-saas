@@ -1,5 +1,5 @@
-import { render, screen, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { App } from "../../src/App";
 import { resetSessionForTests } from "../../src/auth/session";
@@ -75,12 +75,32 @@ describe("Filing home", () => {
     server.reply(NOW, ok([row({ form: "GSTR1" }), row({ form: "GSTR3B" })]), ok([]));
     open();
     await screen.findByRole("table");
-    expect(screen.getByRole("link", { name: "Review the draft" })).toHaveClass("btn");
-    expect(screen.getByRole("link", { name: "Open the worksheet" })).toHaveClass("btn");
+    expect(screen.getByRole("link", { name: "Open GSTR-1 for Oct–Dec 2026" })).toHaveClass("btn");
+    expect(screen.getByRole("link", { name: "Open the GSTR-3B worksheet for Oct–Dec 2026" })).toHaveClass("btn");
     const add = await screen.findByRole("region", { name: "What you can add" });
     expect(await within(add).findByText("Amazon, Flipkart")).toBeInTheDocument();
     expect(within(add).getByText("PDF and/or Excel")).toBeInTheDocument();
-    expect(within(add).getByRole("link", { name: "Continue to uploads" })).toHaveAttribute("href", "/b/b-1/uploads");
+    expect(within(add).getByRole("link", { name: "Upload your reports" })).toHaveAttribute("href", "/b/b-1/uploads");
+  });
+
+  it("shows four returns a page, opening on the page with the return due now, and pages back to the earlier ones", async () => {
+    const q = (n: number, start: string, end: string, status = "open") => [
+      row({ form: "GSTR1", period: `2026-Q${n}`, period_label: `Q${n} 2026`, period_start: start, period_end: end, status }),
+      row({ form: "GSTR3B", period: `2026-Q${n}`, period_label: `Q${n} 2026`, period_start: start, period_end: end, status }),
+    ];
+    const year = [...q(1, "2026-04-01", "2026-06-30", "filed_locked"), ...q(2, "2026-07-01", "2026-09-30", "filed_locked"), ...q(3, "2026-10-01", "2026-12-31"), ...q(4, "2027-01-01", "2027-03-31")];
+    server.reply(NOW, ok(year), ok([]));
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-25T06:00:00Z"));
+    onTestFinished(() => void vi.useRealTimers());
+    open();
+    const table = await screen.findByRole("table");
+    expect(within(table).getAllByRole("row")).toHaveLength(5); // the header and four returns
+    expect(within(table).getAllByText("Q3 2026")).toHaveLength(2); // today (25-Nov-2026) is in Q3
+    expect(screen.getByText("5–8 of 8 returns")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Previous" }));
+    expect(within(screen.getByRole("table")).getAllByText("Q1 2026")).toHaveLength(2);
+    expect(screen.getAllByText("Marked as filed")).toHaveLength(4);
   });
 
   it("shows no date at all when the server hasn't confirmed it, with the source link only when it is https", async () => {

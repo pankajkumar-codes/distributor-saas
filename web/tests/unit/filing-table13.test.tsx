@@ -48,7 +48,8 @@ describe("Documents issued (Table 13)", () => {
     server.reply(T13, t13(), t13({ confirmed: true, version: 1 }));
     server.reply(`PUT ${T13}`, t13({ confirmed: true, version: 1, rows: [row({ cancelled: 1 })] }));
     open();
-    expect(await screen.findByRole("heading", { name: "Documents issued (Table 13)" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Documents issued Table 13" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /Documents issued/ })).toHaveAttribute("aria-selected", "true"); // the step to do next
     expect(screen.getByText("INV/26-27/0001")).toBeInTheDocument();
     expect(screen.getByText(/1 number in this range is not in your files/)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText(/Cancelled, /), { target: { value: "1" } });
@@ -57,8 +58,8 @@ describe("Documents issued (Table 13)", () => {
     await waitFor(() => expect(server.sent.some((s) => s.method === "PUT")).toBe(true));
     const put = server.sent.find((s) => s.method === "PUT")!;
     expect(put.body).toEqual({ rows: [{ nature: 1, from_no: "INV/26-27/0001", to_no: "INV/26-27/0008", total_issued: 8, cancelled: 1, counted: true, manual: false }] });
+    await waitFor(() => expect(server.paths().filter((p) => p === DETAIL).length).toBe(2)); // the gate is read again
     expect(await screen.findByText(/Version 1/)).toBeInTheDocument();
-    expect(server.paths().filter((p) => p === DETAIL).length).toBe(2); // the gate is read again
   });
 
   it("blocks cancelled above total and an add-a-series row with bad numbers", async () => {

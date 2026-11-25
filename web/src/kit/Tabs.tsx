@@ -1,13 +1,14 @@
 import { useId, useRef, type KeyboardEvent, type ReactNode } from "react";
 
-export type Tab = { label: ReactNode; panel: ReactNode };
+export type Tab = { label: ReactNode; panel: ReactNode; key?: string };
 
 /**
  * Tabs for a long page (mocks v16 one-screen rule): only the chosen panel is drawn. The parent
  * owns which tab is open, so a page can keep it in the URL. Arrow keys, Home and End move
- * between tabs, as the ARIA tabs pattern expects.
+ * between tabs, as the ARIA tabs pattern expects. With `keepMounted`, every panel stays drawn and the others
+ * are hidden, so what a person typed or started in one tab (a form, a file being made) survives a switch.
  */
-export function Tabs({ tabs, current, onChange, label }: { tabs: Tab[]; current: number; onChange: (i: number) => void; label: string }) {
+export function Tabs({ tabs, current, onChange, label, keepMounted = false }: { tabs: Tab[]; current: number; onChange: (i: number) => void; label: string; keepMounted?: boolean }) {
   const id = useId();
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const at = Math.min(Math.max(current, 0), tabs.length - 1);
@@ -24,7 +25,7 @@ export function Tabs({ tabs, current, onChange, label }: { tabs: Tab[]; current:
       <div className="ltabs" role="tablist" aria-label={label} onKeyDown={move}>
         {tabs.map((t, i) => (
           <button
-            key={i}
+            key={t.key ?? i}
             ref={(el) => {
               refs.current[i] = el;
             }}
@@ -40,9 +41,17 @@ export function Tabs({ tabs, current, onChange, label }: { tabs: Tab[]; current:
           </button>
         ))}
       </div>
-      <div role="tabpanel" id={`${id}-p${at}`} aria-labelledby={`${id}-t${at}`} className="ltabpanel">
-        {tabs[at]?.panel}
-      </div>
+      {keepMounted ? (
+        tabs.map((t, i) => (
+          <div key={t.key ?? i} role="tabpanel" id={`${id}-p${i}`} aria-labelledby={`${id}-t${i}`} className="ltabpanel" hidden={i !== at}>
+            {t.panel}
+          </div>
+        ))
+      ) : (
+        <div role="tabpanel" id={`${id}-p${at}`} aria-labelledby={`${id}-t${at}`} className="ltabpanel">
+          {tabs[at]?.panel}
+        </div>
+      )}
     </>
   );
 }
