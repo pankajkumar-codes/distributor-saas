@@ -31,7 +31,9 @@ from . import checks
 from .rates import RateRow, check_rate, live, parse_rate, rate_on
 
 TEMPLATE = ("code", "name", "hsn", "unit", "sale_rate", "gst_rate", "gst_rate_valid_from", "barcode",
-            "tax_category", "has_cess")
+            "tax_category", "has_cess", "mrp")
+# mrp (#398) is optional and kept when absent: a file made from the template before MRP
+# existed changes no product's MRP. With the column, a blank cell clears it.
 REQUIRED = ("code", "name", "unit", "sale_rate", "gst_rate", "gst_rate_valid_from", "tax_category")
 _YES, _NO = ("yes", "y", "true", "1"), ("", "no", "n", "false", "0")
 _DATE_FORMATS = ("%d-%m-%Y", "%Y-%m-%d")
@@ -251,6 +253,8 @@ def _check_row(uow: UnitOfWork, row: _Row, today: date) -> None:
     fields["uqc"] = take("unit", lambda v: checks.uqc(tx, v, today))
     fields["sale_rate"] = take("sale_rate", checks.sale_rate)
     fields["barcode"] = take("barcode", checks.barcode)
+    if "mrp" in cells:  # the column is there: a blank cell clears the MRP (D-104, display only)
+        fields["mrp"] = take("mrp", checks.mrp)
     fields["tax_category"] = take("tax_category", lambda v: checks.tax_category(v.strip().lower()))
     fields["has_cess"] = take("has_cess", _flag)
     raw_rate, raw_from = cells.get("gst_rate", "").strip(), cells.get("gst_rate_valid_from", "").strip()
@@ -282,7 +286,7 @@ def _existing(uow: UnitOfWork, keys: list[str]) -> tuple[dict, dict]:
         r.code_key: r
         for r in uow.tx.execute(
             text(
-                "select lower(code) as code_key, id, code, name, hsn, uqc, sale_rate, barcode, tax_category,"
+                "select lower(code) as code_key, id, code, name, hsn, uqc, sale_rate, mrp, barcode, tax_category,"
                 " has_cess, status, version from catalog.products"
                 " where business_id = :b and status <> 'deleted' and lower(code) in :keys"
             ).bindparams(bindparam("keys", expanding=True)),
@@ -610,12 +614,15 @@ def _insert_rate(uow: UnitOfWork, run_id: uuid.UUID, product_id: uuid.UUID, row)
                        **_source(run_id, row)})
 
 
-_COLUMNS = ("code", "name", "hsn", "uqc", "sale_rate", "barcode", "tax_category", "has_cess")
+_COLUMNS = ("code", "name", "hsn", "uqc", "sale_rate", "mrp", "barcode", "tax_category", "has_cess")
 
 
 def _values(parsed: dict) -> dict:
+    """A file without the mrp column leaves mrp None here; _apply_new saves a new product
+    without one, and _apply_changed only writes the fields in the row's diff."""
     out = {k: parsed.get(k) for k in _COLUMNS}
     out["sale_rate"] = Decimal(out["sale_rate"])
+    out["mrp"] = None if out["mrp"] is None else Decimal(out["mrp"])
     return out
 
 
@@ -647,9 +654,9 @@ def _apply_new(uow: UnitOfWork, run_id: uuid.UUID, row) -> str:
         with uow.tx.begin_nested():
             uow.tx.execute(
                 text(
-                    "insert into catalog.products (id, business_id, code, name, hsn, uqc, sale_rate, barcode,"
+                    "insert into catalog.products (id, business_id, code, name, hsn, uqc, sale_rate, mrp, barcode,"
                     " tax_category, has_cess, source_import_row_id, created_by, updated_by) values (:id, :b, :code,"
-                    " :name, :hsn, :uqc, :sale_rate, :barcode, :tax_category, :has_cess, :row, :me, :me)"
+                    " :name, :hsn, :uqc, :sale_rate, :mrp, :barcode, :tax_category, :has_cess, :row, :me, :me)"
                 ),
                 {"id": product_id, "b": _business(uow), "row": row.id, "me": _me(uow), **_values(row.parsed)},
             )

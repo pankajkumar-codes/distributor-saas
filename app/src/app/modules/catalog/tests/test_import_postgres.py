@@ -88,8 +88,8 @@ def test_the_template_route_serves_the_header_row(shop):
     pg, biz, _ = shop
     r = pg.client.get(f"/api/v1/b/{biz}/products/import-template", headers=as_user("alice"))
     assert r.status_code == 200 and r.headers["content-type"].startswith("text/csv")
-    assert r.text.strip() == HEADER
-    assert imp.template_csv().decode().strip() == HEADER
+    assert r.text.strip() == HEADER + ",mrp"  # mrp is optional (#398): files without it still read
+    assert imp.template_csv().decode().strip() == HEADER + ",mrp"
 
 
 def test_a_clean_file_previews_then_applies_new_products(shop):  # AC3-13, AC3-14
@@ -374,3 +374,60 @@ def test_an_import_rows_outcome_and_errors_are_set_once(shop):  # #69 review (St
     with pytest.raises(Exception, match="errors are set once"):
         run_in(shop, update("errors = '[{}]'::jsonb"))
     assert preview(shop, run.id)[0]["outcome"] == "applied"
+
+
+# --- MRP (#398, D-104): optional column, display only --------------------------------
+
+
+def mrps(shop):
+    pg, biz, _ = shop
+    with pg.owner.connect() as c:
+        return dict(c.execute(text("select code, mrp from catalog.products where business_id = :b"
+                                   " and status <> 'deleted'"), {"b": biz}).all())
+
+
+def mrp_file(*lines: str) -> bytes:
+    return ("\n".join((HEADER + ",mrp", *lines)) + "\n").encode()
+
+
+def test_the_mrp_column_sets_changes_and_clears_mrp(shop):
+    first = upload(shop, mrp_file(SOAP + ",60", OIL + ",", RICE + ",75.5"))
+    assert first.counts["new"] == 3
+    run_in(shop, lambda u: imp.apply(u, first.id, apply_changes=True, today=TODAY))
+    assert mrps(shop) == {"SOAP-1": Decimal("60.00"), "OIL-1": None, "RICE-1": Decimal("75.50")}
+
+    run = upload(shop, mrp_file(SOAP + ",60.00", OIL + ",140", RICE + ","))  # same, set, cleared
+    assert (run.counts["unchanged"], run.counts["changed"]) == (1, 2)
+    diffs = {r["parsed"]["code"]: r["diff"] for r in preview(shop, run.id, "changed")}
+    assert diffs == {"OIL-1": [{"field": "mrp", "saved": None, "file": "140"}],
+                     "RICE-1": [{"field": "mrp", "saved": "75.5", "file": None}]}
+    run_in(shop, lambda u: imp.apply(u, run.id, apply_changes=True, today=TODAY))
+    assert mrps(shop) == {"SOAP-1": Decimal("60.00"), "OIL-1": Decimal("140.00"), "RICE-1": None}
+
+
+def test_a_file_without_the_mrp_column_keeps_every_mrp(shop):
+    first = upload(shop, mrp_file(SOAP + ",60"))
+    run_in(shop, lambda u: imp.apply(u, first.id, apply_changes=True, today=TODAY))
+    old = upload(shop, csv_file(SOAP, OIL))  # the template before MRP existed
+    assert (old.status, old.counts["unchanged"], old.counts["new"]) == ("preview", 1, 1)
+    run_in(shop, lambda u: imp.apply(u, old.id, apply_changes=True, today=TODAY))
+    assert mrps(shop) == {"SOAP-1": Decimal("60.00"), "OIL-1": None}
+
+
+def test_a_bad_mrp_makes_only_its_row_invalid(shop):
+    run = upload(shop, mrp_file(SOAP + ",-1", OIL + ",12.345", RICE + ",abc", "TEA-1,Tea,0902,PCS,10,5,2026-04-01,,taxable,,9"))
+    assert (run.counts["invalid"], run.counts["new"]) == (3, 1)
+    errors = {r["row_number"]: [(e["field"], e["code"]) for e in r["errors"]] for r in preview(shop, run.id, "invalid")}
+    # "-1" starts with "-", so the formula guard refuses it first; still invalid, never saved.
+    assert errors == {2: [("mrp", "formula")], 3: [("mrp", "mrp_invalid")], 4: [("mrp", "mrp_invalid")]}
+
+
+def test_re_importing_the_same_mrp_file_changes_nothing(shop):
+    content = mrp_file(SOAP + ",60")
+    first = upload(shop, content)
+    run_in(shop, lambda u: imp.apply(u, first.id, apply_changes=True, today=TODAY))
+    again = upload(shop, content, name="again.csv")
+    assert (again.status, again.error_code) == ("discarded", "already_imported")
+    edited = upload(shop, mrp_file(SOAP + ",60.0"))  # different bytes, same value
+    assert (edited.counts["unchanged"], edited.counts["changed"]) == (1, 0)
+    assert products(shop)["SOAP-1"].version == 1

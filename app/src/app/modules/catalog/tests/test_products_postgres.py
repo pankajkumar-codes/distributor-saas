@@ -631,3 +631,74 @@ def test_etag_is_the_version_and_a_weak_or_star_if_match_is_stale(shop):  # plat
         assert (r.status_code, r.json()["error"]["code"]) == (409, "stale_record")
     r = pg.client.patch(url(biz, f"/{p['id']}"), json={"name": "x"}, headers={**h, "If-Match": got.headers["etag"]})
     assert r.status_code == 200 and r.headers["etag"] == '"2"'
+
+
+# --- MRP (#398, D-104): optional, display only --------------------------------------
+
+
+def test_mrp_is_optional_and_set_edited_and_cleared_with_the_version(shop):
+    pg, biz = shop
+    h = as_user("alice")
+    p = make(pg, biz)
+    assert p["mrp"] is None
+    pid = p["id"]
+    patch = lambda body, v: pg.client.patch(url(biz, f"/{pid}"), json=body, headers={**h, "If-Match": str(v)})  # noqa: E731
+    r = patch({"mrp": "60"}, 1)
+    assert (r.status_code, r.json()["mrp"], r.json()["version"]) == (200, "60.00", 2)
+    r = patch({"mrp": " 59.5 "}, 2)
+    assert (r.json()["mrp"], r.json()["version"]) == ("59.50", 3)
+    assert patch({"mrp": "59.50"}, 3).json()["version"] == 3  # the same value is no change
+    r = patch({"mrp": ""}, 3)
+    assert (r.json()["mrp"], r.json()["version"]) == (None, 4)
+    assert patch({"mrp": "10"}, 4).json()["mrp"] == "10.00"
+    r = patch({"mrp": None}, 5)
+    assert (r.json()["mrp"], r.json()["version"]) == (None, 6)
+    assert patch({"mrp": "1"}, 3).status_code == 409  # a stale version, as for every edit
+    created = make(pg, biz, code="SOAP-2", mrp="75.25")
+    assert created["mrp"] == "75.25"
+    listed = {i["code"]: i["mrp"] for i in pg.client.get(url(biz), headers=h).json()["items"]}
+    assert listed == {"SOAP-1": None, "SOAP-2": "75.25"}
+    with pg.owner.connect() as c:
+        saved = c.execute(text("select mrp from catalog.products where id = :p"), {"p": created["id"]}).scalar_one()
+        fields = c.execute(text("select data->'fields' from platform.audit_log where business_id = :b"
+                                " and action = 'product.updated' order by at, id"), {"b": biz}).scalars().all()
+    assert isinstance(saved, Decimal) and saved == Decimal("75.25")
+    assert fields == [["mrp"]] * 5  # audited like any edit, with the field name only
+
+
+@pytest.mark.parametrize("bad", ["-1", "12.345", "abc", "1e3", "1234567890123", " . "])
+def test_a_bad_mrp_is_refused(shop, bad):
+    pg, biz = shop
+    r = post(pg, url(biz), product(mrp=bad))
+    e = r.json()["error"]
+    assert (r.status_code, e["code"], e["field"]) == (422, "mrp_invalid", "mrp")
+    p = make(pg, biz)
+    r = pg.client.patch(url(biz, f"/{p['id']}"), json={"mrp": bad}, headers={**as_user("alice"), "If-Match": "1"})
+    assert (r.status_code, r.json()["error"]["code"]) == (422, "mrp_invalid")
+
+
+def test_an_mrp_as_a_json_number_is_refused(shop):  # AC3-15: money is a decimal string
+    pg, biz = shop
+    r = post(pg, url(biz), product(mrp=60.5))
+    assert r.status_code == 422
+
+
+def test_the_database_refuses_a_negative_mrp(shop):
+    pg, biz = shop
+    p = make(pg, biz)
+    with pytest.raises(DBAPIError) as e, pg.owner.begin() as c:
+        c.execute(text("update catalog.products set mrp = -1 where id = :p"), {"p": p["id"]})
+    assert e.value.orig.sqlstate == "23514"
+
+
+def test_another_business_cant_read_or_set_mrp(shop):
+    pg, biz = shop
+    other = new_business(pg, "bob")
+    theirs = make(pg, other, sub="bob", mrp="80")
+    r = pg.client.patch(url(biz, f"/{theirs['id']}"), json={"mrp": "1"}, headers={**as_user("alice"), "If-Match": "1"})
+    assert r.status_code == 404
+    assert pg.client.get(url(biz, f"/{theirs['id']}"), headers=as_user("alice")).status_code == 404
+    assert pg.client.get(url(biz), headers=as_user("alice")).json()["items"] == []
+    assert pg.client.get(url(other), headers=as_user("alice")).status_code == 404
+    got = pg.client.get(url(other, f"/{theirs['id']}"), headers=as_user("bob")).json()
+    assert (got["mrp"], got["version"]) == ("80.00", 1)
