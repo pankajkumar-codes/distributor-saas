@@ -13,6 +13,7 @@ import { Button } from "../../kit/Button";
 import { Field } from "../../kit/Field";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
+import { SettingsEyebrow } from "./SettingsEyebrow";
 import { NoAccess } from "../../kit/NoAccess";
 import { Loading } from "../../kit/Loading";
 
@@ -130,11 +131,9 @@ export function SupportPage() {
     <>
       <TopBar title={business.display_name} gstin={business.gstin} />
       <main className="page">
-        <p className="step">
-          <Link to={`/b/${businessId}/home`}>Home</Link>
-        </p>
+        <SettingsEyebrow businessId={businessId} here="Support access" />
         <h1>Support access</h1>
-        <p className="hint">
+        <p className="lead">
           Our support team can't see your business unless you let them. Access is read-only, ends on its own, and every page
           they open goes into your audit log.
         </p>

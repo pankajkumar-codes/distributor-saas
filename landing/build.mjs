@@ -42,7 +42,7 @@ writeFileSync(join(out, "index.html"), html);
 copyFileSync(join(here, "styles.css"), join(out, "styles.css"));
 copyFileSync(join(here, "favicon.svg"), join(out, "favicon.svg"));
 const fonts = join(here, "..", "web", "node_modules", "@fontsource-variable");
-for (const [pkg, file] of [["fraunces", "fraunces-latin-wght-normal.woff2"], ["hanken-grotesk", "hanken-grotesk-latin-wght-normal.woff2"]]) {
+for (const [pkg, file] of [["geist", "geist-latin-wght-normal.woff2"], ["geist-mono", "geist-mono-latin-wght-normal.woff2"]]) {
   const src = join(fonts, pkg, "files", file);
   if (!existsSync(src)) throw new Error(`Missing ${src}: run npm ci in web/ first`);
   copyFileSync(src, join(out, "fonts", file));
