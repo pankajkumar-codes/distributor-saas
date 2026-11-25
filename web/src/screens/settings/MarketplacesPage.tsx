@@ -1,8 +1,9 @@
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 
 import { useMyBusinesses } from "../../auth/useMyBusinesses";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
+import { SettingsEyebrow } from "./SettingsEyebrow";
 import { PlatformsSection } from "./PlatformsSection";
 
 // The server refuses everyone else with a 404 (settings.edit, docs/PERMISSIONS.md); the boxes are off for them.
@@ -30,11 +31,9 @@ export function MarketplacesPage() {
     <>
       <TopBar title={business.display_name} gstin={business.gstin} />
       <main className="page">
-        <p className="step">
-          <Link to={`/b/${businessId}/home`}>Home</Link>
-        </p>
+        <SettingsEyebrow businessId={businessId} here="Marketplaces you sell on" />
         <h1>Marketplaces you sell on</h1>
-        <p className="hint">This sets which returns and deadlines we show you. You can change it any time in Business setup.</p>
+        <p className="lead">This sets which returns and deadlines we show you. You can change it any time in Business setup.</p>
         <PlatformsSection businessId={businessId} canEdit={EDITORS.has(business.role)} />
       </main>
     </>

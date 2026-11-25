@@ -420,6 +420,86 @@ table.products td select { max-width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 
+/* Settings (mocks v16): saved values as label / value rows inside a panel, links in a row. */
+.eyebrow { font-size: 13px; color: var(--muted); margin: 0 0 4px; }
+.eyebrow a { color: var(--muted); }
+.lead { color: var(--muted); font-size: 14px; margin: 4px 0 0; max-width: 90ch; }
+.back { margin: 8px 0 0; font-size: 14px; }
+.kv-row { display: flex; justify-content: space-between; gap: 12px; padding: 7px 16px; border-bottom: 1px solid var(--line); font-size: 14px; }
+.kv-row:last-child { border-bottom: 0; }
+.kv-row > span:first-child { color: var(--muted); }
+.kv-row > span:last-child { text-align: right; overflow-wrap: anywhere; }
+.setup-grid { gap: 0 14px; align-items: start; }
+.setup-grid > .panel { margin-top: 12px; }
+ul.link-row { list-style: none; margin: 0; display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.panel .card { border: 0; padding: 0; margin: 0; }
+.top-new svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+@media (max-width: 760px) { .top .top-new { display: none; } }
+
+/* Signed-out pages (mocks v16): a white card on a light grey page, the brand above, the India line below. */
+.page-auth { max-width: 26.5rem; padding: 48px 16px 32px; }
+.page-auth-wide { max-width: 45rem; }
+body:has(.page-auth) { background: var(--sunk); }
+.page-auth .brand { margin: 0 0 20px; color: var(--muted); }
+.page-auth .brand .wordmark { font-family: var(--body); font-weight: 500; font-size: 15px; color: var(--muted); }
+.auth-card { background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 24px 28px; }
+.auth-card > h1 { margin-bottom: 8px; }
+.auth-card .card { border: 0; padding: 0; margin: 0 0 12px; background: none; }
+.auth-foot { text-align: center; color: var(--muted); font-size: 13px; margin: 18px 0 0; }
+@media (max-width: 600px) { .page-auth { padding-top: 24px; } .auth-card { padding: 20px 16px; } }
+
+/* Laptop density (mocks v16 one-screen rule): tighter fields and option cards. */
+@media (min-width: 761px) {
+  .top ~ .page .field { margin-bottom: 10px; }
+  .top ~ .page .field input, .top ~ .page .field select { height: 36px; }
+  .top ~ .page .field label { margin-bottom: 4px; }
+  .top ~ .page .hint { margin: 2px 0 8px; }
+  .top ~ .page .actions { margin-top: 8px; }
+  .top ~ .page .lead + .filters, .top ~ .page .lead + .banner { margin-top: 12px; }
+}
+/* Where you sell, inside a panel: the choices sit in one row like the mock's chips. */
+.panel .radios { margin: 0; }
+.panel .radios legend { margin-bottom: 8px; }
+.panel .radios .opt { display: inline-flex; margin: 0 8px 8px 0; border-width: 1px; border-radius: var(--r-md); }
+.panel .radios .opt label.radio { min-height: 36px; padding: 2px 12px; font-size: 14px; }
+.panel .radios .opt .hint { display: none; }
+.panel .radios .opt input { width: 16px; height: 16px; }
+/* Business details form on Business setup: two columns on a laptop. */
+@media (min-width: 761px) {
+  .setup-edit fieldset.plain { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 24px; align-items: start; }
+  .setup-edit fieldset.plain > fieldset { grid-row: span 3; }
+  .setup-edit .card { margin-bottom: 8px; }
+  .setup-edit h2.setup-h { margin: 0 0 8px; }
+}
+/* A checkbox list inside a field (business type): plain ticks, not text-box sized. */
+fieldset.field { border: 0; padding: 0; min-width: 0; }
+fieldset.field legend { font-size: 13px; font-weight: 600; margin-bottom: 6px; padding: 0; }
+.field input[type="checkbox"], .field input[type="radio"],
+.top ~ .page .field input[type="checkbox"], .top ~ .page .field input[type="radio"] { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+.field .check-line { display: flex; align-items: center; gap: 8px; min-height: 28px; font-size: 14px; font-weight: 400; margin: 0; }
+html:has(.page-auth) { background: var(--sunk); min-height: 100%; }
+/* Lists inside a tab panel (team members): rows, not cards. */
+.ltabpanel .list.pad { padding-top: 0; padding-bottom: 0; }
+.ltabpanel .list li.card { border: 0; border-bottom: 1px solid var(--line); border-radius: 0; padding: 10px 0; margin: 0; }
+.ltabpanel .list li.card:last-child { border-bottom: 0; }
+
+/* Audit log on a laptop (mocks v16, one screen): Export sits beside the filters, and each entry is one line.
+   A long name or detail ends in an ellipsis; the cell's title and the CSV export carry the full text. */
+.audit-bar { display: flex; gap: 16px; align-items: flex-start; }
+.audit-bar .filters { flex: 1; }
+.audit-bar .actions { margin-top: 24px; }
+@media (min-width: 761px) {
+  table.audit { table-layout: fixed; }
+  table.audit th:nth-child(1) { width: 160px; }
+  table.audit th:nth-child(2) { width: 22%; }
+  table.audit th:nth-child(3) { width: 24%; }
+  table.audit td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
+@media (max-width: 760px) {
+  .audit-bar { display: block; }
+  .audit-bar .actions { margin-top: 0; }
+}
+
 /* Lists in a panel (mocks v16): the table sits flush in the panel, the Pager below it. */
 .panel > table.products { margin: 0; }
 .panel > table.products th, .panel > table.products td { padding-left: 16px; padding-right: 16px; }

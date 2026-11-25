@@ -59,10 +59,11 @@ describe("the audit log", () => {
     expect(within(table).getByText("Filed twice")).toBeInTheDocument();
     expect(within(table).getByText("Support team")).toBeInTheDocument();
     expect(within(table).getAllByText("09-Nov-2026, 14:20")).toHaveLength(2);
-    fireEvent.click(screen.getByRole("button", { name: "Load more" }));
+    expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Next" })); // the server has more: Next asks for them
     expect(await screen.findByText("Started an invoice draft")).toBeInTheDocument();
     expect(new URL(gets(LOG)[1].url).searchParams.get("cursor")).toBe("c-1");
-    expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
   });
 
   it("sends the filters to the server", async () => {

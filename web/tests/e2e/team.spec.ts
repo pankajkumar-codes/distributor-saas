@@ -22,6 +22,7 @@ test("an invitation link works for a new person and for someone who already has 
   await createBusiness(page);
   await page.goto(page.url().replace(/\/home$/, "/settings/team"));
   await expect(page.getByRole("heading", { name: "Your team" })).toBeVisible();
+  await page.getByRole("tab", { name: "Invite someone" }).click();
   for (const email of [existing, fresh]) {
     await page.getByLabel("Email", { exact: true }).fill(email);
     await page.getByLabel("Role", { exact: true }).selectOption("billing");

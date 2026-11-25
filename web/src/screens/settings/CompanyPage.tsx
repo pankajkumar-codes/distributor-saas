@@ -38,7 +38,7 @@ type Key = keyof Values;
 // The two bands are saved with their own route and version (PUT /turnover-bands/{fy}), not PATCH.
 const BAND_KEYS: Key[] = ["this_band", "last_band"];
 
-const EDITORS = new Set(["owner", "admin"]); // settings.edit; the server refuses the rest anyway
+export const EDITORS = new Set(["owner", "admin"]); // settings.edit; the server refuses the rest anyway
 const MISSING: Record<string, string> = { legal_name: "legal name", address: "address", gstin: "GSTIN" };
 const EINVOICE: { value: Einvoice; label: string }[] = [
   { value: "yes", label: "Yes" },
@@ -372,7 +372,8 @@ export function CompanyPage({ embedded = false }: { embedded?: boolean } = {}) {
             </div>
           )}
         </form>
-        <PlatformsSection businessId={businessId} canEdit={canEdit} />
+        {/* On Business setup "where you sell" has its own panel beside these details. */}
+        {!embedded && <PlatformsSection businessId={businessId} canEdit={canEdit} />}
         {!embedded && (
           <p>
             <Link to={`/b/${businessId}/settings`}>Filing frequency</Link>
