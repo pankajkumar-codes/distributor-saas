@@ -60,15 +60,34 @@ function DueDate({ row }: { row: ReturnRow }) {
   );
 }
 
-/** Deadlines a page at a time (mocks v16 one-screen rule): four rows, so a month's GSTR-1 and GSTR-3B stay on one page. */
-const PAGE = 4;
+/**
+ * Deadlines a page at a time (mocks v16 one-screen rule): two periods a page, so a period's GSTR-1 and GSTR-3B always
+ * show together (#410). A period with only one row (a lone open return from last year) takes a slot of its own.
+ */
+const PAGE = 2;
+
+/** The rows grouped by period, in the server's order. */
+function byPeriod(rows: ReturnRow[]): ReturnRow[][] {
+  const groups: ReturnRow[][] = [];
+  const at = new Map<string, number>();
+  for (const r of rows) {
+    const key = `${r.period_start}|${r.period_end}`;
+    const i = at.get(key);
+    if (i === undefined) {
+      at.set(key, groups.length);
+      groups.push([r]);
+    } else groups[i].push(r);
+  }
+  return groups;
+}
 
 /** The page to open on: the one with the next open return whose period has ended or is running now. */
-function startPage(rows: ReturnRow[], today: string): number {
+function startPage(groups: ReturnRow[][], today: string): number {
   const open = (r: ReturnRow) => r.status === "open" || r.status === "unlocked";
-  let i = rows.findIndex((r) => open(r) && r.period_start <= today && r.period_end >= today);
-  if (i < 0) i = rows.findIndex((r) => open(r) && r.period_end < today);
-  if (i < 0) i = rows.findIndex(open);
+  const find = (test: (r: ReturnRow) => boolean) => groups.findIndex((g) => g.some(test));
+  let i = find((r) => open(r) && r.period_start <= today && r.period_end >= today);
+  if (i < 0) i = find((r) => open(r) && r.period_end < today);
+  if (i < 0) i = find(open);
   return i < 0 ? 0 : Math.floor(i / PAGE);
 }
 
@@ -111,8 +130,10 @@ export function FilingHomePage() {
   ].filter((r) => r.form in FORMS);
   const frequency = now.data?.filing_frequency;
   const today = todayIst();
-  const at = Math.min(page ?? startPage(rows, today), Math.max(0, Math.ceil(rows.length / PAGE) - 1));
-  const shown = rows.slice(at * PAGE, at * PAGE + PAGE);
+  const groups = byPeriod(rows);
+  const at = Math.min(page ?? startPage(groups, today), Math.max(0, Math.ceil(groups.length / PAGE) - 1));
+  const shownGroups = groups.slice(at * PAGE, at * PAGE + PAGE);
+  const shown = shownGroups.flat();
   const prepare = canPrepareReturns(business.role);
   const href = (r: ReturnRow) => (r.form === "GSTR1" ? `/b/${businessId}/filing/${r.instance_id}` : `/b/${businessId}/filing/${r.instance_id}/worksheet`);
   // One blue button on the screen: the GSTR-1 to work on next. Every other row has a plain one.
@@ -205,7 +226,7 @@ export function FilingHomePage() {
                     </tbody>
                   </table>
                 </div>
-                {rows.length > PAGE && <Pager page={at} size={PAGE} shown={shown.length} total={rows.length} noun="returns" onPage={setPage} />}
+                {groups.length > PAGE && <Pager page={at} size={PAGE} shown={shownGroups.length} total={groups.length} noun="periods" onPage={setPage} />}
               </>
             )}
           </Panel>

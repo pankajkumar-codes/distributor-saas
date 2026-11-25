@@ -62,6 +62,7 @@ export function HeldRowsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulk, setBulk] = useState(false);
   const [tab, setTab] = useState(0);
+  const [pages, setPages] = useState<Record<number, number>>({}); // the page each reason tab is on
 
   if (businesses.isPending) {
     return (
@@ -102,6 +103,8 @@ export function HeldRowsPage() {
         <GroupRows
           label={g.label}
           rows={g.rows}
+          page={pages[i] ?? 0}
+          onPage={(p) => setPages((cur) => ({ ...cur, [i]: p }))}
           render={(r) => (
             <HeldRowCard
               key={r.row_id}
@@ -120,6 +123,13 @@ export function HeldRowsPage() {
     };
   });
   const at = Math.min(tab, Math.max(tabs.length - 1, 0));
+  // Selected rows the person cannot see now (on another tab or page): the bulk step names their reasons (#419).
+  const inView = new Set(groups[at] ? pageOf(groups[at].rows, pages[at] ?? 0).map((r) => r.row_id) : []);
+  const hidden = chosen.filter((r) => !inView.has(r.row_id));
+  const closeBulk = () => {
+    setBulk(false);
+    setSelected(new Set()); // a closed bulk step keeps no selection (#419)
+  };
 
   return (
     <>
@@ -140,7 +150,7 @@ export function HeldRowsPage() {
           actions={
             <>
               {open && undecided.length > 0 && (
-                <Button type="button" variant="secondary" aria-expanded={bulk} onClick={() => setBulk((b) => !b)}>
+                <Button type="button" variant="secondary" aria-expanded={bulk} onClick={() => (bulk ? closeBulk() : setBulk(true))}>
                   Decide several rows
                 </Button>
               )}
@@ -176,6 +186,7 @@ export function HeldRowsPage() {
             businessId={businessId}
             runId={runId}
             chosen={chosen}
+            hidden={hidden}
             total={undecided.length}
             states={states.data ?? []}
             onAll={() => setSelected(new Set(undecided.map((r) => r.row_id)))}
@@ -198,16 +209,28 @@ export function HeldRowsPage() {
 
 const HELD_PAGE = 2; // held rows a page, so a group with its decide form stays on one laptop screen
 
+const lastPage = (rows: HeldRow[]) => Math.max(Math.ceil(rows.length / HELD_PAGE) - 1, 0);
+/** The rows shown on a page of one reason's tab. */
+const pageOf = (rows: HeldRow[], page: number) => {
+  const at = Math.min(page, lastPage(rows));
+  return rows.slice(at * HELD_PAGE, (at + 1) * HELD_PAGE);
+};
+
+/** "Bill To and Ship To in different states (2), HSN missing (1)": the reasons of some rows, with counts. */
+function reasonsOf(rows: HeldRow[]): string {
+  const count = new Map<string, number>();
+  for (const r of rows) count.set(r.reason_label ?? "Other", (count.get(r.reason_label ?? "Other") ?? 0) + 1);
+  return [...count].map(([label, n]) => `${label} (${n})`).join(", ");
+}
+
 /** One reason's rows, a page at a time. */
-function GroupRows({ label, rows, render }: { label: string; rows: HeldRow[]; render: (r: HeldRow) => ReactNode }) {
-  const [page, setPage] = useState(0);
-  const last = Math.max(Math.ceil(rows.length / HELD_PAGE) - 1, 0);
-  const at = Math.min(page, last);
-  const slice = rows.slice(at * HELD_PAGE, (at + 1) * HELD_PAGE);
+function GroupRows({ label, rows, page, onPage, render }: { label: string; rows: HeldRow[]; page: number; onPage: (p: number) => void; render: (r: HeldRow) => ReactNode }) {
+  const at = Math.min(page, lastPage(rows));
+  const slice = pageOf(rows, page);
   return (
     <section className="panel" aria-label={label}>
       <ul className="list held-rows">{slice.map(render)}</ul>
-      {rows.length > HELD_PAGE && <Pager page={at} size={HELD_PAGE} shown={slice.length} total={rows.length} noun="rows" onPage={setPage} />}
+      {rows.length > HELD_PAGE && <Pager page={at} size={HELD_PAGE} shown={slice.length} total={rows.length} noun="rows" onPage={onPage} />}
     </section>
   );
 }
@@ -313,7 +336,7 @@ function Decide({ businessId, runId, row, states }: { businessId: string; runId:
   );
 }
 
-function BulkBar({ businessId, runId, chosen, total, states, onAll, onNone, onDone }: { businessId: string; runId: string; chosen: HeldRow[]; total: number; states: StateOption[]; onAll: () => void; onNone: () => void; onDone: () => void }) {
+function BulkBar({ businessId, runId, chosen, hidden, total, states, onAll, onNone, onDone }: { businessId: string; runId: string; chosen: HeldRow[]; hidden: HeldRow[]; total: number; states: StateOption[]; onAll: () => void; onNone: () => void; onDone: () => void }) {
   const [action, setAction] = useState<"pick_state" | "set_aside">("pick_state");
   const [value, setValue] = useState("");
   const [note, setNote] = useState("");
@@ -385,7 +408,16 @@ function BulkBar({ businessId, runId, chosen, total, states, onAll, onNone, onDo
           </div>
           {effective === "pick_state" && <SelectField label="Place of supply" placeholder="Choose a state…" options={stateOptions(states)} value={value} onChange={(e) => setValue(e.target.value)} />}
           <Field label="Note (why)" value={note} maxLength={NOTE_MAX} onChange={(e) => setNote(e.target.value)} error={problem} />
-          {effective === "set_aside" && <p className="hint">Leaving rows out cannot be undone: to bring one back, discard this file and upload it again.</p>}
+          {(hidden.length > 0 || effective === "set_aside") && (
+            <p className="hint">
+              {hidden.length > 0 && (
+                <>
+                  {hidden.length === 1 ? "1 selected row is" : `${hidden.length} selected rows are`} not on screen: {reasonsOf(hidden)}.{" "}
+                </>
+              )}
+              {effective === "set_aside" && "Leaving rows out cannot be undone: to bring one back, discard this file and upload it again."}
+            </p>
+          )}
           <Button type="submit" variant={effective === "set_aside" ? "danger" : "primary"} busy={busy}>
             {effective === "pick_state" ? `Use this state for ${chosen.length} row${chosen.length === 1 ? "" : "s"}` : sure ? `Yes, leave ${chosen.length} row${chosen.length === 1 ? "" : "s"} out` : `Leave ${chosen.length} row${chosen.length === 1 ? "" : "s"} out`}
           </Button>
