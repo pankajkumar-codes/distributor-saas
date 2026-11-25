@@ -49,9 +49,9 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
-function open(role = "owner") {
+function open(role = "owner", tab = "file") {
   server.reply("/api/v1/me/businesses", mine(role));
-  window.history.replaceState(null, "", `/b/b-1/filing/${INST}`);
+  window.history.replaceState(null, "", `/b/b-1/filing/${INST}?tab=${tab}`);
   render(<App />);
 }
 const sentTo = (path: string, method = "POST") => server.sent.filter((s) => s.path === path && s.method === method);
@@ -60,7 +60,7 @@ describe("Accepting warnings", () => {
   it("accepts a check's warnings as shown with a reason, and never offers it for a block", async () => {
     server.reply(DETAIL, detail({ findings: [warn(2), warn(3), block], finding_groups: [{ code: "C-16", level: "warn", count: 2, needs_ca_check: true, accepted: 0 }, { code: "C-01", level: "block", count: 1, needs_ca_check: false, accepted: 0 }] }), detail({ findings: [warn(2, true), warn(3, true)], finding_groups: [{ code: "C-16", level: "warn", count: 2, needs_ca_check: true, accepted: 2 }], export: ready }));
     server.reply(`${DETAIL}/check-acceptances`, { status: 200, body: { check_code: "C-16", accepted: 2 } });
-    open();
+    open("owner", "checks");
     await screen.findByText(/Draft: not filed/);
     expect(screen.getAllByRole("button", { name: "Accept as shown" })).toHaveLength(1); // C-16 only
     expect(screen.getByText(/can't be accepted/)).toBeInTheDocument();
@@ -100,39 +100,24 @@ describe("Making the file", () => {
     expect(await screen.findByText("Making your file…")).toBeInTheDocument();
     const link = await screen.findByRole("link", { name: "Download the file" }, { timeout: 5000 });
     expect(link).toHaveAttribute("href", "https://files.example/part1");
-    expect(screen.getAllByText(/This file has not been through the GST portal yet/)).toHaveLength(2); // the file note and the line above the steps
-    expect(screen.getByText(/CDNR/)).toBeInTheDocument();
+    expect(screen.getAllByText(/This file has not been through the GST portal yet/)).toHaveLength(1);
+    expect(screen.getByText(/We are least sure of these tables: CDNR/)).toBeInTheDocument();
     expect(screen.getByText(/Table 13 \(documents issued\)/)).toBeInTheDocument();
     expect(screen.queryByText(/ready to upload/i)).toBeNull();
   });
 
-  it("shows the portal steps only once there is a file, and marks the steps nobody has looked at on the live portal", async () => {
+  it("links to the upload guide only once there is a file", async () => {
     server.reply(DETAIL, detail({ export: ready, findings: [], finding_groups: [] }));
     server.reply(`${DETAIL}/exports`, { status: 202, body: { job_id: "job-1" } });
     server.reply(`${DETAIL}/exports/job-1`, fileOut());
     open();
     expect(await screen.findByRole("button", { name: "Make my GSTR-1 file" })).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Put it on the GST portal" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Open the upload guide" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Make my GSTR-1 file" }));
-    const guide = within(await screen.findByRole("region", { name: "Put it on the GST portal" }));
-    expect(guide.getAllByRole("listitem").length).toBeGreaterThanOrEqual(10);
-    expect(guide.getByText(/We have not checked them against the live portal yet/)).toBeInTheDocument();
-    expect(guide.getAllByText("Not checked").length).toBeGreaterThanOrEqual(3);
-    expect(guide.getByText(/Prepare offline/)).toBeInTheDocument();
-    expect(guide.getByText(/Uploading the file does not file the return/)).toBeInTheDocument();
-    expect(guide.getByText(/may refuse it/)).toBeInTheDocument();
-    expect(guide.getByText(/does not take a file of 5 MB or more/)).toBeInTheDocument();
-    expect(guide.getByText(/the financial year and the period "October 2026"/)).toBeInTheDocument();
-  });
-
-  it("does not warn above the portal steps when the server says the file has been through the portal", async () => {
-    server.reply(DETAIL, detail({ export: ready, findings: [], finding_groups: [] }));
-    server.reply(`${DETAIL}/exports`, { status: 202, body: { job_id: "job-1" } });
-    server.reply(`${DETAIL}/exports/job-1`, fileOut({ portal_tested: true, ready_to_upload: true }));
-    open();
-    fireEvent.click(await screen.findByRole("button", { name: "Make my GSTR-1 file" }));
-    const guide = within(await screen.findByRole("region", { name: "Put it on the GST portal" }));
-    expect(guide.queryByText(/may refuse it/)).toBeNull();
+    expect(await screen.findByRole("link", { name: "Open the upload guide" })).toHaveAttribute("href", `/b/b-1/filing/${INST}/portal-guide`);
+    // The step strip and the tab say a file was made; making it again is no longer the blue button.
+    expect(screen.getByRole("tab", { name: /File and lock/ })).toHaveTextContent("File made");
+    expect(screen.getByRole("button", { name: "Make the file again" })).toHaveClass("btn-secondary");
   });
 
   it("says a file has been checked only when the server says so", async () => {
@@ -171,7 +156,8 @@ describe("Marking filed", () => {
     fireEvent.click(submit);
     await waitFor(() => expect(sentTo(`${DETAIL}/filed`)).toHaveLength(1));
     expect(sentTo(`${DETAIL}/filed`)[0].body).toEqual({ filed_on: "2026-11-10", arn: "AA1911260000001", accept_changed: null });
-    expect(await screen.findByText(/Filed on .*ARN AA1911260000001/)).toBeInTheDocument();
+    expect(await screen.findByText("AA1911260000001")).toBeInTheDocument();
+    expect(screen.getByText("10-Nov-2026")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Make my GSTR-1 file" })).toBeNull();
   });
 
@@ -240,7 +226,8 @@ describe("A locked return", () => {
     server.reply(`${DETAIL}/lock-file`, fileOut({ version: 2 }));
     server.reply(`${DETAIL}/unlock`, { status: 200, body: { status: "unlocked" } });
     open();
-    expect(await screen.findByText(/Filed on .*ARN AA1911260000001/)).toBeInTheDocument();
+    expect(await screen.findByText("AA1911260000001")).toBeInTheDocument();
+    expect(screen.getAllByText("Filed and locked").length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "Make my GSTR-1 file" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Download the file we kept" }));
     expect(await screen.findByRole("link", { name: "Download the file" })).toHaveAttribute("href", "https://files.example/part1");
@@ -261,9 +248,9 @@ describe("A locked return", () => {
       server.reply(REFRESH, { status: 200, body: { access_token: "t", expires_in: 3600 } });
       server.reply(DETAIL, locked());
       server.reply("/api/v1/me/businesses", mine(role));
-      window.history.replaceState(null, "", `/b/b-1/filing/${INST}`);
+      window.history.replaceState(null, "", `/b/b-1/filing/${INST}?tab=file`);
       const view = render(<App />);
-      await screen.findByText(/Filed on .*ARN/);
+      await screen.findByText("AA1911260000001");
       expect(screen.queryByRole("button", { name: "Unlock this return" })).toBeNull();
       expect(screen.getByRole("button", { name: "Download the file we kept" })).toBeInTheDocument();
       view.unmount();
