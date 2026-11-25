@@ -75,6 +75,10 @@ export function changedFields(from: Values, to: Values): components["schemas"]["
   return out;
 }
 
+type SaveRequest =
+  | { kind: "create"; body: components["schemas"]["ProductIn"] }
+  | { kind: "patch"; version: string; body: components["schemas"]["ProductPatch"] };
+
 /**
  * After a reload brings a newer version: the newer saved values with the user's own edits
  * (what differs from the version they opened) laid over them, so nobody else's change is
@@ -182,38 +186,49 @@ export function ProductPage() {
   };
 
   const once = useSingleFlight();
-  const save = useMutation<Detail, ApiError>({
-    mutationFn: () => {
-      if (isNew) {
-        const body: components["schemas"]["ProductIn"] = {
-          code: values.code.trim(),
-          name: values.name.trim(),
-          hsn: blank(values.hsn),
-          uqc: values.uqc,
-          sale_rate: values.sale_rate.trim(),
-          mrp: blank(values.mrp),
-          barcode: blank(values.barcode),
-          tax_category: values.tax_category as Category,
-          has_cess: values.has_cess,
-          rate: values.tax_category === "taxable" ? { rate: chosenRate, valid_from: validFrom } : null,
-        };
-        return call(() =>
-          api.POST("/api/v1/b/{business_id}/products", {
-            params: { path, header: { "Idempotency-Key": formKey.current() } },
-            body,
-          }),
-        );
-      }
-      return call(() =>
-        api.PATCH("/api/v1/b/{business_id}/products/{product_id}", {
-          params: { path: { ...path, product_id: productId }, header: { "If-Match": String(opened?.version) } },
+  // The request is built when Save is pressed, from what is on the screen then, and passed to the mutation. A
+  // mutationFn that read `opened` itself could still hold the render before a reload's rebase, and send the old
+  // version as If-Match (#409 CI).
+  const saveRequest = (): SaveRequest =>
+    isNew
+      ? {
+          kind: "create",
+          body: {
+            code: values.code.trim(),
+            name: values.name.trim(),
+            hsn: blank(values.hsn),
+            uqc: values.uqc,
+            sale_rate: values.sale_rate.trim(),
+            mrp: blank(values.mrp),
+            barcode: blank(values.barcode),
+            tax_category: values.tax_category as Category,
+            has_cess: values.has_cess,
+            rate: values.tax_category === "taxable" ? { rate: chosenRate, valid_from: validFrom } : null,
+          },
+        }
+      : {
+          kind: "patch",
+          version: String(opened?.version),
           body: {
             ...changedFields(valuesOf(opened!), values),
             ...(needsRate ? { rate: { rate: chosenRate, valid_from: validFrom } } : {}),
           },
-        }),
-      );
-    },
+        };
+  const save = useMutation<Detail, ApiError, SaveRequest>({
+    mutationFn: (r) =>
+      r.kind === "create"
+        ? call(() =>
+            api.POST("/api/v1/b/{business_id}/products", {
+              params: { path, header: { "Idempotency-Key": formKey.current() } },
+              body: r.body,
+            }),
+          )
+        : call(() =>
+            api.PATCH("/api/v1/b/{business_id}/products/{product_id}", {
+              params: { path: { ...path, product_id: productId! }, header: { "If-Match": r.version } },
+              body: r.body,
+            }),
+          ),
     onSuccess: (p) => {
       saved(p);
       if (isNew) formKey.reset();
@@ -235,11 +250,11 @@ export function ProductPage() {
     onSuccess: saved,
   });
 
-  const remove = useMutation<unknown, ApiError>({
-    mutationFn: () =>
+  const remove = useMutation<unknown, ApiError, string>({
+    mutationFn: (version) =>
       call(() =>
         api.DELETE("/api/v1/b/{business_id}/products/{product_id}", {
-          params: { path: { ...path, product_id: productId! }, header: { "If-Match": String(opened?.version) } },
+          params: { path: { ...path, product_id: productId! }, header: { "If-Match": version } },
         }),
       ),
     onError: (e) => {
@@ -322,7 +337,8 @@ export function ProductPage() {
       setRateMissing(true);
       return;
     }
-    once((done) => save.mutate(undefined, { onSettled: done }));
+    const request = saveRequest();
+    once((done) => save.mutate(request, { onSettled: done }));
   };
   const otherError = error && !formField(error.field) ? error : (archive.error ?? remove.error);
 
@@ -468,7 +484,7 @@ export function ProductPage() {
           archiveBusy={archive.isPending}
           deleteBusy={remove.isPending}
           onArchive={(a) => archive.mutate(a)}
-          onDelete={() => remove.mutate()}
+          onDelete={() => remove.mutate(String(opened?.version))}
         />
       ),
     });

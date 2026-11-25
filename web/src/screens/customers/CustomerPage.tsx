@@ -116,8 +116,10 @@ export function CustomerPage() {
     if (e.code === "stale_record") customer.refetch(); // the newer version brings the banner
   };
 
-  const save = useMutation<Customer, ApiError>({
-    mutationFn: () => {
+  // What Save sends, built from the screen when Save is pressed and handed to the mutation (see the product form):
+  // a mutationFn that read `opened` itself could still hold the render before a reload's rebase, and send the old
+  // version as If-Match.
+  const saveRequest = () => {
       if (isNew) {
         const body: components["schemas"]["CustomerIn"] = {
           name: values.name.trim(),
@@ -135,7 +137,9 @@ export function CustomerPage() {
           body: patchBody(valuesOf(opened!), values),
         }),
       );
-    },
+  };
+  const save = useMutation<Customer, ApiError, () => Promise<Customer>>({
+    mutationFn: (send) => send(),
     onSuccess: (c) => {
       saved(c);
       if (isNew) formKey.reset();
@@ -157,9 +161,8 @@ export function CustomerPage() {
       ),
     onSuccess: saved,
   });
-  const remove = useMutation<unknown, ApiError>({
-    mutationFn: () =>
-      call(() => api.DELETE("/api/v1/b/{business_id}/customers/{customer_id}", { params: { path, header: { "If-Match": String(opened?.version) } } })),
+  const remove = useMutation<unknown, ApiError, string>({
+    mutationFn: (version) => call(() => api.DELETE("/api/v1/b/{business_id}/customers/{customer_id}", { params: { path, header: { "If-Match": version } } })),
     onError: refetchIfStale,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["b", businessId, "customers"] });
@@ -214,7 +217,7 @@ export function CustomerPage() {
     e.preventDefault();
     const ok = /^\d+$/.test(values.credit_days.trim());
     setDaysError(ok ? undefined : "Use a whole number of days, such as 0 or 30.");
-    if (ok) save.mutate();
+    if (ok) save.mutate(saveRequest);
   };
 
   const deliveryNote = theirHint("same") ?? errorFor("delivery_same_as_billing");
@@ -293,7 +296,7 @@ export function CustomerPage() {
           archiveBusy={archive.isPending}
           deleteBusy={remove.isPending}
           onArchive={(a) => archive.mutate(a)}
-          onDelete={() => remove.mutate()}
+          onDelete={() => remove.mutate(String(opened?.version))}
         />
       ),
     });
