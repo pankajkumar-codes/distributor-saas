@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../../src/App";
@@ -29,12 +29,14 @@ describe("invoicing plan", () => {
   it("shows the free-invoice counter and says free for now", async () => {
     server.reply("/api/v1/b/b-1/invoicing-plan", { status: 200, body: plan() });
     open();
-    expect(await screen.findByText("3 of 10")).toBeInTheDocument();
-    expect(screen.getByText(/7 left/)).toBeInTheDocument();
-    expect(screen.getByText("Free for now.")).toBeInTheDocument();
-    expect(screen.getByText("Monthly: ₹999.00")).toBeInTheDocument();
-    expect(screen.getByText("Quarterly: ₹2,499.00")).toBeInTheDocument();
-    expect(screen.getByText("18% GST is extra on our fee.")).toBeInTheDocument();
+    expect(await screen.findByText("of 10 used")).toBeInTheDocument();
+    expect(screen.getByText("3")).toBeInTheDocument();
+    expect(screen.getByText("7 left")).toBeInTheDocument();
+    expect(screen.getByText("Free for now. Payments are not switched on yet.")).toBeInTheDocument();
+    const prices = within(screen.getByRole("region", { name: /prices once plans start/ }));
+    expect(prices.getByText("Monthly").nextSibling).toHaveTextContent("₹999.00");
+    expect(prices.getByText("Quarterly").nextSibling).toHaveTextContent("₹2,499.00");
+    expect(prices.getByText("18% GST is extra on our fee.")).toBeInTheDocument();
   });
 
   it("says when the free invoices are used and a plan is needed", async () => {

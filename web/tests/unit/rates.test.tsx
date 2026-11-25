@@ -63,6 +63,7 @@ async function open(role = "owner", product = detail()) {
   server.reply(ONE, { status: 200, body: product });
   window.history.replaceState(null, "", "/b/b-1/products/p-1");
   render(<App />);
+  fireEvent.click(await screen.findByRole("tab", { name: "Rate history" }));
   await screen.findByRole("heading", { name: "GST rate history" });
 }
 const table = () => within(screen.getByRole("heading", { name: "GST rate history" }).closest("section")!);
@@ -143,10 +144,12 @@ describe("the rate history", () => {
 
   it("is locked while the form above has unsaved edits", async () => {
     await open();
+    fireEvent.click(screen.getByRole("tab", { name: "Details" }));
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Neem bath soap" } });
+    fireEvent.click(screen.getByRole("tab", { name: "Rate history" }));
     expect(screen.getByRole("button", { name: "Add rate" })).toBeDisabled();
     expect(within(rowOf("12%")).getByRole("button", { name: "Void" })).toBeDisabled();
-    expect(screen.getByText("Save or undo your changes above before changing rates.")).toBeInTheDocument();
+    expect(screen.getByText("Save or undo your changes on the Details tab before changing rates.")).toBeInTheDocument();
   });
 });
 

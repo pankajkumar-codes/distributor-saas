@@ -30,6 +30,7 @@ export function useUrlSearch(params: URLSearchParams, setParams: SetURLSearchPar
         const next = new URLSearchParams(prev);
         if (q) next.set("q", q);
         else next.delete("q");
+        next.delete("page"); // a new search starts on its first page
         return next;
       },
       { replace: true },
@@ -42,4 +43,21 @@ export function useUrlSearch(params: URLSearchParams, setParams: SetURLSearchPar
   }, [fromUrl]);
 
   return { search, setSearch, q };
+}
+
+/** Rows per page on the v16 lists (mocks v16: a list pages so the screen never scrolls). */
+export const ROWS_PER_PAGE = 5;
+
+/** A list's page kept in ?page (1-based in the URL, 0-based here); page 1 leaves the URL clean. */
+export function useUrlPage(params: URLSearchParams, setParams: SetURLSearchParams) {
+  const raw = Number(params.get("page"));
+  const page = Number.isInteger(raw) && raw > 1 ? raw - 1 : 0;
+  const setPage = (to: number) =>
+    setParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (to > 0) next.set("page", String(to + 1));
+      else next.delete("page");
+      return next;
+    });
+  return { page, setPage };
 }

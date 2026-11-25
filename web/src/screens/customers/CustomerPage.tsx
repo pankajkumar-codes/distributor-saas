@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type FormEvent } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import { api, call } from "../../api/client";
 import { errorText, type ApiError } from "../../api/errors";
@@ -13,6 +13,8 @@ import { Banner } from "../../kit/Banner";
 import { ManageRecord } from "../../kit/ManageRecord";
 import { Button } from "../../kit/Button";
 import { Field } from "../../kit/Field";
+import { PageHead } from "../../kit/PageHead";
+import { Tabs } from "../../kit/Tabs";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
 import { NoAccess } from "../../kit/NoAccess";
@@ -87,6 +89,7 @@ export function CustomerPage() {
   const [theirs, setTheirs] = useState<Key[]>([]);
   const [stale, setStale] = useState(false);
   const [daysError, setDaysError] = useState<string | undefined>();
+  const [tab, setTab] = useState(0);
   const latest = customer.data ?? null;
 
   useEffect(() => {
@@ -113,8 +116,10 @@ export function CustomerPage() {
     if (e.code === "stale_record") customer.refetch(); // the newer version brings the banner
   };
 
-  const save = useMutation<Customer, ApiError>({
-    mutationFn: () => {
+  // What Save sends, built from the screen when Save is pressed and handed to the mutation (see the product form):
+  // a mutationFn that read `opened` itself could still hold the render before a reload's rebase, and send the old
+  // version as If-Match.
+  const saveRequest = () => {
       if (isNew) {
         const body: components["schemas"]["CustomerIn"] = {
           name: values.name.trim(),
@@ -132,7 +137,9 @@ export function CustomerPage() {
           body: patchBody(valuesOf(opened!), values),
         }),
       );
-    },
+  };
+  const save = useMutation<Customer, ApiError, () => Promise<Customer>>({
+    mutationFn: (send) => send(),
     onSuccess: (c) => {
       saved(c);
       if (isNew) formKey.reset();
@@ -140,6 +147,8 @@ export function CustomerPage() {
     },
     onError: (e) => {
       refetchIfStale(e);
+      if (/^delivery/.test(e.field ?? "")) setTab(1); // the field with the problem is on the Delivery tab
+      else if (e.field) setTab(0);
       if (e.code === "idempotency_mismatch") formKey.reset(); // the key was used by an earlier, different request: next press starts fresh
     },
   });
@@ -152,9 +161,8 @@ export function CustomerPage() {
       ),
     onSuccess: saved,
   });
-  const remove = useMutation<unknown, ApiError>({
-    mutationFn: () =>
-      call(() => api.DELETE("/api/v1/b/{business_id}/customers/{customer_id}", { params: { path, header: { "If-Match": String(opened?.version) } } })),
+  const remove = useMutation<unknown, ApiError, string>({
+    mutationFn: (version) => call(() => api.DELETE("/api/v1/b/{business_id}/customers/{customer_id}", { params: { path, header: { "If-Match": version } } })),
     onError: refetchIfStale,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["b", businessId, "customers"] });
@@ -209,17 +217,98 @@ export function CustomerPage() {
     e.preventDefault();
     const ok = /^\d+$/.test(values.credit_days.trim());
     setDaysError(ok ? undefined : "Use a whole number of days, such as 0 or 30.");
-    if (ok) save.mutate();
+    if (ok) save.mutate(saveRequest);
   };
+
+  const deliveryNote = theirHint("same") ?? errorFor("delivery_same_as_billing");
+  const delivery = (
+    <section className="panel pad" aria-label="Delivery address">
+      <fieldset disabled={!canEdit} className="plain">
+      <label className="radio">
+        <input type="checkbox" checked={values.same} onChange={(e) => setValues({ ...values, same: e.target.checked })} />
+        Deliver to the billing address
+      </label>
+      {deliveryNote && <p className="hint">{deliveryNote}</p>}
+      {!values.same && (
+        <AddressFields
+          compact
+          legend="Delivery address"
+          value={values.delivery}
+          onChange={(d) => setValues({ ...values, delivery: d })}
+          states={stateOptions}
+          errorFor={(p) => errorFor(`delivery.${p}`) ?? (p === "line1" ? errorFor("delivery") : undefined)}
+          hint={theirHint("delivery")}
+        />
+      )}
+      </fieldset>
+    </section>
+  );
+  const details = (
+    <fieldset disabled={!canEdit} className="plain cols2">
+      <section className="panel pad" aria-label="Customer details">
+        <Field label="Name" value={values.name} onChange={(e) => setValues({ ...values, name: e.target.value })} hint={theirHint("name")} error={errorFor("name")} />
+        <Field
+          label="GSTIN (optional)"
+          autoCapitalize="characters"
+          value={values.gstin}
+          onChange={(e) => setValues({ ...values, gstin: e.target.value })}
+          hint={theirHint("gstin") ?? warningFor("gstin") ?? "Leave blank for an unregistered buyer. We check the format only, not registration."}
+          error={errorFor("gstin")}
+        />
+        <Field
+          label="Credit days"
+          inputMode="numeric"
+          value={values.credit_days}
+          onChange={(e) => setValues({ ...values, credit_days: e.target.value })}
+          hint={theirHint("credit_days") ?? "Days the customer has to pay. 0 means on the invoice date."}
+          error={daysError ?? errorFor("credit_days")}
+        />
+        <p className="hint">Delivery: {values.same ? "to the billing address" : addressLine(values.delivery)}. Change it on the Delivery address tab.</p>
+      </section>
+      <section className="panel pad" aria-label="Billing address">
+        <AddressFields
+          compact
+          legend="Billing address"
+          value={values.billing}
+          onChange={(billing) => setValues({ ...values, billing })}
+          states={stateOptions}
+          errorFor={(p) => errorFor(`billing.${p}`)}
+          hint={theirHint("billing")}
+          stateHint={warningFor("billing.state_code") ?? "Leave it to use the GSTIN's state."}
+        />
+      </section>
+    </fieldset>
+  );
+  const tabs = [
+    { label: "Details", panel: details },
+    { label: "Delivery address", panel: delivery },
+  ];
+  if (canEdit && !isNew && opened)
+    tabs.push({
+      label: opened.status === "archived" ? "Unarchive or delete" : "Archive or delete",
+      panel: (
+        <ManageRecord
+          noun="customer"
+          name={opened.name}
+          archived={opened.status === "archived"}
+          inUse={opened.in_use}
+          dirty={dirty}
+          archiveBusy={archive.isPending}
+          deleteBusy={remove.isPending}
+          onArchive={(a) => archive.mutate(a)}
+          onDelete={() => remove.mutate(String(opened?.version))}
+        />
+      ),
+    });
 
   return (
     <>
       <TopBar title={business.display_name} gstin={business.gstin} />
-      <main className="page">
-        <p className="step">
-          <Link to={`/b/${businessId}/customers`}>Customers</Link>
-        </p>
-        <h1>{isNew ? "New customer" : opened?.name}</h1>
+      <main className="page page-wide">
+        <PageHead
+          crumbs={[{ label: "Sell" }, { label: "Customers", to: `/b/${businessId}/customers` }, { label: isNew ? "New customer" : (opened?.name ?? "") }]}
+          title={isNew ? "New customer" : opened?.name}
+        />
         {opened?.status === "archived" && <Banner>This customer is archived. They aren't offered on new invoices.</Banner>}
         {stale && (
           <Banner tone="error">
@@ -229,74 +318,20 @@ export function CustomerPage() {
         )}
         {otherError && <Banner tone="error">{words(otherError)}</Banner>}
         {states.isError && <Banner tone="error">We couldn't load the list of states. {errorText(states.error)}</Banner>}
-        {save.isSuccess && !isNew && <Banner>Saved. Invoices already finalized keep the details they were issued with.</Banner>}
 
         <form onSubmit={submit} noValidate>
-          <fieldset disabled={!canEdit} className="plain">
-          <Field label="Name" value={values.name} onChange={(e) => setValues({ ...values, name: e.target.value })} hint={theirHint("name")} error={errorFor("name")} />
-          <Field
-            label="GSTIN (optional)"
-            autoCapitalize="characters"
-            value={values.gstin}
-            onChange={(e) => setValues({ ...values, gstin: e.target.value })}
-            hint={theirHint("gstin") ?? warningFor("gstin") ?? "Leave blank for an unregistered buyer. We check the format only, not registration."}
-            error={errorFor("gstin")}
-          />
-          <AddressFields
-            legend="Billing address"
-            value={values.billing}
-            onChange={(billing) => setValues({ ...values, billing })}
-            states={stateOptions}
-            errorFor={(p) => errorFor(`billing.${p}`)}
-            hint={theirHint("billing")}
-            stateHint={warningFor("billing.state_code") ?? "Leave it to use the GSTIN's state."}
-          />
-          <label className="radio">
-            <input type="checkbox" checked={values.same} onChange={(e) => setValues({ ...values, same: e.target.checked })} />
-            Deliver to the billing address
-          </label>
-          {(theirHint("same") || errorFor("delivery_same_as_billing")) && <p className="hint">{theirHint("same") ?? errorFor("delivery_same_as_billing")}</p>}
-          {!values.same && (
-            <AddressFields
-              legend="Delivery address"
-              value={values.delivery}
-              onChange={(delivery) => setValues({ ...values, delivery })}
-              states={stateOptions}
-              errorFor={(p) => errorFor(`delivery.${p}`) ?? (p === "line1" ? errorFor("delivery") : undefined)}
-              hint={theirHint("delivery")}
-            />
-          )}
-          <Field
-            label="Credit days"
-            inputMode="numeric"
-            value={values.credit_days}
-            onChange={(e) => setValues({ ...values, credit_days: e.target.value })}
-            hint={theirHint("credit_days") ?? "Days the customer has to pay. 0 means on the invoice date."}
-            error={daysError ?? errorFor("credit_days")}
-          />
-          </fieldset>
-          {canEdit && (
-            <div className="actions">
+          <Tabs label="Customer" tabs={tabs} current={tab} onChange={setTab} />
+          {canEdit && tab < 2 && (
+            <div className="savebar">
               <Button type="submit" busy={save.isPending}>
                 {isNew ? "Add customer" : "Save changes"}
               </Button>
+              <p className="hint" role="status">
+                {save.isSuccess && !isNew ? "Saved. Invoices already finalized keep the details they were issued with." : "Invoices already issued keep the details they were issued with."}
+              </p>
             </div>
           )}
         </form>
-
-        {canEdit && !isNew && opened && (
-          <ManageRecord
-            noun="customer"
-            name={opened.name}
-            archived={opened.status === "archived"}
-            inUse={opened.in_use}
-            dirty={dirty}
-            archiveBusy={archive.isPending}
-            deleteBusy={remove.isPending}
-            onArchive={(a) => archive.mutate(a)}
-            onDelete={() => remove.mutate()}
-          />
-        )}
       </main>
     </>
   );

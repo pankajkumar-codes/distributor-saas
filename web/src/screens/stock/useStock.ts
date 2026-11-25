@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api, call } from "../../api/client";
 import type { ApiError } from "../../api/errors";
@@ -7,23 +7,20 @@ import type { components } from "../../api/schema";
 export type StockItem = components["schemas"]["StockItemOut"];
 type StockPage = components["schemas"]["StockPageOut"];
 export type Only = "no_stock" | "price_needed";
-export const STOCK_PAGE = 50;
-
 export const stockKey = (businessId: string) => ["b", businessId, "stock"] as const;
 
-/** The stock list. Filter and search are the server's; "Load more" asks for the next page. */
-export function useStockList(businessId: string, opts: { q: string; only: Only | null; enabled: boolean }) {
-  return useInfiniteQuery<StockPage, ApiError>({
-    queryKey: [...stockKey(businessId), "list", { q: opts.q, only: opts.only }],
-    initialPageParam: 0,
+/** One page of the stock list (pages of five, mocks v16). Filter and search are the server's. */
+export function useStockList(businessId: string, opts: { q: string; only: Only | null; page: number; size: number; enabled: boolean }) {
+  return useQuery<StockPage, ApiError>({
+    queryKey: [...stockKey(businessId), "list", { q: opts.q, only: opts.only, page: opts.page }],
     enabled: opts.enabled && Boolean(businessId),
-    queryFn: ({ pageParam }) =>
+    placeholderData: keepPreviousData,
+    queryFn: () =>
       call(() =>
         api.GET("/api/v1/b/{business_id}/stock", {
-          params: { path: { business_id: businessId }, query: { q: opts.q || undefined, only: opts.only ?? undefined, limit: STOCK_PAGE, offset: pageParam as number } },
+          params: { path: { business_id: businessId }, query: { q: opts.q || undefined, only: opts.only ?? undefined, limit: opts.size, offset: opts.page * opts.size } },
         }),
       ),
-    getNextPageParam: (last, pages) => (last.has_more ? pages.length * STOCK_PAGE : undefined),
   });
 }
 

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../../src/App";
@@ -49,7 +49,29 @@ describe("purchase invoices", () => {
     open("/b/b-1/purchases");
     expect(await screen.findByRole("link", { name: "Invoice SUP-1 from bill.pdf" })).toHaveAttribute("href", "/b/b-1/purchases/d-1");
     expect(screen.getByRole("link", { name: /Invoice to type in/ })).toBeInTheDocument();
-    expect(screen.getByText(/photo.jpg: This file isn't a photo we can keep/)).toBeInTheDocument();
+    const file = screen.getByText("photo.jpg").closest("tr")!;
+    expect(within(file).getByText("This file isn't a photo we can keep.")).toBeInTheDocument();
+  });
+
+  it("marks each hard-to-read field and reads the note out with it, without a list above the form (#412)", async () => {
+    const line = { id: "l-1", line_no: 1, page: 1, hsn: "6109", quantity: "2", unit: "PCS", taxable_value: "200.00", gst_rate: "18", igst: null, cgst: "18.00", sgst: "18.00", cess: null };
+    server.reply(`${B}/purchase-drafts/d-1`, {
+      status: 200,
+      body: draft({ unclear: ["supplier_gstin", "doc_date"], lines: [{ ...line, unclear: ["hsn", "quantity", "taxable_value", "cgst", "sgst", "gst_rate"] }] }),
+    });
+    server.reply(`${B}/products`, { status: 200, body: { items: [], has_more: false } });
+    open("/b/b-1/purchases/d-1");
+    const note = "Hard to read. Please check.";
+    expect(await screen.findByLabelText("Supplier GSTIN")).toHaveAccessibleDescription(note);
+    expect(screen.getByLabelText("Invoice date")).toHaveAccessibleDescription(note);
+    expect(screen.getByLabelText("Invoice number")).not.toHaveAccessibleDescription(note);
+    for (const f of ["HSN", "Quantity", "Taxable value", "CGST", "SGST", "GST rate %"]) expect(screen.getByLabelText(`${f}, line 1`)).toHaveAccessibleDescription(note);
+    expect(screen.getByLabelText("IGST, line 1")).not.toHaveAccessibleDescription(note);
+    expect(screen.getByLabelText("HSN, line 1")).toHaveClass("unclear");
+    expect(screen.getByLabelText("IGST, line 1")).not.toHaveClass("unclear");
+    expect(document.querySelectorAll("input.unclear")).toHaveLength(8);
+    expect(screen.getByText(/Fields in amber were hard to read/)).toBeInTheDocument();
+    expect(screen.queryByText(/^Please check:/)).toBeNull();
   });
 
   it("shows what was read, and confirms exactly what is on the screen", async () => {
