@@ -300,6 +300,11 @@ function WorksheetForm({ businessId, instanceId, ws, tab, onTab }: { businessId:
           setBaseSeq(r.entries_seq);
           setSaved(true);
         },
+        // A refused box may be on another tab: open that tab, so the person sees the note under the box.
+        onError: (e) => {
+          const at = tabOfField((e as ApiError).field);
+          if (at >= 0) onTab(at);
+        },
       },
     );
   };
@@ -312,11 +317,11 @@ function WorksheetForm({ businessId, instanceId, ws, tab, onTab }: { businessId:
   const stale = err?.code === "worksheet_changed";
   const o = ws.outward;
   const tabs: { key: string; label: ReactNode; panel: ReactNode }[] = [
-    { key: "31", label: "3.1 Outward", panel: <Outward31 o={o} entry={entry} /> },
-    { key: "32", label: "3.2 Inter-state", panel: <Inter32 o={o} /> },
+    { key: "31", label: WORKSHEET_TAB_LABELS[0], panel: <Outward31 o={o} entry={entry} /> },
+    { key: "32", label: WORKSHEET_TAB_LABELS[1], panel: <Inter32 o={o} /> },
     {
       key: "4a",
-      label: "4(A) Credit",
+      label: WORKSHEET_TAB_LABELS[2],
       panel: (
         <Panel title="4(A) ITC available" aside={<span className="hint">From your GSTR-2B on the GST portal.</span>}>
           <EntryTable
@@ -346,7 +351,7 @@ function WorksheetForm({ businessId, instanceId, ws, tab, onTab }: { businessId:
     },
     {
       key: "4bd",
-      label: "4(B), 4(D) Reversed",
+      label: WORKSHEET_TAB_LABELS[3],
       panel: (
         <Panel title="4(B) ITC reversed and 4(D) other details">
           <EntryTable tables={[byId("t4b"), byId("t4d")]} entry={entry} cols={TAX_HEADS.slice()} first="Details" />
@@ -355,7 +360,7 @@ function WorksheetForm({ businessId, instanceId, ws, tab, onTab }: { businessId:
     },
     {
       key: "5",
-      label: "5 Exempt and interest",
+      label: WORKSHEET_TAB_LABELS[4],
       panel: (
         <div className="grid2">
           <Panel title="5 Exempt, nil-rated and non-GST inward supplies">
@@ -386,7 +391,11 @@ function WorksheetForm({ businessId, instanceId, ws, tab, onTab }: { businessId:
           </Banner>
         )}
         {err && !err.field && !stale && <Banner tone="error">{errorText(err)}</Banner>}
-        {err?.field && <Banner tone="error">Some amounts need a change. {errorText(err)}</Banner>}
+        {err?.field && (
+          <Banner tone="error">
+            Some amounts need a change{tabOfField(err.field) >= 0 ? ` in ${WORKSHEET_TAB_LABELS[tabOfField(err.field)]}` : ""}. {errorText(err)}
+          </Banner>
+        )}
         {!saved && !err && <span className="hint">Saves the boxes on every tab. The boxes are typed by you: we keep them and show them back, and do not check them against the GST rules. Leave a box empty if it is nil.</span>}
       </div>
     </form>
@@ -394,6 +403,13 @@ function WorksheetForm({ businessId, instanceId, ws, tab, onTab }: { businessId:
 }
 
 export const WORKSHEET_TABS = ["31", "32", "4a", "4bd", "5"];
+const WORKSHEET_TAB_LABELS = ["3.1 Outward", "3.2 Inter-state", "4(A) Credit", "4(B), 4(D) Reversed", "5 Exempt and interest"];
+/** The tab that holds a typed box, from the table id at the start of its field name (`t4a.<row>.cgst` is on 4(A)). -1 if none. */
+const TABLE_TAB: Record<string, string> = { t3_1: "31", t4a: "4a", t4b: "4bd", t4d: "4bd", t5: "5", t5_1: "5" };
+function tabOfField(field: string | null | undefined): number {
+  const key = field ? TABLE_TAB[field.split(".")[0]] : undefined;
+  return key ? WORKSHEET_TABS.indexOf(key) : -1;
+}
 
 /** /b/:id/filing/:instanceId/worksheet (R1-M8b W4; mocks v16 "GSTR-3B worksheet"): numbers to check and enter on the GST portal, in tabs. Never a filing. */
 export function WorksheetPage() {

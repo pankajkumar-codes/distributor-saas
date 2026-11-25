@@ -209,6 +209,24 @@ describe("GSTR-3B worksheet", () => {
     expect(box).toHaveAttribute("aria-invalid", "true");
   });
 
+  it("opens the tab that holds a refused box and names it, when the save is made from another tab", async () => {
+    server.reply(WS, sheet());
+    server.reply(`${WS}/entries`, { status: 422, body: { error: { code: "entry_invalid", message: "x", field: "t4a.other.igst", fix: "An amount cannot be negative." } } });
+    open();
+    fireEvent.click(await screen.findByRole("tab", { name: "4(A) Credit" }));
+    const box = screen.getByLabelText("Integrated Tax, (5) All other ITC");
+    fireEvent.change(box, { target: { value: "-5" } });
+    fireEvent.click(screen.getByRole("tab", { name: "3.1 Outward" }));
+    expect(box).not.toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Save what I entered" }));
+    await waitFor(() => expect(screen.getByRole("tab", { name: "4(A) Credit" })).toHaveAttribute("aria-selected", "true"));
+    expect(box).toBeVisible();
+    expect(box).toHaveAttribute("aria-invalid", "true");
+    const row = box.closest("tr") as HTMLElement;
+    expect(within(row).getAllByText("An amount cannot be negative.").length).toBeGreaterThan(0);
+    expect(screen.getByText(/Some amounts need a change in 4\(A\) Credit/)).toBeInTheDocument();
+  });
+
   it("is a not-found page for billing, which the server refuses", async () => {
     open("billing");
     expect(await screen.findByText("You don't have access to this page")).toBeInTheDocument();
