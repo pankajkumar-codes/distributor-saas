@@ -78,7 +78,12 @@ describe("the customer on a new invoice", () => {
     open("/b/b-1/invoices/d-1");
     expect(await screen.findByText("GSTIN 07DEMOE3333E1ZU")).toBeInTheDocument(); // read once for a saved draft
     fireEvent.click(screen.getByRole("button", { name: "Change" }));
-    fireEvent.click(screen.getByRole("button", { name: "Keep Demo Distributor Delhi" }));
+    // #427: "Keep <name>" sits under the search box, so the box keeps the field's full width.
+    const search = screen.getByLabelText("Find another customer");
+    const keep = screen.getByRole("button", { name: "Keep Demo Distributor Delhi" });
+    expect(keep.parentElement).toHaveClass("pick-stack");
+    expect(search.compareDocumentPosition(keep) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fireEvent.click(keep);
     expect(screen.getByRole("region", { name: "Customer" })).toHaveTextContent("Demo Distributor Delhi");
     expect(screen.queryByLabelText("Find another customer")).toBeNull();
   });
@@ -88,6 +93,34 @@ describe("the customer on a new invoice", () => {
     server.reply("/api/v1/b/b-1/customers/c-1", { status: 404, body: { error: { code: "not_found", message: "not found" } } });
     open("/b/b-1/invoices/d-1");
     expect(await screen.findByRole("region", { name: "Customer" })).toHaveTextContent("Demo Distributor Delhi");
+  });
+});
+
+describe("adding a product that is already on the invoice (#427)", () => {
+  const product = (id: string, code: string, name: string) => ({
+    id, code, name, hsn: "330499", uqc: "NOS", sale_rate: "100.00", mrp: "118.00", barcode: null, tax_category: "taxable", has_cess: false, status: "active",
+    version: 1, price_needed: false, in_use: true, rate_on: { rate: "18", rate_id: "r-1", valid_from: "2026-04-01", confirmed: true }, warnings: [],
+  }); // fmt: skip
+  const cream = product("p-1", "CREAM", "Face cream");
+  const soap = product("p-2", "SOAP", "Neem soap");
+
+  it("lists it greyed out with a note, and picking it adds nothing", async () => {
+    server.reply(ONE, { status: 200, body: { ...draft, lines: [{ id: "l-1", line_no: 1, product_id: "p-1", quantity: "1", unit_price: "100.00", discount_kind: null, discount_value: null }] } });
+    server.reply("/api/v1/b/b-1/customers/c-1", { status: 200, body: delhi });
+    server.reply("/api/v1/b/b-1/products/p-1", { status: 200, body: cream });
+    server.reply("/api/v1/b/b-1/products", { status: 200, body: { items: [cream, soap], has_more: false } });
+    open("/b/b-1/invoices/d-1");
+    expect(await screen.findByLabelText("Quantity of Face cream")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Add a product"), { target: { value: "c" } });
+    const taken = await screen.findByRole("button", { name: /Face cream.*Already on this invoice\. Change its quantity in the list below\./ }, { timeout: 3000 });
+    expect(taken).toHaveAttribute("aria-disabled", "true");
+    expect(taken).toHaveClass("taken");
+    const free = screen.getByRole("button", { name: /^Neem soap/ });
+    expect(free).not.toHaveAttribute("aria-disabled");
+    fireEvent.click(taken);
+    expect(screen.getAllByLabelText(/^Quantity of /)).toHaveLength(1);
+    fireEvent.click(free);
+    expect(await screen.findAllByLabelText(/^Quantity of /)).toHaveLength(2);
   });
 });
 
