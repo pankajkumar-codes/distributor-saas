@@ -75,6 +75,7 @@ ALLOWED_DATA: dict[str, frozenset[str]] = {
     "draft.deleted": frozenset(),
     # Finalize (LLD-4 §12): numbers, kinds and codes only; no amounts, names or GSTINs.
     "document.finalized": frozenset({"number", "kind", "practice", "draft_id", "return_period", "form"}),
+    "invoice.cancelled": frozenset({"number", "practice", "reason", "duplicate_of", "stock_reversals"}),
     "credit_note.issued": frozenset({"number", "practice", "original_id", "original_number", "reason", "return_period",
                                      "form"}),
     "document.pdf_requested": frozenset({"attempt"}),

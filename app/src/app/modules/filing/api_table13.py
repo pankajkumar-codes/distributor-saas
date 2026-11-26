@@ -89,7 +89,7 @@ def get_table13(instance_id: str, uow: BusinessUoW) -> Table13Out:
     inst = _instance_or_404(uow, instance_id)
     build = build_return(uow.tx, inst)
     last = table13.latest(uow.tx, inst.id)
-    rows = table13.working_rows(table13.suggest(build.lines), last) if inst.form == "GSTR1" else []
+    rows = table13.working_rows(table13.suggest(build.lines, build.cancelled), last) if inst.form == "GSTR1" else []
     return _out(uow, inst, build, rows, last)
 
 
@@ -100,4 +100,4 @@ def put_table13(instance_id: str, body: Table13In, uow: BusinessUoW) -> Table13O
     sent = [(table13.DocRow(r.nature, r.from_no, r.to_no, r.total_issued, r.cancelled, "manual", r.counted), r.manual)
             for r in body.rows]  # fmt: skip
     last, _ = table13.confirm(uow, inst, build, sent)
-    return _out(uow, inst, build, table13.working_rows(table13.suggest(build.lines), last), last)
+    return _out(uow, inst, build, table13.working_rows(table13.suggest(build.lines, build.cancelled), last), last)

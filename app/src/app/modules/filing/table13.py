@@ -8,8 +8,9 @@ What is decided here, and what is not (spec sections 3 and 9):
 - Only the seller's own series are suggested: own live documents and the seller's own invoices uploaded from other software.
   Marketplace-issued numbers are not in `filing.v_supply_lines`, so they are never suggested; the person adds them as a manual
   row if the CA says they count (T13-1). A practice document is never in the view, so never here (A3).
-- Cancelled counts of a suggested series are 0 (A4); the person edits them. Counting cancelled live documents from the audit
-  trail waits for live numbering (D-010); there are no live numbers today.
+- Cancelled counts of a suggested series come from the app's own cancellations (#456, sales.v_cancelled_documents): a
+  cancelled live invoice is counted in Total and Cancelled, never in Tables 4 to 12. Cancellations made outside the app
+  are the person's to enter (A4).
 - Nothing here says what the portal accepts. The checks of a row are ours (spec section 6), not the portal's.
 - Counts are integers; there is no money in this table, and no float anywhere.
 """
@@ -88,11 +89,13 @@ def has_data(build: ReturnBuild) -> bool:
 # -- Suggestions ------------------------------------------------------------------------------------------------
 
 
-def suggest(lines) -> list[DocRow]:
+def suggest(lines, cancelled=()) -> list[DocRow]:
     """One row per (nature, series) among the documents of the return. A series is the number without its final digits plus the
     number of those digits, so `INV/001` and `INV/0001` are two series (spec 4.3). `total` counts distinct numbers, not the
-    range. Lines of one document count once."""
+    range. Lines of one document count once. `cancelled` (own live documents cancelled in the app, #456) count in the
+    series' total and in its cancelled count."""
     found: dict[tuple, dict[str, bool]] = {}  # (nature, prefix, width) -> number -> was it an own live document
+    gone: dict[tuple, set[str]] = {}
     for ln in lines:
         nature = DOC_KIND_NATURE.get(ln.doc_kind)
         number = ln.doc_number.strip()
@@ -101,12 +104,21 @@ def suggest(lines) -> list[DocRow]:
         prefix, digits = split_number(number)
         live = ln.source_ref == ln.doc_number  # sales publishes the number as its reference; an upload gives file and row
         found.setdefault((nature, prefix, len(digits)), {})[number] = live
+    for c in cancelled:
+        nature = DOC_KIND_NATURE.get(c.doc_kind)
+        number = c.doc_number.strip()
+        if nature is None or not number:
+            continue
+        prefix, digits = split_number(number)
+        found.setdefault((nature, prefix, len(digits)), {})[number] = True
+        gone.setdefault((nature, prefix, len(digits)), set()).add(number)
     out = []
     for (nature, prefix, width), numbers in found.items():
         ordered = sorted(numbers, key=lambda n: (int(split_number(n)[1] or 0), n))
         lo, hi = ordered[0], ordered[-1]
         span = int(split_number(hi)[1] or 0) - int(split_number(lo)[1] or 0) + 1 if width else 1
-        out.append(DocRow(nature, lo, hi, len(ordered), 0, "own_live" if all(numbers.values()) else "uploaded_own",
+        out.append(DocRow(nature, lo, hi, len(ordered), len(gone.get((nature, prefix, width), ())),
+                          "own_live" if all(numbers.values()) else "uploaded_own",
                           True, max(span - len(ordered), 0)))  # fmt: skip
     return sorted(out, key=lambda r: (r.nature, r.from_no, r.to_no))
 
@@ -229,7 +241,7 @@ def confirm(uow: BusinessUoW, inst: ReturnInstance, build: ReturnBuild, sent: li
         raise Conflict("return_not_open", "This return is not open, so its documents issued cannot be changed.")
     tx, p = uow.tx, uow.principal
     lock_instance(tx, inst.id)
-    suggested = {s.key: s for s in suggest(build.lines)}
+    suggested = {s.key: s for s in suggest(build.lines, build.cancelled)}
     rows: list[DocRow] = []
     for r, manual in sent:
         if manual:

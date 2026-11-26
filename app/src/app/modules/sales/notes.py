@@ -258,6 +258,9 @@ def create(uow: UnitOfWork, invoice_id: uuid.UUID, body: dict, today: date) -> d
     tx, b = uow.tx, _business(uow)
     finalize.get_document(uow, invoice_id)  # a 404 before taking the lock, for another business's id
     tx.execute(text("select pg_advisory_xact_lock(hashtextextended('cn:' || :d, 0))"), {"d": str(invoice_id)})
+    if tx.execute(text("select 1 from sales.document_cancellations where document_id = :d and business_id = :b"),
+                  {"d": invoice_id, "b": b}).first() is not None:
+        raise Invalid("invoice_cancelled", "This invoice is cancelled, so it can't have a credit note", field="invoice")
     state = credit_state(uow, invoice_id)
     inv = tx.execute(
         text("select id, doc_number, doc_date, is_practice, gstin, customer_id, counterparty_gstin, counterparty_name,"

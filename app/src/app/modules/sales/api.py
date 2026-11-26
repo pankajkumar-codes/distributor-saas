@@ -27,7 +27,7 @@ from platform_common.paging import DEFAULT_LIMIT, MAX_LIMIT, PageParams, page_pa
 from platform_common.permissions import Permission, require
 from platform_common.uow import BusinessUoW, parse_id
 
-from . import document_pdf, drafts, finalize, notes, preview
+from . import cancel, document_pdf, drafts, finalize, notes, preview
 from .compute import Computation
 
 router = APIRouter(tags=["sales"])
@@ -415,6 +415,8 @@ class DocumentOut(BaseModel):
     round_off: str
     doc_total: str
     finalized_at: str
+    # #456: set when the invoice is cancelled (raised_in_error, duplicate or did_not_happen); the row never changes
+    cancel_reason: str | None = None
 
 
 def _document(doc: dict) -> dict:
@@ -650,6 +652,7 @@ class CreditStateOut(BaseModel):
     invoice_id: str
     doc_number: str
     is_practice: bool
+    cancelled: bool = False  # a cancelled invoice takes no credit note
     lines: list[CreditLineOut]
     notes: list[CreditNoteRef]
     remaining_total: str
@@ -678,7 +681,7 @@ def _credit_state(s: notes.CreditState) -> dict:
 
     return {
         "invoice_id": str(s.invoice["id"]), "doc_number": s.invoice["doc_number"],
-        "is_practice": s.invoice["is_practice"],
+        "is_practice": s.invoice["is_practice"], "cancelled": s.invoice.get("cancel_reason") is not None,
         "lines": [{"original_line_id": str(ln.line_id), "line_no": ln.line_no, "name": ln.name, "hsn": ln.hsn,
                    "uqc": ln.uqc, "rate": f"{ln.rate.normalize():f}", "quantity": q(ln.quantity),
                    "remaining_quantity": q(ln.remaining_quantity), "taxable": _m(ln.taxable),
@@ -717,3 +720,35 @@ def create_credit_note(
     return run_once(uow.tx, uow.principal.business_id, idempotency_key, method=request.method,
                     route=request.scope["route"].path, payload={"document_id": str(did), **payload},
                     operation=lambda: _document(notes.create(uow, did, payload, clock.today())))
+
+
+# --- Cancelling an invoice (#456) --------------------------------------------------------------------------------------
+
+
+class CancelIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    reason: Literal["raised_in_error", "duplicate", "did_not_happen"]
+    declared_not_delivered: StrictBool = False  # "the goods on this invoice were not removed or delivered"
+    duplicate_of: str | None = None  # the other invoice's number; its length is checked against refdata
+
+
+@router.post("/b/{business_id}/documents/{document_id}/cancel", response_model=DocumentOut, dependencies=EDIT)
+def cancel_document(
+    document_id: str,
+    body: CancelIn,
+    request: Request,
+    uow: BusinessUoW,
+    clock: Annotated[Clock, Depends(get_clock)],
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+):
+    """Cancels an issued invoice while the return holding it is open and no credit note exists for it (#456). The
+    invoice row never changes: a cancellation is written beside it, its number stays used, it leaves Tables 4 to 12
+    and Table 13 counts it as cancelled, and its stock comes back. "Raised by mistake" and "did not happen" need the
+    declaration that the goods were not removed or delivered. Off, like finalize, until `sales.finalize.enabled`."""
+    if not finalize.enabled(uow, clock.today()):
+        raise Deny("not_found")
+    did = parse_id(document_id)
+    payload = body.model_dump(mode="json")
+    return run_once(uow.tx, uow.principal.business_id, idempotency_key, method=request.method,
+                    route=request.scope["route"].path, payload={"document_id": str(did), **payload},
+                    operation=lambda: _document(cancel.cancel(uow, did, payload, clock.today())))
