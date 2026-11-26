@@ -8,7 +8,7 @@ row-level security, so another business's product or customer is simply not foun
 import uuid
 from dataclasses import dataclass
 from datetime import date
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session
@@ -44,6 +44,7 @@ __all__ = [
     "mark_used",
     "product_for_line",
     "products_for_lines",
+    "rate_from_mrp",
     "setup_counts",
 ]
 
@@ -66,6 +67,25 @@ class ProductForLine:
     rate_changed_within_warning_window: bool
     price_needed: bool = False  # R2-M3: the selling price per 1 qty was never set
     on_hand: Decimal = Decimal()  # R2-M3: stock on hand now; a sale is never blocked by it
+    mrp: Decimal | None = None  # per unit, GST included; required on every invoiced product (D-107)
+
+
+_PAISE = Decimal("0.01")
+
+
+def rate_from_mrp(mrp: Decimal | None, tax_category: str, rate: Decimal | None, has_cess: bool = False) -> Decimal | None:
+    """The rate per unit before GST that an MRP implies (D-107, Pankaj): MRP / (1 + GST%/100), rounded
+    half up to the paisa, e.g. MRP 100.00 at 18% gives 84.75. A product outside GST (exempt, nil-rated, non-GST)
+    carries no GST, so its rate is the MRP itself. None when there is no MRP, the product has cess, or a taxable product has no rate on
+    the day. Tax is still worked out on this rate, tax-exclusive; the paise the rounding leaves are what the
+    invoice's round-off already absorbs (CA-5 stays open for back-calculating the taxable value itself)."""
+    if mrp is None or has_cess:
+        return None  # an MRP with cess in it also holds the cess; MRP / (1 + GST%) would overstate the rate (D-107)
+    if tax_category != "taxable":
+        return mrp.quantize(_PAISE, ROUND_HALF_UP)
+    if rate is None:
+        return None
+    return (mrp * 100 / (100 + rate)).quantize(_PAISE, ROUND_HALF_UP)
 
 
 @dataclass(frozen=True)
@@ -107,8 +127,8 @@ def products_for_lines(tx: Session, product_ids: list[uuid.UUID], on: date) -> d
     days = int(value_on(tx, "catalog.rate_change_warning_days", on))
     products = tx.execute(
         text(
-            "select id, code, name, hsn, uqc, sale_rate, tax_category, has_cess, status, price_needed from catalog.products"
-            f" where id in :ids and {_MINE} and status <> 'deleted'"
+            "select id, code, name, hsn, uqc, sale_rate, tax_category, has_cess, status, price_needed, mrp"
+            f" from catalog.products where id in :ids and {_MINE} and status <> 'deleted'"
         ).bindparams(bindparam("ids", expanding=True)),
         {"ids": ids},
     ).all()
@@ -146,6 +166,7 @@ def products_for_lines(tx: Session, product_ids: list[uuid.UUID], on: date) -> d
             found.changed_within_warning_window if found else False,
             p.price_needed,
             held.get(p.id, Decimal()),
+            p.mrp,
         )
     return out
 

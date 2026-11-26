@@ -30,8 +30,8 @@ OUTBOX = Path(os.environ.get("MAIL_OUTBOX", "/srv/build/mail/outbox.jsonl"))
 ORIGIN = "http://localhost:5173"  # the API only answers sign-in cookies for its own web origin
 
 
-def call(base, method, path, body=None, token=None):
-    headers = {"Content-Type": "application/json", "Origin": ORIGIN, "Idempotency-Key": uuid.uuid4().hex}
+def call(base, method, path, body=None, token=None, extra=None):
+    headers = {"Content-Type": "application/json", "Origin": ORIGIN, "Idempotency-Key": uuid.uuid4().hex, **(extra or {})}
     if token:
         headers["Authorization"] = f"Bearer {token}"
     data = None if body is None else json.dumps(body).encode()
@@ -120,7 +120,7 @@ def _seed(base):
 
 def _catalog(base, business, token):
     """Adds the demo customers and products the business doesn't have yet (archived ones count as had)."""
-    added = 0
+    added = mrp = 0
     for c in CUSTOMERS:
         q = urllib.parse.quote(c["name"][:100])
         found = need(*call(base, "GET", f"/b/{business}/customers?status=all&limit=200&q={q}", None, token),
@@ -131,10 +131,16 @@ def _catalog(base, business, token):
     for p in PRODUCTS:
         found = need(*call(base, "GET", f"/b/{business}/products?status=all&limit=200&q={p['code']}", None, token),
                      (200,), "list products")
-        if not any(x["code"] == p["code"] for x in found["items"]):
+        had = next((x for x in found["items"] if x["code"] == p["code"]), None)
+        if had is None:
             need(*call(base, "POST", f"/b/{business}/products", p, token), (201,), f"product {p['code']}")
             added += 1
-    print(f"demo customers and products: {added} added")
+        elif had.get("mrp") is None:
+            # A demo product saved before MRP was required (D-107) gets its MRP, as a person would add it.
+            need(*call(base, "PATCH", f"/b/{business}/products/{had['id']}", {"mrp": p["mrp"]}, token,
+                       {"If-Match": str(had["version"])}), (200,), f"MRP of {p['code']}")
+            mrp += 1
+    print(f"demo customers and products: {added} added, {mrp} given their MRP")
 
 
 if __name__ == "__main__":

@@ -14,10 +14,15 @@ const HSN_FIX_CODES = ["hsn_missing", "hsn_too_short", "hsn_missing_b2c", "hsn_s
 
 // Display only: every figure is the server's string; the page does no tax arithmetic.
 
-type IssueProps = { canLeave: boolean; productId?: string; hsnFix?: (line: number, productId: string) => ReactNode };
+type IssueProps = {
+  canLeave: boolean;
+  productId?: string;
+  hsnFix?: (line: number, productId: string) => ReactNode;
+  mrpFix?: (line: number, productId: string) => ReactNode;
+};
 
 /** One check from the server, in its words, with the way to fix it where there is one. */
-export function IssueText({ issue: i, canLeave, productId, hsnFix }: IssueProps & { issue: Issue }) {
+export function IssueText({ issue: i, canLeave, productId, hsnFix, mrpFix }: IssueProps & { issue: Issue }) {
   const { businessId = "" } = useParams();
   const here = useLocation().pathname;
   const leave = (to: string, words: string, later: string) =>
@@ -38,6 +43,7 @@ export function IssueText({ issue: i, canLeave, productId, hsnFix }: IssueProps 
       {i.code === "business_not_ready" && leave(`/b/${businessId}/settings`, "Open Business setup", "open Business setup")}
       {(i.code === "hsn_missing" || i.code === "hsn_too_short") && productId && leave(`/b/${businessId}/products/${productId}`, "Open the product", "open the product")}
       {HSN_FIX_CODES.includes(i.code) && i.line_no && productId && canLeave && hsnFix?.(i.line_no, productId)}
+      {i.code === "mrp_missing" && i.line_no && productId && canLeave && mrpFix?.(i.line_no, productId)}
       {i.code === "hsn_needs_turnover_band" && leave(`/b/${businessId}/settings#last-year-band`, "Set last year's turnover band", "set last year's turnover band")}
     </>
   );

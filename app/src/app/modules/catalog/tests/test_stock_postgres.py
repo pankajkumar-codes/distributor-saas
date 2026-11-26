@@ -47,7 +47,7 @@ def post(pg, path, body=None, sub="alice", key=None):
 
 
 def make_product(pg, biz, code="SOAP-1", sub="alice"):
-    body = {"code": code, "name": "Neem soap", "hsn": "3401", "uqc": "PCS", "sale_rate": "45.50",
+    body = {"code": code, "name": "Neem soap", "hsn": "3401", "uqc": "PCS", "sale_rate": "45.50", "mrp": "53.69",
             "tax_category": "taxable", "rate": {"rate": "18", "valid_from": "2026-04-01"}}
     r = post(pg, f"/api/v1/b/{biz}/products", body, sub=sub)
     assert r.status_code == 201, r.text

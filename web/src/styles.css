@@ -611,12 +611,23 @@ html:has(.page-auth) { background: var(--sunk); min-height: 100%; }
 .f2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 10px; }
 .f2 > .error { grid-column: 1 / -1; margin: 4px 0 0; }
 .pick { position: relative; }
-.row-pick { display: flex; gap: 10px; align-items: center; }
-.row-pick .pick { flex: 1; }
+/* Changing the customer (#427): the search box keeps the full width; "Keep <name>" sits under it on one line. */
+.pick-stack { min-width: 0; }
+.pick-stack .keep-link { display: block; max-width: 100%; min-height: 22px; margin-top: 4px; font-size: 13px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Buyer, Customer and Invoice date line up (#427): every control in the row is 36px tall, labels on one line above. */
+.invtop .flabel { display: block; min-height: 20px; }
+.invtop .ccard { min-height: 36px; }
+.invtop .seg2 { display: flex; width: max-content; height: 36px; }
+.invtop .seg2 label { min-height: 0; }
+.invtop .seg2-field > legend { margin-bottom: 4px; }
 .results { border: 1px solid var(--line2); border-radius: var(--r-md); overflow: hidden; }
 .results button { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--line); background: var(--bg); padding: 8px 12px; cursor: pointer; font-size: 14px; }
 .results button:last-child { border-bottom: 0; }
 .results button:hover, .results button:focus-visible { background: var(--sunk); outline-offset: -2px; }
+/* A product already on the invoice (#427): listed so the seller sees it is there, but greyed out and not pickable. */
+.results button.taken { color: var(--muted); background: var(--sunk); cursor: not-allowed; }
+.results button.taken b { color: var(--muted); }
+.results .taken-note { color: var(--muted); font-style: italic; }
 .results b { font-weight: 500; }
 .results .sub2 { display: block; }
 .results .empty { margin: 0; padding: 10px 12px; font-size: 14px; }

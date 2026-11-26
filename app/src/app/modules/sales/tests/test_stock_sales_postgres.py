@@ -98,11 +98,17 @@ def test_a_product_without_a_set_price_needs_one_before_finalize_but_the_draft_s
     pg, biz, _ = shop
     p = product(pg, biz)
     with pg.owner.connect() as c:
-        c.execute(text("update catalog.products set price_needed = true, sale_rate = 0 where id = :p"), {"p": p})
+        # A product made from a purchase line: no selling price and, as there, no MRP to take the rate from (D-107).
+        c.execute(text("update catalog.products set price_needed = true, sale_rate = 0, mrp = null where id = :p"),
+                  {"p": p})
     d = draft(pg, biz, p)
     assert ("price_not_set", 1) in codes(d, "blocks") and d["ready"] is False
     typed = draft(pg, biz, p, line={"unit_price": "80.00"})
-    assert codes(typed, "blocks") == [] and typed["ready"] is True
+    assert codes(typed, "blocks") == [("mrp_missing", 1)] and typed["ready"] is False  # the price is fine now
+    with pg.owner.connect() as c:
+        c.execute(text("update catalog.products set mrp = 94.40 where id = :p"), {"p": p})
+    from_mrp = draft(pg, biz, p)  # with an MRP the blank rate is 94.40 / 1.18 = 80.00, a set price: no block
+    assert codes(from_mrp, "blocks") == [] and from_mrp["lines"][0]["unit_price"] == "80.00"
 
 
 # --- Finalizing takes stock out, once, and never refuses for stock ---------------------------
