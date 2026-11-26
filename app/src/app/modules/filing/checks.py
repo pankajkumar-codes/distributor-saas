@@ -215,8 +215,9 @@ def c17_tool_recompute(tx: Session, b: ReturnBuild) -> list[Finding]:
 
 
 def c07_b2b_without_hsn_summary(tx: Session, b: ReturnBuild) -> list[Finding]:
-    """One builder makes both, so this should never fire; it is kept as the invariant the BRD list asks for."""
-    if not b.sections.b2b or b.sections.hsn_b2b:
+    """One builder makes both, so this should never fire; it is kept as the invariant the BRD list asks for. An IFF
+    carries no HSN summary at all (IFFQ FAQ 10), so it is not checked (#482)."""
+    if b.instance.form == "IFF" or not b.sections.b2b or b.sections.hsn_b2b:
         return []
     return [Finding("C-07", "block", "Something is wrong on our side: this return has business-to-business invoices but "
                     "no HSN summary for them. Do not use this return. We have been told.", (),
@@ -231,6 +232,15 @@ def c09_reconciliation(tx: Session, b: ReturnBuild) -> list[Finding]:
         return []
     return [Finding("C-09", "block", "Something is wrong on our side: the sections and the HSN summary do not add up. "
                     "Do not use this return. We have been told.", (), _fp("C-09", b.instance.id.hex, b.fingerprint))]
+
+
+def c19_unfiled_iff(tx: Session, b: ReturnBuild) -> list[Finding]:
+    """A quarter carries the lines of an IFF month that was never marked filed (#483). That is right when the IFF was not
+    filed on the portal; if it was, they would be reported twice, so the owner is asked to mark it filed first."""
+    return [Finding("C-19", "warn", f"The IFF for {label} is not marked filed, so its {len(refs)} business-to-business"
+                    " document(s) are included in this quarterly return. If you filed that IFF on the GST portal, mark it"
+                    " filed here first so they are not reported twice.", refs, _fp("C-19", b.instance.id.hex, label, *refs))
+            for label, refs in b.unfiled_iffs]
 
 
 def c11_iff_cap(tx: Session, b: ReturnBuild) -> list[Finding]:
@@ -308,7 +318,7 @@ def a4_number_in_two_years(tx: Session, b: ReturnBuild) -> list[Finding]:
 CHECKS: tuple[Callable[[Session, ReturnBuild], list[Finding]], ...] = (
     c01_missing_hsn, c02_customer_gstin, c03_document_number, c04_duplicate_number, c05_place_of_supply,
     c07_b2b_without_hsn_summary, c08_documents_issued, c09_reconciliation, c10_hsn_digits, c11_iff_cap, c12_negative_b2cs, c13_line_items,
-    c16_provisional_values, c17_tool_recompute, c18_unit_not_listed,
+    c16_provisional_values, c17_tool_recompute, c18_unit_not_listed, c19_unfiled_iff,
     a1_tax_arithmetic, a2_heads_vs_place_of_supply, a3_cgst_sgst_differ, a4_number_in_two_years,
 )  # fmt: skip
 

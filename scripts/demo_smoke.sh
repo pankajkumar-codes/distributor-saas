@@ -58,8 +58,11 @@ for s in api web db renderer; do
 done
 pass "db, api, web and renderer are running"
 # The PDF renderer (#387) loaded its bundled pango and fonts and drew its self-test page.
-for _ in $(seq 30); do $DC logs renderer 2>&1 | grep -q "watching /srv/build/objects" && break; sleep 2; done
-$DC logs renderer 2>&1 | grep -q "self-test: {'pages': 1" || { $DC logs renderer; fail "the renderer did not pass its self-test"; }
+# Read the logs into a variable before grep -q: with pipefail, grep -q closing the pipe early can SIGPIPE `logs` and
+# fail the check although the line is there (#490).
+for _ in $(seq 30); do rlog=$($DC logs renderer 2>&1); grep -q "watching /srv/build/objects" <<<"$rlog" && break; sleep 2; done
+rlog=$($DC logs renderer 2>&1)
+grep -q "self-test: {'pages': 1" <<<"$rlog" || { printf '%s\n' "$rlog"; fail "the renderer did not pass its self-test"; }
 pass "the renderer drew its self-test page and is watching for previews"
 
 # 3. The page and the API through nginx.

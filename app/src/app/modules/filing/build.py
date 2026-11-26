@@ -65,6 +65,8 @@ class ReturnBuild:
     # Own live documents cancelled in this return's member sets (#456): out of Tables 4 to 12, counted in Table 13.
     cancelled: tuple["CancelledDoc", ...] = ()
     iff_sections: tuple[Gstr1Sections, ...] = ()  # a quarter's IFF months filed with the IFF; counted in `liability`
+    # A quarter's IFF months not marked filed (#483): their lines are in the quarter's tables. (period label, document numbers)
+    unfiled_iffs: tuple[tuple[str, tuple[str, ...]], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -89,8 +91,9 @@ def build_return(tx: Session, instance: ReturnInstance) -> ReturnBuild:
     own = [instance.id]
     iff_months: list[uuid.UUID] = []
     iff_filed: list[uuid.UUID] = []  # IFF months whose lines were filed with the IFF, not with the quarter
+    unfiled: list[uuid.UUID] = []  # forwarded IFF months that were never filed (#483), for check C-19
     if quarter:
-        forwarded = _forwarded_iffs(tx, instance)
+        forwarded, unfiled = _forwarded_iffs(tx, instance)
         own += forwarded
         for i in instances_between(tx, instance.gstin, instance.period_start, instance.period_end):
             if i.form == "IFF":
@@ -109,7 +112,8 @@ def build_return(tx: Session, instance: ReturnInstance) -> ReturnBuild:
         sections=sections,
         liability=liability(sections, *iff_builds),
         hsn_total=hsn_total(sections),
-        gap=reconciliation_gap(sections, iff_builds=iff_builds),
+        # An IFF has no Table 12 (IFFQ FAQ 10), so there is nothing to reconcile it with (#482).
+        gap=Amounts() if instance.form == "IFF" else reconciliation_gap(sections, iff_builds=iff_builds),
         members=tuple(sorted({f"{ln.doc_number}|{ln.source_kind}|{ln.source_id}" for ln in all_lines})),
         line_items=sections.line_items,
         fingerprint=_fingerprint(instance, all_lines, debit_notes, cancelled),
@@ -120,6 +124,7 @@ def build_return(tx: Session, instance: ReturnInstance) -> ReturnBuild:
         lines=tuple(all_lines),
         iff_sections=tuple(iff_builds),
         cancelled=tuple(cancelled),
+        unfiled_iffs=_unfiled(tx, instance, unfiled, liability_lines),
     )
 
 
@@ -136,16 +141,34 @@ def _is_qrmp_quarter(tx: Session, instance: ReturnInstance) -> bool:
     return r.filer_frequency == "qrmp"
 
 
-def _forwarded_iffs(tx: Session, instance: ReturnInstance) -> list[uuid.UUID]:
-    """Skipped IFFs forwarded to this quarter: their lines are liability of the quarter (LLD-5 §4)."""
+def _forwarded_iffs(tx: Session, instance: ReturnInstance) -> tuple[list[uuid.UUID], list[uuid.UUID]]:
+    """The IFF months whose lines are liability of this quarter (LLD-5 §4, §8): a skipped IFF forwarded here, and an
+    IFF of the quarter that was never marked filed (status still `open`). An IFF not filed by its due date can't be
+    filed any more, so its invoices and notes go in the quarterly GSTR-1 (AC5-7). The daily skip job that would mark it
+    skipped is not built yet (#483), and without this rule the quarter left those lines out of every table but Table
+    12. A quarterly GSTR-1 is exported only after the quarter ends, by when every IFF of the quarter is past due, so
+    the rule needs no date. Returns (all forwarded, the open ones among them)."""
     rows = tx.execute(
         text(
-            "select id from filing.return_instances where "
-            f"{BOUND} and form = 'IFF' and status = 'skipped' and forwarded_to = :to"
+            "select id, status from filing.return_instances where "
+            f"{BOUND} and form = 'IFF' and ((status = 'skipped' and forwarded_to = :to)"
+            " or (status = 'open' and gstin = :g and period_start between :s and :e))"
         ),
-        {"to": instance.id},
-    )
-    return [r.id for r in rows]
+        {"to": instance.id, "g": instance.gstin, "s": instance.period_start, "e": instance.period_end},
+    ).all()
+    return [r.id for r in rows], [r.id for r in rows if r.status == "open"]
+
+
+def _unfiled(
+    tx: Session, instance: ReturnInstance, ids: list[uuid.UUID], lines: list[SupplyLine]
+) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    out = []
+    for i in instances_between(tx, instance.gstin, instance.period_start, instance.period_end):
+        if i.id in ids:
+            refs = tuple(sorted({ln.doc_number for ln in lines if ln.return_instance_id == i.id}))
+            if refs:
+                out.append((i.period_start.strftime("%b %Y"), refs))
+    return tuple(out)
 
 
 def _lines(tx: Session, instance: ReturnInstance, ids: list[uuid.UUID]) -> list[SupplyLine]:
