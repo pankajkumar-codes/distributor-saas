@@ -85,8 +85,9 @@ def test_a_preview_writes_the_render_input_and_queues_only_its_key(shop):
     # The computation's figures, as a save stores them (drafts.computation).
     assert doc["place_of_supply"] == "Maharashtra (27)"
     assert doc["totals"] == {"taxable": "258.06", "taxes": [{"component": "IGST", "amount": "46.45"}],
-                             "round_off": None, "total": "304.51",
-                             "in_words": "Rupees Three Hundred Four and Fifty One Paise Only"}
+                             # an undated draft is computed on today: the round-off line is on from 2026-11-26 (D-109)
+                             "round_off": "0.49", "total": "305.00",
+                             "in_words": "Rupees Three Hundred Five Only"}
     assert doc["blocks"] == ["Line 1: Tell us last year's turnover band (FY 2025-26) to use 4-digit HSN codes. "
                              "Until then, HSN codes need at least 6 digits."]
     assert "note" not in doc

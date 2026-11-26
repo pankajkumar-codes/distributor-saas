@@ -528,3 +528,19 @@ def test_a_blank_rate_is_the_one_the_mrp_implies_and_a_typed_rate_wins(pg):  # D
     body["lines"][0]["unit_price"] = "80.00"
     r = pg.client.post(f"/api/v1/b/{biz}/drafts", json=body, headers=h("alice", **{"Idempotency-Key": uuid.uuid4().hex}))
     assert r.json()["lines"][0]["unit_price"] == "80.00"
+
+
+@pytest.mark.parametrize(("doc_date", "round_off", "total"), [("2026-11-26", "-0.01", "100.00"), ("2026-11-25", "0.00", "100.01")])
+def test_an_mrp_invoice_totals_the_mrp_once_the_round_off_line_is_on(pg, doc_date, round_off, total):  # D-109, #437
+    from decimal import Decimal as D
+
+    biz = new_business(pg, "alice")
+    cust = make_customer(pg, biz)
+    p = make_product(pg, biz, mrp="100.00")
+    body = {"customer_id": cust, "doc_date": doc_date, "lines": [{"product_id": p, "quantity": "1"}]}
+    r = pg.client.post(f"/api/v1/b/{biz}/drafts", json=body, headers=h("alice", **{"Idempotency-Key": uuid.uuid4().hex}))
+    assert r.status_code == 201, r.text
+    c = r.json()["computation"]
+    tax = D(c["igst_total"]) + D(c["cgst_total"]) + D(c["sgst_total"])
+    assert (c["taxable_total"], tax) == ("84.75", D("15.26"))  # lines and tax unchanged: 84.75 + 15.26 = 100.01
+    assert (c["round_off"], c["doc_total"]) == (round_off, total)  # on from 2026-11-26; earlier dates keep the old row
