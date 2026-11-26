@@ -15,9 +15,9 @@
 #
 # Extensions (issue #424). The government moves a due date by notification. To show an extended
 # date, add a row, with no code change:
-#   key:   due.extension.<form>.p<yyyy>_<mm>              all states, e.g. due.extension.gstr3b.p2026_10
-#          due.extension.<form>.p<yyyy>_<mm>.state_<code> one state,  e.g. ...p2026_10.state_19
-#   form:  gstr1, gstr3b, iff or pmt06; <yyyy>_<mm> is the month the period ENDS (a quarter: its
+#   name:  due.extension.FORM.pYYYY_MM               for all states (example: GSTR-3B for October 2026
+#          is due.extension.gstr3b.p2026_10), or due.extension.FORM.pYYYY_MM.state_CODE for one state
+#   FORM:  gstr1, gstr3b, iff or pmt06; YYYY_MM is the month the period ENDS (a quarter: its
 #          last month, e.g. p2026_12 for Oct-Dec 2026)
 #   value: the extended due date as "YYYY-MM-DD", type text, kind tax, valid_from 2021-01-01,
 #          and the notification as the source. A one-state row wins over an all-states row.

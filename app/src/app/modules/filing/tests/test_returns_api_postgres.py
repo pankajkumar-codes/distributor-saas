@@ -76,9 +76,8 @@ def test_a_confirmed_refdata_row_flips_the_marker(api):
     choose(pg, b, "monthly")
     with pg.owner.connect() as c:
         c.execute(
-            text(
-                "update refdata.values set status = 'provisional', confirmed_by = null, confirmed_on = null where key = 'due.gstr1.monthly.day'"
-            )
+            text("update refdata.values set status = 'provisional', confirmed_by = null, confirmed_on = null where key = :k"),
+            {"k": "due.gstr1.monthly.day"},
         )
     from app.modules.refdata.reader import _reset_cache
 
