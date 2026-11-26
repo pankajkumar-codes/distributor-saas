@@ -264,3 +264,60 @@ def test_a_buyer_without_a_gstin_is_placed_by_their_address(shop):
     assert doc.status_code == 200, doc.text
     body = _get(pg, biz, doc.json()["id"]).json()
     assert (body["pos_basis"], body["pos_override_reason"]) == ("buyer_address", None)
+
+
+def test_the_pdf_prints_the_mrp_and_percent_as_finalized_and_an_hsn_summary_that_equals_the_totals(shop):  # #450
+    pg, biz, _, jobs_q, _, store = shop
+    soap = make_product(pg, biz, code=f"S-{uuid.uuid4().hex[:6]}", hsn="340111")  # MRP 53.69 -> rate 45.50 at 18%
+    cream = make_product(pg, biz, code=f"C-{uuid.uuid4().hex[:6]}", hsn="330499", name="Face cream", mrp="413.00",
+                         sale_rate="350.00")
+    d = ready_draft(pg, biz, lines=[
+        {"product_id": soap, "quantity": "2.500", "discount_kind": "percent", "discount_value": "10"},
+        {"product_id": cream, "quantity": "12", "discount_kind": "amount", "discount_value": "100.00"},
+        {"product_id": soap, "quantity": "1"},
+    ])
+    r = fin(pg, biz, d)
+    assert r.status_code == 200, r.text
+    doc = r.json()
+    job_id = _ask(pg, biz, doc).json()["job_id"]
+    jobs_q.drain(jobs.handle_message)
+    body = _input(store, biz, job_id)
+    first, second, third = body["lines"]
+    assert (first["mrp"], first["discount_percent"]) == ("53.69", "10")
+    assert (second["mrp"], second["discount_percent"], second["discount"]) == ("413.00", None, "100.00")
+    assert third["discount"] is None and third["discount_percent"] is None
+    assert all("_rate" not in ln for ln in body["lines"])
+    assert body["copy_label"] == "Original for Recipient"
+    assert body["seller"]["pan"] == doc["gstin"][2:12]
+    # one row per (HSN, rate), in first-seen order, adding up to the stored totals exactly
+    summary = body["hsn_summary"]
+    assert [(s["hsn"], s["rate"]) for s in summary] == [("340111", "18"), ("330499", "18")]
+    assert sum(Decimal(s["taxable"]) for s in summary) == Decimal(body["totals"]["taxable"])
+    for comp in body["totals"]["taxes"]:
+        assert sum(Decimal(t["amount"]) for s in summary for t in s["taxes"] if t["component"] == comp["component"]) \
+            == Decimal(comp["amount"])
+    # the snapshot, not the live product: stored on the line
+    with pg.owner.connect() as c:
+        stored = c.execute(text("select mrp, discount_percent from sales.document_lines l join sales.documents d"
+                                " on d.id = l.document_id where d.id = :d order by line_no"), {"d": doc["id"]}).all()
+    assert stored == [(Decimal("53.69"), Decimal("10.00")), (Decimal("413.00"), None), (Decimal("53.69"), None)]
+
+
+def test_pan_is_read_from_a_gstin_only_when_it_has_the_pan_shape():  # #450
+    from app.modules.sales.document_pdf import pan_of
+
+    assert pan_of("19AAPFU0939F1ZS") == "AAPFU0939F"
+    assert pan_of(None) is None and pan_of("19AAPFU0939F1Z") is None and pan_of("19AAPF10939F1ZS") is None
+
+
+@pytest.mark.parametrize(("ship", "name"), [
+    ({**KOLKATA, "name": "Ghosh Godown"}, "Ghosh Godown"),  # a consignee named on the invoice
+    ({**KOLKATA, "name": None}, "Sharma Stores"),  # no consignee named: the buyer's name
+])
+def test_ship_to_on_the_pdf_carries_a_name(shop, ship, name):  # #452
+    pg, biz, _, jobs_q, _, store = shop
+    r = fin(pg, biz, ready_draft(pg, biz, ship_to=ship, ship_to_third_party=True))
+    assert r.status_code == 200, r.text
+    job_id = _ask(pg, biz, r.json()).json()["job_id"]
+    jobs_q.drain(jobs.handle_message)
+    assert _input(store, biz, job_id)["ship_to"]["name"] == name

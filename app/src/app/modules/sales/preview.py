@@ -162,26 +162,33 @@ def build(tx, d: dict, today: date, comp: Computation) -> dict:
     ship = d["ship_to"]
     ship_to = None
     if ship is not None and bill is not None and any(ship.get(k) != bill.get(k) for k in ship):
-        ship_to = {"address": _address(ship.get("line1"), ship.get("line2"),
+        ship_to = {"name": ship.get("name") or bill.get("name"),  # #452: the consignee, else the buyer
+                   "address": _address(ship.get("line1"), ship.get("line2"),
                                        " ".join(_address(ship.get("city"), ship.get("pin"))) or None),
                    "state": _state(tx, ship.get("state_code"), on)}
     products = products_for_lines(tx, [ln["product_id"] for ln in d["lines"]], on)
     lines = []
     for ln in d["lines"]:
         p = products.get(ln["product_id"])
-        discount = None
-        if ln["discount_kind"] == "percent":
-            discount = f"{_money(ln['discount_value'])}%"
-        elif ln["discount_kind"] == "amount":
-            discount = _money(ln["discount_value"])
+        out = computed.get(ln["line_no"])
+        # #450: the amount the computation took off, with the percent when it was a percent ("50% / 175.00").
+        discount = discount_percent = None
+        if ln["discount_kind"] in ("percent", "amount") and ln["discount_value"]:
+            discount = _money(out.line_discount) if out is not None else (
+                _money(ln["discount_value"]) if ln["discount_kind"] == "amount" else None)
+            if ln["discount_kind"] == "percent":
+                discount_percent = _qty(ln["discount_value"])
         lines.append({
             "no": str(ln["line_no"]),
             "description": p.name if p else "Product no longer in your list",
             "hsn": p.hsn if p else None,
             "quantity": _qty(ln["quantity"]),
             "uqc": (p.uqc if p else None),
+            "mrp": _money(p.mrp) if p is not None and p.mrp is not None else None,
             "unit_price": _money(ln["unit_price"]),
+            "gross": _money(out.gross) if out is not None else None,
             "discount": discount,
+            "discount_percent": discount_percent,
             **(_line_tax(computed[ln["line_no"]]) if ln["line_no"] in computed else {}),
         })
     return {

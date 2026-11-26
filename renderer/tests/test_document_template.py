@@ -78,11 +78,98 @@ def test_a_malformed_input_is_refused(bad):
 
 
 def test_ship_to_sits_under_bill_to_in_the_right_column():  # #444
-    html = document_template.render_html(doc(ship_to={"address": ["3 Godown Road", "Siliguri 734001"], "state": "West Bengal (19)"}))
-    parties = html[html.index('<table class="parties">'):html.index("</table>")]
+    html = document_template.render_html(doc(ship_to={"name": "Ghosh Godown", "address": ["3 Godown Road", "Siliguri 734001"],
+                                                      "state": "West Bengal (19)"}))
+    start = html.index('<table class="parties">')
+    parties = html[start:html.index("</table>", start)]
     cells = parties.split("<td>")[1:]
     assert len(cells) == 2 and "Seller" in cells[0] and "Ship to" not in cells[0]
     right = cells[1]
-    assert right.index("Bill to") < right.index("Ship to") < right.index("3 Godown Road")
+    assert right.index("Bill to") < right.index("Ship to") < right.index("<b>Ghosh Godown</b>") < right.index("3 Godown Road")
     assert "State: West Bengal (19)" in right and html.count("Ship to") == 1
     assert "Ship to" not in document_template.render_html(doc())  # none when the goods go to the buyer
+
+
+def full_doc(**over):
+    """An intra-state invoice with MRP, a percent discount and the HSN summary the builder writes (#450)."""
+    line = {"no": "1", "description": "Face cream 50 g", "hsn": "33049910", "quantity": "12", "uqc": "NOS",
+            "mrp": "413.00", "unit_price": "350.00", "gross": "4200.00", "discount": "2100.00",
+            "discount_percent": "50", "taxable": "2100.00",
+            "taxes": [{"component": "CGST", "rate": "9", "amount": "189.00"},
+                      {"component": "SGST", "rate": "9", "amount": "189.00"}], "total": "2478.00"}
+    return doc(**{
+        "seller": {"name": "Test Traders LLP", "gstin": "19AAPFU0939F1ZS", "pan": "AAPFU0939F", "address": ["1 Test Road"],
+                   "state": "West Bengal (19)"},
+        "buyer": {"name": "Walk-in", "gstin": None, "address": ["Kolkata"], "state": "West Bengal (19)"},
+        "place_of_supply": "West Bengal (19)", "copy_label": "Original for Recipient", "lines": [line],
+        "hsn_summary": [{"hsn": "33049910", "rate": "18", "taxable": "2100.00",
+                         "taxes": [{"component": "CGST", "amount": "189.00"}, {"component": "SGST", "amount": "189.00"}]}],
+        "totals": {"taxable": "2100.00", "taxes": [{"component": "CGST", "amount": "189.00"},
+                                                  {"component": "SGST", "amount": "189.00"}],
+                   "round_off": None, "total": "2478.00", "in_words": "Rupees Two Thousand Four Hundred Seventy-eight Only"},
+        **over,
+    })  # fmt: skip
+
+
+def test_the_line_columns_follow_the_council_order_and_say_which_side_of_gst_they_are_on():  # #450
+    html = document_template.render_html(full_doc())
+    head = html[html.index("<thead>"):html.index("</thead>")]
+    order = ["#", "Description", "HSN", "Qty", "MRP", "incl. GST", "Rate", "excl. GST", "Value", "Rate × Qty",
+             "Discount", "Taxable value", "Tax", "Total"]
+    at = [head.index(f">{h}<") if h in ("#", "Tax", "Total") else head.index(h) for h in order]
+    assert at == sorted(at)
+    row = html[html.index("<tbody>"):html.index("</tbody>")]
+    for text in ("12 NOS", "413.00", "350.00", "4200.00", "50% / 2100.00", "2100.00", "CGST 9%: 189.00",
+                 "SGST 9%: 189.00", "2478.00"):
+        assert text in row
+    assert row.index("413.00") < row.index("350.00") < row.index("4200.00") < row.index("50% / 2100.00")
+
+
+def test_an_old_document_without_mrp_prints_a_dash_and_an_amount_discount_prints_the_amount():  # #450
+    line = {**full_doc()["lines"][0], "mrp": None, "discount_percent": None, "discount": "75.00"}
+    row = document_template.render_html(full_doc(lines=[line]))
+    row = row[row.index("<tbody>"):row.index("</tbody>")]
+    assert '<td class="n mrp">–</td>' in row and ">75.00<" in row and "%" not in row.replace("9%", "")
+
+
+def test_igst_prints_one_tax_row_and_the_summary_has_an_igst_column():  # #450
+    html = document_template.render_html(doc(hsn_summary=[
+        {"hsn": "340111", "rate": "18", "taxable": "113.75", "taxes": [{"component": "IGST", "amount": "20.48"}]}]))
+    assert "IGST 18%: 20.48" in html and "CGST" not in html and "SGST" not in html
+    summary = html[html.index('<table class="hsn">'):]
+    summary = summary[:summary.index("</table>")]
+    assert "Tax summary by HSN" in summary and ">IGST<" in summary and ">18%<" in summary and ">20.48<" in summary
+
+
+def test_the_page_carries_the_copy_label_pan_watermark_payable_signatory_and_page_numbers():  # #450
+    html = document_template.render_html(full_doc())
+    assert html.count("Original for Recipient") == 2  # the top right, and the footer of every page
+    assert 'counter(page) " of " counter(pages)' in html
+    assert '<div class="wm">PRACTICE</div>' in html
+    assert "PAN: AAPFU0939F" in html and "GSTIN: Unregistered" in html
+    assert "Amount payable ₹ 2478.00" in html
+    assert html.index("Amount payable") < html.index("Amount in words") < html.index("Authorised Signatory")
+    assert "For Test Traders LLP" in html
+    assert "page-break-inside: avoid" in html and "table-header-group" in html
+
+
+@pytest.mark.parametrize("field", ["mrp", "discount_percent", "pan", "hsn_summary", "copy_label"])
+def test_the_new_fields_are_escaped_too(field):  # #450
+    evil = '<img src="http://x/y">'
+    d = full_doc()
+    if field in ("mrp", "discount_percent"):
+        d["lines"] = [{**d["lines"][0], field: evil}]
+    elif field == "pan":
+        d["seller"] = {**d["seller"], "pan": evil}
+    elif field == "hsn_summary":
+        d["hsn_summary"] = [{"hsn": evil, "rate": evil, "taxable": evil, "taxes": [{"component": evil, "amount": evil}]}]
+    else:
+        d["copy_label"] = evil
+    html = template.render_html(d)
+    assert "<img" not in html and "&lt;img" in html
+
+
+def test_a_200_line_invoice_renders():  # #450: headings repeat by CSS, totals kept together at the end
+    lines = [{**full_doc()["lines"][0], "no": str(i)} for i in range(1, 201)]
+    html = document_template.render_html(full_doc(lines=lines))
+    assert html.count("<tr><td class=\"n\">") >= 200 and html.count("<thead>") == 1

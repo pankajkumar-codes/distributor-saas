@@ -294,3 +294,13 @@ def test_bengali_text_uses_the_bundled_bengali_font():
     pdf = handler.weasyprint.HTML(string=html, url_fetcher=handler.DenyAllFetcher()).write_pdf(uncompressed_pdf=True)
     fonts = {m.decode() for m in re.findall(rb"/BaseFont\s*/[A-Z]{6}\+([\w-]+)", pdf)}
     assert {"Noto-Sans-Bengali", "Noto-Sans-Bengali-Bold"} <= fonts
+
+
+def test_the_draft_prints_mrp_value_and_a_percent_discount():  # #450
+    from renderer import template
+
+    html = template.render_html(_doc(lines=[{"no": "1", "description": "Face cream", "hsn": "33049910", "quantity": "2",
+                                             "uqc": "NOS", "mrp": "413.00", "unit_price": "350.00", "gross": "700.00",
+                                             "discount": "70.00", "discount_percent": "10"}], note=None))
+    assert "MRP" in html and "incl. GST" in html and ">413.00<" in html and ">700.00<" in html and "10% / 70.00" in html
+    assert html.index("MRP") < html.index("Rate") < html.index("Value") < html.index("Discount")
