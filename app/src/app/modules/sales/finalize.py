@@ -257,7 +257,7 @@ _LABELS = {"invoice": "an invoice", "credit_note": "a credit note", "debit_note"
 def _refuse_before_settings(tx, *, kind: str, practice: bool, on: date) -> None:
     """A document dated before the numbering settings it needs begin is refused with a plain 422, not a 500 (#494).
     The settings are read on the document's date (below); a date before their first row has no value, and backfilling
-    those rows is a separate decision (CEO, 2026-11-27)."""
+    those rows is a separate decision (the CEO's call on #494)."""
     if practice:
         keys = ("sales.practice_prefix" if kind == "invoice" else f"sales.practice_{kind}_prefix", "sales.practice_width")
     else:
