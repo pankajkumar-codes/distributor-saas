@@ -4,6 +4,8 @@ invoice row never changes, its number stays used, it leaves the supply lines and
 Made-up data. Skipped unless PG_ADMIN_URL points at a disposable server.
 """
 
+import threading
+import time
 import uuid
 
 import pytest
@@ -127,3 +129,63 @@ def test_a_live_cancel_leaves_the_supply_lines_counts_in_table_13_and_is_closed_
         c.execute(text("set session_replication_role = default"))
     r = cancel(pg, biz, third["id"], MISTAKE)
     assert r.status_code == 409 and r.json()["error"]["code"] == "return_filed", r.text
+
+
+def test_a_cancel_and_a_credit_note_at_once_never_both_pass(shop):  # noqa: F811
+    """Staff on #465: the shared per-invoice lock is what keeps a cancelled invoice from also having a note."""
+    pg, biz, _ = shop
+    switch(pg, True)
+    for _ in range(3):  # a few rounds, so either side may win
+        inv = invoice(pg, biz)
+        line = state(pg, biz, inv["id"]).json()["lines"][0]["original_line_id"]
+        out = {}
+        start = threading.Barrier(2)
+
+        def go(name, call):
+            start.wait()
+            out[name] = call()
+
+        ts = [threading.Thread(target=go, args=("cancel", lambda: cancel(pg, biz, inv["id"], MISTAKE))),
+              threading.Thread(target=go, args=("note", lambda: note(pg, biz, inv["id"], returned(line, "1"))))]
+        for t in ts:
+            t.start()
+        for t in ts:
+            t.join()
+        won = {k for k, r in out.items() if r.status_code in (200, 201)}
+        assert len(won) == 1, {k: r.text for k, r in out.items()}
+        lost = out[({"cancel", "note"} - won).pop()]
+        assert lost.json()["error"]["code"] in ("has_credit_note", "invoice_cancelled"), lost.text
+        with pg.owner.connect() as c:
+            cancelled = c.execute(text("select count(*) from sales.document_cancellations where document_id = :d"),
+                                  {"d": inv["id"]}).scalar()
+            notes_ = c.execute(text("select count(*) from sales.documents where original_document_id = :d"),
+                               {"d": inv["id"]}).scalar()
+        assert (cancelled, notes_) in ((1, 0), (0, 1))
+
+
+def test_a_cancel_waits_for_a_mark_filed_in_progress_and_is_then_refused(live):  # noqa: F811
+    """Staff on #465: mark-filed holds FOR UPDATE on the return instance; cancel's FOR SHARE waits for it, then sees
+    the filed status. Here the filing side is played by a transaction that takes the same lock and sets the status."""
+    pg, biz = live
+    flip_live(pg, True)
+    inv = fin(pg, biz, ready_draft(pg, biz)).json()
+    with pg.owner.connect() as c:
+        instance = c.execute(text("select return_instance_id from sales.documents where id = :d"),
+                             {"d": inv["id"]}).scalar()
+    assert not inv["is_practice"] and instance is not None, (inv["is_practice"], instance)
+    out = []
+    filing = pg.owner.execution_options(isolation_level="READ COMMITTED").connect()  # the owner engine autocommits
+    tx = filing.begin()
+    filing.execute(text("select id from filing.return_instances where id = :i for update"), {"i": instance})
+    t = threading.Thread(target=lambda: out.append(cancel(pg, biz, inv["id"], MISTAKE)))
+    t.start()
+    time.sleep(1)  # the cancel is now waiting on the instance lock
+    assert not out, "the cancel must wait while the return is being marked filed"
+    filing.execute(text("set local session_replication_role = replica"))  # skip the filed-event guard, as other tests
+    filing.execute(text("update filing.return_instances set status = 'filed_locked' where id = :i"), {"i": instance})
+    tx.commit()
+    filing.close()
+    t.join()
+    assert out[0].status_code == 409 and out[0].json()["error"]["code"] == "return_filed", out[0].text
+    with pg.owner.connect() as c:
+        assert c.execute(text("select count(*) from sales.document_cancellations")).scalar() == 0
