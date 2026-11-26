@@ -12,10 +12,12 @@ the last attempt failed does a new request make a new attempt: the job's natural
 Until live numbering is approved (D-010, D-044) every document is a practice document and the
 page says so; the renderer refuses anything else (renderer/document_template.py). The PDF is
 made on request, not queued by finalize, so a finalize never waits on the renderer.
-Every value is a decimal string formatted here; the only sum is a line's own total, which is
-its stored taxable value plus its stored tax amounts.
+Every value is a decimal string formatted here. The only sums are a line's own total (its stored
+taxable value plus its stored tax amounts) and the tax summary by HSN and rate (#450), which adds
+up the stored line amounts, so it always equals the stored invoice totals.
 """
 
+import re
 import uuid
 from datetime import date
 from decimal import Decimal
@@ -32,6 +34,7 @@ from platform_common.storage import get_store
 from platform_common.uow import UnitOfWork
 
 JOB = "sales.document_pdf"
+_GSTIN_PAN = re.compile(r"[0-9]{2}([A-Z]{5}[0-9]{4}[A-Z])[0-9A-Z]{3}")
 
 
 def _exists(uow: UnitOfWork, document_id: uuid.UUID) -> None:
@@ -137,8 +140,8 @@ def _lines(tx, business_id: uuid.UUID, document_id: uuid.UUID) -> list[dict]:
     """The stored lines with their stored tax amounts, as decimal strings; the only sum is a line's own total."""
     lines = []
     for ln in tx.execute(
-        text("select id, line_no, name, hsn, uqc, quantity, unit_price, gross, line_discount, taxable"
-             " from sales.document_lines where document_id = :d and business_id = :b order by line_no"),
+        text("select id, line_no, name, hsn, uqc, quantity, unit_price, gross, line_discount, taxable, rate, mrp,"
+             " discount_percent from sales.document_lines where document_id = :d and business_id = :b order by line_no"),
         {"d": document_id, "b": business_id},
     ).mappings().all():
         taxes = tx.execute(
@@ -148,13 +151,43 @@ def _lines(tx, business_id: uuid.UUID, document_id: uuid.UUID) -> list[dict]:
         ).all()
         lines.append({
             "no": str(ln["line_no"]), "description": ln["name"], "hsn": ln["hsn"], "quantity": _qty(ln["quantity"]),
-            "uqc": ln["uqc"], "unit_price": _money(ln["unit_price"]), "gross": _money(ln["gross"]),
+            "uqc": ln["uqc"], "mrp": _money(ln["mrp"]), "unit_price": _money(ln["unit_price"]),
+            "gross": _money(ln["gross"]),
             "discount": _money(ln["line_discount"]) if ln["line_discount"] else None,
+            "discount_percent": _qty(ln["discount_percent"])
+            if ln["line_discount"] and ln["discount_percent"] is not None else None,
             "taxable": _money(ln["taxable"]),
             "taxes": [{"component": c, "rate": _qty(r), "amount": _money(a)} for c, r, a in taxes],
             "total": _money(Decimal(ln["taxable"]) + sum((Decimal(a) for _, _, a in taxes), Decimal())),
+            "_rate": ln["rate"],  # for hsn_summary only; dropped before the render input is written
         })
     return lines
+
+
+def _without_rate(lines: list[dict]) -> list[dict]:
+    return [{k: v for k, v in ln.items() if k != "_rate"} for ln in lines]
+
+
+def hsn_summary(lines: list[dict]) -> list[dict]:
+    """The stored lines added up by (HSN, GST rate), in first-seen order: taxable value and each tax component.
+    Sums of stored amounts only, so the rows always add up to the invoice's stored totals (#450)."""
+    groups: dict[tuple[str, Decimal], dict] = {}
+    for ln in lines:
+        g = groups.setdefault((ln["hsn"], Decimal(ln["_rate"])), {"taxable": Decimal(), "taxes": {}})
+        g["taxable"] += Decimal(ln["taxable"])
+        for t in ln["taxes"]:
+            g["taxes"][t["component"]] = g["taxes"].get(t["component"], Decimal()) + Decimal(t["amount"])
+    return [
+        {"hsn": hsn, "rate": _qty(rate), "taxable": _money(g["taxable"]),
+         "taxes": [{"component": c, "amount": _money(a)} for c, a in g["taxes"].items()]}
+        for (hsn, rate), g in groups.items()
+    ]
+
+
+def pan_of(gstin: str | None) -> str | None:
+    """The PAN inside a GSTIN (the ten characters after the state code), when it has the PAN shape; else None."""
+    found = _GSTIN_PAN.fullmatch(gstin or "")
+    return found.group(1) if found else None
 
 
 def _pos_basis(tx, business_id: uuid.UUID, document_id: uuid.UUID, counterparty_gstin: str | None,
@@ -199,7 +232,7 @@ def view(tx, business_id: uuid.UUID, document_id: uuid.UUID) -> dict:
         "place_of_supply": _state(tx, doc["pos_state_code"], on),
         "pos_basis": basis,
         "pos_override_reason": override_reason,
-        "lines": _lines(tx, business_id, document_id),
+        "lines": _without_rate(_lines(tx, business_id, document_id)),
         "gross_total": _money(doc["gross_total"]),
         "line_discount_total": _money(doc["line_discount_total"]),
         "invoice_discount": _money(doc["invoice_discount"]),
@@ -234,18 +267,21 @@ def build(tx, business_id: uuid.UUID, document_id: uuid.UUID) -> dict:
     seller_out = _party(tx, seller, on) or {}
     trade = seller.get("trade_name")
     seller_out["trade_name"] = trade if trade and trade != seller.get("legal_name") else None
+    seller_out["pan"] = pan_of(seller_out.get("gstin"))
     return {
         "template": "invoice-document",
         "practice": True,
         "number": doc["number"],
         "doc_date": on.isoformat(),
         "due_date": doc["due_date"].isoformat() if doc["due_date"] else None,
+        "copy_label": "Original for Recipient",
         "seller": seller_out,
         "buyer": _party(tx, snap.get("bill_to"), on),
         "ship_to": None if ship is None else {"address": ship["address"], "state": ship["state"]},
         "place_of_supply": _state(tx, doc["pos_state_code"], on),
         "reverse_charge": "No",
-        "lines": lines,
+        "lines": _without_rate(lines),
+        "hsn_summary": hsn_summary(lines),
         "charges": [{"label": ", ".join(labels) or "Charges", "amount": _money(doc["charges_total"])}]
         if doc["charges_total"] else [],
         "invoice_discount": _money(doc["invoice_discount"]) if doc["invoice_discount"] else None,

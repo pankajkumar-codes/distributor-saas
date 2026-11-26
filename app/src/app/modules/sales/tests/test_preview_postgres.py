@@ -76,7 +76,8 @@ def test_a_preview_writes_the_render_input_and_queues_only_its_key(shop):
     assert doc["buyer"]["name"] == "Sharma Stores" and doc["buyer"]["gstin"] == "27AAPFU0939F1ZV"
     assert doc["buyer"]["state"].endswith("(27)")
     assert doc["lines"] == [{"no": "1", "description": "Neem soap", "hsn": "3401", "quantity": "2.5", "uqc": "PCS",
-                             "unit_price": "45.50", "discount": "5.00%",
+                             "mrp": "53.69", "unit_price": "45.50", "gross": "113.75",  # #450
+                             "discount": "5.69", "discount_percent": "5",  # 5% of 113.75, as "5% / 5.69"
                              # 2.5 x 45.50 = 113.75, less 5% = 108.06, plus the 150.00 freight
                              # (charges are taxable with the line) = 258.06; IGST 18% = 46.45.
                              "taxable": "258.06", "rate": "18",

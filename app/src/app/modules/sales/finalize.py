@@ -338,6 +338,9 @@ def _insert(
             "me": uow.principal.user_id,
         },
     )
+    # #450: a percent discount keeps its percent for the PDF ("50% / 175.00"); the amount is the computed one.
+    percent_off = {dl["line_no"]: dl["discount_value"] for dl in d["lines"]
+                   if dl.get("discount_kind") == "percent" and dl.get("discount_value") is not None}
     for ln in c.lines:
         line_id = uuid7()
         p = ln.product
@@ -345,8 +348,9 @@ def _insert(
             text(
                 "insert into sales.document_lines (id, business_id, document_id, line_no, product_id, code, name, hsn,"
                 " uqc, quantity, unit_price, gross, line_discount, discount_share, charge_share, taxable, rate,"
-                " rate_confirmed) values (:id, :b, :doc, :line_no, :product, :code, :name, :hsn, :uqc, :qty, :price,"
-                " :gross, :line_disc, :disc_share, :charge_share, :taxable, :rate, :confirmed)"
+                " rate_confirmed, mrp, discount_percent) values (:id, :b, :doc, :line_no, :product, :code, :name, :hsn,"
+                " :uqc, :qty, :price, :gross, :line_disc, :disc_share, :charge_share, :taxable, :rate, :confirmed, :mrp,"
+                " :disc_pct)"
             ),
             {
                 "id": line_id,
@@ -367,6 +371,8 @@ def _insert(
                 "taxable": ln.taxable,
                 "rate": ln.rate,
                 "confirmed": p.rate_confirmed,
+                "mrp": p.mrp,  # #450: printed on the PDF as issued, never read back from the product
+                "disc_pct": percent_off.get(ln.line_no),
             },
         )
         # R2-M4: the sale takes stock out, once per invoice line, in this same transaction. It

@@ -14,8 +14,8 @@ Render input v1, template "invoice-draft" (written by app.modules.sales.preview)
      "buyer": {"name"?, "gstin"?, "address": [str], "state"?} | null,
      "ship_to": {"address": [str], "state"?} | null,
      "doc_date"?, "place_of_supply"?, "reverse_charge",
-     "lines": [{"no", "description", "hsn"?, "quantity", "uqc", "unit_price", "discount"?,
-                "taxable"?, "rate"?, "taxes"?: [{"component", "rate", "amount"}], "total"?}],
+     "lines": [{"no", "description", "hsn"?, "quantity", "uqc", "mrp"?, "unit_price", "gross"?, "discount"?,
+                "discount_percent"?, "taxable"?, "rate"?, "taxes"?: [{"component", "rate", "amount"}], "total"?}],
      "charges": [{"label", "amount"}], "invoice_discount"?,
      "totals": {"taxable", "taxes": [{"component", "amount"}], "round_off"?, "total",
                 "in_words"} | null,
@@ -33,14 +33,12 @@ MAX_LIST = 50
 
 STYLE = """
 @page { size: A4; margin: 12mm }
-body { font-family: "Noto Sans", "Noto Sans Devanagari", "Noto Sans Bengali"; font-size: 9pt; color: #000 }
+body { font-family: "Noto Sans", "Noto Sans Devanagari", "Noto Sans Bengali"; font-size: 8pt; color: #000 }
 h1 { font-size: 14pt; margin: 0 0 2mm }
 .draft { border: 1pt solid #000; padding: 1.5mm; font-size: 7pt; text-align: center; margin-bottom: 3mm }
 .parties { width: 100%; border-collapse: collapse; margin-bottom: 3mm }
 .parties td { vertical-align: top; width: 50%; padding: 1mm }
 .shipto { margin: 2mm 0 0 }
-table.lines { width: 100%; border-collapse: collapse }
-table.lines th, table.lines td { border: 0.5pt solid #555; padding: 1mm }
 td.n { text-align: right; white-space: nowrap }
 .totals { margin-top: 3mm; width: 60%; margin-left: 40%; border-collapse: collapse }
 .totals td { padding: 0.8mm }
@@ -101,6 +99,56 @@ def _bill_to(buyer: dict | None, ship: dict | None) -> str:
     return cell[: -len("</td>")] + f'<p class="shipto"><b>Ship to</b><br>{address}{state}</p></td>'
 
 
+# The line table both invoice templates print (#450, council 2026-11-26): every money column says which side of GST it
+# is on. MRP is the tax-inclusive price on the pack, printed lighter and never totalled; Value is Rate x Qty before
+# discount (CGST Rule 46(j)); the tax cell keeps one row per component with its rate (Rule 46(l), (m)).
+LINE_HEAD = [
+    ("#", ""), ("Description", ""), ("HSN", ""), ("Qty", ""), ("MRP", "incl. GST"), ("Rate", "excl. GST"),
+    ("Value", "Rate × Qty"), ("Discount", "on value"),
+]
+TAX_HEAD = [("Taxable value", ""), ("Tax", "rate and amount"), ("Total", "")]
+LINE_STYLE = """
+table.lines { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums }
+table.lines thead { display: table-header-group }
+table.lines tr { page-break-inside: avoid }
+table.lines th { border: 0.5pt solid #555; padding: 1mm 0.8mm; background: #eee; font-size: 7.5pt; text-align: left;
+  vertical-align: bottom }
+table.lines th.n { text-align: right }
+table.lines th:nth-child(2) { width: 27% }
+table.lines th small { display: block; font-weight: normal; color: #444; font-size: 6.5pt }
+table.lines td { border: 0.5pt solid #555; padding: 1mm 0.8mm; vertical-align: top }
+table.lines td.n { text-align: right; white-space: nowrap }
+table.lines td.mrp { color: #555 }
+table.lines td.tax { white-space: nowrap; text-align: right; font-size: 7.5pt }
+"""
+DASH = "–"
+
+
+def _head(with_tax: bool) -> str:
+    cols = LINE_HEAD + (TAX_HEAD if with_tax else [])
+    cells = []
+    for i, (label, hint) in enumerate(cols):
+        cls = ' class="n"' if i == 0 or i >= 3 else ""
+        cells.append(f"<th{cls}>{label}" + (f"<small>{hint}</small>" if hint else "") + "</th>")
+    return "<thead><tr>" + "".join(cells) + "</tr></thead>"
+
+
+def _discount(ln: dict) -> str:
+    """'50% / 175.00' when the line's discount was a percent, else the amount; '' when there is none."""
+    amount, percent = _t(ln.get("discount")), _t(ln.get("discount_percent"))
+    if percent and amount:
+        return f"{percent}% / {amount}"
+    return amount or (f"{percent}%" if percent else "")
+
+
+def _tax_cell(ln: dict) -> str:
+    return "<br>".join(
+        f"{_t(x.get('component'), optional=False)} {_t(x.get('rate'), optional=False)}%: "
+        f"{_t(x.get('amount'), optional=False)}"
+        for x in map(_obj, _list(ln.get("taxes"), 4)) if x is not None
+    )
+
+
 def _line(ln: dict, with_tax: bool) -> str:
     ln = _obj(ln) or {}
     cells = [
@@ -108,18 +156,20 @@ def _line(ln: dict, with_tax: bool) -> str:
         f"<td>{_t(ln.get('description'), optional=False)}</td>",
         f"<td>{_t(ln.get('hsn'))}</td>",
         f'<td class="n">{_t(ln.get("quantity"), optional=False)} {_t(ln.get("uqc"))}</td>',
+        f'<td class="n mrp">{_t(ln.get("mrp")) or DASH}</td>',
         f'<td class="n">{_t(ln.get("unit_price"), optional=False)}</td>',
-        f'<td class="n">{_t(ln.get("discount"))}</td>',
+        f'<td class="n">{_t(ln.get("gross"))}</td>',
+        f'<td class="n">{_discount(ln)}</td>',
     ]
     if with_tax:
-        taxes = "<br>".join(
-            f"{_t(x.get('component'), optional=False)} {_t(x.get('rate'), optional=False)}%: "
-            f"{_t(x.get('amount'), optional=False)}"
-            for x in map(_obj, _list(ln.get("taxes"), 4)) if x is not None
-        )
-        cells += [f'<td class="n">{_t(ln.get("taxable"))}</td>', f'<td class="n">{taxes}</td>',
+        cells += [f'<td class="n">{_t(ln.get("taxable"))}</td>', f'<td class="tax">{_tax_cell(ln)}</td>',
                   f'<td class="n">{_t(ln.get("total"))}</td>']
     return "<tr>" + "".join(cells) + "</tr>"
+
+
+def _lines_table(lines: list, with_tax: bool) -> str:
+    return ('<table class="lines">' + _head(with_tax) + "<tbody>"
+            + "".join(_line(ln, with_tax) for ln in lines) + "</tbody></table>")
 
 
 def render_html(doc: dict) -> str:
@@ -136,12 +186,9 @@ def render_html(doc: dict) -> str:
         raise ValueError("not an invoice-draft render input v1")
     totals = _obj(doc.get("totals"))
     lines = _list(doc.get("lines"), MAX_LINES)
-    head = ["#", "Description", "HSN", "Qty", "Rate", "Discount"]
-    if totals is not None:
-        head += ["Taxable value", "Tax", "Total"]
     out = [
         '<!doctype html><html lang="en"><meta charset="utf-8">',
-        f"<style>{STYLE}</style><body>",
+        f"<style>{STYLE}{LINE_STYLE}</style><body>",
         "<h1>Draft, not a tax invoice</h1>",
         '<div class="draft">No invoice number until you finalize. Do not give this to a customer as an invoice.</div>',
         '<table class="parties"><tr>',
@@ -154,9 +201,7 @@ def render_html(doc: dict) -> str:
         f"Reverse charge: {_t(doc.get('reverse_charge')) or 'No'}",
         "</p>",
     ]
-    out.append('<table class="lines"><tr>' + "".join(f"<th>{h}</th>" for h in head) + "</tr>")
-    out += [_line(ln, totals is not None) for ln in lines]
-    out.append("</table>")
+    out.append(_lines_table(lines, totals is not None))
     rows = [(_t(c.get("label"), optional=False), _t(c.get("amount"), optional=False))
             for c in map(_obj, _list(doc.get("charges"), 20)) if c is not None]
     if doc.get("invoice_discount") not in (None, "0", "0.00"):
