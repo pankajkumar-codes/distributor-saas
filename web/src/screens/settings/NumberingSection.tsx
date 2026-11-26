@@ -121,7 +121,11 @@ export function NumberingSection({ businessId, canEdit }: { businessId: string; 
                     hint={
                       problems[s.kind]
                         ? undefined
-                        : `Next new series starts at ${previewNumber(e.prefix, first, s.width, n.scope, today)}` +
+                        : (n.scope === "gstin_kind_month"
+                            ? // Staff review of #463: only the year's first live month uses the first number; every later month starts at 1.
+                              `Each month starts at ${previewNumber(e.prefix, 1, s.width, n.scope, today)}` +
+                              (first > 1 ? `; your first live month this year starts at ${previewNumber(e.prefix, first, s.width, n.scope, today)}` : "")
+                            : `Next new series starts at ${previewNumber(e.prefix, first, s.width, n.scope, today)}`) +
                           (s.issued_in_app ? "" : ". Debit notes aren't made in Kartaa yet: issue them in your own series and add it to Table 13.")
                     }
                   />

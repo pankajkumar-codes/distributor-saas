@@ -16,7 +16,12 @@ the largest type, the amount in words and the signatory block. "Page x of y" and
 sit in every page's footer. With `copies` (#454, Rule 48(1)) the same page set is made once per copy label, each
 numbered on its own, and the handler joins them into one PDF.
 
+A credit note (#456, CGST Rule 53(1A)) is the same layout with `note`: the title says credit note, the details name
+the original invoice's number and date and the reason, the last line reads "Credit amount", and its copies are
+NOTE_COPY_LABELS (original and duplicate; the triplicate for the transporter is an invoice rule, Rule 48(1)).
+
     {"v": 1, "template": "invoice-document", "practice": true,
+     "note"?: {"kind": "credit_note", "original_number": str, "original_date": str, "reason": str},
      "number": str, "doc_date": str, "due_date"?: str, "copy_label"?: str, "copies"?: [str],
      "seller": {"name", "trade_name"?, "gstin"?, "pan"?, "address": [str], "state"},
      "buyer": {"name"?, "gstin"?, "address": [str], "state"?},
@@ -39,10 +44,16 @@ PRACTICE_NOTICE = (
     "This is a practice document. It is not a tax invoice and its number is not a legal invoice number. "
     "Do not give it to a customer as an invoice."
 )
+PRACTICE_NOTE_TITLE = "PRACTICE CREDIT NOTE, NOT A TAX DOCUMENT"
+PRACTICE_NOTE_NOTICE = (
+    "This is a practice document. It is not a credit note under GST and its number is not a legal number. "
+    "Do not give it to a customer as a credit note."
+)
 COPY_LABEL = "Original for Recipient"
 # CGST Rule 48(1): a goods invoice is prepared in triplicate, each copy marked (#454). A document's PDF carries
 # every copy in `copies`, in this order; each copy is its own page set with its own "Page x of y" (handler.render_pdfs).
 COPY_LABELS = ("Original for Recipient", "Duplicate for Transporter", "Triplicate for Supplier")
+NOTE_COPY_LABELS = ("Original for Recipient", "Duplicate for Supplier")
 
 # The @page footer strings are fixed text here, never input: CSS content is not escaped by `_t`.
 STYLE = """
@@ -80,10 +91,24 @@ td.n, th.n { text-align: right; white-space: nowrap }
 """
 
 
+def _note(doc: dict) -> dict | None:
+    """The credit-note part of the input, or None for an invoice. Only credit notes are known kinds."""
+    if doc.get("note") is None:
+        return None
+    note = _obj(doc.get("note"))
+    if note is None or note.get("kind") != "credit_note":
+        raise ValueError("unknown note kind")
+    return note
+
+
+def _labels(doc: dict) -> tuple[str, ...]:
+    return NOTE_COPY_LABELS if _note(doc) is not None else COPY_LABELS
+
+
 def _copy_label(doc: dict) -> str:
-    """The copy this page set is: one of the Rule 48(1) labels, never free text (it is also the page footer)."""
+    """The copy this page set is: one of the labels for its kind, never free text (it is also the page footer)."""
     label = doc.get("copy_label") or COPY_LABEL
-    if label not in COPY_LABELS:
+    if label not in _labels(doc):
         raise ValueError("unknown copy label")
     return label
 
@@ -93,7 +118,7 @@ def render_copies(doc: dict) -> list[str]:
     copies = _list(doc.get("copies"), len(COPY_LABELS)) if isinstance(doc, dict) else []
     if not copies:
         return [render_html(doc)]
-    if len(set(copies)) != len(copies) or any(c not in COPY_LABELS for c in copies):
+    if len(set(copies)) != len(copies) or any(c not in _labels(doc) for c in copies):
         raise ValueError("copies must be distinct copy labels")
     return [render_html({**doc, "copy_label": c, "copies": None}) for c in copies]
 
@@ -138,19 +163,24 @@ def render_html(doc: dict) -> str:
     if totals is None:
         raise ValueError("an invoice needs its totals")
     seller = _obj(doc.get("seller"))
+    note = _note(doc)
     details_left = [f"Practice number: {_t(doc.get('number'), optional=False)}",
                     f"Date: {_t(doc.get('doc_date'), optional=False)}"]
-    if doc.get("due_date"):
+    if doc.get("due_date") and note is None:
         details_left.append(f"Due date: {_t(doc.get('due_date'))}")
     details_right = [f"Place of supply: {_t(doc.get('place_of_supply'), optional=False)}",
                      f"Reverse charge: {_t(doc.get('reverse_charge'), optional=False)}"]
+    if note is not None:
+        details_left.append(f"Against invoice: {_t(note.get('original_number'), optional=False)}"
+                            f" dated {_t(note.get('original_date'), optional=False)}")
+        details_right.append(f"Reason: {_t(note.get('reason'), optional=False)}")
     out = [
         '<!doctype html><html lang="en"><meta charset="utf-8">',
         f"<style>{STYLE}{LINE_STYLE}</style><body>",
         '<div class="wm">PRACTICE</div>',
-        f'<table class="top"><tr><td><h1>{PRACTICE_TITLE}</h1></td>'
+        f'<table class="top"><tr><td><h1>{PRACTICE_NOTE_TITLE if note else PRACTICE_TITLE}</h1></td>'
         f'<td class="copy">{_t(_copy_label(doc))}</td></tr></table>',
-        f'<div class="practice">{PRACTICE_NOTICE}</div>',
+        f'<div class="practice">{PRACTICE_NOTE_NOTICE if note else PRACTICE_NOTICE}</div>',
         '<table class="parties"><tr>',
         _seller(seller),
         _bill_to(_obj(doc.get("buyer")), _obj(doc.get("ship_to"))),
@@ -175,7 +205,7 @@ def render_html(doc: dict) -> str:
     out.append('<div class="end"><table><tr>'
                f'<td style="width: 58%">{summary}</td><td style="width: 4%"></td>'
                f'<td style="width: 38%">{totals_html}'
-               f'<div class="payable">Amount payable ₹ {_t(totals.get("total"), optional=False)}</div></td>'
+               f'<div class="payable">{"Credit amount" if note else "Amount payable"} ₹ {_t(totals.get("total"), optional=False)}</div></td>'
                "</tr></table>")
     if totals.get("in_words"):
         out.append(f'<p class="words">Amount in words: {_t(totals.get("in_words"))}</p>')

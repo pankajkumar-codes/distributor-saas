@@ -789,3 +789,10 @@ table.items td.empty { color: var(--muted); padding: 14px 12px; }
 @media (min-width: 761px) {
   .setup-edit fieldset.plain.turnover > fieldset:first-child { grid-column: 1 / -1; }
 }
+
+/* Adjust invoice (mocks v17, R.adjust; #456) */
+.adjgrid { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); }
+.adjgrid .qty { width: 96px; height: 30px; border: 1px solid var(--control); border-radius: var(--r-sm); text-align: right; padding: 0 6px; font-family: var(--mono); font-size: 13px; }
+.adjgrid .qty:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px rgba(26, 75, 224, 0.15); }
+.adjbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 10px 0; }
+@media (max-width: 760px) { .adjgrid { grid-template-columns: minmax(0, 1fr); } }

@@ -48,7 +48,7 @@ export function DocumentsPage() {
             New invoice
           </Link>
         </div>
-        <p className="hint">Issued invoices are locked. A change needs a credit note.</p>
+        <p className="hint">Issued invoices are locked. To lower what a buyer owes, open the invoice and choose Adjust invoice.</p>
         {list.error && <Banner tone="error">{errorText(list.error)}</Banner>}
         {list.isPending && <Loading query={list} />}
         {list.isSuccess && (
@@ -74,6 +74,7 @@ export function DocumentsPage() {
                         <Link to={`/b/${businessId}/documents/${d.id}`}>
                           <strong>{d.doc_number}</strong>
                         </Link>
+                        {d.kind === "credit_note" && <span className="chip"> Credit note</span>}
                         {d.is_practice && <span className="chip chip-warn"> Practice</span>}
                       </td>
                       <td data-label="Date" className="num">
@@ -81,7 +82,7 @@ export function DocumentsPage() {
                       </td>
                       <td data-label="Buyer">{d.counterparty_name ?? "—"}</td>
                       <td data-label="Total" className="r num">
-                        {formatRupees(d.doc_total)}
+                        {d.kind === "credit_note" ? `−${formatRupees(d.doc_total)}` : formatRupees(d.doc_total)}
                       </td>
                     </tr>
                   ))}

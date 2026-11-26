@@ -80,3 +80,29 @@
   source_title: "LLD-4 §2.2: practice series use prefix sales.practice_prefix (PR-), width 4"
   last_checked: 2026-11-09
   status: provisional
+
+# Credit notes (#456). Pankaj 2026-11-26: practice credit notes on practice invoices, in their own practice series.
+
+- key: sales.practice_credit_note_prefix
+  value: "PR-CN-"
+  type: text
+  kind: product
+  valid_from: 2026-11-26
+  source_url: team/program-lead/ca-cancel-credit-note-answer-v1.md
+  source_title: "Pankaj 2026-11-26 (decision card on #456): practice credit notes on practice invoices, own series PR-CN-"
+  last_checked: 2026-11-26
+  status: provisional
+  note: "Width is sales.practice_width. A live credit note uses the credit_note series settings (CN/YY-MM/NNNNNN, D-114)."
+
+- key: credit_note.deadline_month_day
+  value: "11-30"
+  type: text
+  kind: tax
+  valid_from: 2022-10-01
+  source_url: team/program-lead/ca-cancel-credit-note-answer-v1.md
+  source_title: "CGST Act s.34(2): a credit note is declared not later than 30 November following the end of the FY of the supply, or the date of the annual return, whichever is earlier (w.e.f. 01.10.2022)"
+  last_checked: 2026-11-26
+  status: expert_confirmed
+  confirmed_by: "GST CA expert thread, cancel and credit note answer v1 §5 (SETTLED: s.34(2), Finance Act 2022; issue #456)"
+  confirmed_on: 2026-11-26
+  note: "MM-DD in the year after the original invoice's FY ends. The annual-return limb is checked separately: the app does not yet record a filed GSTR-9, so the note screen says so."

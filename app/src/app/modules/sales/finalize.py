@@ -46,8 +46,11 @@ def monthly_number_fits(prefix: str, width: int, max_length: int) -> bool:
     "/YY-MM/" + width digits. For the numbering settings to check when they are saved (#457); allocate checks each
     number again."""
     return len(monthly_prefix(prefix, date.min)) + width <= max_length
+
+
 _DOCUMENT_COLUMNS = (
-    "id, draft_id, kind, is_practice, doc_number, doc_date, fy, gstin, supply_class, pos_state_code,"
+    "id, draft_id, kind, is_practice, doc_number, doc_date, fy, gstin, supply_class, pos_state_code, original_document_id,"
+    " reason_code,"
     " is_inter_state, customer_id, counterparty_name, due_date, taxable_total, cgst_total, sgst_total, utgst,"
     " igst_total, round_off, doc_total, finalized_at"
 )
@@ -256,8 +259,9 @@ def allocate(
     tx = uow.tx
     month = ""
     if practice:
-        series_kind = "practice"
-        prefix = value_on(tx, "sales.practice_prefix", on)
+        # Each kind has its own practice series (PR-0001, PR-CN-0001): a credit note never takes an invoice's number.
+        series_kind = "practice" if kind == "invoice" else f"practice_{kind}"
+        prefix = value_on(tx, "sales.practice_prefix" if kind == "invoice" else f"sales.practice_{kind}_prefix", on)
         width = value_on(tx, "sales.practice_width", on)
         first = 1
     else:
@@ -279,6 +283,21 @@ def allocate(
             ).first()
             first = 1 if earlier is not None else first
     key = {"b": _business(uow), "g": gstin, "k": series_kind, "fy": fy, "m": month}
+    # Two kinds must never print the same number (Staff review of #463): a prefix renamed to one another kind already
+    # started this FY (an invoice series renamed to CN while a CN/26-11/ credit series exists) is refused here, and
+    # number_series_prefix_uq stops a race between two kinds.
+    taken = tx.execute(
+        text("select 1 from sales.number_series where business_id = :b and gstin = :g and fy = :fy and kind <> :k"
+             " and lower(prefix) = lower(:prefix) limit 1"),
+        {**key, "prefix": prefix},
+    ).first()
+    if taken is not None:
+        raise Invalid(
+            "prefix_in_use",
+            "Another kind of document already uses this prefix this financial year.",
+            field="numbering",
+            fix="Choose a different prefix in your numbering settings",
+        )
     tx.execute(
         text(
             "insert into sales.number_series (id, business_id, gstin, kind, fy, month, prefix, width, next_value)"

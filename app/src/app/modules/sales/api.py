@@ -27,7 +27,7 @@ from platform_common.paging import DEFAULT_LIMIT, MAX_LIMIT, PageParams, page_pa
 from platform_common.permissions import Permission, require
 from platform_common.uow import BusinessUoW, parse_id
 
-from . import document_pdf, drafts, finalize, preview
+from . import document_pdf, drafts, finalize, notes, preview
 from .compute import Computation
 
 router = APIRouter(tags=["sales"])
@@ -397,6 +397,8 @@ class DocumentOut(BaseModel):
     is_practice: bool  # a practice document: never in a return, never in a live series (BH-5)
     doc_number: str
     doc_date: date
+    original_document_id: str | None  # a credit note's invoice
+    reason_code: str | None  # a credit note's reason: goods_returned, value_too_high or deficient
     fy: str
     gstin: str
     supply_class: str
@@ -418,7 +420,8 @@ class DocumentOut(BaseModel):
 def _document(doc: dict) -> dict:
     money_cols = ("taxable_total", "cgst_total", "sgst_total", "igst_total", "round_off", "doc_total")
     return {**doc, **{k: _m(doc[k]) for k in money_cols}, "id": str(doc["id"]), "draft_id": str(doc["draft_id"]),
-            "customer_id": _s(doc["customer_id"]), "finalized_at": doc["finalized_at"].isoformat()}
+            "customer_id": _s(doc["customer_id"]), "original_document_id": _s(doc["original_document_id"]),
+            "finalized_at": doc["finalized_at"].isoformat()}
 
 
 @router.post("/b/{business_id}/drafts/{draft_id}/finalize", response_model=DocumentOut, dependencies=EDIT)
@@ -560,7 +563,16 @@ class DocumentLineOut(BaseModel):
     total: str  # the line's taxable value plus its own stored tax amounts
 
 
+class DocumentOriginalOut(BaseModel):
+    number: str
+    date: str
+
+
 class DocumentDetailOut(DocumentOut):
+    # A credit note (#456): the invoice it adjusts, the s.34 reason as printed, and what happened to returned goods.
+    original: DocumentOriginalOut | None = None
+    reason: str | None = None
+    stock_treatment: Literal["restock", "write_off"] | None = None
     buyer: DocumentParty | None  # the bill-to as at finalize; null if none was recorded
     ship_to: DocumentShipTo | None
     place_of_supply: str | None
@@ -578,7 +590,7 @@ class DocumentDetailOut(DocumentOut):
     cess_total: str
     amount_in_words: str
     pdf: DocumentPdfState
-    stock_movements: int  # the stock-out rows this invoice wrote, one per line; 0 if it wrote none
+    stock_movements: int  # the stock rows this document wrote (an invoice: one out per line; a credit note: returns, write-offs)
 
 
 class DocumentsOut(BaseModel):
@@ -606,3 +618,102 @@ def get_document(document_id: str, uow: BusinessUoW):
     doc = finalize.get_document(uow, did)
     return {**_document(doc), **document_pdf.view(uow.tx, uow.principal.business_id, did),
             "pdf": document_pdf.current(uow, did), "stock_movements": movements_for_document(uow.tx, did)}
+
+
+# --- Credit notes (#456) ---------------------------------------------------------------------------------------------
+
+
+class CreditLineOut(BaseModel):
+    original_line_id: str
+    line_no: int
+    name: str
+    hsn: str
+    uqc: str
+    rate: str
+    quantity: str | None  # on the invoice
+    remaining_quantity: str | None  # left to credit by quantity
+    taxable: str  # on the invoice
+    remaining_taxable: str  # left to credit
+    remaining_tax: str  # left to credit, all components
+
+
+class CreditNoteRef(BaseModel):
+    id: str
+    doc_number: str
+    doc_date: date
+    reason_code: str | None
+    doc_total: str
+    is_practice: bool
+
+
+class CreditStateOut(BaseModel):
+    invoice_id: str
+    doc_number: str
+    is_practice: bool
+    lines: list[CreditLineOut]
+    notes: list[CreditNoteRef]
+    remaining_total: str
+    last_date: date  # s.34(2): 30 November after the invoice's FY; the annual-return limb is not checked
+    reasons: dict[str, str]  # code -> label, the s.34(1) grounds only
+
+
+class CreditLineIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    original_line_id: str
+    quantity: str | None = None  # goods returned
+    taxable: str | None = None  # value too high, deficient
+
+
+class CreditNoteIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    reason: Literal["goods_returned", "value_too_high", "deficient"]
+    stock_treatment: Literal["restock", "write_off"] | None = None
+    doc_date: date | None = None
+    lines: list[CreditLineIn] = Field(max_length=drafts.MAX_LINES)
+
+
+def _credit_state(s: notes.CreditState) -> dict:
+    def q(v):
+        return None if v is None else f"{v.normalize():f}"
+
+    return {
+        "invoice_id": str(s.invoice["id"]), "doc_number": s.invoice["doc_number"],
+        "is_practice": s.invoice["is_practice"],
+        "lines": [{"original_line_id": str(ln.line_id), "line_no": ln.line_no, "name": ln.name, "hsn": ln.hsn,
+                   "uqc": ln.uqc, "rate": f"{ln.rate.normalize():f}", "quantity": q(ln.quantity),
+                   "remaining_quantity": q(ln.remaining_quantity), "taxable": _m(ln.taxable),
+                   "remaining_taxable": _m(ln.remaining_taxable),
+                   "remaining_tax": _m(sum((ln.remaining_tax(c) for c in ln.taxes), Decimal()))} for ln in s.lines],
+        "notes": [{**n, "id": str(n["id"]), "doc_total": _m(n["doc_total"])} for n in s.notes],
+        "remaining_total": _m(s.remaining_total), "last_date": s.last_date, "reasons": notes.REASONS,
+    }
+
+
+@router.get("/b/{business_id}/documents/{document_id}/credit", response_model=CreditStateOut, dependencies=VIEW)
+def get_credit_state(document_id: str, uow: BusinessUoW):
+    """What is left to credit on an issued invoice, line by line, the credit notes made against it, and the last date
+    the law allows for one (s.34(2)). Read-only. A credit note, or another business's document, is a 404."""
+    return _credit_state(notes.credit_state(uow, parse_id(document_id)))
+
+
+@router.post("/b/{business_id}/documents/{document_id}/credit-notes", status_code=http.HTTP_201_CREATED,
+             response_model=DocumentOut, dependencies=EDIT)
+def create_credit_note(
+    document_id: str,
+    body: CreditNoteIn,
+    request: Request,
+    uow: BusinessUoW,
+    clock: Annotated[Clock, Depends(get_clock)],
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+):
+    """Issues a credit note against an issued invoice (#456): by quantity for goods returned (back to stock, or
+    returned and written off), by amount for a value charged too high or goods deficient. A practice invoice gets a
+    practice note (PR-CN-), never in GST filing. The invoice itself never changes. Off, like finalize, until
+    `sales.finalize.enabled` is true (a 404). The same key and body give the same note once."""
+    if not finalize.enabled(uow, clock.today()):
+        raise Deny("not_found")
+    did = parse_id(document_id)
+    payload = body.model_dump(mode="json")
+    return run_once(uow.tx, uow.principal.business_id, idempotency_key, method=request.method,
+                    route=request.scope["route"].path, payload={"document_id": str(did), **payload},
+                    operation=lambda: _document(notes.create(uow, did, payload, clock.today())))

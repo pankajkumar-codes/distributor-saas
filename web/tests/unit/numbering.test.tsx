@@ -51,6 +51,10 @@ describe("invoice numbering", () => {
     expect(screen.getByText(/Live numbering is off/)).toBeInTheDocument();
     fireEvent.change(prefix, { target: { value: "si" } });
     expect(screen.getByText(/SI\/\d\d-\d\d\/000001/)).toBeInTheDocument();
+    // Only the year's first live month uses the first number; the hint says every month starts at 1 (Staff, #463).
+    fireEvent.change(screen.getByLabelText("First invoice number this financial year"), { target: { value: "41" } });
+    expect(screen.getByText(/Each month starts at SI\/\d\d-\d\d\/000001; your first live month this year starts at SI\/\d\d-\d\d\/000041/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("First invoice number this financial year"), { target: { value: "1" } });
     server.reply(`PUT ${NUMBERING}`, numbering("SI"));
     fireEvent.click(screen.getByRole("button", { name: "Save numbering" }));
     expect(await screen.findByText("Saved.")).toBeInTheDocument();

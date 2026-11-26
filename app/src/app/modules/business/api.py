@@ -308,7 +308,9 @@ class SeriesOut(BaseModel):
     prefix: str
     first_number: int  # continues a series begun in other software; used only by the FY's first series of the kind
     width: int
-    next_number: str  # what the first number of a new series dated today looks like, e.g. INV/26-11/000001
+    # The first number of the year's first series dated today, e.g. INV/26-11/000001 (first_number applied). Under the
+    # monthly scope every later month starts at 1; the screen says so (Staff review of #463).
+    next_number: str
     saved: bool  # false: the default, nothing saved yet
     issued_in_app: bool  # false for debit notes: not issued by Kartaa yet; the prefix is kept for later
 
