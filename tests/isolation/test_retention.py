@@ -167,6 +167,11 @@ def _plant(c):
                 f" values (%s, %s, %s, '{{}}', now() - interval '20 days', {sent})",
                 (uuid.uuid4(), biz, tag),
             )
+        c.execute(  # #474: kept 48 hours (retention.rate_window_keep_hours); global, no business
+            "insert into platform.rate_counters (bucket, window_start, count) values"
+            " (%s, now() - interval '49 hours', 1), (%s, now() - interval '47 hours', 1)",
+            (f"go-{b}-{uuid.uuid4()}", f"stay-{b}-{uuid.uuid4()}"),
+        )
         c.execute(
             "insert into platform.idempotency_keys (scope, key, request_hash, created_at) values"
             " (%s, 'go', repeat('a', 64), now() - interval '25 hours'), (%s, 'stay', repeat('a', 64), now() - interval '23 hours')",
@@ -244,6 +249,7 @@ EXPECTED_GONE = {
     "verification_codes": 4,
     "pending_signups": 2,
     "invitations": 6,
+    "rate_counters": 2,
 }
 
 
@@ -269,8 +275,10 @@ def test_deletes_only_expired_rows_of_both_businesses(tx):
     _plant(tx)
     _enable(tx)
     out = _run(tx)
-    assert out["counts"] == {**EXPECTED_GONE, "rate_counters": None}  # no refdata row: kept
+    assert out["counts"] == EXPECTED_GONE
     assert out["more"] is False
+    rate = tx.execute("select bucket from platform.rate_counters").fetchall()
+    assert len(rate) == 2 and all(bucket.startswith("stay-") for (bucket,) in rate)  # #474: under 48 hours stays
     for table, (stay, gone) in _counts(tx).items():
         assert gone == 0, table
         assert stay > 0, table
@@ -290,7 +298,7 @@ def test_dry_run_counts_without_deleting(tx):
     _plant(tx)
     before = _counts(tx)
     out = _run(tx, dry_run=True)  # allowed while disabled, so ops can check before switching on
-    assert out["counts"] == {**EXPECTED_GONE, "rate_counters": None}
+    assert out["counts"] == EXPECTED_GONE
     assert _counts(tx) == before
     assert tx.execute("select dry_run from platform.retention_runs").fetchall() == [(True,)]
 

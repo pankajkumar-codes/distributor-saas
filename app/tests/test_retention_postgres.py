@@ -71,15 +71,19 @@ def test_shipped_disabled_keeps_everything(owner_and_login):
 
 def test_enabled_rule_runs_as_app_retention(owner_and_login):
     _plant_finished_job(owner_and_login)
+    with owner_and_login.connect() as c:  # #474: one window past the 48-hour keep, and the current one
+        c.execute(text("insert into platform.rate_counters (bucket, window_start, count) values"
+                       " ('old', now() - interval '49 hours', 1), ('live', date_trunc('hour', now()), 1)"))
     with owner_and_login.connect() as c:
         c.execute(text("update refdata.values set value = 'true' where key = 'retention.purge_operational.enabled'"))
     dry = retention.handler({"task": "purge_operational", "dry_run": True}, None)
     assert dry["purge_operational"]["counts"]["jobs"] == 1 and _jobs(owner_and_login) == 1
     out = retention.handler({"task": "purge_operational"}, None)
     assert out["purge_operational"]["counts"]["jobs"] == 1
-    assert out["purge_operational"]["counts"]["rate_counters"] is None  # no period: kept
+    assert out["purge_operational"]["counts"]["rate_counters"] == 1  # #474: windows older than 48 hours go
     assert _jobs(owner_and_login) == 0
     with owner_and_login.connect() as c:
+        assert c.execute(text("select bucket from platform.rate_counters")).scalars().all() == ["live"]
         runs = c.execute(text("select dry_run from platform.retention_runs order by at, dry_run desc")).all()
     assert [r for (r,) in runs] == [True, False]
 
