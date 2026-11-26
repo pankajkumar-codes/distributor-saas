@@ -71,6 +71,21 @@
   last_checked: 2026-11-26
   status: provisional
   note: "Off again from 2026-11-27 (D-110, Pankaj): the bill shows exact paise; rounding to the nearest rupee charged or lost up to 50 paise. A loaded row is never edited or removed, so the 2026-11-26 row (on) still covers that one day."
+# invoice.round_off_line above is no longer read (D-111): its rows stay, as loaded refdata
+# rows are never edited or removed, but the 2026-11-26 row (on) could not be undone for
+# that day. The compute reads invoice.round_to_rupee instead, off on every date.
+- key: invoice.round_to_rupee
+  value: "false"
+  type: boolean
+  kind: tax
+  valid_from: 2017-07-01
+  valid_to: null
+  source_url: https://taxinformation.cbic.gov.in/content/html/tax_repository/gst/rules/cgst_rules/active/chapter6/rule46_v1.00.html
+  source_title: "Not required by Rule 46; s.170 rounding applies to amounts payable under the Act, not invoice totals"
+  last_checked: 2026-11-26
+  status: provisional
+  note: "Off on every date (D-111, Pankaj 2026-11-26: no round-off at all; the bill shows exact paise). True would add a whole-rupee round-off line using invoice.rounding_mode. CA to confirm (D-022)."
+
 - key: invoice.unregistered_address_threshold
   value: "50000.00"
   type: decimal

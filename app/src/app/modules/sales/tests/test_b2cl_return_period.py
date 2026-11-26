@@ -15,7 +15,7 @@ def test_rules_read_the_limit_on_the_return_period(monkeypatch):
         seen[key] = on
         return {
             "invoice.rounding_mode": "x",
-            "invoice.round_off_line": "x",
+            "invoice.round_to_rupee": "x",
             "gst.utgst_state_codes": "",
             "gstr1.b2cl_threshold": D("1"),
             "invoice.unregistered_address_threshold": D("1"),
