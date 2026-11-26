@@ -5455,6 +5455,8 @@ export interface components {
             cess: string | null;
             /** Cgst */
             cgst: string | null;
+            /** Description */
+            description: string | null;
             /** Gst Rate */
             gst_rate: string | null;
             /** Hsn */

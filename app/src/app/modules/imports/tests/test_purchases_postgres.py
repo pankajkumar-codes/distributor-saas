@@ -117,6 +117,18 @@ def test_a_photo_is_kept_and_gets_a_blank_draft_the_business_types_in(shop):  # 
     assert scalar(pg.owner, "select draft_line_id from imports.purchase_review_lines") is None  # typed in
 
 
+def test_each_lines_description_is_offered_as_the_product_name_to_check(shop):  # noqa: F811  (#429, D-108)
+    pg, biz, _ = shop
+    _, (d,) = read(shop, "named.pdf", invoice(descriptions=("Cotton tee white", "Wool sweater"),
+                                              wrapped={2: "navy, size M"}))
+    assert [ln["description"] for ln in d["lines"]] == ["Cotton tee white", "Wool sweater navy, size M"]
+    assert all("description" not in ln["unclear"] for ln in d["lines"])
+    # Offered, not saved: the name the business confirms is the one it sends.
+    done = post(pg, f"/api/v1/b/{biz}/purchase-drafts/{d['id']}/confirm", confirm_body(d))
+    assert done.status_code == 201, done.text
+    assert scalar(pg.owner, "select count(*) from catalog.products where name = 'Cotton tee'") == 2
+
+
 def test_a_pdf_with_no_text_layer_becomes_a_blank_draft_not_a_refusal(shop):  # noqa: F811
     from .test_pdf_ocr_reader import image_pdf  # a picture-only page
 

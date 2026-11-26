@@ -110,6 +110,11 @@ describe("importing products", () => {
     expect(sent("/api/v1/b/b-1/products/import-template", "GET")).toHaveLength(0);
   });
 
+  it("points a supplier's bill to the purchase invoice upload (#429)", async () => {
+    open();
+    expect(await screen.findByRole("link", { name: "Upload it as a purchase invoice" })).toHaveAttribute("href", "/b/b-1/purchases");
+  });
+
   it("shows the server's failure, not Imported, when the apply job is done but the run failed", async () => {
     const applyJob = (status: string) => ({ ...job("j-2", status), body: { ...job("j-2", status).body, type: "catalog.import_apply" } });
     server.reply("/api/v1/b/b-1/jobs/j-2", applyJob("running"), applyJob("done"));

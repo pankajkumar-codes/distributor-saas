@@ -148,4 +148,12 @@ describe("review helpers", () => {
     expect(body.lines[0].cess).toBe("0");
     expect(body.lines[0].taxable_value).toBe("200.00");
   });
+
+  it("offers the description read from the bill as the product name, and a blank one when none was read (#429)", () => {
+    const read = draft();
+    const named = { ...read, lines: [{ ...read.lines[0], description: "Cotton tee white" }, { ...read.lines[0], id: "l-2", line_no: 2, description: null }] };
+    const { head, lines } = startingState(named as never);
+    expect(lines.map((l) => l.name)).toEqual(["Cotton tee white", ""]);
+    expect(confirmBody(head, lines).lines[0].product_name).toBe("Cotton tee white");
+  });
 });

@@ -66,6 +66,7 @@ export function startingState(d: Draft): { head: Head; lines: LineState[] } {
   const lines: LineState[] = d.lines.map((l) => ({
     ...blankLine(date),
     draftLineId: l.id,
+    name: l.description ?? "", // as read from the bill (#429): offered for the business to check, never saved unseen
     hsn: l.hsn ?? "",
     quantity: l.quantity ?? "",
     unit: l.unit ?? "",

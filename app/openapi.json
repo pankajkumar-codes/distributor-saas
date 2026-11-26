@@ -8682,6 +8682,17 @@
             ],
             "title": "Cgst"
           },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
           "gst_rate": {
             "anyOf": [
               {
@@ -8783,6 +8794,7 @@
           "id",
           "line_no",
           "page",
+          "description",
           "hsn",
           "quantity",
           "unit",

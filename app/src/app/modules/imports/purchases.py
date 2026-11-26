@@ -82,6 +82,7 @@ class DraftLine:
     id: uuid.UUID
     line_no: int
     page: int
+    description: str | None  # as read (D-108): the product name the screen offers, for the business to check
     hsn: str | None
     quantity: str | None
     unit: str | None
@@ -318,10 +319,11 @@ def _insert_draft(uow: UnitOfWork, file_id: uuid.UUID, ordinal: int, reader_id: 
          "t": values.get("invoice_total"), "u": [_FIELD_NAME.get(x, x) for x in unclear]})
     for no, line in enumerate(lines, 1):
         uow.tx.execute(
-            text("insert into imports.purchase_draft_lines (id, business_id, draft_id, line_no, page, hsn, quantity,"
-                 " unit, taxable_value, gst_rate, igst, cgst, sgst, cess, unclear)"
-                 " values (:i, :b, :d, :n, :pg, :hsn, :q, :un, :tv, :gr, :ig, :cg, :sg, :ce, :u)"),
-            {"i": uuid7(), "b": _business(uow), "d": draft_id, "n": no, "pg": line.page, "hsn": line.hsn,
+            text("insert into imports.purchase_draft_lines (id, business_id, draft_id, line_no, page, description, hsn,"
+                 " quantity, unit, taxable_value, gst_rate, igst, cgst, sgst, cess, unclear)"
+                 " values (:i, :b, :d, :n, :pg, :ds, :hsn, :q, :un, :tv, :gr, :ig, :cg, :sg, :ce, :u)"),
+            {"i": uuid7(), "b": _business(uow), "d": draft_id, "n": no, "pg": line.page, "ds": line.description,
+             "hsn": line.hsn,
              "q": line.quantity, "un": line.unit, "tv": line.taxable_value, "gr": line.gst_rate, "ig": line.igst,
              "cg": line.cgst, "sg": line.sgst, "ce": line.cess, "u": sorted(line.unclear)})
 
@@ -334,7 +336,7 @@ _DRAFT_COLUMNS = ("d.id, d.file_id, f.file_name, d.ordinal, d.reader_id, d.pages
 
 def _draft(uow: UnitOfWork, row) -> Draft:
     lines = uow.tx.execute(
-        text("select id, line_no, page, hsn, quantity, unit, taxable_value, gst_rate, igst, cgst, sgst, cess, unclear"
+        text("select id, line_no, page, description, hsn, quantity, unit, taxable_value, gst_rate, igst, cgst, sgst, cess, unclear"
              " from imports.purchase_draft_lines where draft_id = :d and business_id = :b order by line_no"),
         {"d": row[0], "b": _business(uow)}).all()
     cols = dict(row._mapping)
