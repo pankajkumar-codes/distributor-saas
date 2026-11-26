@@ -98,48 +98,49 @@ export function FinalizedPanel({ businessId, doc }: { businessId: string; doc: D
         <p className="hint">Issued, locked · {formatDate(doc.doc_date)}</p>
       )}
       <div className="grid2 docgrid">
-        <section className="panel" aria-labelledby="parties">
-          <div className="panel-h">
-            <h2 id="parties">Parties</h2>
-          </div>
-          <div className="pad">
-            <div className="kv">
-              <span>Buyer</span>
-              <span className="r">
-                <b>{doc.buyer?.name ?? doc.counterparty_name ?? "Cash sale"}</b>
-                {doc.buyer?.gstin && (
-                  <>
-                    <br />
-                    <span className="num sub2">GSTIN {doc.buyer.gstin}</span>
-                  </>
-                )}
-                {doc.buyer && doc.buyer.address.length > 0 && (
-                  <>
-                    <br />
-                    <span className="sub2">{lines(doc.buyer.address)}</span>
-                  </>
-                )}
-              </span>
-            </div>
-            {doc.ship_to && (
-              <div className="kv">
-                <span>Ship to</span>
-                <span className="r">{[...doc.ship_to.address, doc.ship_to.state].filter(Boolean).join(", ") || "—"}</span>
-              </div>
-            )}
-            <div className="kv">
-              <span>Place of supply</span>
-              <span className="r">
-                <b>{doc.place_of_supply ?? "—"}</b> · {doc.is_inter_state ? "Inter-state (IGST)" : "Within the state (CGST + SGST)"}
-                <br />
-                <span className="sub2 why">{posBasisText(doc.pos_basis, doc.pos_override_reason)}</span>
-              </span>
-            </div>
-            <Kv k="Seller GSTIN">{doc.gstin}</Kv>
-            {doc.due_date && <Kv k="Due date">{formatDate(doc.due_date)}</Kv>}
-          </div>
-        </section>
+        {/* #444: Items sit under Parties on the left; Totals on the right */}
         <div>
+          <section className="panel" aria-labelledby="parties">
+            <div className="panel-h">
+              <h2 id="parties">Parties</h2>
+            </div>
+            <div className="pad">
+              <div className="kv">
+                <span>Buyer</span>
+                <span className="r">
+                  <b>{doc.buyer?.name ?? doc.counterparty_name ?? "Cash sale"}</b>
+                  {doc.buyer?.gstin && (
+                    <>
+                      <br />
+                      <span className="num sub2">GSTIN {doc.buyer.gstin}</span>
+                    </>
+                  )}
+                  {doc.buyer && doc.buyer.address.length > 0 && (
+                    <>
+                      <br />
+                      <span className="sub2">{lines(doc.buyer.address)}</span>
+                    </>
+                  )}
+                </span>
+              </div>
+              {doc.ship_to && (
+                <div className="kv">
+                  <span>Ship to</span>
+                  <span className="r">{[...doc.ship_to.address, doc.ship_to.state].filter(Boolean).join(", ") || "—"}</span>
+                </div>
+              )}
+              <div className="kv">
+                <span>Place of supply</span>
+                <span className="r">
+                  <b>{doc.place_of_supply ?? "—"}</b> · {doc.is_inter_state ? "Inter-state (IGST)" : "Within the state (CGST + SGST)"}
+                  <br />
+                  <span className="sub2 why">{posBasisText(doc.pos_basis, doc.pos_override_reason)}</span>
+                </span>
+              </div>
+              <Kv k="Seller GSTIN">{doc.gstin}</Kv>
+              {doc.due_date && <Kv k="Due date">{formatDate(doc.due_date)}</Kv>}
+            </div>
+          </section>
           <section className="panel" aria-labelledby="items">
             <div className="panel-h">
               <h2 id="items">Items</h2>
@@ -181,6 +182,8 @@ export function FinalizedPanel({ businessId, doc }: { businessId: string; doc: D
               </table>
             </div>
           </section>
+        </div>
+        <div>
           <section className="panel" aria-labelledby="totals">
             <div className="panel-h">
               <h2 id="totals">Totals</h2>
