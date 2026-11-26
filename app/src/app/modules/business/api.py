@@ -4,25 +4,23 @@ Reads are open to any member (billing and CA included) and run as app_ro; writes
 settings.edit (owner, admin). A non-member, or a role without the permission, gets the
 same 404 as an unknown business.
 
-POST /filing-profile/frequency belongs to filing's router (LLD-5 §11, erratum L5-9).
-Business serves it, with LLD-5's path, body and reply, until filing exists (EM,
-2026-10-27); moving it then changes nothing for the web client or the OpenAPI. Until
-then there are no return instances, so `superseded_instances` is always empty and
-`409 quarter_has_documents` can't arise.
+POST /filing-profile/frequency is served by filing's router (LLD-5 §11, erratum L5-9,
+issue #476): it supersedes the empty returns a change replaces, which business can't see.
+Business keeps the rules in `frequency.add_frequency_row` and the row's reply shape
+(`frequency.FrequencyRowOut`).
 """
 
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Header, Path, Request, Response
+from fastapi import APIRouter, Depends, Header, Path, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.modules.refdata import RefdataMissing, state_name, value_on
 from platform_common.clock import Clock, get_clock
 from platform_common.errors import Deny
 from platform_common.etag import if_match_version, set_etag
-from platform_common.idempotency import run_once
 from platform_common.permissions import Permission, require
 from platform_common.uow import BusinessUoW
 
@@ -97,27 +95,6 @@ class TurnoverBandIn(BaseModel):
     declared_turnover: str | None = Field(default=None, pattern=MONEY)
 
 
-class FrequencyIn(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    frequency: Frequency
-    effective_from: date  # a quarter's first day
-
-
-class FrequencyRowOut(BaseModel):
-    id: str
-    gstin: str
-    frequency: Frequency
-    effective_from: date
-    chosen_at: datetime
-    warnings: list[str]
-
-
-class FrequencyOut(BaseModel):
-    row: FrequencyRowOut
-    warnings: list[str]
-    superseded_instances: list[str]  # filing's; always empty until LLD-5
-
-
 class CurrentFrequencyOut(BaseModel):
     frequency: Frequency
     effective_from: date
@@ -132,7 +109,7 @@ class WindowOut(BaseModel):
 class FilingProfileOut(BaseModel):
     gstin: str | None
     current: CurrentFrequencyOut | None
-    history: list[FrequencyRowOut]
+    history: list[freq.FrequencyRowOut]
     window: WindowOut
     warnings: list[str]
 
@@ -180,11 +157,6 @@ def _profile_out(uow, today: date) -> ProfileOut:
 def _band_out(band: prof.TurnoverBand) -> TurnoverBandOut:
     turnover = None if band.declared_turnover is None else str(band.declared_turnover)
     return TurnoverBandOut(fy=band.fy, band=band.band, declared_turnover=turnover, version=band.version)
-
-
-def _row_out(r: freq.FrequencyRow) -> FrequencyRowOut:
-    return FrequencyRowOut(id=str(r.id), gstin=r.gstin, frequency=r.frequency, effective_from=r.effective_from,
-                           chosen_at=r.chosen_at, warnings=r.warnings)
 
 
 Today = Annotated[Clock, Depends(get_clock)]
@@ -246,35 +218,9 @@ def get_filing_profile(uow: BusinessUoW, clock: Today) -> FilingProfileOut:
         gstin=f.gstin,
         current=None if f.current is None else CurrentFrequencyOut(
             frequency=f.current.frequency, effective_from=f.current.effective_from),
-        history=[_row_out(r) for r in f.history],
+        history=[freq.row_out(r) for r in f.history],
         window=WindowOut(for_quarter=f.window.for_quarter, opens=f.window.opens, closes=f.window.closes),
         warnings=f.warnings,
-    )
-
-
-@router.post("/filing-profile/frequency", status_code=201, dependencies=EDIT)
-def post_frequency(
-    body: FrequencyIn,
-    request: Request,
-    uow: BusinessUoW,
-    clock: Today,
-    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
-) -> FrequencyOut:
-    def choose() -> dict:
-        p = prof.get_profile(uow.tx)
-        row, warnings = freq.add_frequency_row(
-            uow, p.gstin if p else None, body.frequency, body.effective_from, today=clock.today()
-        )
-        return FrequencyOut(row=_row_out(row), warnings=warnings, superseded_instances=[]).model_dump(mode="json")
-
-    return run_once(
-        uow.tx,
-        uow.principal.business_id,
-        idempotency_key,
-        method=request.method,
-        route=request.scope["route"].path,
-        payload=body.model_dump(mode="json"),
-        operation=choose,
     )
 
 

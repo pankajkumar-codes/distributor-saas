@@ -11,6 +11,9 @@ import uuid
 from dataclasses import dataclass
 from datetime import date, datetime
 
+from typing import Literal
+
+from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -40,6 +43,22 @@ class FrequencyRow:
 
 
 _COLUMNS = "id, gstin, frequency, effective_from, chosen_at, warnings"
+
+
+class FrequencyRowOut(BaseModel):
+    """A history row as the API shows it (GET /filing-profile here, POST /filing-profile/frequency in filing)."""
+
+    id: str
+    gstin: str
+    frequency: Literal["monthly", "quarterly"]
+    effective_from: date
+    chosen_at: datetime
+    warnings: list[str]
+
+
+def row_out(r: FrequencyRow) -> FrequencyRowOut:
+    return FrequencyRowOut(id=str(r.id), gstin=r.gstin, frequency=r.frequency, effective_from=r.effective_from,
+                           chosen_at=r.chosen_at, warnings=r.warnings)
 
 
 def _row(r) -> FrequencyRow:

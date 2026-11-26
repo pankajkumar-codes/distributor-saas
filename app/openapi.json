@@ -5185,6 +5185,7 @@
         "type": "object"
       },
       "FrequencyRowOut": {
+        "description": "A history row as the API shows it (GET /filing-profile here, POST /filing-profile/frequency in filing).",
         "properties": {
           "chosen_at": {
             "format": "date-time",
@@ -15067,6 +15068,7 @@
     },
     "/api/v1/b/{business_id}/filing-profile/frequency": {
       "post": {
+        "description": "Record a filing frequency (business keeps every rule: L1-13, the rule 61A warnings, insert-only history),\nthen supersede the open, empty returns from its start on that were made for the other frequency, so the\nreturns list shows the new frequency's returns (with their due dates) on its next read. A quarter whose\nreplaced returns hold documents or saved work, or are filed, skipped or unlocked, refuses the change: 409\n`quarter_has_documents`, and nothing is written (the history row rolls back with the transaction).",
         "operationId": "post_frequency_api_v1_b__business_id__filing_profile_frequency_post",
         "parameters": [
           {
@@ -15129,7 +15131,7 @@
         },
         "summary": "Post Frequency",
         "tags": [
-          "business"
+          "filing"
         ]
       }
     },
