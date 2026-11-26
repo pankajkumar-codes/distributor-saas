@@ -38,6 +38,7 @@ h1 { font-size: 14pt; margin: 0 0 2mm }
 .draft { border: 1pt solid #000; padding: 1.5mm; font-size: 7pt; text-align: center; margin-bottom: 3mm }
 .parties { width: 100%; border-collapse: collapse; margin-bottom: 3mm }
 .parties td { vertical-align: top; width: 50%; padding: 1mm }
+.shipto { margin: 2mm 0 0 }
 table.lines { width: 100%; border-collapse: collapse }
 table.lines th, table.lines td { border: 0.5pt solid #555; padding: 1mm }
 td.n { text-align: right; white-space: nowrap }
@@ -90,6 +91,16 @@ def _party(title: str, p: dict | None) -> str:
     return "<td>" + "<br>".join(rows) + "</td>"
 
 
+def _bill_to(buyer: dict | None, ship: dict | None) -> str:
+    """The Bill to cell, with the Ship to address under it in the same right-hand column (#444)."""
+    cell = _party("Bill to", buyer)
+    if ship is None:
+        return cell
+    address = "<br>".join(_t(line) for line in _list(ship.get("address"), 6))
+    state = f"<br>State: {_t(ship.get('state'))}" if ship.get("state") else ""
+    return cell[: -len("</td>")] + f'<p class="shipto"><b>Ship to</b><br>{address}{state}</p></td>'
+
+
 def _line(ln: dict, with_tax: bool) -> str:
     ln = _obj(ln) or {}
     cells = [
@@ -135,7 +146,7 @@ def render_html(doc: dict) -> str:
         '<div class="draft">No invoice number until you finalize. Do not give this to a customer as an invoice.</div>',
         '<table class="parties"><tr>',
         _party("Seller", _obj(doc.get("seller"))),
-        _party("Bill to", _obj(doc.get("buyer"))),
+        _bill_to(_obj(doc.get("buyer")), _obj(doc.get("ship_to"))),
         "</tr></table>",
         "<p>",
         f"Date: {_t(doc.get('doc_date')) or 'not set'}<br>",
@@ -143,11 +154,6 @@ def render_html(doc: dict) -> str:
         f"Reverse charge: {_t(doc.get('reverse_charge')) or 'No'}",
         "</p>",
     ]
-    ship = _obj(doc.get("ship_to"))
-    if ship is not None:
-        address = "<br>".join(_t(line) for line in _list(ship.get("address"), 6))
-        state = f"<br>State: {_t(ship.get('state'))}" if ship.get("state") else ""
-        out.append(f"<p><b>Ship to</b><br>{address}{state}</p>")
     out.append('<table class="lines"><tr>' + "".join(f"<th>{h}</th>" for h in head) + "</tr>")
     out += [_line(ln, totals is not None) for ln in lines]
     out.append("</table>")

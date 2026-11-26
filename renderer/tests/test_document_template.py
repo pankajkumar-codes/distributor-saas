@@ -75,3 +75,14 @@ def test_every_value_is_escaped_and_nothing_becomes_markup(field):
 def test_a_malformed_input_is_refused(bad):
     with pytest.raises(ValueError):
         template.render_html(doc(**bad))
+
+
+def test_ship_to_sits_under_bill_to_in_the_right_column():  # #444
+    html = document_template.render_html(doc(ship_to={"address": ["3 Godown Road", "Siliguri 734001"], "state": "West Bengal (19)"}))
+    parties = html[html.index('<table class="parties">'):html.index("</table>")]
+    cells = parties.split("<td>")[1:]
+    assert len(cells) == 2 and "Seller" in cells[0] and "Ship to" not in cells[0]
+    right = cells[1]
+    assert right.index("Bill to") < right.index("Ship to") < right.index("3 Godown Road")
+    assert "State: West Bengal (19)" in right and html.count("Ship to") == 1
+    assert "Ship to" not in document_template.render_html(doc())  # none when the goods go to the buyer

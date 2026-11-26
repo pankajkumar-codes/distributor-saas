@@ -712,7 +712,7 @@ table.items td.empty { color: var(--muted); padding: 14px 12px; }
 /* Issued invoice (mocks v16, R.doc): Parties left; Items and Totals right. */
 .docact { align-items: flex-start; gap: 12px; flex-wrap: wrap; }
 .docact h1 { margin-bottom: 0; }
-.docgrid { grid-template-columns: 5fr 7fr; gap: 0 16px; align-items: start; }
+.docgrid { grid-template-columns: 7fr 5fr; gap: 0 16px; align-items: start; }
 .docgrid .kv { padding: 7px 0; border-bottom: 1px solid var(--line); }
 .docgrid .kv:last-child, .docgrid .kv.total { border-bottom: 0; }
 .docgrid .kv > .r { text-align: right; max-width: 70%; }

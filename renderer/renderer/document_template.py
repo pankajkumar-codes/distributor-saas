@@ -23,7 +23,7 @@ Every value is a string, goes through `_t` (escaped, nothing placed in an attrib
 and the template does no arithmetic.
 """
 
-from .template import MAX_LINES, _list, _obj, _party, _t
+from .template import MAX_LINES, _bill_to, _list, _obj, _party, _t
 
 PRACTICE_TITLE = "PRACTICE INVOICE, NOT A TAX INVOICE"
 PRACTICE_NOTICE = (
@@ -38,6 +38,7 @@ h1 { font-size: 14pt; margin: 0 0 2mm }
 .practice { border: 1.5pt solid #000; padding: 2mm; font-weight: bold; text-align: center; margin-bottom: 3mm }
 .parties { width: 100%; border-collapse: collapse; margin-bottom: 3mm }
 .parties td { vertical-align: top; width: 50%; padding: 1mm }
+.shipto { margin: 2mm 0 0 }
 table.lines { width: 100%; border-collapse: collapse }
 table.lines th, table.lines td { border: 0.5pt solid #555; padding: 1mm }
 td.n { text-align: right; white-space: nowrap }
@@ -87,7 +88,7 @@ def render_html(doc: dict) -> str:
         f'<div class="practice">{PRACTICE_NOTICE}</div>',
         '<table class="parties"><tr>',
         _party("Seller", _obj(doc.get("seller"))),
-        _party("Bill to", _obj(doc.get("buyer"))),
+        _bill_to(_obj(doc.get("buyer")), _obj(doc.get("ship_to"))),
         "</tr></table>",
         "<p>",
         f"Practice number: {_t(doc.get('number'), optional=False)}<br>",
@@ -100,11 +101,6 @@ def render_html(doc: dict) -> str:
         f"Reverse charge: {_t(doc.get('reverse_charge'), optional=False)}",
         "</p>",
     ]
-    ship = _obj(doc.get("ship_to"))
-    if ship is not None:
-        address = "<br>".join(_t(line) for line in _list(ship.get("address"), 6))
-        state = f"<br>State: {_t(ship.get('state'))}" if ship.get("state") else ""
-        out.append(f"<p><b>Ship to</b><br>{address}{state}</p>")
     out.append('<table class="lines"><tr>' + "".join(f"<th>{h}</th>" for h in HEAD) + "</tr>")
     out += [_row(ln) for ln in _list(doc.get("lines"), MAX_LINES)]
     out.append("</table>")
