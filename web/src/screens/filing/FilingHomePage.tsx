@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { Fragment, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { errorText } from "../../api/errors";
 import { formatDate, previousFy, todayIst } from "../../format/dates";
-import { canPrepareReturns, canViewReturns, canViewUploads } from "../../auth/roles";
+import { canLockReturns, canPrepareReturns, canViewReturns, canViewUploads } from "../../auth/roles";
 import { useMyBusinesses } from "../../auth/useMyBusinesses";
 import { Banner } from "../../kit/Banner";
+import { Button } from "../../kit/Button";
+import { Field } from "../../kit/Field";
 import { NotFound } from "../../kit/NotFound";
 import { TopBar } from "../../kit/TopBar";
 import { useChannels } from "../uploads/useChannels";
@@ -14,6 +16,7 @@ import { NoAccess } from "../../kit/NoAccess";
 import { Pager } from "../../kit/Pager";
 import { useReturnLinks } from "../../kit/useReturnLinks";
 import { Code, LedgerHead, Panel } from "./ledger";
+import { useMarkCompleted } from "./export";
 
 const PLATFORMS: [string, string][] = [
   ["amazon", "Amazon"],
@@ -29,26 +32,27 @@ const STATUS: Record<string, string> = {
   unlocked: "Reopened after filing",
   skipped: "Not required",
 };
-// Mock v13 tones: green once filed, amber when reopened, grey otherwise. Nothing here is red: past-due state is not a status the server sends.
+// Mock v13 tones: green once filed, amber when reopened or past its period, grey otherwise. Nothing here is red. A row
+// past its due date asks whether it was filed outside Kartaa (#424).
 const TONE: Record<string, string> = { filed_locked: "chip-ok", unlocked: "chip-warn", open: "", skipped: "" };
 
 /**
- * One due date as the server sent it (GF-12: never show a date we can't stand behind). A date
- * the server hasn't confirmed is not shown at all; the row says to check the GST portal, with
- * the source the server cites when it is an https link.
+ * One due date as the server sent it (#424, D-106): the date refdata holds for this return and the GSTIN's state, shown
+ * whether or not our GST expert has confirmed the row yet. A null date (a GSTIN outside every state list) is never
+ * guessed: the row says to check the GST portal, with the source the server cites when it is an https link.
  */
 function DueDate({ row }: { row: ReturnRow }) {
-  if (row.due_date && row.due_date_confirmed) {
+  if (row.due_date) {
     return (
       <>
         <span className="num">{formatDate(row.due_date)}</span>
-        <div className="sub2">Confirmed on GST portal</div>
+        <div className="sub2">Unless the government extends it</div>
       </>
     );
   }
   return (
     <>
-      <span className="hint">{row.due_date ? "Check on the GST portal" : "No date available. Check on the GST portal."}</span>
+      <span className="hint">No date available. Check on the GST portal.</span>
       {row.due_date_source_url && /^https:\/\//.test(row.due_date_source_url) && (
         <div className="sub2">
           <a href={row.due_date_source_url} target="_blank" rel="noreferrer noopener">
@@ -57,6 +61,44 @@ function DueDate({ row }: { row: ReturnRow }) {
         </div>
       )}
     </>
+  );
+}
+
+/** Open (or reopened) with its due date behind us: the row asks whether it was filed outside Kartaa (#424). */
+export function pastDue(r: ReturnRow, today: string): boolean {
+  return (r.status === "open" || r.status === "unlocked") && Boolean(r.due_date) && (r.due_date as string) < today;
+}
+
+/** The inline form under a past-due row: the date it was filed on the portal and the ARN, then the return is marked filed. */
+function MarkCompleted({ businessId, row, columns, onDone }: { businessId: string; row: ReturnRow; columns: number; onDone: () => void }) {
+  const [filedOn, setFiledOn] = useState("");
+  const [arn, setArn] = useState("");
+  const mark = useMarkCompleted(businessId, row.instance_id);
+  const name = `${FORMS[row.form] ?? row.form} for ${row.period_label}`;
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    mark.mutate({ filed_on: filedOn, arn: arn.trim() }, { onSuccess: onDone });
+  };
+  const fieldError = (field: string) => (mark.isError && mark.error.field === field ? errorText(mark.error) : undefined);
+  return (
+    <tr className="completing">
+      <td colSpan={columns}>
+        <form className="inline-form" onSubmit={submit} aria-label={`Mark ${name} as completed`}>
+          <p className="hint">Filed {name} on the GST portal yourself? Tell us when and the ARN, and we mark it filed.</p>
+          <Field label="Date you filed it" type="date" value={filedOn} min={row.period_end} max={todayIst()} onChange={(e) => setFiledOn(e.target.value)} error={fieldError("filed_on")} required />
+          <Field label="ARN" value={arn} maxLength={32} onChange={(e) => setArn(e.target.value)} error={fieldError("arn")} required />
+          {mark.isError && !mark.error.field && <Banner tone="error">{errorText(mark.error)}</Banner>}
+          <div className="row-actions">
+            <Button type="submit" className="btn-sm" busy={mark.isPending}>
+              Mark as completed
+            </Button>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={onDone}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      </td>
+    </tr>
   );
 }
 
@@ -109,6 +151,7 @@ export function FilingHomePage() {
   );
   const links = useReturnLinks(businessId, may);
   const [page, setPage] = useState<number | null>(null);
+  const [completing, setCompleting] = useState<string | null>(null); // the past-due row whose "Mark as completed" form is open
 
   const channels = useChannels(businessId, Boolean(business) && business?.role !== "support");
 
@@ -135,6 +178,8 @@ export function FilingHomePage() {
   const shownGroups = groups.slice(at * PAGE, at * PAGE + PAGE);
   const shown = shownGroups.flat();
   const prepare = canPrepareReturns(business.role);
+  const lockable = canLockReturns(business.role);
+  const columns = prepare ? 5 : 4;
   const href = (r: ReturnRow) => (r.form === "GSTR1" ? `/b/${businessId}/filing/${r.instance_id}` : `/b/${businessId}/filing/${r.instance_id}/worksheet`);
   // One blue button on the screen: the GSTR-1 to work on next. Every other row has a plain one.
   const next = (r: ReturnRow) => r.instance_id === links.gstr1Id;
@@ -191,36 +236,46 @@ export function FilingHomePage() {
                     <tbody>
                       {shown.map((r) => {
                         const late = (r.status === "open" || r.status === "unlocked") && r.period_end < today;
+                        const overdue = pastDue(r, today);
                         return (
-                          <tr key={r.instance_id}>
-                            <td className="nowrap">
-                              {r.period_label}
-                              {/* A quarter says which months it covers; a month's name says it already. */}
-                              {r.period_start.slice(0, 7) !== r.period_end.slice(0, 7) && (
-                                <div className="sub2 num">
-                                  {formatDate(r.period_start)} to {formatDate(r.period_end)}
-                                </div>
-                              )}
-                            </td>
-                            <td className="nowrap">
-                              {FORMS[r.form]}
-                              <Code>{r.form === "GSTR1" ? "Outward sales" : "Summary and tax"}</Code>
-                            </td>
-                            <td>
-                              <DueDate row={r} />
-                            </td>
-                            <td>
-                              <span className={`chip ${r.status === "open" ? (late ? "chip-warn" : "") : (TONE[r.status] ?? "")}`.trim()}>{STATUS[r.status] ?? r.status}</span>
-                              {r.status === "filed_locked" && r.arn && <div className="sub2 num">ARN {r.arn}</div>}
-                            </td>
-                            {prepare && (
-                              <td className="r">
-                                <Link className={`btn btn-sm ${next(r) ? "btn-primary" : "btn-secondary"}`} to={href(r)} aria-label={`${r.form === "GSTR1" ? (r.status === "filed_locked" ? "View GSTR-1" : "Open GSTR-1") : "Open the GSTR-3B worksheet"} for ${r.period_label}`}>
-                                  {r.form === "GSTR1" ? (r.status === "filed_locked" ? "View" : "Open") : "Worksheet"}
-                                </Link>
+                          <Fragment key={r.instance_id}>
+                            <tr>
+                              <td className="nowrap">
+                                {r.period_label}
+                                {/* A quarter says which months it covers; a month's name says it already. */}
+                                {r.period_start.slice(0, 7) !== r.period_end.slice(0, 7) && (
+                                  <div className="sub2 num">
+                                    {formatDate(r.period_start)} to {formatDate(r.period_end)}
+                                  </div>
+                                )}
                               </td>
-                            )}
-                          </tr>
+                              <td className="nowrap">
+                                {FORMS[r.form]}
+                                <Code>{r.form === "GSTR1" ? "Outward sales" : "Summary and tax"}</Code>
+                              </td>
+                              <td>
+                                <DueDate row={r} />
+                              </td>
+                              <td>
+                                <span className={`chip ${r.status === "open" ? (late ? "chip-warn" : "") : (TONE[r.status] ?? "")}`.trim()}>{STATUS[r.status] ?? r.status}</span>
+                                {r.status === "filed_locked" && r.arn && <div className="sub2 num">ARN {r.arn}</div>}
+                                {overdue && <div className="sub2">Due date passed</div>}
+                                {overdue && lockable && completing !== r.instance_id && (
+                                  <button type="button" className="btn btn-link btn-sm" onClick={() => setCompleting(r.instance_id)} aria-label={`Filed ${FORMS[r.form]} for ${r.period_label} outside Kartaa? Mark as completed`}>
+                                    Filed outside Kartaa? Mark as completed
+                                  </button>
+                                )}
+                              </td>
+                              {prepare && (
+                                <td className="r">
+                                  <Link className={`btn btn-sm ${next(r) ? "btn-primary" : "btn-secondary"}`} to={href(r)} aria-label={`${r.form === "GSTR1" ? (r.status === "filed_locked" ? "View GSTR-1" : "Open GSTR-1") : "Open the GSTR-3B worksheet"} for ${r.period_label}`}>
+                                    {r.form === "GSTR1" ? (r.status === "filed_locked" ? "View" : "Open") : "Worksheet"}
+                                  </Link>
+                                </td>
+                              )}
+                            </tr>
+                            {overdue && lockable && completing === r.instance_id && <MarkCompleted businessId={businessId} row={r} columns={columns} onDone={() => setCompleting(null)} />}
+                          </Fragment>
                         );
                       })}
                     </tbody>
@@ -261,7 +316,12 @@ export function FilingHomePage() {
               </Panel>
             )}
             <Panel title="Due dates">
-              <p className="pad hint">Dates come from the national GST calendar. A date extended for your state shows here once it is published. If a date is missing, check on the GST portal.</p>
+              <p className="pad hint">
+                {frequency === "quarterly"
+                  ? "GSTR-1 is due on the 13th of the month after the quarter. GSTR-3B is due on the 22nd or the 24th, by the state of your GSTIN."
+                  : "GSTR-1 is due on the 11th and GSTR-3B on the 20th of the next month, in every state."}{" "}
+                The government can extend a date; an extension shows here once we add it. Filed a return outside Kartaa? Mark it as completed on its row.
+              </p>
             </Panel>
           </div>
         )}

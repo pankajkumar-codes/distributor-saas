@@ -25,7 +25,7 @@ from app.modules.business.interface import (
     quarter_months,
     quarter_start,
 )
-from app.modules.refdata import provenance_on, value_on
+from app.modules.refdata import first_valid_from, provenance_on, value_on
 from platform_common.clock import Clock
 from platform_common.errors import Conflict
 from platform_common.ids import uuid7
@@ -107,20 +107,42 @@ class Due:
     source_url: str | None
 
 
+GSTR3B_CATEGORIES = ("category_1", "category_2")  # the 22nd and the 24th (issue #424)
+
+
+def _extension(tx: Session, spec: _Spec, state: str) -> tuple[str, date] | None:
+    """A government extension of this return's due date, if a refdata row holds one (issue #424): first one for the
+    GSTIN's state, then one for all states. Keyed by the form, for GSTR-1 and GSTR-3B the filing frequency (a monthly
+    December return and a QRMP Oct-Dec return both end in December and are extended separately), and the month the
+    period ends; the value is the new date. A row is read on its own first day when that is after the period ends, so
+    a row dated from its notification still applies."""
+    freq = f".{spec.frequency}" if spec.form in ("GSTR1", "GSTR3B") else ""
+    base = f"due.extension.{spec.form.lower()}{freq}.p{spec.end:%Y_%m}"
+    for name in (f"{base}.state_{state}", base):
+        first = first_valid_from(tx, name)
+        if first is not None:
+            return name, date.fromisoformat(str(value_on(tx, name, max(first, spec.end))).strip())
+    return None
+
+
 def due_date(tx: Session, spec: _Spec, gstin: str) -> Due:
     """Day N of the month after the period, N from refdata in force on the period's last
-    day. The quarterly GSTR-3B day follows the GSTIN's state group; a state in neither
-    group (97) has no due date: date None (refdata-lld4.md §3)."""
+    day, unless an extension row moves it. The quarterly GSTR-3B day follows the GSTIN's state
+    category; a state in neither category (97) has no due date: date None, never a guess."""
     key = spec.due_key
+    state = gstin_state(gstin)
+    ext = _extension(tx, spec, state)
+    if ext is not None:
+        confirmed, url = provenance_on(tx, ext[0], max(first_valid_from(tx, ext[0]), spec.end))
+        return Due(ext[1], f"{ext[0]} on {spec.end.isoformat()}", confirmed, url or None)
     if key == "due.gstr3b.quarterly":
-        state = gstin_state(gstin)
-        for group in ("group_a", "group_b"):
+        for group in GSTR3B_CATEGORIES:
             states = value_on(tx, f"{key}.{group}.states", spec.end)
             if state in {s.strip() for s in states.split(",")}:
                 key = f"{key}.{group}.day"
                 break
         else:
-            return Due(None, f"{key}.group: no group for state {state}", False, None)
+            return Due(None, f"{key}.category: no category for state {state}", False, None)
     day = value_on(tx, key, spec.end)
     confirmed, url = provenance_on(tx, key, spec.end)
     following = add_months(spec.end, 1)
@@ -306,6 +328,23 @@ def due_now(tx: Session, inst: ReturnInstance) -> Due:
     freq = "quarterly" if inst.period_start.month != inst.period_end.month else "monthly"
     spec = _Spec(inst.form, freq, inst.period_start, inst.period_end, _DUE_KEY[(inst.form, freq)])
     return due_date(tx, spec, inst.gstin)
+
+
+FORM_NAMES = {"GSTR1": "GSTR-1", "GSTR3B": "GSTR-3B"}
+
+
+def due_summary(tx: Session, gstin: str | None, start: date, end: date) -> str | None:
+    """'GSTR-1 11-12-2026, GSTR-3B 20-12-2026': the due dates of the period's GSTR-1 and GSTR-3B returns that exist,
+    from refdata as it stands now (issue #424). None when there is none to name (the screen says to check the portal)."""
+    if gstin is None:
+        return None
+    parts = []
+    for inst in instances_between(tx, gstin, start, end):
+        if inst.form in FORM_NAMES and inst.period_end <= end:
+            d = due_now(tx, inst).date
+            if d is not None:
+                parts.append(f"{FORM_NAMES[inst.form]} {d:%d-%m-%Y}")
+    return ", ".join(parts) or None
 
 
 def period_key(inst: ReturnInstance) -> str:

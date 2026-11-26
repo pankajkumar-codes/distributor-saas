@@ -79,7 +79,7 @@ function setupPath(items: ChecklistItem[], businessId: string): NextStep {
  */
 function gstr1Path(row: Gstr1Row, build: Gstr1Build | undefined, fileTaken: boolean | null, businessId: string, today: string, canUpload: boolean): NextStep {
   const ret = `/b/${businessId}/filing/${row.instance_id}`;
-  const due = row.due_date && row.due_date_confirmed ? row.due_date : null;
+  const due = row.due_date ?? null; // shown whether or not the refdata row is confirmed yet (D-106, #424)
   const hint = `${due ? `Due ${formatDate(due)}, ${dueWords(daysUntil(due, today))}. ` : ""}You file it on the GST portal yourself; we prepare the file.`;
   const base = { kind: "gstr1" as const, title: `Get your ${row.period_label} GSTR-1 file ready`, hint };
   const labels = ["Sales gathered", "Fix what the checks found", "Confirm documents issued", "Make the file", "File on the portal, then mark it filed"];
@@ -144,9 +144,9 @@ export function nextStep(input: {
 export type Marker = { key: string; label: string; day: string; due: boolean };
 
 /**
- * The month timeline: today and the confirmed GSTR-1 and GSTR-3B due dates (national calendar,
- * from the server). Only confirmed dates are drawn; a marker outside this month stays in the
- * list but not on the track.
+ * The month timeline: today and the GSTR-1 and GSTR-3B due dates from the server (refdata, by the
+ * GSTIN's state for a quarterly GSTR-3B; D-106, #424). A return with no date is not drawn; a marker
+ * outside this month stays in the list but not on the track.
  */
 export function timeline(today: string, rows: { form: string; due_date?: string | null; due_date_confirmed: boolean }[]) {
   const [y, m] = today.split("-").map(Number);
@@ -154,7 +154,7 @@ export function timeline(today: string, rows: { form: string; due_date?: string 
   const markers: Marker[] = [{ key: "today", label: "Today", day: today, due: false }];
   for (const [form, label] of [["GSTR1", "GSTR-1"], ["GSTR3B", "GSTR-3B"]] as const) {
     const r = rows.find((x) => x.form === form);
-    if (r?.due_date && r.due_date_confirmed) markers.push({ key: form, label, day: r.due_date, due: true });
+    if (r?.due_date) markers.push({ key: form, label, day: r.due_date, due: true });
   }
   const month = today.slice(0, 7);
   const at = (day: string) => (Number(day.slice(8, 10)) - 1) / Math.max(daysInMonth - 1, 1);

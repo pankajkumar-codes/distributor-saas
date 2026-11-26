@@ -387,7 +387,7 @@ These need Pankaj or his CA and do not stop building. Each must be done before p
 - **CA question sheet** (`team/program-lead/ca-question-sheet-v1.md`, CA-1 to CA-5 above and the platform treatment items): Pankaj takes it to his CA just before release.
 - **Our own GST registration and tax invoices for the subscription fees (D6):** with the CA. Payments stay "free for now" (D-074) until this and the payment provider (D3) are done.
 - **Payment provider (D3):** when Pankaj says it is ready, remove `FREE_FOR_NOW` (D-074) and connect the provider.
-- **GST portal due-date calendar:** the calendar is national. The screenshot (or an official source) is still needed to confirm every GSTR-1 and GSTR-3B date and the full list of states in each quarterly GSTR-3B group; until then screens say "Check on the GST portal" and states we have no list for show no date.
+- **GST due dates: RESOLVED 2026-11-26 (D-106, #424).** Dates and the full quarterly GSTR-3B state lists are in refdata, expert_confirmed. Still open: (a) the notification moving GSTR-1 to the 11th / 13th (believed 83/2020-CT) is not on file; the rows cite the portal FAQ Q10. (b) Nothing after about March 2025 has been checked for a change to rule 61; recheck before release. (c) Extensions are added by hand as refdata rows; nobody watches CBIC notifications yet.
 - **One test GSTR-1 upload to the portal** (files ready; Pankaj validates after everything is built and merged): sets `gstr1.portal_file.verified` only if the portal accepts it.
 - **Real AWS:** P-4 Lambda limit, P-5 paid plan before 2027-01-25 and staging spend approval (`team/ops/aws-requests-before-r1-m11.md`). Emulator testing first (D-075).
 

@@ -55,7 +55,7 @@ class PeriodExportOut(BaseModel):
     created: bool  # false when the files from the same data already existed
     gstr1_returns: list[PeriodReturnOut]  # the period's return instances: the GSTR-1 JSON is made from each one's own screen
     files: list[PeriodFileOut]
-    due_dates: str = "Check on the GST portal"
+    due_dates: str = "Check on the GST portal"  # the GSTR-1 and GSTR-3B due dates when known (issue #424)
 
 
 class PeriodExportsOut(BaseModel):
@@ -70,7 +70,8 @@ def _out(uow, e: period_files.PeriodExport, *, with_links: bool) -> PeriodExport
         created=e.created,
         gstr1_returns=[PeriodReturnOut(instance_id=str(i.id), form=i.form, period_start=i.period_start,
                                        period_end=i.period_end) for i in period_files.returns_in(uow, e)],
-        files=[PeriodFileOut(**f) for f in period_files.links(uow, e)] if with_links else [])
+        files=[PeriodFileOut(**f) for f in period_files.links(uow, e)] if with_links else [],
+        due_dates=period_files.due_text(uow.tx, e.gstin, e.start, e.end))
 
 
 @router.post("/period-files", response_model=PeriodExportOut, dependencies=PREPARE)

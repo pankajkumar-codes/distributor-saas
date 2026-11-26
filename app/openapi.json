@@ -1841,6 +1841,51 @@
         "title": "CodeSent",
         "type": "object"
       },
+      "CompletedIn": {
+        "additionalProperties": false,
+        "properties": {
+          "arn": {
+            "title": "Arn",
+            "type": "string"
+          },
+          "filed_on": {
+            "format": "date",
+            "title": "Filed On",
+            "type": "string"
+          }
+        },
+        "required": [
+          "filed_on",
+          "arn"
+        ],
+        "title": "CompletedIn",
+        "type": "object"
+      },
+      "CompletedOut": {
+        "properties": {
+          "arn": {
+            "title": "Arn",
+            "type": "string"
+          },
+          "filed_on": {
+            "format": "date",
+            "title": "Filed On",
+            "type": "string"
+          },
+          "status": {
+            "const": "filed_locked",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "filed_on",
+          "arn"
+        ],
+        "title": "CompletedOut",
+        "type": "object"
+      },
       "ComputationOut": {
         "description": "What the draft would be as an invoice today (LLD-4 \u00a73). `blocks` stop a finalize,\n`warnings` never do; neither stops a draft from being saved.",
         "properties": {
@@ -17626,6 +17671,68 @@
         ]
       }
     },
+    "/api/v1/b/{business_id}/returns/{instance_id}/completed": {
+      "post": {
+        "description": "The user filed this return on the GST portal outside Kartaa (issue #424): any form, GSTR-3B included. A GSTR-1 or\nIFF is locked as it is now with the reason \"Filed outside Kartaa\"; 409 `period_not_open` when it is already locked.",
+        "operationId": "mark_completed_api_v1_b__business_id__returns__instance_id__completed_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "instance_id",
+            "required": true,
+            "schema": {
+              "title": "Instance Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompletedIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompletedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Mark Completed",
+        "tags": [
+          "filing"
+        ]
+      }
+    },
     "/api/v1/b/{business_id}/returns/{instance_id}/exports": {
       "post": {
         "description": "Queues the file of this return as it is now. Refused (409) when it is not ready, not allowed for the plan or cannot be\nwritten as a file; asking again for an unchanged return gives the same job.",
@@ -18076,7 +18183,7 @@
     },
     "/api/v1/b/{business_id}/returns/{instance_id}/unlock": {
       "post": {
-        "description": "Owner only, with a reason. The snapshots stay; marking filed again is a relock.",
+        "description": "Owner only, with a reason. The snapshots stay; marking filed again is a relock. Any form: a GSTR-3B marked\ncompleted outside Kartaa by mistake is unlocked the same way (#424).",
         "operationId": "unlock_return_api_v1_b__business_id__returns__instance_id__unlock_post",
         "parameters": [
           {
