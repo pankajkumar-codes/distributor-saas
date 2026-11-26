@@ -556,8 +556,8 @@ class DocumentLineOut(BaseModel):
     no: str
     description: str
     hsn: str
-    quantity: str
-    uqc: str
+    quantity: str  # a dash on a note made by amount, which moves no goods
+    uqc: str | None  # None on a note made by amount (#485)
     unit_price: str | None
     gross: str
     discount: str | None

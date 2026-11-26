@@ -3559,8 +3559,15 @@
             "title": "Unit Price"
           },
           "uqc": {
-            "title": "Uqc",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uqc"
           }
         },
         "required": [

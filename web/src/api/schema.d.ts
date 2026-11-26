@@ -3927,7 +3927,7 @@ export interface components {
             /** Unit Price */
             unit_price: string | null;
             /** Uqc */
-            uqc: string;
+            uqc: string | null;
         };
         /** DocumentLineTax */
         DocumentLineTax: {

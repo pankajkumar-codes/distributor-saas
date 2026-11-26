@@ -151,7 +151,9 @@ def test_a_qrmp_quarter_adds_its_iff_month_to_table_12_and_still_reconciles(shop
         quarter = [i for i in insts if i.form == "GSTR1"][0]
         qb, ib = build_return(tx, quarter), build_return(tx, iff)
     assert [r.invoice_number for r in ib.sections.b2b] == ["INV-3"] and ib.sections.hsn_b2b == ()
-    assert qb.sections.b2b == () and len(qb.sections.hsn_b2b) == 1  # Table 12 covers the IFF month
+    # #483 (D-122): the IFF is not marked filed, so the quarter carries its B2B invoice too, and says so (C-19).
+    assert [r.invoice_number for r in qb.sections.b2b] == ["INV-3"] and len(qb.sections.hsn_b2b) == 1
+    assert [(label, refs) for label, refs in qb.unfiled_iffs] == [("Oct 2026", ("INV-3",))]
     # #462: the debit note to a consumer is netted into B2CS, which an IFF does not carry, so the quarter holds it
     assert qb.liability.taxable_value == Decimal("600") and qb.gap.is_zero()
     assert ib.debit_notes == 0 and qb.debit_notes == 0

@@ -42,7 +42,7 @@ from app.modules.refdata import value_on
 from platform_common import audit
 from platform_common.errors import Deny, Invalid
 from platform_common.ids import uuid7
-from platform_common.money import round_to_paise
+from platform_common.money import AMOUNT_LIMIT, round_to_paise
 from platform_common.uow import UnitOfWork
 
 from . import finalize
@@ -66,6 +66,7 @@ STOCK_TREATMENTS = ("restock", "write_off")
 _QTY = re.compile(r"^[0-9]{1,15}(\.[0-9]{1,3})?$")
 _MONEY = re.compile(r"^[0-9]{1,16}(\.[0-9]{1,2})?$")
 _ZERO = Decimal()
+TOO_LARGE = "This amount is too large. Check the quantity or amount."  # #481: past what a money column holds
 METHOD = {"credit_note": "credit-note-1", "debit_note": "debit-note-1"}
 
 
@@ -260,12 +261,20 @@ def plan(state: CreditState, body: dict, rounding: str) -> list[NoteLine]:
             for c, amount in orig.taxes.items()
         }
         out.append(NoteLine(orig, q, taxable, taxes))
+    _within_limit(out)
     return out
+
+
+def _within_limit(lines: list[NoteLine]) -> None:
+    """A note's total must fit a money column (#481). A credit note can reach it only by crediting what large debit
+    notes added; a debit note has no other cap."""
+    if sum((ln.taxable + sum(ln.taxes.values(), _ZERO) for ln in lines), _ZERO) >= AMOUNT_LIMIT:
+        raise Invalid("amount_too_large", TOO_LARGE, field="lines")
 
 
 def plan_debit(state: CreditState, body: dict, rounding: str) -> list[NoteLine]:
     """A debit note's lines from the request, or Invalid naming the first field at fault. Pure: reads only `state`.
-    Nothing caps a debit note; its tax is the line's own rate on the added value."""
+    Nothing caps a debit note but what an amount can hold (#481); its tax is the line's own rate on the added value."""
     more_goods = body.get("reason") == "more_goods"
     sent = body.get("lines") or []
     if not sent:
@@ -292,7 +301,10 @@ def plan_debit(state: CreditState, body: dict, rounding: str) -> list[NoteLine]:
             if orig.quantity is None or orig.quantity <= 0:
                 raise Invalid("no_quantity", "This line has no quantity; add to it by amount", field=f"{field}.quantity")
             q = _quantity(ln.get("quantity"), f"{field}.quantity")
-            taxable = round_to_paise(orig.taxable * q / orig.quantity, rounding=rounding)
+            exact = orig.taxable * q / orig.quantity
+            if exact >= AMOUNT_LIMIT:  # before rounding, which can't take a number this long
+                raise Invalid("amount_too_large", TOO_LARGE, field=f"{field}.quantity")
+            taxable = round_to_paise(exact, rounding=rounding)
             if taxable <= 0:
                 raise Invalid("quantity_invalid", "This quantity is worth less than a paisa", field=f"{field}.quantity")
         else:
@@ -303,6 +315,7 @@ def plan_debit(state: CreditState, body: dict, rounding: str) -> list[NoteLine]:
             taxable = _amount(ln.get("taxable"), f"{field}.taxable")
         taxes = {c: round_to_paise(taxable * orig.tax_rates[c] / 100, rounding=rounding) for c in orig.taxes}
         out.append(NoteLine(orig, q, taxable, taxes))
+    _within_limit(out)
     return out
 
 
