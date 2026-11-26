@@ -275,3 +275,45 @@ def test_a_credit_note_closing_a_line_grown_past_the_limit_is_refused(shop):  # 
     assert r.status_code == 422 and r.json()["error"] == {
         "code": "amount_too_large", "message": "This amount is too large. Check the quantity or amount.", "field": "lines"}
     assert note(pg, biz, inv["id"], returned(line, "1")).status_code == 201  # a third of it still fits
+
+
+
+def test_practice_notes_dated_9_to_25_nov_on_an_earlier_practice_invoice_are_accepted(shop):  # noqa: F811 (#496)
+    """The practice note prefixes start on 09-Nov-2026 like the invoice prefix (#496); they started on 26-Nov-2026, so
+    #494's cut-off refused a note dated 09 to 25 Nov on an invoice issued then."""
+    from .test_finalize_live_postgres import _clock
+
+    pg, biz, _ = shop
+    switch(pg, True)
+    _clock((2026, 11, 9))
+    inv = invoice(pg, biz, qty="5")  # dated 09-Nov-2026, the first day of the practice series
+    assert inv["doc_date"] == "2026-11-09"
+    line = state(pg, biz, inv["id"]).json()["lines"][0]["original_line_id"]
+    _clock((2026, 11, 12))
+    cn = note(pg, biz, inv["id"], returned(line, "1"))
+    assert cn.status_code == 201, cn.text
+    assert cn.json()["doc_date"] == "2026-11-12" and cn.json()["doc_number"] == "PR-CN-0001"
+    _clock((2026, 11, 25))
+    dn = debit(pg, biz, inv["id"], more_goods(line, "1"))
+    assert dn.status_code == 201, dn.text
+    assert dn.json()["doc_date"] == "2026-11-25" and dn.json()["doc_number"] == "PR-DN-0001"
+
+
+@pytest.mark.parametrize("kind", ["credit_note", "debit_note"])
+def test_a_practice_note_dated_before_9_nov_is_still_a_422(pg, kind):  # #494, #496
+    """No practice invoice can be dated before 09-Nov-2026 and a note can't be dated before its invoice, so the API
+    can't reach this date; the cut-off the notes share with invoices (finalize.allocate) is checked directly."""
+    from datetime import date
+
+    from sqlalchemy.orm import Session
+
+    from app.modules.refdata import reader
+    from app.modules.sales.finalize import _refuse_before_settings
+    from platform_common.errors import Invalid
+
+    reader._reset_cache()
+    with Session(pg.owner) as tx:
+        _refuse_before_settings(tx, kind=kind, practice=True, on=date(2026, 11, 9))  # the first day: allowed
+        with pytest.raises(Invalid) as e:
+            _refuse_before_settings(tx, kind=kind, practice=True, on=date(2026, 11, 8))
+    assert e.value.code == "doc_date_too_early" and e.value.field == "doc_date" and "09-Nov-2026" in e.value.message
