@@ -15,11 +15,14 @@ from sqlalchemy.exc import DBAPIError
 
 from app.modules.filing.periods import (
     DocumentRef,
+    _Spec,
+    due_date,
     PeriodLocked,
     assert_period_open,
     ensure_instances,
     target_return_instance,
 )
+from app.modules.refdata import state_codes
 from platform_common.errors import Conflict
 
 from .conftest import PG_ADMIN_URL, as_user, ctx, new_business, scalar, user_id
@@ -103,14 +106,42 @@ def test_monthly_filer_instances_and_due_dates(biz):  # October 2026: GSTR-1 on 
     assert len(got) == 6  # three months x GSTR-1 and GSTR-3B
 
 
+# The quarterly GSTR-3B categories (issue #424; CGST rule 61(1)(ii) Table as substituted by Notf 82/2020-CT).
+CATEGORY_1 = ("37", "22", "30", "24", "29", "32", "23", "27", "33", "36", "35", "26", "25", "31", "34")  # the 22nd
+CATEGORY_2 = ("12", "18", "10", "06", "02", "20", "14", "17", "15", "13", "21", "03", "08", "11", "16", "09", "05", "19",
+              "04", "07", "01", "38")  # the 24th  # fmt: skip
+Q3 = _Spec("GSTR3B", "quarterly", date(2026, 10, 1), date(2026, 12, 31), "due.gstr3b.quarterly")
+
+
+def test_every_state_and_ut_has_its_quarterly_3b_day(biz):
+    pg, b, alice = biz
+    assert not set(CATEGORY_1) & set(CATEGORY_2)
+
+    def days(tx):
+        return {code: due_date(tx, Q3, f"{code}AAPFU0939F1ZZ") for code in (*CATEGORY_1, *CATEGORY_2)}
+
+    got = tx_for(pg, b, alice, days)
+    assert {c for c, d in got.items() if d.date == date(2027, 1, 22)} == set(CATEGORY_1)
+    assert {c for c, d in got.items() if d.date == date(2027, 1, 24)} == set(CATEGORY_2)
+    assert all(d.confirmed for d in got.values())  # the GST CA expert's check, 2026-11-26
+
+
+def test_every_state_code_in_refdata_but_97_and_96_is_in_a_category(biz):
+    pg, b, alice = biz
+    codes = tx_for(pg, b, alice, lambda tx: {c for c, _ in state_codes(tx, date(2026, 12, 31))})
+    assert codes - set(CATEGORY_1) - set(CATEGORY_2) == {"96", "97"}
+
+
 @pytest.mark.parametrize(
     "gstin, due",
     [
-        ("27AAPFU0939F1ZV", date(2027, 1, 22)),
-        ("09AAPFU0939F1ZZ", date(2027, 1, 24)),
+        ("27AAPFU0939F1ZV", date(2027, 1, 22)),  # Maharashtra
+        ("32AAPFU0939F1ZV", date(2027, 1, 22)),  # Kerala: not on the old partial list
+        ("09AAPFU0939F1ZZ", date(2027, 1, 24)),  # Uttar Pradesh
+        ("07AAPFU0939F1ZZ", date(2027, 1, 24)),  # Delhi: not on the old partial list
     ],  # synthetic; the check digit isn't read
 )
-def test_quarterly_3b_day_follows_the_gstin_state_group(biz, gstin, due):
+def test_quarterly_3b_day_follows_the_gstin_state_category(biz, gstin, due):
     pg, b, alice = biz
     choose(pg, b, "quarterly")
     # filing_frequency_on is per GSTIN; seed the row for the other GSTIN as the owner would.
@@ -126,9 +157,9 @@ def test_quarterly_3b_day_follows_the_gstin_state_group(biz, gstin, due):
     assert [i.due_date for i in got if i.form == "GSTR3B"] == [due]
 
 
-@pytest.mark.parametrize("gstin", ["97AAPFU0939F1Z1", "07AAPFU0939F1ZZ"])  # Other Territory; Delhi (not on the source page)
-def test_a_state_in_neither_3b_group_has_no_due_date_never_a_guess(biz, gstin):
+def test_other_territory_has_no_quarterly_3b_date_never_a_guess(biz):
     pg, b, alice = biz
+    gstin = "97AAPFU0939F1Z1"
     choose(pg, b, "quarterly")
     with pg.owner.begin() as c:
         c.execute(
@@ -141,6 +172,43 @@ def test_a_state_in_neither_3b_group_has_no_due_date_never_a_guess(biz, gstin):
     got = tx_for(pg, b, alice, lambda tx: ensure_instances(tx, gstin, date(2026, 11, 20)))
     assert [i.due_date for i in got if i.form == "GSTR3B"] == [None]
     assert [i.due_date for i in got if i.form == "GSTR1"] == [date(2027, 1, 13)]
+
+
+def add_extension(pg, key, value):
+    """An extension row, as the migrator would load it, then a loads row so the reader sees it."""
+    with pg.owner.connect() as c:
+        c.execute(
+            text(
+                "insert into refdata.values (key, value, type, kind, valid_from, source_url, source_title, last_checked,"
+                " status, loaded_from) values (:k, :v, 'text', 'tax', '2021-01-01', 'https://example.org', 'test',"
+                " '2026-11-26', 'provisional', 'test')"
+            ),
+            {"k": key, "v": value},
+        )
+        c.execute(
+            text(
+                "insert into refdata.loads (id, git_sha, files, rows_inserted, rows_closed, rows_updated, at)"
+                " values (:i, 'test', '{}', 1, 0, 0, clock_timestamp())"
+            ),
+            {"i": uuid.uuid4()},
+        )
+
+
+def test_an_extension_row_moves_the_date_for_all_states_or_one(biz):
+    pg, b, alice = biz
+    add_extension(pg, "due.extension.gstr3b.p2026_12", "2027-01-31")
+    add_extension(pg, "due.extension.gstr3b.p2026_12.state_19", "2027-02-05")
+
+    def got(tx):
+        return {g: due_date(tx, Q3, g) for g in ("19AAPFU0939F1ZS", "27AAPFU0939F1ZV", "97AAPFU0939F1Z1")}
+
+    d = tx_for(pg, b, alice, got)
+    assert d["19AAPFU0939F1ZS"].date == date(2027, 2, 5)  # the one-state row wins
+    assert d["27AAPFU0939F1ZV"].date == date(2027, 1, 31)  # the all-states row
+    assert d["97AAPFU0939F1Z1"].date == date(2027, 1, 31)  # an extension names a date, so even 97 has one
+    assert d["19AAPFU0939F1ZS"].ref.startswith("due.extension.gstr3b.p2026_12.state_19")
+    other = _Spec("GSTR3B", "quarterly", date(2027, 1, 1), date(2027, 3, 31), "due.gstr3b.quarterly")
+    assert tx_for(pg, b, alice, lambda tx: due_date(tx, other, "19AAPFU0939F1ZS")).date == date(2027, 4, 24)  # untouched
 
 
 def test_ensure_instances_is_idempotent(biz):

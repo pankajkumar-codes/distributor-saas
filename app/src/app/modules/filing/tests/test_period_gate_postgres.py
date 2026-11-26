@@ -103,12 +103,12 @@ def test_a_quarter_is_confirmed_for_a_quarterly_filer_only(shop):  # noqa: F811
     assert (r.status_code, r.json()["error"]["code"]) == (409, "quarter_not_for_monthly_filer")
 
 
-def test_the_due_date_is_shown_only_when_confirmed(shop):  # noqa: F811
+def test_the_gstr1_due_date_is_shown_from_refdata(shop):  # noqa: F811  (D-106, #424)
     pg, biz = shop
     choose(pg, biz, "monthly")
     both(pg, biz)
     out = press(pg, biz).json()
-    assert out["due_date"] is None and out["due_dates"] == "Check on the GST portal"  # the dates in refdata are provisional
+    assert out["due_date"] == "2026-12-11"  # November's GSTR-1, monthly filer: the 11th of the next month
 
 
 def test_roles_and_other_businesses(shop):  # noqa: F811

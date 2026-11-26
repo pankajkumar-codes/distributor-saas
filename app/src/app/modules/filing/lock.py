@@ -90,6 +90,51 @@ def _reference(tx, inst) -> snapshots.Snapshot | None:
     return snapshots.latest(tx, inst.id, "lock" if inst.status == "unlocked" else "export")
 
 
+OUTSIDE_REASON = "Filed outside Kartaa"
+
+
+def mark_completed_outside(uow: UnitOfWork, instance_id: uuid.UUID, filed_on: date, arn: str, today: date) -> dict:
+    """The user filed this return on the GST portal without Kartaa's file (issue #424). A GSTR-1 or IFF is locked as it is
+    now, the same way as marking it filed, with the reason "Filed outside Kartaa" kept when it differs from the file we
+    made (or none was made). A GSTR-3B or PMT-06 has nothing we build, so it gets the `filed` event and `filed_locked` only.
+    The period must have ended; the date and ARN follow the same rules as marking filed."""
+    tx = uow.tx
+    business = uow.principal.business_id
+    row = tx.execute(
+        text("select form, status from filing.return_instances where id = :i and business_id = :b for update"),
+        {"i": instance_id, "b": business},
+    ).one_or_none()
+    if row is None:
+        raise Deny("not_found")
+    if row.form in ("GSTR1", "IFF"):
+        out = mark_filed(uow, instance_id, filed_on, arn, OUTSIDE_REASON, today)
+        return {"status": out["status"], "filed_on": out["filed_on"], "arn": out["arn"]}
+    if row.status not in ("open", "unlocked"):
+        raise Conflict("period_not_open", "This return is not open, so it cannot be marked filed.")
+    inst = periods.get_instance(tx, instance_id)
+    arn = (arn or "").strip()
+    if not arn or len(arn) > ARN_MAX:
+        raise Invalid("arn_invalid", "Enter the ARN the portal gave you", field="arn")
+    if filed_on > today:
+        raise Invalid("filed_on_future", "The filing date cannot be in the future", field="filed_on")
+    if filed_on < inst.period_end:
+        raise Invalid("filed_on_before_period", "The filing date cannot be before the period ends", field="filed_on")
+    tx.execute(
+        text(
+            "insert into filing.instance_events (id, business_id, instance_id, kind, filed_on, arn, reason, actor_user_id)"
+            " values (:i, :b, :n, 'filed', :d, :a, :r, :u)"
+        ),
+        {"i": uuid.uuid4(), "b": business, "n": inst.id, "d": filed_on, "a": arn, "r": OUTSIDE_REASON,
+         "u": uow.principal.user_id},
+    )  # fmt: skip
+    tx.execute(
+        text("update filing.return_instances set status = 'filed_locked', status_changed_at = now() where id = :i"),
+        {"i": inst.id},
+    )
+    audit.record(uow, "returns.filed_outside", "return_instance", inst.id, data={"form": inst.form})
+    return {"status": "filed_locked", "filed_on": filed_on, "arn": arn}
+
+
 def changes(uow: UnitOfWork, instance_id: uuid.UUID) -> dict:
     """The difference between the return as it is now and the file the user took, for the screen to show before it asks
     to confirm. Reads only; the filing itself re-checks under the lock."""

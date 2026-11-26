@@ -44,7 +44,7 @@ def test_no_frequency_is_an_empty_list(api):
     assert r.json()["filing_frequency"] is None and r.json()["returns"] == []
 
 
-def test_quarterly_filer_lists_the_quarter_with_unconfirmed_dates(api):
+def test_quarterly_filer_lists_the_quarter_with_confirmed_dates(api):
     pg, b = api
     choose(pg, b, "quarterly")
     body = get(pg, b).json()
@@ -54,7 +54,8 @@ def test_quarterly_filer_lists_the_quarter_with_unconfirmed_dates(api):
         ("GSTR1", "2026-Q3", "Oct–Dec 2026", "2027-01-13"),
         ("GSTR3B", "2026-Q3", "Oct–Dec 2026", "2027-01-24"),
     ]
-    assert all(x["due_date_confirmed"] is False and x["status"] == "open" for x in body["returns"])
+    # GSTR-1, GSTR-3B and PMT-06 rows are expert_confirmed (#424, D-106); the IFF row is still provisional.
+    assert all(x["due_date_confirmed"] is (x["form"] != "IFF") and x["status"] == "open" for x in body["returns"])
     assert all(x["due_date_source_url"] for x in body["returns"])
     assert {x["period"] for x in body["returns"] if x["form"] == "IFF" and x["period"] < "2026-12"} == {
         "2026-10",
@@ -76,15 +77,16 @@ def test_a_confirmed_refdata_row_flips_the_marker(api):
     with pg.owner.connect() as c:
         c.execute(
             text(
-                "update refdata.values set status = 'expert_confirmed', confirmed_by = 'test', confirmed_on = '2026-11-12' where key = 'due.gstr1.monthly.day'"
+                "update refdata.values set status = 'provisional', confirmed_by = null, confirmed_on = null where key = 'due.gstr1.monthly.day'"
             )
         )
     from app.modules.refdata.reader import _reset_cache
 
     _reset_cache()
     rows = {(x["form"], x["period"]): x for x in get(pg, b).json()["returns"]}
-    assert rows[("GSTR1", "2026-10")]["due_date_confirmed"] is True
-    assert rows[("GSTR3B", "2026-10")]["due_date_confirmed"] is False
+    assert rows[("GSTR1", "2026-10")]["due_date_confirmed"] is False  # a row taken back to provisional
+    assert rows[("GSTR1", "2026-10")]["due_date"] == "2026-11-11"  # still shown (D-106)
+    assert rows[("GSTR3B", "2026-10")]["due_date_confirmed"] is True
 
 
 def test_a_ca_can_read_and_a_stranger_gets_404(api):

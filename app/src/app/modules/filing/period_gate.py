@@ -6,7 +6,8 @@ confirmation is stored against a fingerprint of the period's rows, so adding or 
 afterwards makes it stale and the business confirms again. The button is open only when the period has ended (the filing
 period starts the day after it ends) and both confirmations stand. The server decides; the screen only shows it.
 
-The due date is shown only when the refdata row in force is confirmed. No other date is made up here.
+The due date is the one refdata holds for the period's GSTR-1 (D-106: shown whether or not the row is confirmed yet). No
+other date is made up here.
 """
 
 import uuid
@@ -48,7 +49,7 @@ class Gate:
     reasons: tuple[str, ...]  # codes, empty when the button is open
     platform_files: tuple  # (platform, months missing) for each marketplace the business sells on and lacks files for
     gstr1_returns: tuple  # return instances (GSTR-1, IFF) of the period, when they exist
-    due_date: date | None  # only a confirmed date; None means "check on the GST portal"
+    due_date: date | None  # from refdata; None means no return instance or no date: "check on the GST portal"
 
     @property
     def can_file(self) -> bool:
@@ -100,7 +101,7 @@ def status(uow: UnitOfWork, kind: str, start: date, today: date) -> Gate:
     due = None
     if mine:
         d = periods.due_now(tx, next((i for i in mine if i.form == "GSTR1"), mine[0]))
-        due = d.date if d.confirmed else None
+        due = d.date  # shown whenever refdata has one (D-106, issue #424)
     return Gate(kind, period.start, period.end, ended, period.end + timedelta(days=1), confirmations,
                 tuple(reasons), tuple(sorted(missing.items())), mine, due)
 

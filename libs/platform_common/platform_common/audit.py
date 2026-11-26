@@ -113,6 +113,8 @@ ALLOWED_DATA: dict[str, frozenset[str]] = {
     "filing.period_confirmation": frozenset({"kind", "period", "item", "confirmed"}),
     "filing.period_file_opened": frozenset({"kind", "period"}),
     "returns.filed": frozenset({"snapshot_id", "version", "changed_since_export"}),
+    # A GSTR-3B or PMT-06 the user filed on the portal outside Kartaa (#424): the form only; the ARN is on the event row.
+    "returns.filed_outside": frozenset({"form"}),
     # Table 13 (documents issued) confirmed for a return: its version and row counts. No document numbers.
     "return.table13_confirmed": frozenset({"version", "rows", "counted"}),
     # A GSTR-3B worksheet (R1-M8b): its version, and for entries the save number and the field names that changed. The

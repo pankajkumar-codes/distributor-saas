@@ -1519,6 +1519,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/returns/{instance_id}/completed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark Completed
+         * @description The user filed this return on the GST portal outside Kartaa (issue #424): any form, GSTR-3B included. A GSTR-1 or
+         *     IFF is locked as it is now with the reason "Filed outside Kartaa"; 409 `period_not_open` when it is already locked.
+         */
+        post: operations["mark_completed_api_v1_b__business_id__returns__instance_id__completed_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/returns/{instance_id}/exports": {
         parameters: {
             query?: never;
@@ -1644,7 +1665,8 @@ export interface paths {
         put?: never;
         /**
          * Unlock Return
-         * @description Owner only, with a reason. The snapshots stay; marking filed again is a relock.
+         * @description Owner only, with a reason. The snapshots stay; marking filed again is a relock. Any form: a GSTR-3B marked
+         *     completed outside Kartaa by mistake is unlocked the same way (#424).
          */
         post: operations["unlock_return_api_v1_b__business_id__returns__instance_id__unlock_post"];
         delete?: never;
@@ -3175,6 +3197,31 @@ export interface components {
              * @constant
              */
             status: "code_sent";
+        };
+        /** CompletedIn */
+        CompletedIn: {
+            /** Arn */
+            arn: string;
+            /**
+             * Filed On
+             * Format: date
+             */
+            filed_on: string;
+        };
+        /** CompletedOut */
+        CompletedOut: {
+            /** Arn */
+            arn: string;
+            /**
+             * Filed On
+             * Format: date
+             */
+            filed_on: string;
+            /**
+             * Status
+             * @constant
+             */
+            status: "filed_locked";
         };
         /**
          * ComputationOut
@@ -9779,6 +9826,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AcceptFindingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_completed_api_v1_b__business_id__returns__instance_id__completed_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instance_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompletedIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompletedOut"];
                 };
             };
             /** @description Validation Error */
