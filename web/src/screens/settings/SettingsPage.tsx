@@ -16,7 +16,6 @@ import { TEAM_MANAGERS } from "../team/TeamPage";
 import { AUDIT_VIEWERS } from "./AuditPage";
 import { CompanyPage, EDITORS } from "./CompanyPage";
 import { FilingPage, FREQUENCY_LABEL } from "./FilingPage";
-import { NumberingSection } from "./NumberingSection";
 import { PlatformsSection } from "./PlatformsSection";
 import { SettingsEyebrow } from "./SettingsEyebrow";
 import { SUPPORT_VIEWERS } from "./SupportPage";
@@ -176,6 +175,11 @@ export function SettingsPage() {
             <Link to={`${base}/plan`}>Invoicing plan</Link>
           </li>
         )}
+        {member && FEATURES.invoicing && (
+          <li>
+            <Link to={`${base}/numbering`}>Invoice numbering</Link>
+          </li>
+        )}
       </ul>
     </Panel>
   );
@@ -201,7 +205,6 @@ export function SettingsPage() {
             {member && <CompanySummary businessId={businessId} canEdit={canEdit} />}
             {member && <FilingSummary businessId={businessId} canEdit={canEdit} />}
             {member && <PlatformsSection businessId={businessId} canEdit={canEdit} />}
-            {member && FEATURES.invoicing && <NumberingSection businessId={businessId} canEdit={canEdit} />}
             {more}
           </div>
         )}

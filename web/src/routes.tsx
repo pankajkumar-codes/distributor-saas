@@ -36,6 +36,7 @@ import { RootPage } from "./screens/root/RootPage";
 import { ResetPage } from "./screens/reset/ResetPage";
 import { SettingsPage, ToBusinessSetup } from "./screens/settings/SettingsPage";
 import { AuditPage } from "./screens/settings/AuditPage";
+import { NumberingPage } from "./screens/settings/NumberingPage";
 import { SecurityPage } from "./screens/settings/SecurityPage";
 import { MarketplacesPage } from "./screens/settings/MarketplacesPage";
 import { SupportPage } from "./screens/settings/SupportPage";
@@ -89,6 +90,7 @@ export const routes: RouteObject[] = [
   { path: "/b/:businessId/onboarding/marketplaces", element: <PageTitle title="Marketplaces you sell on"><RequireAuth><MarketplacesPage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/settings/filing", element: <RequireAuth><ToBusinessSetup part="filing" /></RequireAuth> },
   { path: "/b/:businessId/settings/support", element: <PageTitle title="Support access"><RequireAuth><SupportPage /></RequireAuth></PageTitle> },
+  { path: "/b/:businessId/settings/numbering", element: <PageTitle title="Invoice numbering"><RequireAuth><NumberingPage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/settings/audit", element: <PageTitle title="Audit log"><RequireAuth><AuditPage /></RequireAuth></PageTitle> },
   { path: "/b/:businessId/settings/team", element: <PageTitle title="Your team"><RequireAuth><TeamPage /></RequireAuth></PageTitle> },
   { path: "/invite/:token", element: <PageTitle title="Accept your invitation"><AcceptInvitePage /></PageTitle> },

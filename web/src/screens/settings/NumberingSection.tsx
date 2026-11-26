@@ -89,7 +89,7 @@ export function NumberingSection({ businessId, canEdit }: { businessId: string; 
   return (
     <section className="panel" aria-labelledby="numbering">
       <div className="panel-h">
-        <h2 id="numbering">Invoice numbering</h2>
+        <h2 id="numbering">Your series</h2>
       </div>
       <div className="pad">
         {saved.isPending && <p className="hint">Loading…</p>}

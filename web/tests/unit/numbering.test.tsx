@@ -31,7 +31,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 function open(role = "owner") {
   server.reply(ME, me(role), me(role));
-  window.history.replaceState(null, "", "/b/b-1/settings");
+  window.history.replaceState(null, "", "/b/b-1/settings/numbering");
   render(<App />);
 }
 
@@ -69,8 +69,18 @@ describe("invoice numbering", () => {
   it("is read-only for staff", async () => {
     server.reply(NUMBERING, numbering());
     open("staff");
-    const section = (await screen.findByRole("heading", { name: "Invoice numbering" })).closest("section") as HTMLElement;
+    const section = (await screen.findByRole("heading", { name: "Your series" })).closest("section") as HTMLElement;
     expect(await within(section).findByLabelText("Tax invoice prefix")).toBeDisabled();
     expect(within(section).queryByRole("button", { name: "Save numbering" })).toBeNull();
+  });
+});
+
+describe("Business setup", () => {
+  it("links to Invoice numbering instead of holding it, so the page fits one laptop screen", async () => {
+    server.reply(ME, me("owner"), me("owner"));
+    window.history.replaceState(null, "", "/b/b-1/settings");
+    render(<App />);
+    expect(await screen.findByRole("link", { name: "Invoice numbering" })).toHaveAttribute("href", "/b/b-1/settings/numbering");
+    expect(screen.queryByLabelText("Tax invoice prefix")).toBeNull();
   });
 });
