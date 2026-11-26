@@ -37,6 +37,14 @@ test("New invoice with many lines and a check still fits one screen; the items b
     }); // fmt: skip
 
   await page.goto(`/b/${businessId}/invoices/new`);
+  // #439: the selected Buyer option fills its box, with no white strip under it
+  const seg = await page.locator(".invtop .seg2").evaluate((e) => {
+    const box = e.getBoundingClientRect();
+    const on = e.querySelector("label:has(input:checked)")!.getBoundingClientRect();
+    return { top: on.top - box.top, bottom: box.bottom - on.bottom };
+  });
+  expect(seg.top).toBeLessThanOrEqual(1);
+  expect(seg.bottom).toBeLessThanOrEqual(1); // only the 1px border
   await page.getByLabel("Find a customer").fill("Kiran");
   await page.getByRole("button", { name: /Kiran Traders/ }).click();
   for (const name of names) {
