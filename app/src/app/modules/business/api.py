@@ -19,7 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.modules.refdata import RefdataMissing, state_name, value_on
 from platform_common.clock import Clock, get_clock
-from platform_common.errors import Deny
+from platform_common.errors import Conflict, Deny
 from platform_common.etag import if_match_version, set_etag
 from platform_common.permissions import Permission, require
 from platform_common.uow import BusinessUoW
@@ -278,7 +278,7 @@ class SeriesIn(BaseModel):
 
 
 class NumberingIn(BaseModel):
-    """Only the kinds sent change. Live numbering is not switched here."""
+    """Only the kinds sent change. Live numbering is switched by POST /numbering/live, not here."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -314,6 +314,18 @@ def get_numbering(uow: BusinessUoW, clock: Today) -> NumberingOut:
     a new series dated today would start with. Anyone who may view invoices may read it."""
     uow.become_read_only()
     return _numbering_out(uow, series.numbering(uow.tx), clock.today())
+
+
+@router.post("/numbering/live", dependencies=EDIT)
+def turn_on_live_numbering(uow: BusinessUoW, clock: Today) -> NumberingOut:
+    """Turns on live numbering for this business (#477, D-121): from now on its invoices, credit notes and debit notes
+    get live numbers (INV/YY-MM/NNNNNN) and go into GST filing. Owner only, refused while the platform switch for live
+    numbers is off, and not undone here. Calling it again changes nothing."""
+    if uow.principal.role != "owner":
+        raise Conflict("owner_rule", "Only an owner can turn on live numbering")
+    if not _numbering_rules(uow, clock.today())[2]:
+        raise Conflict("live_numbering_unavailable", "Live invoice numbers aren't available yet")
+    return _numbering_out(uow, series.set_live(uow), clock.today())
 
 
 @router.put("/numbering", dependencies=EDIT)

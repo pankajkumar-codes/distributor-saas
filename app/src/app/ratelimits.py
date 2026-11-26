@@ -95,6 +95,7 @@ LIMITS: dict[tuple[str, str], str] = {
     ("POST", f"{P}/members/{{user_id}}/deactivate"): "write",
     ("POST", f"{P}/members/{{user_id}}/reactivate"): "write",
     ("PUT", f"{P}/numbering"): "write",
+    ("POST", f"{P}/numbering/live"): "write",
     ("PUT", f"{P}/period-gate"): "write",
     ("POST", f"{P}/period-gate/file"): "write",
     ("POST", f"{P}/product-imports/{{import_id}}/confirm"): "write",

@@ -36,7 +36,7 @@ export function NumberingPage() {
       <main className="page page-wide">
         <SettingsEyebrow businessId={businessId} here="Invoice numbering" />
         <h1>Invoice numbering</h1>
-        <NumberingSection businessId={businessId} canEdit={EDITORS.has(business.role)} />
+        <NumberingSection businessId={businessId} canEdit={EDITORS.has(business.role)} isOwner={business.role === "owner"} />
       </main>
     </>
   );

@@ -182,3 +182,38 @@ def test_practice_numbers_stay_one_series_per_fy_under_the_monthly_scope(live):
     for day in ("2026-11-30", "2026-12-01"):
         assert fin(pg, biz, ready_draft(pg, biz, doc_date=day)).status_code == 200
     assert _numbers(pg) == ["PR-0001", "PR-0002"]
+
+
+def test_an_owner_who_turns_on_live_numbering_issues_inv_numbers_that_reach_filing_with_a_tax_invoice_pdf(shop):  # noqa: F811 (#477)
+    from app import api as app_api
+    from app.modules.sales import document_pdf
+    from platform_common.clock import IST, FrozenClock, get_clock
+
+    from .test_debit_notes_postgres import rendered
+
+    pg, biz, _ = shop
+    app_api.app.dependency_overrides[get_clock] = lambda: FrozenClock(datetime(2026, 11, 27, 12, 0, tzinfo=IST))
+    switch(pg, True)
+    r = pg.client.post(f"/api/v1/b/{biz}/filing-profile/frequency", json={"frequency": "monthly", "effective_from": "2026-10-01"},
+                       headers={**as_user("alice"), "Idempotency-Key": uuid.uuid4().hex})
+    assert r.status_code in (200, 201), r.text
+    flip_live(pg, True)
+    try:
+        assert fin(pg, biz, ready_draft(pg, biz)).json()["is_practice"] is True  # practice until the owner turns live on
+        r = pg.client.post(f"/api/v1/b/{biz}/numbering/live", headers=as_user("alice"))
+        assert r.status_code == 200 and r.json()["live"] is True, r.text
+        made = fin(pg, biz, ready_draft(pg, biz))
+        assert made.status_code == 200, made.text
+        doc = made.json()
+        assert (doc["is_practice"], doc["doc_number"]) == (False, "INV/26-11/000001")
+        with pg.app_rw.connect() as c, c.begin():
+            ctx(c, user_id(pg.owner, "alice"), tenant=biz)
+            assert c.execute(text("select count(*) from filing.v_supply_lines where return_instance_id is not null")).scalar() == 1
+        with pg.owner.connect() as c:
+            body = document_pdf.build(c, biz, uuid.UUID(doc["id"]))
+        assert body["practice"] is False and body["number"] == "INV/26-11/000001"
+        pages = rendered(body)
+        assert len(pages) == 3 and all("<h1>TAX INVOICE</h1>" in p and "PRACTICE" not in p for p in pages)
+        assert all("Invoice number: INV/26-11/000001" in p for p in pages)
+    finally:
+        flip_live(pg, False)

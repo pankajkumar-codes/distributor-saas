@@ -28,6 +28,7 @@ ACTIONS: dict[str, tuple[str, str]] = {
     "business.frequency_set": ("Set the GST filing frequency", "gst_filing"),
     "business.channels_update": ("Changed the marketplaces", "team_settings"),
     "business.numbering_update": ("Changed the invoice numbering", "invoices"),
+    "business.numbering_live_on": ("Turned on live invoice numbering", "invoices"),
     "business.gstin_locked": ("GSTIN locked after the first invoice", "team_settings"),
     "member.invite": ("Invited a member", "team_settings"),
     "member.invite_resend": ("Resent an invite", "team_settings"),

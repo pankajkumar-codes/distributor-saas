@@ -35,8 +35,8 @@ def test_the_page_says_practice_not_a_tax_invoice_and_prints_the_rule_46_fields(
     assert "Tax Invoice" not in html.replace("not a tax invoice", "").replace("NOT A TAX INVOICE", "")
 
 
-@pytest.mark.parametrize("practice", [False, None, "yes", 1])
-def test_a_document_that_is_not_a_practice_one_is_refused(practice):
+@pytest.mark.parametrize("practice", [None, "yes", 1, 0])
+def test_practice_must_be_true_or_false(practice):
     with pytest.raises(ValueError, match="practice"):
         template.render_html(doc(practice=practice))
 
@@ -264,3 +264,15 @@ def test_only_an_invoice_can_be_marked_cancelled():
 def test_the_cancel_fields_are_escaped(field):
     html = template.render_html(full_doc(cancelled={**CANCELLED, field: "<script>x</script>"}))
     assert "<script>x</script>" not in html and "&lt;script&gt;" in html
+
+
+
+@pytest.mark.parametrize("note, title, label", [
+    (None, "TAX INVOICE", "Invoice number"),
+    (NOTE, "CREDIT NOTE", "Credit note number"),
+    ({**NOTE, "kind": "debit_note"}, "DEBIT NOTE", "Debit note number"),
+])
+def test_a_live_document_is_titled_as_such_and_has_no_practice_marks(note, title, label):  # #477, D-121
+    html = template.render_html(full_doc(practice=False, note=note, number="INV/26-11/000001"))
+    assert f"<h1>{title}</h1>" in html and f"{label}: INV/26-11/000001" in html
+    assert "PRACTICE" not in html and "practice" not in html.lower().replace(".practice {", "")

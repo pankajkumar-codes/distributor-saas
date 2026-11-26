@@ -1,5 +1,6 @@
 """The invoice numbering settings (#461) on PostgreSQL as app_rw: defaults, save, the 16-character rule, one prefix per
-document type, who may save, and another business's settings out of reach. Live numbering is never switched here.
+document type, who may save, and another business's settings out of reach. Live numbering is switched only by
+POST /numbering/live (#477): owner only, while the platform switch is on, all three kinds at once, never undone.
 
 The clock is frozen at 27 Nov 2026 IST, after the monthly scope (D-114) starts. Skipped unless PG_ADMIN_URL points at a disposable server.
 """
@@ -110,3 +111,64 @@ def test_another_business_settings_are_out_of_reach(nov27):
     assert get(pg, bid, "mallory").status_code == 404
     assert put(pg, bid, {"invoice": {"prefix": "MAL"}}, "mallory").status_code == 404
     assert by_kind(get(pg, bid))["invoice"]["prefix"] == "AAA"
+
+
+
+def flip_live(pg, on):
+    import uuid
+
+    from sqlalchemy import text
+
+    with pg.owner.connect() as c:
+        c.execute(text("update refdata.values set value = :v where key = 'sales.finalize.live'"),
+                  {"v": "true" if on else "false"})
+        c.execute(text("insert into refdata.loads (id, git_sha, files, rows_inserted, rows_closed, rows_updated)"
+                       " values (:i, 'test', '{}', 0, 0, 1)"), {"i": uuid.uuid4()})
+
+
+@pytest.fixture()
+def platform_live(nov27):
+    pg, _ = nov27
+    flip_live(pg, True)
+    try:
+        yield nov27
+    finally:
+        flip_live(pg, False)
+
+
+def go_live(pg, bid, sub="alice"):
+    return pg.client.post(url(bid, "/numbering/live"), headers=as_user(sub))
+
+
+def test_live_numbering_is_refused_while_the_platform_switch_is_off(nov27):  # #477
+    pg, bid = nov27
+    r = go_live(pg, bid)
+    assert r.status_code == 409 and r.json()["error"]["code"] == "live_numbering_unavailable", r.text
+    assert scalar(pg.owner, "select count(*) from business.series_settings where business_id = :b", b=bid) == 0
+
+
+def test_the_owner_turns_on_live_numbering_for_all_three_kinds_once(platform_live):  # #477, D-121
+    pg, bid = platform_live
+    assert put(pg, bid, {"credit_note": {"prefix": "SCN"}}).status_code == 200
+    assert get(pg, bid).json()["live_available"] is True
+    r = go_live(pg, bid)
+    assert r.status_code == 200, r.text
+    assert (r.json()["live"], by_kind(r)["credit_note"]["prefix"]) == (True, "SCN")  # saved prefixes kept
+    assert scalar(pg.owner, "select count(*) from business.series_settings where business_id = :b"
+                  " and not practice_mode", b=bid) == 3
+    assert go_live(pg, bid).status_code == 200  # again: nothing changes
+    assert actions(pg, bid).count("business.numbering_live_on") == 1
+    assert put(pg, bid, {"invoice": {"prefix": "SI"}}).status_code == 200  # a later prefix save keeps live on
+    assert get(pg, bid).json()["live"] is True
+
+
+def test_only_an_owner_can_turn_on_live_numbering(platform_live):  # #477
+    pg, bid = platform_live
+    add_member(pg, bid, "adam", "admin")
+    add_member(pg, bid, "carol", "ca")
+    r = go_live(pg, bid, "adam")
+    assert r.status_code == 409 and r.json()["error"]["code"] == "owner_rule", r.text
+    assert go_live(pg, bid, "carol").status_code == 404
+    other = create(pg.client, sub="mallory").json()["business_id"]
+    assert other and go_live(pg, bid, "mallory").status_code == 404
+    assert get(pg, bid).json()["live"] is False

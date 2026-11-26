@@ -13,11 +13,11 @@ const me = (role: string) => ({ status: 200, body: { businesses: [{ business_id:
 const series = (kind: string, label: string, prefix: string, issued = true) => ({
   kind, label, prefix, first_number: 1, width: 6, next_number: `${prefix}/26-11/000001`, saved: false, issued_in_app: issued,
 });
-const numbering = (invoicePrefix = "INV") => ({
+const numbering = (invoicePrefix = "INV", live = false, liveAvailable = false) => ({
   status: 200,
   body: {
     series: [series("invoice", "Tax invoice", invoicePrefix), series("credit_note", "Credit note", "CN"), series("debit_note", "Debit note", "DN", false)],
-    scope: "gstin_kind_month", max_length: 16, max_prefix_length: 3, live: false, live_available: false,
+    scope: "gstin_kind_month", max_length: 16, max_prefix_length: 3, live, live_available: liveAvailable,
   },
 });
 
@@ -76,6 +76,36 @@ describe("invoice numbering", () => {
     const section = (await screen.findByRole("heading", { name: "Your series" })).closest("section") as HTMLElement;
     expect(await within(section).findByLabelText("Tax invoice prefix")).toBeDisabled();
     expect(within(section).queryByRole("button", { name: "Save numbering" })).toBeNull();
+  });
+});
+
+describe("live numbering (#477)", () => {
+  it("lets the owner turn it on after a confirmation, and the practice label goes away", async () => {
+    server.reply(NUMBERING, numbering("INV", false, true));
+    open();
+    expect(await screen.findByRole("link", { name: "Practice mode · Turn on live numbering" })).toHaveAttribute("href", "/b/b-1/settings/numbering");
+    fireEvent.click(await screen.findByRole("button", { name: "Turn on live numbering" }));
+    expect(screen.getByText(/can't be turned off again/)).toBeInTheDocument();
+    server.reply(`POST ${NUMBERING}/live`, numbering("INV", true, true));
+    fireEvent.click(screen.getByRole("button", { name: "Yes, turn on live numbering" }));
+    expect(await screen.findByText(/Live numbering is on/)).toBeInTheDocument();
+    expect(server.sent.some((s) => s.method === "POST" && s.path === `${NUMBERING}/live`)).toBe(true);
+    expect(screen.queryByText(/Practice mode/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Turn on live numbering" })).toBeNull();
+  });
+
+  it("offers no switch to an admin, and none while the platform has no live numbers", async () => {
+    server.reply(NUMBERING, numbering("INV", false, true));
+    open("admin");
+    expect(await screen.findByText("Only an owner of this business can turn on live numbering.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Turn on live numbering" })).toBeNull();
+  });
+
+  it("keeps the plain practice label while live numbers aren't available", async () => {
+    server.reply(NUMBERING, numbering());
+    open();
+    expect(await screen.findByText("Practice invoices until numbering is confirmed")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Turn on live numbering" })).toBeNull();
   });
 });
 

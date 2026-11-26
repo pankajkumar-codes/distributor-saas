@@ -959,6 +959,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/numbering/live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn On Live Numbering
+         * @description Turns on live numbering for this business (#477, D-121): from now on its invoices, credit notes and debit notes
+         *     get live numbers (INV/YY-MM/NNNNNN) and go into GST filing. Owner only, refused while the platform switch for live
+         *     numbers is off, and not undone here. Calling it again changes nothing.
+         */
+        post: operations["turn_on_live_numbering_api_v1_b__business_id__numbering_live_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/own-invoices/crosscheck": {
         parameters: {
             query?: never;
@@ -5194,7 +5216,7 @@ export interface components {
         };
         /**
          * NumberingIn
-         * @description Only the kinds sent change. Live numbering is not switched here.
+         * @description Only the kinds sent change. Live numbering is switched by POST /numbering/live, not here.
          */
         NumberingIn: {
             credit_note?: components["schemas"]["SeriesIn"] | null;
@@ -8861,6 +8883,37 @@ export interface operations {
                 "application/json": components["schemas"]["NumberingIn"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NumberingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    turn_on_live_numbering_api_v1_b__business_id__numbering_live_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

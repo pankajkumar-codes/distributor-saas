@@ -71,19 +71,28 @@ Install Docker Desktop (Mac) or Docker Engine with the Compose plugin (Linux), s
 
 It does the same things and prints the same box.
 
-### Trying finalize (practice numbers only)
+### Trying finalize and live numbering
 
-Finalizing an invoice (giving it a number) is **off in the product** until the CA confirms the numbering scope, so by default
-the Finalize button does nothing here either. To try it, start the demo with the switch:
+Finalizing an invoice (giving it a number) is **off in the product** until Pankaj approves it, so by default the Finalize
+button does nothing here either. To try it, start the demo with the switch:
 
 ```bash
 ./demo.sh --finalize       # Windows: .\demo.ps1 -Finalize
 ```
 
-> **Practice only.** Finalize is switched on in this demo's own throwaway database and nowhere else. The numbers it gives
-> are practice numbers, not real invoice numbers, and are forgotten when the demo stops. The switch is not available in
-> staging or production configuration, and it stays off there until the CA answers (D-010, D-044, CA-1). Without the
-> flag the demo behaves as the product ships.
+This turns on finalize and makes live numbering available (#477, D-121). Every business starts in practice mode (`PR-0001`
+numbers, never in GST filing). To issue live numbers:
+
+1. **Settings > Company > Turnover and e-invoicing:** answer the e-invoicing question ("No" for a small business). While it
+   is "Not sure", a live invoice to a GST-registered buyer is refused (`einvoice_unsure_live`, D-113); "Yes" blocks B2B
+   invoices because the app can't issue e-invoices yet.
+2. **Settings > Invoice numbering > Turn on live numbering** (owner only; it can't be turned off again).
+3. New invoices get `INV/YY-MM/000001`, credit notes `CN/…` and debit notes `DN/…`; each goes into the GSTR-1 for its
+   month, and the PDF is a tax invoice, credit note or debit note.
+
+> **Demo only.** Both switches are turned on in this demo's own throwaway database and nowhere else, and everything is
+> forgotten when the demo stops. The switches are not available in staging or production configuration, and stay off there
+> until Pankaj approves them (D-010, D-044, D-121). Without the flag the demo behaves as the product ships.
 
 ### Windows with WSL (an alternative that is partly verified)
 

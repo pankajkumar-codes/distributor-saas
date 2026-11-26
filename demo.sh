@@ -2,7 +2,7 @@
 # The whole product on your own computer, for trying a milestone by hand. Needs only Docker.
 # Mac and Linux twin of demo.ps1 (Windows); `make demo` calls this.
 #   ./demo.sh            start (about 5 minutes the first time) and show sign-up codes here
-#   ./demo.sh --finalize start with finalize switched on, so an invoice can be finalized (numbers are PRACTICE only)
+#   ./demo.sh --finalize start with finalize and live numbering available (an owner turns live on in Settings)
 #   ./demo.sh stop       stop it and forget everything it held
 #   ./demo.sh codes      show the sign-up codes again (Ctrl+C leaves the demo running)
 #   ./demo.sh check      quick health check: is each piece up, and does the page answer
@@ -63,7 +63,7 @@ case "$cmd" in
     if [ "$FINALIZE" = 1 ]; then
       dc exec -T db psql -U postgres -d saas -v ON_ERROR_STOP=1 < demo/enable-finalize.sql >/dev/null \
         || die "Switching finalize on failed." "Run './demo.sh stop' and start again without --finalize, or send demo-logs.txt."
-      printf '\nFinalize is ON in this demo. Numbers it gives are PRACTICE only, not real invoice numbers.\nThey stay off everywhere else until the CA confirms the numbering scope.\n'
+      printf '\nFinalize and live numbering are available in this demo only.\nTo issue live numbers (INV/YY-MM/000001): Settings > Invoice numbering > Turn on live numbering.\nFor live invoices to GST-registered buyers, first answer the e-invoicing question in Settings > Company > Turnover and e-invoicing.\n'
     fi
     cat <<MSG
 
