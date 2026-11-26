@@ -3,9 +3,11 @@
 The law has no procedure to cancel a tax invoice; the portal lets a seller delete an invoice until the GSTR-1 (or IFF)
 holding it is filed, and Table 13 counts cancelled numbers. So:
 - an invoice can be cancelled only while the return it was assigned to is open (a practice invoice has none);
-- never once a credit note exists for it (the note treats the sale as made), and never twice;
+- never once a credit or debit note exists for it (the note treats the sale as made), and never twice;
 - the reason is one of three. "Raised by mistake" and "the sale did not happen" need the seller to declare that the
-  goods were not removed or delivered (s.31(1): removal makes the supply); a duplicate needs none;
+  goods were not dispatched or delivered (s.31(1): removal makes the supply); a duplicate needs none, but must name
+  the other invoice, which must be an issued invoice of the same kind (live or practice) that is not cancelled
+  (GST CA expert wording check on #465);
 - the invoice row never changes (insert-only). A cancellation row is written beside it, the number stays used
   (rule 46(b)), the invoice leaves Tables 4 to 12 and Table 13 counts it as cancelled, and the stock it took out
   comes back as reversals of its own movements.
@@ -70,23 +72,42 @@ def cancel(uow: UnitOfWork, document_id: uuid.UUID, body: dict, today: date) -> 
         raise Invalid("reason_invalid", "Choose why you are cancelling this invoice", field="reason")
     declared = body.get("declared_not_delivered") is True
     if reason != "duplicate" and not declared:
-        raise Invalid("declaration_required", "Confirm the goods on this invoice were not removed or delivered."
+        raise Invalid("declaration_required", "Confirm the goods on this invoice were not dispatched or delivered to the"
+                      " buyer."
                       " If they were, the sale happened: make a credit note instead.", field="declared_not_delivered")
     duplicate_of = (body.get("duplicate_of") or "").strip() or None
     longest = value_on(tx, "invoice.number.max_length", today)
     if duplicate_of is not None and (reason != "duplicate" or len(duplicate_of) > longest):
         raise Invalid("duplicate_of_invalid", f"Give the other invoice's number (up to {longest} characters) only for"
                       " a duplicate", field="duplicate_of")
+    if reason == "duplicate":
+        if duplicate_of is None:
+            raise Invalid("duplicate_of_required", "Give the number of the invoice this one duplicates",
+                          field="duplicate_of")
+        other = tx.execute(
+            text("select o.id, exists (select 1 from sales.document_cancellations c where c.document_id = o.id"
+                 " and c.business_id = o.business_id) as cancelled from sales.documents o"
+                 " where o.business_id = :b and o.kind = 'invoice' and o.gstin = :g and o.is_practice = :p"
+                 " and o.doc_number = :n"),
+            {"b": b, "g": doc["gstin"], "p": doc["is_practice"], "n": duplicate_of},
+        ).one_or_none()
+        if other is None or other.id == document_id:
+            raise Invalid("duplicate_of_not_found", f"No other issued invoice is numbered {duplicate_of}. Check the"
+                          " number of the invoice you are keeping.", field="duplicate_of")
+        if other.cancelled:
+            raise Invalid("duplicate_of_cancelled", f"Invoice {duplicate_of} is cancelled too, so this one would not be"
+                          " a duplicate of a kept invoice", field="duplicate_of")
     tx.execute(text("select pg_advisory_xact_lock(hashtextextended('cn:' || :d, 0))"), {"d": str(document_id)})
     if cancellation(tx, b, document_id) is not None:
         raise Conflict("already_cancelled", "This invoice is already cancelled")
-    notes = tx.execute(
-        text("select doc_number from sales.documents where business_id = :b and original_document_id = :d"
+    note = tx.execute(
+        text("select kind, doc_number from sales.documents where business_id = :b and original_document_id = :d"
              " order by doc_number limit 1"),
         {"b": b, "d": document_id},
-    ).scalar_one_or_none()
-    if notes is not None:
-        raise Conflict("has_credit_note", f"Credit note {notes} already exists for this invoice, so it can't be"
+    ).one_or_none()
+    if note is not None:
+        what = "Credit note" if note.kind == "credit_note" else "Debit note"
+        raise Conflict("has_credit_note", f"{what} {note.doc_number} already exists for this invoice, so it can't be"
                        " cancelled", fix="Make a credit note for what is left instead")
     row = tx.execute(
         text("select doc_number, is_practice, return_instance_id from sales.documents where id = :d and business_id = :b"),

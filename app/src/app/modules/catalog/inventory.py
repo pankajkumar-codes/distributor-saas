@@ -423,3 +423,20 @@ def record_credit_note_return(uow: UnitOfWork, *, product_id: uuid.UUID, quantit
             uow, product_id, kind, signed, on, source_type=stype, source_id=note_id, source_line_id=note_line_id,
             practice=practice))
     return out
+
+
+def record_debit_note_out(uow: UnitOfWork, *, product_id: uuid.UUID, quantity: Decimal, note_id: uuid.UUID,
+                          note_line_id: uuid.UUID, on: date, practice: bool) -> uuid.UUID:
+    """More goods sent than invoiced (#456 part 3): a debit note line by quantity takes the extra goods out, one
+    negative sale_out movement linked to the note line. Called only by sales, in its unit of work. A retry returns the
+    movement already written."""
+    qty = parse_quantity(quantity)
+    row = uow.tx.execute(
+        text("select id from catalog.stock_movements where business_id = :b and kind = 'sale_out'"
+             " and source_type = 'sales_debit_note' and source_id = :s and source_line_id = :l"),
+        {"b": uow.principal.business_id, "s": note_id, "l": note_line_id},
+    ).one_or_none()
+    if row is not None:
+        return row.id
+    return _post(uow, product_id, "sale_out", -qty, on, source_type="sales_debit_note", source_id=note_id,
+                 source_line_id=note_line_id, practice=practice)

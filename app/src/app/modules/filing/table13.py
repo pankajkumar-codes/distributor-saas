@@ -47,7 +47,7 @@ NATURES = dict(enumerate((
     "Delivery challan in case of liquid gas",
     "Delivery challan in other cases",
 ), 1))  # fmt: skip
-DOC_KIND_NATURE = {"invoice": 1, "credit_note": 5}
+DOC_KIND_NATURE = {"invoice": 1, "debit_note": 4, "credit_note": 5}
 SOURCES = ("own_live", "uploaded_own", "marketplace", "manual")
 MAX_LEN = 16
 _CHARS = re.compile(r"^[A-Za-z0-9/-]+$")

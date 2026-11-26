@@ -312,7 +312,7 @@ class SeriesOut(BaseModel):
     # monthly scope every later month starts at 1; the screen says so (Staff review of #463).
     next_number: str
     saved: bool  # false: the default, nothing saved yet
-    issued_in_app: bool  # false for debit notes: not issued by Kartaa yet; the prefix is kept for later
+    issued_in_app: bool  # every kind is issued in Kartaa since debit notes (#456 part 3); kept for the screen
 
 
 class NumberingOut(BaseModel):
@@ -356,7 +356,7 @@ def _numbering_out(uow: BusinessUoW, n: series.Numbering, today: date) -> Number
     return NumberingOut(
         series=[SeriesOut(kind=s.kind, label=_KIND_LABEL[s.kind], prefix=s.prefix, first_number=s.first_value,
                           width=s.width, next_number=series.number_preview(s.prefix, s.width, s.first_value, scope, today),
-                          saved=s.kind in n.saved, issued_in_app=s.kind != "debit_note") for s in n.settings],
+                          saved=s.kind in n.saved, issued_in_app=True) for s in n.settings],
         scope=scope, max_length=max_length, max_prefix_length=series.max_prefix_length(series.WIDTH, scope, max_length),
         live=not next(s for s in n.settings if s.kind == "invoice").practice_mode, live_available=live_available,
     )

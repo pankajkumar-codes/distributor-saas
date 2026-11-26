@@ -73,14 +73,14 @@ def build_outward(builds: Iterable[Gstr1Sections], supplier_state: str) -> Outwa
             refs.update(row.source_refs)
             zero_rate += row.rate == 0
         for row in (*build.cdnr, *build.cdnur):
-            taxable -= row.amounts
+            taxable += row.signed
             refs.update(row.source_refs)
             zero_rate += row.rate == 0
             notes = True
         for row in (*build.b2cl, *build.b2cs):  # unregistered buyers, already net of consumer credit notes
             to_state(row.pos_state_code, row.amounts, row.source_refs)
         for row in build.cdnur:  # notes against large inter-state consumer invoices
-            to_state(row.pos_state_code, -row.amounts, row.source_refs)
+            to_state(row.pos_state_code, row.signed, row.source_refs)
 
     rows = tuple(
         InterStateRow(pos, amounts.taxable_value, amounts.igst, tuple(sorted(refs_by_state[pos])))

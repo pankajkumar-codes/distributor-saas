@@ -1,4 +1,4 @@
-"""Credit notes (#456; CGST s.34, Rule 53(1A); LLD-4 §5), made from an issued invoice in one request.
+"""Credit and debit notes (#456; CGST s.34, Rule 53(1A); LLD-4 §5), made from an issued invoice in one request.
 
 The invoice is never changed. A note credits part or all of what is left on each of its lines:
 
@@ -15,6 +15,13 @@ A practice invoice gets a practice note (PR-CN-0001, Pankaj's choice on #456), n
 live numbering (CN/YY-MM/NNNNNN, D-114) and is assigned to the return covering its date, or rolled forward when that
 is filed (the filing interface target_return_instance, refdata credit_note_locked_treatment). The law's last date (s.34(2)) is checked on the note date.
 
+A debit note (s.34(3): the invoice charged too little) adds to an invoice line, by amount (taxable value charged too
+low) or by quantity (more goods sent than invoiced, at the line's own value per unit; the extra goods leave stock). Its
+tax is the line's rate on the added value, each component rounded on its own as the invoice does. It has no last
+date, its own series (DN/YY-MM/NNNNNN live, PR-DN- practice) and, live, goes in the return covering its date like a
+credit note (GSTR-1 FAQ 17). What is left to credit on a line is the invoice line plus its debit notes less its credit
+notes.
+
 A finalized document needs a draft (its draft_id is required): the note writes one as its input record and marks it
 finalized in the same unit of work, exactly as finalize does.
 """
@@ -29,7 +36,7 @@ from sqlalchemy import bindparam, text
 from sqlalchemy.types import JSON
 
 from app.modules.business.interface import SeriesSetting, default_series_setting, fy_of, series_setting
-from app.modules.catalog.interface import record_credit_note_return
+from app.modules.catalog.interface import record_credit_note_return, record_debit_note_out
 from app.modules.filing.interface import DocumentRef, target_return_instance
 from app.modules.refdata import value_on
 from platform_common import audit
@@ -48,11 +55,18 @@ REASONS = {
     "value_too_high": "Taxable value or tax charged too high",
     "deficient": "Goods or services deficient",
 }
+# s.34(3): a debit note when the taxable value or tax charged is less than payable. A tax-only debit note (a wrong
+# rate) is not offered: the line's rate is fixed on the invoice.
+DEBIT_REASONS = {
+    "value_too_low": "Taxable value charged too low",
+    "more_goods": "More goods sent than invoiced",
+}
+KIND_LABEL = {"credit_note": "credit note", "debit_note": "debit note"}
 STOCK_TREATMENTS = ("restock", "write_off")
 _QTY = re.compile(r"^[0-9]{1,15}(\.[0-9]{1,3})?$")
 _MONEY = re.compile(r"^[0-9]{1,16}(\.[0-9]{1,2})?$")
 _ZERO = Decimal()
-METHOD = "credit-note-1"
+METHOD = {"credit_note": "credit-note-1", "debit_note": "debit-note-1"}
 
 
 @dataclass(frozen=True)
@@ -70,6 +84,7 @@ class LineState:
     taxable: Decimal
     taxes: dict[str, Decimal]  # component -> amount on the invoice line
     tax_rates: dict[str, Decimal]  # component -> its rate on the invoice line
+    # Net of the notes so far: credit notes less debit notes, so a debit note makes more room to credit.
     credited_quantity: Decimal
     credited_taxable: Decimal
     credited_taxes: dict[str, Decimal]
@@ -90,7 +105,7 @@ class LineState:
 class CreditState:
     invoice: dict
     lines: tuple[LineState, ...]
-    notes: tuple[dict, ...]  # notes already made against the invoice, oldest first
+    notes: tuple[dict, ...]  # credit and debit notes already made against the invoice, oldest first
     last_date: date  # s.34(2): the latest note date the law allows (the annual-return limb is not checked)
 
     @property
@@ -136,25 +151,28 @@ def credit_state(uow: UnitOfWork, invoice_id: uuid.UUID) -> CreditState:
     credited_t: dict[uuid.UUID, Decimal] = {}
     credited_tax: dict[uuid.UUID, dict[str, Decimal]] = {}
     for r in uow.tx.execute(
-        text("select l.original_line_id, coalesce(sum(l.quantity), 0) as credited_qty, sum(l.taxable) as credited_taxable"
+        text("select l.original_line_id, coalesce(sum(case n.kind when 'credit_note' then l.quantity else -l.quantity end),"
+             " 0) as credited_qty, sum(case n.kind when 'credit_note' then l.taxable else -l.taxable end)"
+             " as credited_taxable"
              " from sales.document_lines l join sales.documents n on n.id = l.document_id and n.business_id = l.business_id"
-             " where n.business_id = :b and n.kind = 'credit_note' and n.original_document_id = :d"
+             " where n.business_id = :b and n.kind in ('credit_note', 'debit_note') and n.original_document_id = :d"
              " group by l.original_line_id"),
         {"d": invoice_id, "b": b},
     ):
         credited_q[r.original_line_id], credited_t[r.original_line_id] = r.credited_qty, r.credited_taxable
     for r in uow.tx.execute(
-        text("select l.original_line_id, t.component, sum(t.amount) as a from sales.document_line_taxes t"
+        text("select l.original_line_id, t.component,"
+             " sum(case n.kind when 'credit_note' then t.amount else -t.amount end) as a from sales.document_line_taxes t"
              " join sales.document_lines l on l.id = t.line_id and l.business_id = t.business_id"
              " join sales.documents n on n.id = l.document_id and n.business_id = l.business_id"
-             " where n.business_id = :b and n.kind = 'credit_note' and n.original_document_id = :d"
+             " where n.business_id = :b and n.kind in ('credit_note', 'debit_note') and n.original_document_id = :d"
              " group by l.original_line_id, t.component"),
         {"d": invoice_id, "b": b},
     ):
         credited_tax.setdefault(r.original_line_id, {})[r.component] = r.a
     notes = uow.tx.execute(
-        text("select id, doc_number, doc_date, reason_code, doc_total, is_practice from sales.documents"
-             " where business_id = :b and kind = 'credit_note' and original_document_id = :d"
+        text("select id, kind, doc_number, doc_date, reason_code, doc_total, is_practice from sales.documents"
+             " where business_id = :b and kind in ('credit_note', 'debit_note') and original_document_id = :d"
              " order by finalized_at, id"),
         {"d": invoice_id, "b": b},
     ).mappings().all()
@@ -245,22 +263,68 @@ def plan(state: CreditState, body: dict, rounding: str) -> list[NoteLine]:
     return out
 
 
+def plan_debit(state: CreditState, body: dict, rounding: str) -> list[NoteLine]:
+    """A debit note's lines from the request, or Invalid naming the first field at fault. Pure: reads only `state`.
+    Nothing caps a debit note; its tax is the line's own rate on the added value."""
+    more_goods = body.get("reason") == "more_goods"
+    sent = body.get("lines") or []
+    if not sent:
+        raise Invalid("lines_required", "Choose at least one line to add to", field="lines")
+    if len(sent) > MAX_LINES:
+        raise Invalid("too_many_lines", f"A debit note can have at most {MAX_LINES} lines", field="lines")
+    by_id = {str(ln.line_id): ln for ln in state.lines}
+    seen: set[str] = set()
+    out = []
+    for i, ln in enumerate(sent):
+        field = f"lines.{i}"
+        key = str(ln.get("original_line_id") or "")
+        orig = by_id.get(key)
+        if orig is None:
+            raise Invalid("line_not_on_invoice", "Choose a line of this invoice", field=f"{field}.original_line_id")
+        if key in seen:
+            raise Invalid("line_repeated", "Each invoice line can appear once in a note", field=f"{field}.original_line_id")
+        seen.add(key)
+        if orig.taxable <= 0:
+            raise Invalid("line_has_no_value", "This line has no taxable value to add to", field=field)
+        if more_goods:
+            if ln.get("taxable") is not None:
+                raise Invalid("quantity_or_amount", "More goods sent are added by quantity", field=f"{field}.taxable")
+            if orig.quantity is None or orig.quantity <= 0:
+                raise Invalid("no_quantity", "This line has no quantity; add to it by amount", field=f"{field}.quantity")
+            q = _quantity(ln.get("quantity"), f"{field}.quantity")
+            taxable = round_to_paise(orig.taxable * q / orig.quantity, rounding=rounding)
+            if taxable <= 0:
+                raise Invalid("quantity_invalid", "This quantity is worth less than a paisa", field=f"{field}.quantity")
+        else:
+            if ln.get("quantity") is not None:
+                raise Invalid("quantity_or_amount", "A value charged too low is an amount, not a quantity",
+                              field=f"{field}.quantity")
+            q = None
+            taxable = _amount(ln.get("taxable"), f"{field}.taxable")
+        taxes = {c: round_to_paise(taxable * orig.tax_rates[c] / 100, rounding=rounding) for c in orig.taxes}
+        out.append(NoteLine(orig, q, taxable, taxes))
+    return out
+
+
 def _supply_class(invoice: dict) -> str:
     """CDNR to a registered buyer; CDNUR for a large inter-state sale to a consumer (B2CL); otherwise the note is netted
-    in B2CS (LLD-4 §5)."""
+    in B2CS (LLD-4 §5, GST CA expert v2 §3). The same for a credit and a debit note."""
     if invoice["counterparty_gstin"]:
         return "CDNR"
     return "CDNUR" if invoice["supply_class"] == "B2CL" else "B2CS"
 
 
-def create(uow: UnitOfWork, invoice_id: uuid.UUID, body: dict, today: date) -> dict:
-    """Issues a credit note against `invoice_id` and returns it (as finalize.get_document does)."""
+def create(uow: UnitOfWork, invoice_id: uuid.UUID, body: dict, today: date, kind: str = "credit_note") -> dict:
+    """Issues a credit or debit note against `invoice_id` and returns it (as finalize.get_document does)."""
+    debit = kind == "debit_note"
+    label = KIND_LABEL[kind]
+    reasons = DEBIT_REASONS if debit else REASONS
     tx, b = uow.tx, _business(uow)
     finalize.get_document(uow, invoice_id)  # a 404 before taking the lock, for another business's id
     tx.execute(text("select pg_advisory_xact_lock(hashtextextended('cn:' || :d, 0))"), {"d": str(invoice_id)})
     if tx.execute(text("select 1 from sales.document_cancellations where document_id = :d and business_id = :b"),
                   {"d": invoice_id, "b": b}).first() is not None:
-        raise Invalid("invoice_cancelled", "This invoice is cancelled, so it can't have a credit note", field="invoice")
+        raise Invalid("invoice_cancelled", f"This invoice is cancelled, so it can't have a {label}", field="invoice")
     state = credit_state(uow, invoice_id)
     inv = tx.execute(
         text("select id, doc_number, doc_date, is_practice, gstin, customer_id, counterparty_gstin, counterparty_name,"
@@ -269,15 +333,15 @@ def create(uow: UnitOfWork, invoice_id: uuid.UUID, body: dict, today: date) -> d
         {"d": invoice_id, "b": b},
     ).mappings().one()
     reason = body.get("reason")
-    if reason not in REASONS:
-        raise Invalid("reason_invalid", "Choose why you are making this credit note", field="reason")
+    if reason not in reasons:
+        raise Invalid("reason_invalid", f"Choose why you are making this {label}", field="reason")
     stock = body.get("stock_treatment")
     if reason == "goods_returned":
         if stock not in STOCK_TREATMENTS:
             raise Invalid("stock_treatment_required", "Say whether the returned goods go back to stock or are written"
                           " off", field="stock_treatment")
     elif stock is not None:
-        raise Invalid("stock_treatment_not_allowed", "Only returned goods move stock", field="stock_treatment")
+        raise Invalid("stock_treatment_not_allowed", "Only returned goods take this choice", field="stock_treatment")
     note_date = body.get("doc_date") or today
     if isinstance(note_date, str):
         try:
@@ -285,26 +349,26 @@ def create(uow: UnitOfWork, invoice_id: uuid.UUID, body: dict, today: date) -> d
         except ValueError:
             raise Invalid("date_invalid", "Enter the note date as YYYY-MM-DD", field="doc_date") from None
     if note_date > today:
-        raise Invalid("date_in_future", "A credit note can't be dated after today", field="doc_date")
+        raise Invalid("date_in_future", f"A {label} can't be dated after today", field="doc_date")
     if note_date < inv["doc_date"]:
-        raise Invalid("date_before_invoice", "A credit note can't be dated before its invoice", field="doc_date")
-    if note_date > state.last_date:
+        raise Invalid("date_before_invoice", f"A {label} can't be dated before its invoice", field="doc_date")
+    if not debit and note_date > state.last_date:
         raise Invalid("credit_note_too_late", f"The last date for a credit note on this invoice was"
                       f" {state.last_date:%d-%m-%Y} (30 November after the financial year ends)", field="doc_date")
-    lines = plan(state, body, inv["rounding_mode"])
+    lines = (plan_debit if debit else plan)(state, body, inv["rounding_mode"])
     practice = inv["is_practice"]
     supply_class = _supply_class(inv)
     assigned = None
     setting: SeriesSetting | None = None
     if not practice:
         if not finalize.live_enabled(uow, today):
-            raise Invalid("live_numbering_unavailable", "Live credit notes aren't available yet.", field="numbering")
-        setting = series_setting(tx, "credit_note") or default_series_setting("credit_note")
+            raise Invalid("live_numbering_unavailable", f"Live {label}s aren't available yet.", field="numbering")
+        setting = series_setting(tx, kind) or default_series_setting(kind)
         assigned = target_return_instance(
-            tx, inv["gstin"], "credit_note", note_date, supply_class,
+            tx, inv["gstin"], kind, note_date, supply_class,
             DocumentRef(inv["id"], inv["doc_number"], inv["doc_date"]), today=today)
     fy = fy_of(note_date)
-    series_id, number = finalize.allocate(uow, gstin=inv["gstin"], kind="credit_note", fy=fy, practice=practice,
+    series_id, number = finalize.allocate(uow, gstin=inv["gstin"], kind=kind, fy=fy, practice=practice,
                                           setting=setting, on=note_date)
     taxable_total = sum((ln.taxable for ln in lines), _ZERO)
 
@@ -314,24 +378,25 @@ def create(uow: UnitOfWork, invoice_id: uuid.UUID, body: dict, today: date) -> d
     cgst, sgst, igst = tax("CGST"), tax("SGST") + tax("UTGST"), tax("IGST")
     total = taxable_total + cgst + sgst + igst
     print_ = {**(inv["print"] or {}), "original": {"number": inv["doc_number"], "date": inv["doc_date"].isoformat()},
-              "reason": REASONS[reason], "stock_treatment": stock}
+              "reason": reasons[reason], "stock_treatment": stock}
     bill_to = print_.get("bill_to")
     draft_id, document_id, me = uuid7(), uuid7(), uow.principal.user_id
     tx.execute(
         text("insert into sales.drafts (id, business_id, kind, customer_id, bill_to, ship_to, doc_date,"
              " original_document_id, reason_code, stock_treatment, created_by, updated_by) values (:id, :b,"
-             " 'credit_note', :customer, :bill_to, :ship_to, :doc_date, :orig, :reason, :stock, :me, :me)"
+             " :kind, :customer, :bill_to, :ship_to, :doc_date, :orig, :reason, :stock, :me, :me)"
              ).bindparams(bindparam("bill_to", type_=JSON(none_as_null=True)),
                           bindparam("ship_to", type_=JSON(none_as_null=True))),
-        {"id": draft_id, "b": b, "customer": inv["customer_id"], "bill_to": bill_to, "ship_to": print_.get("ship_to"),
+        {"id": draft_id, "b": b, "kind": kind, "customer": inv["customer_id"], "bill_to": bill_to, "ship_to": print_.get("ship_to"),
          "doc_date": note_date, "orig": invoice_id, "reason": reason, "stock": stock, "me": me},
     )
     for n, ln in enumerate(lines, start=1):
         tx.execute(
             text("insert into sales.draft_lines (id, business_id, draft_id, line_no, original_line_id, quantity,"
-                 " credit_taxable) values (:id, :b, :d, :n, :orig, :q, :t)"),
+                 " credit_taxable, debit_taxable) values (:id, :b, :d, :n, :orig, :q, :ct, :dt)"),
             {"id": uuid7(), "b": b, "d": draft_id, "n": n, "orig": ln.original.line_id, "q": ln.quantity,
-             "t": None if ln.quantity is not None else ln.taxable},
+             "ct": None if ln.quantity is not None or debit else ln.taxable,
+             "dt": None if ln.quantity is not None or not debit else ln.taxable},
         )
     tx.execute(
         text(
@@ -341,18 +406,18 @@ def create(uow: UnitOfWork, invoice_id: uuid.UUID, body: dict, today: date) -> d
             " original_document_id, reason_code, stock_treatment, gross_total, line_discount_total, invoice_discount,"
             " charges_total, taxable_total, cgst_total, sgst_total, utgst, igst_total, round_off, doc_total,"
             " amount_in_words, print, rounding_mode, method_version, finalized_by) values (:id, :b, :draft,"
-            " 'credit_note', :practice, :series, :number, :doc_date, :fy, :gstin, :supplier_state, :customer, :cp_gstin,"
+            " :kind, :practice, :series, :number, :doc_date, :fy, :gstin, :supplier_state, :customer, :cp_gstin,"
             " :cp_name, :pos, :inter, :class, :instance, :period, 0, null, :orig, :reason, :stock, :taxable, 0, 0, 0,"
             " :taxable, :cgst, :sgst, :utgst, :igst, 0, :total, :words, :print, :rounding, :method, :me)"
         ).bindparams(bindparam("print", type_=JSON)),
-        {"id": document_id, "b": b, "draft": draft_id, "practice": practice, "series": series_id, "number": number,
+        {"id": document_id, "b": b, "draft": draft_id, "kind": kind, "practice": practice, "series": series_id, "number": number,
          "doc_date": note_date, "fy": fy, "gstin": inv["gstin"], "supplier_state": inv["supplier_state_code"],
          "customer": inv["customer_id"], "cp_gstin": inv["counterparty_gstin"], "cp_name": inv["counterparty_name"],
          "pos": inv["pos_state_code"], "inter": inv["is_inter_state"], "class": supply_class,
          "instance": None if assigned is None else assigned.id,
          "period": None if assigned is None else assigned.period, "orig": invoice_id, "reason": reason, "stock": stock,
          "taxable": taxable_total, "cgst": cgst, "sgst": sgst, "utgst": inv["utgst"], "igst": igst, "total": total,
-         "words": words.inr(total), "print": print_, "rounding": inv["rounding_mode"], "method": METHOD, "me": me},
+         "words": words.inr(total), "print": print_, "rounding": inv["rounding_mode"], "method": METHOD[kind], "me": me},
     )
     for n, ln in enumerate(lines, start=1):
         line_id = uuid7()
@@ -376,10 +441,13 @@ def create(uow: UnitOfWork, invoice_id: uuid.UUID, body: dict, today: date) -> d
             record_credit_note_return(uow, product_id=o.product_id, quantity=ln.quantity, note_id=document_id,
                                       note_line_id=line_id, on=note_date, practice=practice,
                                       write_off=stock == "write_off")
+        if reason == "more_goods" and o.product_id is not None:
+            record_debit_note_out(uow, product_id=o.product_id, quantity=ln.quantity, note_id=document_id,
+                                  note_line_id=line_id, on=note_date, practice=practice)
     tx.execute(text("update sales.drafts set status = 'finalized' where id = :d and business_id = :b"),
                {"d": draft_id, "b": b})
     audit.record(
-        uow, "credit_note.issued", "document", document_id,
+        uow, f"{kind}.issued", "document", document_id,
         data={"number": number, "practice": practice, "original_id": str(invoice_id),
               "original_number": inv["doc_number"], "reason": reason}
         | ({} if assigned is None else {"return_period": assigned.period, "form": assigned.form}),

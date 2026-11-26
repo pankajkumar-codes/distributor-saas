@@ -207,7 +207,7 @@ PAGE = 100
 
 class DrillRowOut(BaseModel):
     section: str
-    kind: str  # invoice, credit_note or b2cs_group
+    kind: str  # invoice, credit_note, debit_note or b2cs_group
     doc_number: str | None
     doc_date: str | None
     pos_state_code: str

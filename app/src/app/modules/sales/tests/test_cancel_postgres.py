@@ -77,12 +77,31 @@ def test_without_the_declaration_nothing_is_cancelled(shop, body, code):  # noqa
 def test_a_duplicate_needs_no_declaration_and_the_same_key_cancels_once(shop):  # noqa: F811
     pg, biz, _ = shop
     switch(pg, True)
+    kept = invoice(pg, biz)
     inv = invoice(pg, biz)
-    body = {"reason": "duplicate", "duplicate_of": "PR-0007"}
+    body = {"reason": "duplicate", "duplicate_of": kept["doc_number"]}
     first = cancel(pg, biz, inv["id"], body, key="k-1")
     again = cancel(pg, biz, inv["id"], body, key="k-1")
-    assert first.status_code == again.status_code == 200 and first.json() == again.json()
+    assert first.status_code == again.status_code == 200 and first.json() == again.json(), first.text
     assert len(stock_rows(pg, inv["id"])) == 2
+
+
+def test_a_duplicate_must_name_a_kept_invoice(shop):  # noqa: F811
+    """GST CA wording check on #465: a duplicate names the invoice it duplicates, which must exist and not be
+    cancelled; it can't be the invoice itself."""
+    pg, biz, _ = shop
+    switch(pg, True)
+    gone = invoice(pg, biz)
+    assert cancel(pg, biz, gone["id"], MISTAKE).status_code == 200
+    inv = invoice(pg, biz)
+    for dup, code in ((None, "duplicate_of_required"), ("PR-9999", "duplicate_of_not_found"),
+                      (inv["doc_number"], "duplicate_of_not_found"), (gone["doc_number"], "duplicate_of_cancelled")):
+        r = cancel(pg, biz, inv["id"], {"reason": "duplicate", "duplicate_of": dup})
+        assert r.status_code == 422 and r.json()["error"]["code"] == code, (dup, r.text)
+        assert r.json()["error"]["field"] == "duplicate_of"
+    with pg.owner.connect() as c:
+        assert c.execute(text("select count(*) from sales.document_cancellations where document_id = :d"),
+                         {"d": inv["id"]}).scalar() == 0
 
 
 def test_an_invoice_with_a_credit_note_can_not_be_cancelled(shop):  # noqa: F811

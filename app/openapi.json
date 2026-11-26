@@ -2471,6 +2471,15 @@
             "title": "Is Practice",
             "type": "boolean"
           },
+          "kind": {
+            "default": "credit_note",
+            "enum": [
+              "credit_note",
+              "debit_note"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
           "reason_code": {
             "anyOf": [
               {
@@ -2500,6 +2509,14 @@
             "default": false,
             "title": "Cancelled",
             "type": "boolean"
+          },
+          "debit_reasons": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "default": {},
+            "title": "Debit Reasons",
+            "type": "object"
           },
           "doc_number": {
             "title": "Doc Number",
@@ -2899,6 +2916,81 @@
           }
         },
         "title": "CustomerPatch",
+        "type": "object"
+      },
+      "DebitLineIn": {
+        "additionalProperties": false,
+        "properties": {
+          "original_line_id": {
+            "title": "Original Line Id",
+            "type": "string"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quantity"
+          },
+          "taxable": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taxable"
+          }
+        },
+        "required": [
+          "original_line_id"
+        ],
+        "title": "DebitLineIn",
+        "type": "object"
+      },
+      "DebitNoteIn": {
+        "additionalProperties": false,
+        "properties": {
+          "doc_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doc Date"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/DebitLineIn"
+            },
+            "maxItems": 200,
+            "title": "Lines",
+            "type": "array"
+          },
+          "reason": {
+            "enum": [
+              "value_too_low",
+              "more_goods"
+            ],
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "lines"
+        ],
+        "title": "DebitNoteIn",
         "type": "object"
       },
       "DebitNotesOut": {
@@ -13910,7 +14002,7 @@
     },
     "/api/v1/b/{business_id}/documents/{document_id}/cancel": {
       "post": {
-        "description": "Cancels an issued invoice while the return holding it is open and no credit note exists for it (#456). The\ninvoice row never changes: a cancellation is written beside it, its number stays used, it leaves Tables 4 to 12\nand Table 13 counts it as cancelled, and its stock comes back. \"Raised by mistake\" and \"did not happen\" need the\ndeclaration that the goods were not removed or delivered. Off, like finalize, until `sales.finalize.enabled`.",
+        "description": "Cancels an issued invoice while the return holding it is open and no credit or debit note exists for it (#456). The\ninvoice row never changes: a cancellation is written beside it, its number stays used, it leaves Tables 4 to 12\nand Table 13 counts it as cancelled, and its stock comes back. \"Raised by mistake\" and \"did not happen\" need the\ndeclaration that the goods were not removed or delivered. Off, like finalize, until `sales.finalize.enabled`.",
         "operationId": "cancel_document_api_v1_b__business_id__documents__document_id__cancel_post",
         "parameters": [
           {
@@ -14111,6 +14203,84 @@
           }
         },
         "summary": "Create Credit Note",
+        "tags": [
+          "sales"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/documents/{document_id}/debit-notes": {
+      "post": {
+        "description": "Issues a debit note against an issued invoice (#456 part 3, s.34(3)): by amount for a taxable value charged too\nlow, by quantity for more goods sent than invoiced (they leave stock). Tax is the line's rate on the added value.\nA practice invoice gets a practice note (PR-DN-), never in GST filing. The invoice itself never changes. Off, like\nfinalize, until `sales.finalize.enabled` is true (a 404). The same key and body give the same note once.",
+        "operationId": "create_debit_note_api_v1_b__business_id__documents__document_id__debit_notes_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "title": "Document Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DebitNoteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Debit Note",
         "tags": [
           "sales"
         ]

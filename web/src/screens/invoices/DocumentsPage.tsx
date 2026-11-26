@@ -75,6 +75,7 @@ export function DocumentsPage() {
                           <strong>{d.doc_number}</strong>
                         </Link>
                         {d.kind === "credit_note" && <span className="chip"> Credit note</span>}
+                        {d.kind === "debit_note" && <span className="chip"> Debit note</span>}
                         {d.cancel_reason && <span className="chip chip-bad"> Cancelled</span>}
                         {d.is_practice && <span className="chip chip-warn"> Practice</span>}
                       </td>

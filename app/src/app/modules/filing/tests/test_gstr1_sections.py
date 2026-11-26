@@ -40,7 +40,7 @@ def line(number, day, kind, cls, pos, product, qty, taxable, *, igst="0", cgst="
          buyer=None, original=None, month=10, year=2026, doc_id=None):  # fmt: skip
     hsn, uqc, rate = product
     return SupplyLine(
-        source_kind="own_credit_note" if kind == "credit_note" else "own_invoice",
+        source_kind={"credit_note": "own_credit_note", "debit_note": "own_debit_note"}.get(kind, "own_invoice"),
         source_id=doc_id or uuid.uuid5(uuid.NAMESPACE_URL, number),
         source_ref=number,
         gstin=T,
@@ -65,7 +65,7 @@ def line(number, day, kind, cls, pos, product, qty, taxable, *, igst="0", cgst="
     )
 
 
-INV, CN = "invoice", "credit_note"
+INV, CN, DN = "invoice", "credit_note", "debit_note"
 I1 = date(2026, 10, 1)
 I3 = date(2026, 10, 5)
 I6 = date(2026, 10, 8)
@@ -259,6 +259,9 @@ def test_a_row_that_nets_to_zero_is_dropped():
         (CN, "CDNR", "cdnr"),
         (CN, "CDNUR", "cdnur"),
         (CN, "B2CS", "b2cs"),  # nets into Table 7, signed negative
+        (DN, "CDNR", "cdnr"),  # #462: Table 9B, note type D
+        (DN, "CDNUR", "cdnur"),
+        (DN, "B2CS", "b2cs"),  # nets into Table 7, adding
     ],
 )
 def test_routing_table(kind, cls, section):
@@ -347,3 +350,42 @@ def test_each_team_item_keeps_its_own_plain_code_whatever_the_order():
     }
     for team, (code, _) in PENDING_PLAIN.items():
         assert [c for prefix, c in expect.items() if team.startswith(prefix)] == [code]
+
+
+# -- Debit notes (#462) --------------------------------------------------------------------
+
+
+DEBITS = [
+    line("DN/26-27/0001", 18, DN, "CDNR", WB, SOAP, "0", "100.00", cgst="9.00", sgst="9.00", value="118.00", buyer=A,
+         original=("INV/26-27/0001", I1)),
+    line("DN/26-27/0002", 19, DN, "CDNUR", GJ, SOAP, "0", "1000.00", igst="180.00", value="1180.00",
+         original=("INV/26-27/0003", I3)),
+    line("DN/26-27/0003", 20, DN, "B2CS", WB, TEA, "1", "400.00", cgst="10.00", sgst="10.00", value="420.00",
+         original=("INV/26-27/0006", I6)),
+]  # fmt: skip
+
+
+def test_debit_notes_are_table_9b_type_d_and_add_to_the_liability_b2cs_and_table_12():
+    base, s = build_sections(PART_A), build_sections(PART_A + DEBITS)
+    dn = [r for r in s.cdnr if r.note_number.startswith("DN/")]
+    assert [(r.note_number, r.note_type, r.amounts) for r in dn] == [
+        ("DN/26-27/0001", "D", amt("100.00", cgst="9.00", sgst="9.00"))]
+    (ur,) = [r for r in s.cdnur if r.note_number.startswith("DN/")]
+    assert (ur.note_type, ur.ur_type, ur.amounts, ur.signed) == ("D", "B2CL", amt("1000.00", igst="180.00"),
+                                                               amt("1000.00", igst="180.00"))
+    assert [r.note_type for r in s.cdnr if r.note_number.startswith("CN/")] == ["C"]
+    assert s.b2cs[0].amounts == base.b2cs[0].amounts + amt("400.00", cgst="10.00", sgst="10.00")  # WB 5% adds
+    added = amt("1500.00", igst="180.00", cgst="19.00", sgst="19.00")
+    assert liability(s) == liability(base) + added
+    assert hsn_total(s) == hsn_total(base) + added and reconciliation_gap(s).is_zero()
+    tea = [r for r in s.hsn_b2c if r.hsn == "0902" and r.rate == D("5")][0]
+    base_tea = [r for r in base.hsn_b2c if r.hsn == "0902" and r.rate == D("5")][0]
+    assert tea.quantity == base_tea.quantity + 1
+
+
+def test_a_debit_note_adds_in_the_gstr3b_worksheet():
+    from app.modules.filing.gstr3b import worksheet
+
+    base, s = build_sections(PART_A), build_sections(PART_A + DEBITS)
+    a, b = worksheet.build_outward([base], WB), worksheet.build_outward([s], WB)
+    assert b.taxable == a.taxable + amt("1500.00", igst="180.00", cgst="19.00", sgst="19.00")

@@ -16,7 +16,7 @@ from app.modules.filing.gstr1 import Amounts, Gstr1Sections
 @dataclass(frozen=True)
 class DrillRow:
     section: str  # b2b, b2cl, b2cs, cdnr, cdnur
-    kind: str  # invoice, credit_note, or b2cs_group (several small invoices of one place of supply and rate)
+    kind: str  # invoice, credit_note, debit_note, or b2cs_group (several small invoices of one place of supply and rate)
     doc_number: str | None
     doc_date: date | None
     pos_state_code: str
@@ -30,7 +30,8 @@ def _invoice(section: str, r) -> DrillRow:
 
 
 def _note(section: str, r) -> DrillRow:
-    return DrillRow(section, "credit_note", r.note_number, r.note_date, r.pos_state_code, r.rate, -r.amounts, r.source_refs)
+    kind = "credit_note" if r.note_type == "C" else "debit_note"
+    return DrillRow(section, kind, r.note_number, r.note_date, r.pos_state_code, r.rate, r.signed, r.source_refs)
 
 
 def _group(r) -> DrillRow:

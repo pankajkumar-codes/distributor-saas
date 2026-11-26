@@ -25,7 +25,7 @@ from .model import (
 )
 
 # (doc_kind, supply_class) -> section. LLD-4 §3.3 sets a credit note's class: CDNR for a
-# registered buyer, CDNUR when the original was B2CL, otherwise B2CS (netted into Table 7).
+# registered buyer, CDNUR when the original was B2CL, otherwise B2CS (netted into Table 7). A debit note the same.
 ROUTE = {
     ("invoice", "B2B"): "b2b",
     ("invoice", "B2CL"): "b2cl",
@@ -33,6 +33,11 @@ ROUTE = {
     ("credit_note", "CDNR"): "cdnr",
     ("credit_note", "CDNUR"): "cdnur",
     ("credit_note", "B2CS"): "b2cs",
+    # A debit note follows the same classes (GST CA expert v2 §3, GSTR-1 FAQ 17 and 19): Table 9B note type D, or
+    # netted into B2CS, adding to it (#462).
+    ("debit_note", "CDNR"): "cdnr",
+    ("debit_note", "CDNUR"): "cdnur",
+    ("debit_note", "B2CS"): "b2cs",
 }
 # Table 12's tab follows the class; a note's class already follows its original (A6, HSN3).
 HSN_TAB = {"B2B": "b2b", "CDNR": "b2b", "B2CL": "b2c", "B2CS": "b2c", "CDNUR": "b2c"}
@@ -53,7 +58,8 @@ QUARTER_PENDING = "gstr1-examples Part B [CA]: the quarter's Table 12 covers its
 # What a business owner reads for each item above: (stable code, plain sentence). Provisional product copy,
 # to be reviewed with the CA; the team's wording above stays as the record of what is being asked.
 _PLAIN = (
-    ("credit_notes_in_hsn", "Credit notes are taken off in the HSN summary. Your CA should confirm this."),
+    ("credit_notes_in_hsn", "Credit notes are taken off, and debit notes added, in the HSN summary. Your CA should"
+                            " confirm this."),
     ("row_tax_rounding", "The tax on each row is the sum of the tax on your invoice lines. Your CA should confirm"
                          " how it should be rounded."),
     ("hsn_quantity_decimals", "Quantities in the HSN summary keep three decimal places here, and the file you upload"
@@ -115,13 +121,13 @@ def build_sections(
 
 
 def liability(*builds: Gstr1Sections) -> Amounts:
-    """Tables 4A + 5 + 7 − 9B per head (gstr1-examples A8), over one or more builds."""
+    """Tables 4A + 5 + 7, less 9B credit notes and plus 9B debit notes, per head (gstr1-examples A8), over one or more builds."""
     total = Amounts()
     for b in builds:
         for row in (*b.b2b, *b.b2cl, *b.b2cs):
             total += row.amounts
         for row in (*b.cdnr, *b.cdnur):
-            total -= row.amounts
+            total += row.signed
     return total
 
 
@@ -205,11 +211,15 @@ def _b2cl(lines):
         yield B2CLRow(d.doc_number, d.doc_date, d.doc_value, d.pos_state_code, rate, amounts, refs)
 
 
+def _note_type(ln: SupplyLine) -> str:
+    return "D" if ln.doc_kind == "debit_note" else "C"
+
+
 def _cdnr(lines):
     for d, rate, amounts, refs in _per_document_rate(lines):
         yield CDNRRow(
             d.counterparty_gstin, d.counterparty_name, d.doc_number, d.doc_date, d.doc_value,
-            d.pos_state_code, rate, amounts, d.original_doc_number, d.original_doc_date, refs,
+            d.pos_state_code, rate, amounts, d.original_doc_number, d.original_doc_date, refs, _note_type(d),
         )  # fmt: skip
 
 
@@ -217,7 +227,7 @@ def _cdnur(lines):
     for d, rate, amounts, refs in _per_document_rate(lines):
         yield CDNURRow(
             d.doc_number, d.doc_date, d.doc_value, d.pos_state_code, rate, amounts,
-            d.original_doc_number, d.original_doc_date, refs,
+            d.original_doc_number, d.original_doc_date, refs, _note_type(d),
         )  # fmt: skip
 
 
@@ -236,7 +246,7 @@ def _b2cs(lines) -> tuple[B2CSRow, ...]:
 
 
 def _hsn(lines) -> tuple[HSNRow, ...]:
-    """Per HSN x UQC x rate, credit notes reducing quantity and value [CA, A6]. A row
+    """Per HSN x UQC x rate, credit notes reducing quantity and value [CA, A6], debit notes adding. A row
     that nets to zero in quantity and every head is dropped."""
     groups: dict[tuple, tuple[Decimal, Amounts, set]] = {}
     for ln in lines:

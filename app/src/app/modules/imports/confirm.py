@@ -469,7 +469,8 @@ def confirm(uow: UnitOfWork, run_id: uuid.UUID, choices: dict[uuid.UUID, str], c
 def _insert_document(uow: UnitOfWork, doc: documents.Doc, run_id: uuid.UUID, today: date, by) -> uuid.UUID:
     """A new document: classified, assigned to its return (a locked period refuses the whole confirm), written."""
     original_class, original_found = None, False
-    if doc.kind == "credit_note" and doc.original_number and doc.original_date:
+    note = doc.kind in ("credit_note", "debit_note")
+    if note and doc.original_number and doc.original_date:
         found = uow.tx.execute(
             text("select supply_class from imports.documents where business_id = :b and gstin = :g and"
                  " doc_kind = 'invoice' and fy = :f and doc_key = :k"),
@@ -480,17 +481,15 @@ def _insert_document(uow: UnitOfWork, doc: documents.Doc, run_id: uuid.UUID, tod
     cls = documents.supply_class(doc.kind, doc.buyer_gstin, doc.inter_state, doc.total,
                                  value_on(uow.tx, "gstr1.b2cl_threshold", gstr1_period_month(uow.tx, doc.gstin, doc.date)),
                                  original_class)
-    inst = None
-    if cls is not None:  # a debit note has no return yet
-        inst = target_return_instance(uow.tx, doc.gstin, "credit_note" if doc.kind == "credit_note" else "invoice",
-                                      doc.date, cls, None, taxable_value=doc.taxable, today=today)
+    inst = target_return_instance(uow.tx, doc.gstin, doc.kind, doc.date, cls, None, taxable_value=doc.taxable,
+                                  today=today)
     doc_id = uuid7()
     uow.tx.execute(_INSERT_DOC, {
         "id": doc_id, "b": uow.principal.business_id, "gstin": doc.gstin, "kind": doc.kind, "number": doc.number,
         "key": doc.key, "fy": fy_of(doc.date), "date": doc.date, "on": doc.original_number, "od": doc.original_date,
-        "nia": doc.kind == "credit_note" and bool(doc.original_number) and not original_found,
+        "nia": note and bool(doc.original_number) and not original_found,
         "cls": cls, "buyer": doc.buyer_gstin, "pos": doc.pos, "inter": doc.inter_state, "total": doc.total,
-        "inst": None if inst is None else inst.id, "period": None if inst is None else inst.period,
+        "inst": inst.id, "period": inst.period,
         "run": run_id, "by": by})
     return doc_id
 

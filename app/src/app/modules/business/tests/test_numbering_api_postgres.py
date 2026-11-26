@@ -46,7 +46,7 @@ def test_defaults_are_pankajs_format_with_nothing_saved(nov27):
         ("credit_note", "CN", "CN/26-11/000001", False),
         ("debit_note", "DN", "DN/26-11/000001", False),
     ]
-    assert not s["debit_note"]["issued_in_app"] and s["invoice"]["issued_in_app"]
+    assert s["debit_note"]["issued_in_app"] and s["invoice"]["issued_in_app"]  # debit notes too, since #456 part 3
     body = r.json()
     assert (body["max_length"], body["max_prefix_length"], body["live"], body["live_available"]) == (16, 3, False, False)
 

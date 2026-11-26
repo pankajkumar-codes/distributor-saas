@@ -397,8 +397,9 @@ class DocumentOut(BaseModel):
     is_practice: bool  # a practice document: never in a return, never in a live series (BH-5)
     doc_number: str
     doc_date: date
-    original_document_id: str | None  # a credit note's invoice
-    reason_code: str | None  # a credit note's reason: goods_returned, value_too_high or deficient
+    original_document_id: str | None  # a credit or debit note's invoice
+    # A note's reason: goods_returned, value_too_high or deficient (credit); value_too_low or more_goods (debit)
+    reason_code: str | None
     fy: str
     gstin: str
     supply_class: str
@@ -641,6 +642,7 @@ class CreditLineOut(BaseModel):
 
 class CreditNoteRef(BaseModel):
     id: str
+    kind: Literal["credit_note", "debit_note"] = "credit_note"
     doc_number: str
     doc_date: date
     reason_code: str | None
@@ -658,6 +660,7 @@ class CreditStateOut(BaseModel):
     remaining_total: str
     last_date: date  # s.34(2): 30 November after the invoice's FY; the annual-return limb is not checked
     reasons: dict[str, str]  # code -> label, the s.34(1) grounds only
+    debit_reasons: dict[str, str] = {}  # code -> label, the s.34(3) grounds a debit note takes
 
 
 class CreditLineIn(BaseModel):
@@ -675,6 +678,20 @@ class CreditNoteIn(BaseModel):
     lines: list[CreditLineIn] = Field(max_length=drafts.MAX_LINES)
 
 
+class DebitLineIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    original_line_id: str
+    quantity: str | None = None  # more goods sent
+    taxable: str | None = None  # value charged too low
+
+
+class DebitNoteIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    reason: Literal["value_too_low", "more_goods"]
+    doc_date: date | None = None
+    lines: list[DebitLineIn] = Field(max_length=drafts.MAX_LINES)
+
+
 def _credit_state(s: notes.CreditState) -> dict:
     def q(v):
         return None if v is None else f"{v.normalize():f}"
@@ -689,6 +706,7 @@ def _credit_state(s: notes.CreditState) -> dict:
                    "remaining_tax": _m(sum((ln.remaining_tax(c) for c in ln.taxes), Decimal()))} for ln in s.lines],
         "notes": [{**n, "id": str(n["id"]), "doc_total": _m(n["doc_total"])} for n in s.notes],
         "remaining_total": _m(s.remaining_total), "last_date": s.last_date, "reasons": notes.REASONS,
+        "debit_reasons": notes.DEBIT_REASONS,
     }
 
 
@@ -722,14 +740,37 @@ def create_credit_note(
                     operation=lambda: _document(notes.create(uow, did, payload, clock.today())))
 
 
+@router.post("/b/{business_id}/documents/{document_id}/debit-notes", status_code=http.HTTP_201_CREATED,
+             response_model=DocumentOut, dependencies=EDIT)
+def create_debit_note(
+    document_id: str,
+    body: DebitNoteIn,
+    request: Request,
+    uow: BusinessUoW,
+    clock: Annotated[Clock, Depends(get_clock)],
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+):
+    """Issues a debit note against an issued invoice (#456 part 3, s.34(3)): by amount for a taxable value charged too
+    low, by quantity for more goods sent than invoiced (they leave stock). Tax is the line's rate on the added value.
+    A practice invoice gets a practice note (PR-DN-), never in GST filing. The invoice itself never changes. Off, like
+    finalize, until `sales.finalize.enabled` is true (a 404). The same key and body give the same note once."""
+    if not finalize.enabled(uow, clock.today()):
+        raise Deny("not_found")
+    did = parse_id(document_id)
+    payload = body.model_dump(mode="json")
+    return run_once(uow.tx, uow.principal.business_id, idempotency_key, method=request.method,
+                    route=request.scope["route"].path, payload={"document_id": str(did), **payload},
+                    operation=lambda: _document(notes.create(uow, did, payload, clock.today(), kind="debit_note")))
+
+
 # --- Cancelling an invoice (#456) --------------------------------------------------------------------------------------
 
 
 class CancelIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     reason: Literal["raised_in_error", "duplicate", "did_not_happen"]
-    declared_not_delivered: StrictBool = False  # "the goods on this invoice were not removed or delivered"
-    duplicate_of: str | None = None  # the other invoice's number; its length is checked against refdata
+    declared_not_delivered: StrictBool = False  # "the goods on this invoice were not dispatched or delivered"
+    duplicate_of: str | None = None  # required for a duplicate: the kept invoice's number, which must exist
 
 
 @router.post("/b/{business_id}/documents/{document_id}/cancel", response_model=DocumentOut, dependencies=EDIT)
@@ -741,7 +782,7 @@ def cancel_document(
     clock: Annotated[Clock, Depends(get_clock)],
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ):
-    """Cancels an issued invoice while the return holding it is open and no credit note exists for it (#456). The
+    """Cancels an issued invoice while the return holding it is open and no credit or debit note exists for it (#456). The
     invoice row never changes: a cancellation is written beside it, its number stays used, it leaves Tables 4 to 12
     and Table 13 counts it as cancelled, and its stock comes back. "Raised by mistake" and "did not happen" need the
     declaration that the goods were not removed or delivered. Off, like finalize, until `sales.finalize.enabled`."""

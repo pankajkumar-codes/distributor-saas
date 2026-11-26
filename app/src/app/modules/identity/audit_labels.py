@@ -74,6 +74,7 @@ ACTIONS: dict[str, tuple[str, str]] = {
     "draft.deleted": ("Deleted an invoice draft", "invoices"),
     "document.finalized": ("Finalized an invoice", "invoices"),
     "credit_note.issued": ("Issued a credit note", "invoices"),
+    "debit_note.issued": ("Issued a debit note", "invoices"),
     "invoice.cancelled": ("Cancelled an invoice", "invoices"),
     "document.pos_override": ("Changed an invoice's place of supply", "invoices"),
     "document.pdf_requested": ("Asked for an invoice PDF", "invoices"),

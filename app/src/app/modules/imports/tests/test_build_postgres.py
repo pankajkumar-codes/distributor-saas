@@ -51,20 +51,31 @@ def test_a_months_uploaded_invoices_build_into_sections_that_reconcile(shop):  #
     assert b.draft and b.instance.form == "GSTR1"
     assert [r.invoice_number for r in b.sections.b2b] == ["INV-3"]
     assert all(r.startswith("a.xlsx row ") for r in b.sections.b2b[0].source_refs)
-    assert b.liability.taxable_value == Decimal("650")  # 200 + 100 + 200 + 200 - 50
+    assert b.liability.taxable_value == Decimal("850")  # 200 + 100 + 200 + 200 - 50 (CN-1) + 200 (DN-1, #462)
     assert b.liability.igst == Decimal("36")
     assert b.gap.is_zero()  # Table 12 agrees with the liability tables
     assert all(r.source_refs for r in (*b.sections.b2cs, *b.sections.hsn_b2c, *b.sections.hsn_b2b))
     assert b.line_items == b.sections.line_items > 0
 
 
-def test_a_debit_note_is_counted_as_not_in_the_return_and_flagged(shop):  # noqa: F811
+def test_an_uploaded_debit_note_is_in_the_return_and_an_older_one_is_still_counted_out(shop):  # noqa: F811
+    """#462: a debit note confirmed now is a supply line (here netted into B2CS, adding, and in Table 12). One
+    confirmed before #462 has no class and no return; the return keeps saying it is not included."""
+    pg, _, _ = shop
     monthly(shop)
     assert confirm(shop, stage(shop, month(shop))).status_code == 200
     b = built(shop)
-    assert b.debit_notes == 1
-    assert "debit_notes_unsummed" in {f.code for f in b.ca_flags}
+    assert b.debit_notes == 0 and "debit_notes_unsummed" not in {f.code for f in b.ca_flags}
+    assert any(m.startswith("DN-1|own_debit_note|") for m in b.members) and b.gap.is_zero()
     assert {"marketplace_reports", "uqc_mapping", "exports_sez_rcm"} <= {f.code for f in b.ca_flags}
+    with pg.owner.connect() as c:  # what a debit note confirmed before #462 looks like (the owner engine autocommits)
+        c.execute(text("set session_replication_role = replica"))  # skip the insert-only guard, test setup only
+        c.execute(text("update imports.documents set supply_class = null, return_instance_id = null, return_period = null"
+                       " where doc_number = 'DN-1'"))
+        c.execute(text("set session_replication_role = default"))
+    old = built(shop)
+    assert old.debit_notes == 1 and "debit_notes_unsummed" in {f.code for f in old.ca_flags}
+    assert old.liability.taxable_value == b.liability.taxable_value - Decimal("200")
 
 
 def test_the_fingerprint_is_stable_between_builds(shop):  # noqa: F811
@@ -96,7 +107,7 @@ def test_the_view_shows_a_tenant_only_its_own_lines(shop):  # noqa: F811
         assert c.execute(text("select count(*) from imports.v_unsummed_documents")).scalar() == 0
     with pg.app_rw.begin() as c:
         ctx(c, user_id(pg.owner, "alice"), biz)
-        assert c.execute(text("select count(*) from filing.v_supply_lines")).scalar() == 6 - 1  # no debit note line
+        assert c.execute(text("select count(*) from filing.v_supply_lines")).scalar() == 6  # the debit note too (#462)
 
 
 def test_two_confirms_of_one_invoice_at_once_import_it_once(shop):  # noqa: F811
@@ -141,7 +152,6 @@ def test_a_qrmp_quarter_adds_its_iff_month_to_table_12_and_still_reconciles(shop
         qb, ib = build_return(tx, quarter), build_return(tx, iff)
     assert [r.invoice_number for r in ib.sections.b2b] == ["INV-3"] and ib.sections.hsn_b2b == ()
     assert qb.sections.b2b == () and len(qb.sections.hsn_b2b) == 1  # Table 12 covers the IFF month
-    assert qb.liability.taxable_value == Decimal("400") and qb.gap.is_zero()
-    # the debit note is dated in the IFF month: no return holds it, so the IFF and the quarter both say so
-    assert ib.debit_notes == 1 and qb.debit_notes == 1
-    assert "debit_notes_unsummed" in {f.code for f in ib.ca_flags} | {f.code for f in qb.ca_flags}
+    # #462: the debit note to a consumer is netted into B2CS, which an IFF does not carry, so the quarter holds it
+    assert qb.liability.taxable_value == Decimal("600") and qb.gap.is_zero()
+    assert ib.debit_notes == 0 and qb.debit_notes == 0

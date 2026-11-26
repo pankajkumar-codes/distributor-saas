@@ -33,7 +33,6 @@ _LINE_COLUMNS = (
 # What every build of uploaded invoices rests on and the CA has not answered (OPEN_QUESTIONS). Shown with
 # the return, never hidden. Codes are stable; the wording is for people.
 M7_OMISSIONS = (
-    ("debit_notes", "Debit notes are not in this return yet: they need a CA answer on where they go."),
     ("marketplace_reports", "Amazon, Flipkart and Meesho reports are not in this return until the CA answers"
                             " how they are treated."),
     ("exports_sez_rcm", "Exports, SEZ supplies, reverse charge, advances, nil-rated and exempt supplies are"
@@ -60,7 +59,7 @@ class ReturnBuild:
     fingerprint: str
     refdata_as_of: dict[str, str]
     ca_flags: tuple[CaFlag, ...]
-    debit_notes: int  # confirmed debit notes dated in this period that are not in the return
+    debit_notes: int  # debit notes confirmed before #462, dated in this period, that have no return (so not in it)
     draft: bool  # a return is a draft until it is marked filed and locked
     lines: tuple[SupplyLine, ...] = ()  # every member line (liability and Table 12), for the checks
     # Own live documents cancelled in this return's member sets (#456): out of Tables 4 to 12, counted in Table 13.
@@ -103,7 +102,7 @@ def build_return(tx: Session, instance: ReturnInstance) -> ReturnBuild:
     sections = build_sections(liability_lines, kind=instance.form, hsn_lines=hsn_lines)
     iff_builds = [build_sections(_lines(tx, instance, iff_filed), kind="IFF")] if iff_filed else []
     all_lines = liability_lines if hsn_lines is None else _union(liability_lines, hsn_lines)
-    debit_notes = _debit_notes(tx, instance)  # a debit note has no return, so count by the instance's own dates
+    debit_notes = _debit_notes(tx, instance)  # an old debit note has no return, so count by the instance's own dates
     cancelled = _cancelled(tx, instance, own + iff_months if quarter else own)
     return ReturnBuild(
         instance=instance,
@@ -187,8 +186,9 @@ def _flags(
 ) -> tuple[CaFlag, ...]:
     flags = [CaFlag(*PENDING_PLAIN[t]) for t in sections.pending]  # plain words; the team text stays in sections.py
     if debit_notes:
-        flags.append(CaFlag("debit_notes_unsummed", f"{debit_notes} debit note(s) are not in this return yet: needs CA check."))
-    flags += [CaFlag(code, t) for code, t in M7_OMISSIONS if code != "debit_notes" or not debit_notes]
+        flags.append(CaFlag("debit_notes_unsummed", f"{debit_notes} debit note(s) uploaded before debit notes were"
+                                                    " supported are not in this return yet: needs CA check."))
+    flags += [CaFlag(code, t) for code, t in M7_OMISSIONS]
     known = uqc_codes(tx, instance.period_end)
     unlisted = sorted({ln.uqc for ln in lines if ln.uqc not in known})
     if unlisted:

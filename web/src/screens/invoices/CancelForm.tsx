@@ -14,8 +14,9 @@ const words = (e: ApiError) => e.fix ?? (e.status === 422 && e.message ? e.messa
 
 /**
  * Cancel the invoice (mocks v17, R.adjust "Cancel"; #456). Allowed while the invoice's GSTR-1 or IFF is not filed and no
- * credit note exists; the server checks both. "Raised by mistake" and "did not happen" need the declaration that the
- * goods were not removed or delivered; a duplicate doesn't. The number stays used and the invoice stays in the records.
+ * credit or debit note exists; the server checks both. "Raised by mistake" and "did not happen" need the declaration that
+ * the goods were not dispatched or delivered; a duplicate doesn't, but names the invoice it duplicates, which the server
+ * checks exists and is not cancelled (GST CA wording check). The number stays used and the invoice stays in the records.
  */
 export function CancelForm({ businessId, documentId, number, onCancelled }: { businessId: string; documentId: string; number: string; onCancelled: () => void }) {
   const key = useFormKey(`cancel:${documentId}`);
@@ -53,13 +54,19 @@ export function CancelForm({ businessId, documentId, number, onCancelled }: { bu
           {needsDeclaration ? (
             <>
               <label className="radio">
-                <input type="checkbox" checked={declared} onChange={(e) => setDeclared(e.target.checked)} /> I confirm the goods on this invoice were not removed or
-                delivered.
+                <input type="checkbox" checked={declared} onChange={(e) => setDeclared(e.target.checked)} /> I confirm the goods on this invoice were not dispatched
+                or delivered to the buyer.
               </label>
               <p className="hint">If they were delivered, the sale happened: use a credit note instead.</p>
             </>
           ) : (
-            <Field label="The other invoice's number (optional)" value={duplicateOf} onChange={(e) => setDuplicateOf(e.target.value)} />
+            <Field
+              label="The invoice you are keeping"
+              value={duplicateOf}
+              onChange={(e) => setDuplicateOf(e.target.value)}
+              hint="Its number, exactly as issued. It must not be cancelled."
+              error={cancel.error?.field === "duplicate_of" ? words(cancel.error) : undefined}
+            />
           )}
         </section>
         <section className="panel" aria-labelledby="what-cancel">
@@ -83,13 +90,14 @@ export function CancelForm({ businessId, documentId, number, onCancelled }: { bu
               <span>Allowed until</span>
               <span>GSTR-1 (or IFF) holding this invoice is filed</span>
             </div>
-            <Banner tone="warn">If you made an e-way bill for this invoice, cancel it on the e-way bill portal within 24 hours of making it.</Banner>
+            <Banner tone="warn">If you made an e-way bill for this invoice, cancel it on the e-way bill portal within 24 hours of making it, and before it
+              is checked in transit.</Banner>
           </div>
         </section>
       </div>
-      {cancel.error && <Banner tone="error">{words(cancel.error)}</Banner>}
+      {cancel.error && cancel.error.field !== "duplicate_of" && <Banner tone="error">{words(cancel.error)}</Banner>}
       <div className="adjbar">
-        <Button type="button" variant="danger" busy={cancel.isPending} disabled={needsDeclaration && !declared} onClick={submit}>
+        <Button type="button" variant="danger" busy={cancel.isPending} disabled={needsDeclaration ? !declared : !duplicateOf.trim()} onClick={submit}>
           Cancel invoice {number}
         </Button>
         <span className="hint">The invoice and this cancellation stay in the audit log.</span>
