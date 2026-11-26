@@ -36,14 +36,16 @@ SCOPE_GSTIN_KIND_MONTH = "gstin_kind_month"  # #457: INV/YY-MM/NNNNNN, a series 
 
 
 def monthly_prefix(prefix: str, on: date) -> str:
-    """INV and 2026-11-26 -> "INV/26-11/". The month is the invoice date's, never the finalize date's."""
+    """INV and an invoice dated in November 2026 -> "INV/26-11/". The month is the invoice date's, never the finalize
+    date's."""
     return f"{prefix}/{on.year % 100:02d}-{on.month:02d}/"
 
 
-def monthly_number_fits(prefix: str, width: int, max_length: int = 16) -> bool:
-    """Whether every number of a monthly series fits Rule 46(b)'s limit: prefix + "/YY-MM/" + width digits. For the
-    numbering settings to check when they are saved (#457); allocate checks each number again."""
-    return len(prefix) + 7 + width <= max_length
+def monthly_number_fits(prefix: str, width: int, max_length: int) -> bool:
+    """Whether every number of a monthly series fits Rule 46(b)'s limit (refdata invoice.number.max_length): prefix +
+    "/YY-MM/" + width digits. For the numbering settings to check when they are saved (#457); allocate checks each
+    number again."""
+    return len(monthly_prefix(prefix, date.min)) + width <= max_length
 _DOCUMENT_COLUMNS = (
     "id, draft_id, kind, is_practice, doc_number, doc_date, fy, gstin, supply_class, pos_state_code,"
     " is_inter_state, customer_id, counterparty_name, due_date, taxable_total, cgst_total, sgst_total, utgst,"
@@ -249,7 +251,7 @@ def allocate(
     """The next number in the series the configured scope picks (D-030). The series row is created on first use with
     the prefix in force then (L4-2), then locked FOR UPDATE and advanced by one. A rollback leaves next_value where it
     was. Practice numbers are always one series per FY (PR-0001). Live numbers follow `sales.numbering_scope`:
-    gstin_kind_fy, one series per FY; or gstin_kind_month (#457, Pankaj 2026-11-26), one series per month of the
+    gstin_kind_fy, one series per FY; or gstin_kind_month (#457, Pankaj's decision, D-114), one series per month of the
     invoice date, numbered <prefix>/YY-MM/NNNNNN (INV/26-11/000001) and restarting at 1 each month."""
     tx = uow.tx
     month = ""

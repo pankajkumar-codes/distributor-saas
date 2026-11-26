@@ -170,7 +170,7 @@ def test_a_monthly_number_over_16_characters_is_refused_and_uses_nothing(live):
     r = fin(pg, biz, ready_draft(pg, biz, doc_date="2026-11-30"))
     assert r.status_code == 422 and r.json()["error"]["code"] == "number_too_long", r.text
     assert counts(pg) == (0, 0, 0, 0)
-    assert monthly_number_fits("INV", 6) and not monthly_number_fits("INVC", 6) and monthly_number_fits("CN", 6)
+    assert monthly_number_fits("INV", 6, 16) and not monthly_number_fits("INVC", 6, 16) and monthly_number_fits("CN", 6, 16)
 
 
 def test_practice_numbers_stay_one_series_per_fy_under_the_monthly_scope(live):
