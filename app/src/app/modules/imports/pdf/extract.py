@@ -3,7 +3,8 @@
 It anchors on printed labels and on the line table's column headings, never on fixed positions, and says
 nothing about a field it cannot place: that field stays blank and is named in `unclear`. What it does not
 do: no tax logic, no rate inference, no arithmetic check (R1-M7 does those), no buyer name, address or item
-description is read into a result (only the buyer's GSTIN), and no number is parsed through binary float.
+description reaches an own-invoice table (`table.to_table` drops it; purchases use it as the product name to check,
+D-106), and no number is parsed through binary float.
 The HSN shape is the caller's refdata `hsn.pattern` (format only; the minimum length by turnover is a CA
 question this module never decides). Numeric dates are read day first (DD/MM/YYYY); a date that is not a real
 calendar date that way is left blank. Two further layouts are read (slice 4c): a tax group over "Rate" and "Amt"
@@ -13,7 +14,7 @@ only when every label has a value under it and the row holds nothing else).
 """
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 
@@ -178,8 +179,21 @@ def read_page(page: int, rows: list[Row], hsn: re.Pattern) -> PageFacts:
     return f
 
 
+DESCRIPTION_MAX = 100  # the sandbox's cap on any field read (sandbox.MAX_TEXT)
+DESCRIPTION_HEAD = re.compile(r"^(?:description|item|product|particulars|goods|name\s+of\s+(?:goods|product|item))", re.I)
+NOT_DESCRIPTION = re.compile(r"\b(?:code|no|sr|sl|id)\b\.?", re.I)
+
+
+def _is_description(s: str) -> bool:
+    return bool(DESCRIPTION_HEAD.match(s)) and not NOT_DESCRIPTION.search(s)
+
+
+SERIAL_HEAD = re.compile(r"^(?:s|sr|sl)\.?\s*(?:no\.?)?$|^#$|^no\.?$", re.I)
+
 HEADER_KEYS = (
+    ("serial", lambda s: bool(SERIAL_HEAD.match(s))),  # a column of its own, so its numbers never join the description
     ("hsn", lambda s: "hsn" in s or "sac" in s),
+    ("description", _is_description),
     ("quantity", lambda s: s.startswith("qty") or s.startswith("quantity")),
     ("unit", lambda s: s in ("unit", "uom") or s.startswith("unit of")),
     ("taxable_value", lambda s: "taxable" in s),
@@ -198,6 +212,8 @@ def _columns(row: Row) -> dict[str, Cell] | None:
         s = " ".join(cell.text.casefold().split())
         for name, test in HEADER_KEYS:
             if test(s):
+                if name in ("description", "serial") and name in cols:
+                    break  # "Item" and "Description" both: the first is kept; a second never spoils the table
                 if name in cols:
                     return None  # the same heading twice: not a table we can read
                 cols[name] = cell
@@ -220,6 +236,10 @@ def _table(page: int, rows: list[Row], hsn: re.Pattern) -> tuple[list[ExtractedL
             line = _line(page, data, cols, hsn)
             if line is not None:
                 lines.append(line)
+            elif lines and lines[-1].description is not None:
+                more = _wrapped_description(data, cols)
+                if more:
+                    lines[-1] = replace(lines[-1], description=_description(f"{lines[-1].description} {more}"))
         return lines, True
     return [], False
 
@@ -271,6 +291,22 @@ def _column_for(cell: Cell, cols: dict[str, Cell]) -> str | None:
     return name if abs((head.x0 + head.x1) / 2 - centre) < 40 else None
 
 
+def _description(text: str) -> str | None:
+    """Spaces folded; over the cap it is cut at the last whole word that fits (the business checks it anyway)."""
+    text = " ".join(text.split())
+    if len(text) > DESCRIPTION_MAX:
+        cut = text[:DESCRIPTION_MAX + 1].rsplit(" ", 1)[0]
+        text = cut if 0 < len(cut) <= DESCRIPTION_MAX else text[:DESCRIPTION_MAX]
+    return text or None
+
+
+def _wrapped_description(data: Row, cols: dict[str, Cell]) -> str | None:
+    """A row whose every cell sits under the description heading is the line above's description, wrapped."""
+    if "description" not in cols or any(_column_for(c, cols) != "description" for c in data):
+        return None
+    return " ".join(c.text for c in data)
+
+
 def _line(page: int, data: Row, cols: dict[str, Cell], hsn: re.Pattern) -> ExtractedLine | None:
     got: dict[str, list[str]] = {}
     for cell in data:
@@ -291,6 +327,7 @@ def _line(page: int, data: Row, cols: dict[str, Cell], hsn: re.Pattern) -> Extra
     if "unit" in got and got["unit"]:
         unit = " ".join(got["unit"]).strip() or unit
     values.update(quantity=quantity, unit=unit)
+    values["description"] = _description(" ".join(got.get("description", []))) if "description" in got else None
     rate = " ".join(got.get("gst_rate", [])).replace("%", "").strip()
     values["gst_rate"] = money(rate) if rate else None
     for name in ("igst", "cgst", "sgst", "cess"):

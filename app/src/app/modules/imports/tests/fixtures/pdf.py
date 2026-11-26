@@ -49,7 +49,7 @@ COLS = {"sno": 40, "desc": 70, "hsn": 190, "qty": 245, "unit": 290, "taxable": 3
 def invoice_page(number="INV-1", *, title="TAX INVOICE", date="03-07-2026", seller=SELLER, buyer=BUYER,
                  place="West Bengal (19)", lines=(("6109", "2", "PCS", "200.00", "18", "18.00", "18.00", ""),),
                  total="236.00", original=None, number_label="Invoice No", date_label="Invoice Date",
-                 header_extra=(), y0=760):
+                 header_extra=(), y0=760, descriptions=None, wrapped=None, desc_heading="Description"):
     items = [(40, y0, title), (40, y0 - 14, "Demo Seller Pvt Ltd"), (40, y0 - 26, f"GSTIN: {seller}"),
              (330, y0 - 14, f"{number_label}: {number}"), (330, y0 - 26, f"{date_label}: {date}")]
     y = y0 - 40
@@ -64,16 +64,20 @@ def invoice_page(number="INV-1", *, title="TAX INVOICE", date="03-07-2026", sell
     items.append((330, y - 12, f"Place of Supply: {place}"))
     items.extend(header_extra)
     y -= 50
-    head = [("sno", "S.No"), ("desc", "Description"), ("hsn", "HSN/SAC"), ("qty", "Qty"), ("unit", "Unit"),
+    head = [("sno", "S.No"), ("desc", desc_heading), ("hsn", "HSN/SAC"), ("qty", "Qty"), ("unit", "Unit"),
             ("taxable", "Taxable Value"), ("rate", "GST %"), ("cgst", "CGST"), ("sgst", "SGST"), ("igst", "IGST")]
     for key, text in head:
         items.append((COLS[key], y, text))
     for i, (hsn, qty, unit, taxable, rate, cgst, sgst, igst) in enumerate(lines, start=1):
         y -= 14
-        for key, text in (("sno", str(i)), ("desc", "Item description"), ("hsn", hsn), ("qty", qty), ("unit", unit),
+        desc = descriptions[i - 1] if descriptions else "Item description"
+        for key, text in (("sno", str(i)), ("desc", desc), ("hsn", hsn), ("qty", qty), ("unit", unit),
                           ("taxable", taxable), ("rate", rate), ("cgst", cgst), ("sgst", sgst), ("igst", igst)):
             if text:
                 items.append((COLS[key], y, text))
+        if wrapped and i in wrapped:  # the description runs on to a row of its own
+            y -= 14
+            items.append((COLS["desc"], y, wrapped[i]))
     y -= 20
     if total is not None:
         items.append((330, y, "Grand Total"))

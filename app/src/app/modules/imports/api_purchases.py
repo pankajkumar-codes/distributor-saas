@@ -120,6 +120,7 @@ class PurchaseDraftLineOut(BaseModel):
     id: str
     line_no: int
     page: int
+    description: str | None  # the item as read, offered as the product name to check (D-106); null if not read
     hsn: str | None
     quantity: str | None
     unit: str | None

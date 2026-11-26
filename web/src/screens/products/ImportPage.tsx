@@ -213,6 +213,11 @@ export function ImportPage() {
         {!runId && (
           <form onSubmit={submit} noValidate className="panel pad">
             <p className="hint">
+              Have a supplier's bill as a PDF or a photo?{" "}
+              <Link to={`/b/${businessId}/purchases`}>Upload it as a purchase invoice</Link>. We read the lines, you check them, and confirming adds
+              the products and their stock.
+            </p>
+            <p className="hint">
               Use a CSV file, or the first sheet of an Excel file, with the header row above. The mrp column is optional: leave it out and no product's MRP
               changes.
             </p>
