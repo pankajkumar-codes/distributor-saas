@@ -78,6 +78,8 @@ ALLOWED_DATA: dict[str, frozenset[str]] = {
     "invoice.cancelled": frozenset({"number", "practice", "reason", "duplicate_of", "stock_reversals"}),
     "credit_note.issued": frozenset({"number", "practice", "original_id", "original_number", "reason", "return_period",
                                      "form"}),
+    "debit_note.issued": frozenset({"number", "practice", "original_id", "original_number", "reason", "return_period",
+                                     "form"}),
     "document.pdf_requested": frozenset({"attempt"}),
     "document.pos_override": frozenset({"computed_pos", "chosen_pos"}),  # reason required (G16)
     # Stock ledger (R2-M3): the product code and the signed quantity only; no cost or price.

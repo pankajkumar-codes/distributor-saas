@@ -137,6 +137,16 @@ def test_credit_notes_are_written_positive_with_their_own_keys():
     assert d["b2cl"][0]["pos"] == "24" and d["b2cl"][0]["inv"][0]["inum"] == "INV/26-27/0003"
 
 
+def test_debit_notes_are_written_positive_with_note_type_d():  # #462
+    from .test_gstr1_sections import DEBITS
+
+    d = json.loads(render(LINES + DEBITS))
+    by_num = {n["nt_num"]: n for p in d["cdnr"] for n in p["nt"]}
+    assert (by_num["DN/26-27/0001"]["ntty"], by_num["DN/26-27/0001"]["val"]) == ("D", 118)
+    assert by_num["CN/26-27/0001"]["ntty"] == "C"
+    assert {n["nt_num"]: n["ntty"] for n in d["cdnur"]} == {"CN/26-27/0002": "C", "DN/26-27/0002": "D"}
+
+
 def test_the_tables_without_a_tool_sample_are_named():
     assert rj.unverified_tables(em.export_model(build_of(LINES))) == ("b2cl", "cdnr", "cdnur")
     only_b2b = [ln for ln in LINES if ln.supply_class == "B2B" and ln.doc_kind == "invoice"]

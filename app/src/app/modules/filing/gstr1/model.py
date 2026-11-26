@@ -6,8 +6,8 @@ document's total repeated on each of its lines, for the invoice and note value c
 template's sheet names, list texts and fixed values (Reverse Charge N, Invoice Type,
 b2cs Type OE) are the export's mapping (LLD-5 §7), not the builder's.
 
-Credit notes come in with positive amounts and `doc_kind = "credit_note"`; the builder
-applies the sign (LLD-5 §3). All money is Decimal, summed as stored, never re-rounded
+Credit and debit notes come in with positive amounts and `doc_kind = "credit_note"` or
+`"debit_note"`; the builder applies the sign (LLD-5 §3): a credit note takes away, a debit note adds (#462). All money is Decimal, summed as stored, never re-rounded
 (gstr1-examples §0); quantities keep 3 decimals (CA-3 decides the export's rounding).
 """
 
@@ -17,8 +17,9 @@ from datetime import date
 from decimal import Decimal
 from typing import Literal
 
-SourceKind = Literal["own_invoice", "own_credit_note", "marketplace_row"]
-DocKind = Literal["invoice", "credit_note"]
+SourceKind = Literal["own_invoice", "own_credit_note", "own_debit_note", "marketplace_row"]
+DocKind = Literal["invoice", "credit_note", "debit_note"]
+NoteType = Literal["C", "D"]  # the portal's note type: C credit, D debit
 SupplyClass = Literal["B2B", "B2CL", "B2CS", "CDNR", "CDNUR"]
 ReturnKind = Literal["GSTR1", "IFF"]
 HEADS = ("taxable_value", "igst", "cgst", "sgst", "cess")
@@ -123,7 +124,12 @@ class CDNRRow:  # Table 9B registered: one row per note x rate, amounts positive
     original_doc_number: str | None
     original_doc_date: date | None
     source_refs: tuple[str, ...]
-    note_type: Literal["C"] = "C"
+    note_type: NoteType = "C"
+
+    @property
+    def signed(self) -> "Amounts":
+        """What the note does to the liability: a credit note takes its amounts away, a debit note adds them."""
+        return -self.amounts if self.note_type == "C" else self.amounts
 
 
 @dataclass(frozen=True)
@@ -137,8 +143,12 @@ class CDNURRow:  # Table 9B unregistered: notes against B2CL invoices (gstr1-exa
     original_doc_number: str | None
     original_doc_date: date | None
     source_refs: tuple[str, ...]
-    note_type: Literal["C"] = "C"
+    note_type: NoteType = "C"
     ur_type: Literal["B2CL"] = "B2CL"
+
+    @property
+    def signed(self) -> "Amounts":
+        return -self.amounts if self.note_type == "C" else self.amounts
 
 
 @dataclass(frozen=True)

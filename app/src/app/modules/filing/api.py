@@ -126,7 +126,8 @@ PREPARE = [Depends(require(Permission.RETURNS_PREPARE))]
 SECTIONS = ("b2b", "b2cl", "b2cs", "cdnr", "cdnur", "hsn_b2b", "hsn_b2c")
 PAGE = 100
 BANNER = "Draft: not filed. Check every figure against your own records before you use it."
-DEBIT_NOTE_NOTICE = "{n} debit note(s) are not in this return yet. They need a CA check."
+DEBIT_NOTE_NOTICE = ("{n} debit note(s) uploaded before debit notes were supported are not in this return yet."
+                     " They need a CA check.")
 
 
 class Heads(BaseModel):

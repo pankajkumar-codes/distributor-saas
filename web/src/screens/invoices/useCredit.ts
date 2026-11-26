@@ -40,6 +40,28 @@ export function useCreateCreditNote(businessId: string, documentId: string, key:
   });
 }
 
+export type DebitNoteIn = components["schemas"]["DebitNoteIn"];
+
+/** Issues a debit note against the invoice (#456 part 3). One key per form fill, so a retry gives the same note. */
+export function useCreateDebitNote(businessId: string, documentId: string, key: () => string, onDone: (note: Document) => void) {
+  const queryClient = useQueryClient();
+  return useMutation<Document, ApiError, DebitNoteIn>({
+    mutationFn: (body) =>
+      call(() =>
+        api.POST("/api/v1/b/{business_id}/documents/{document_id}/debit-notes", {
+          params: { path: { business_id: businessId, document_id: documentId }, header: { "Idempotency-Key": key() } },
+          body,
+        }),
+      ),
+    onSuccess: (note) => {
+      queryClient.invalidateQueries({ queryKey: ["b", businessId, "document", documentId] });
+      queryClient.invalidateQueries({ queryKey: ["b", businessId, "drafts"] });
+      queryClient.invalidateQueries({ queryKey: ["b", businessId, "stock"] });
+      onDone(note);
+    },
+  });
+}
+
 export type CancelIn = components["schemas"]["CancelIn"];
 
 /** Cancels the invoice (#456). One key per form fill, so a retry cancels once. */

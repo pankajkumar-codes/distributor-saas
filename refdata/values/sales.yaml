@@ -94,6 +94,19 @@
   status: provisional
   note: "Width is sales.practice_width. A live credit note uses the credit_note series settings (CN/YY-MM/NNNNNN, D-114)."
 
+# Debit notes (#456 part 3): practice debit notes on practice invoices, in their own practice series, as credit notes.
+
+- key: sales.practice_debit_note_prefix
+  value: "PR-DN-"
+  type: text
+  kind: product
+  valid_from: 2026-11-26
+  source_url: team/program-lead/ca-cancel-credit-note-answer-v1.md
+  source_title: "Pankaj 2026-11-26 (decision card on #456): practice notes on practice invoices; mocks v17 PR-DN-"
+  last_checked: 2026-11-26
+  status: provisional
+  note: "Width is sales.practice_width. A live debit note uses the debit_note series settings (DN/YY-MM/NNNNNN, D-114)."
+
 - key: credit_note.deadline_month_day
   value: "11-30"
   type: text

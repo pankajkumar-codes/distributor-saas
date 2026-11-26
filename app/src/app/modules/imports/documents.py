@@ -119,13 +119,11 @@ def own_documents(rows, fy_of, states: dict[str, str]) -> tuple[list[Doc], list[
 
 
 def supply_class(kind: str, buyer: str | None, inter_state: bool, total: Decimal, b2cl_threshold: Decimal,
-                 original_class: str | None) -> str | None:
-    """B2B, B2CL, B2CS, CDNR or CDNUR (LLD-4 §3.3, LLD-7 L7-7); None for a debit note, which the builder has no
-    section for yet. A note to a registered buyer is CDNR; to anyone else it follows its original: CDNUR for a
-    B2CL original, otherwise netted into B2CS. An original not in the app is netted into B2CS and flagged by
-    the caller (needs CA check)."""
-    if kind == "debit_note":
-        return None
+                 original_class: str | None) -> str:
+    """B2B, B2CL, B2CS, CDNR or CDNUR (LLD-4 §3.3, LLD-7 L7-7). A credit or debit note to a registered buyer is CDNR;
+    to anyone else it follows its original: CDNUR for a B2CL original, otherwise netted into B2CS (GST CA expert v2
+    §3; a debit note since #462). An original not in the app is netted into B2CS and flagged by the caller (needs CA
+    check)."""
     if kind == "invoice":
         return "B2B" if buyer else ("B2CL" if inter_state and total > b2cl_threshold else "B2CS")
     return "CDNR" if buyer else ("CDNUR" if original_class == "B2CL" else "B2CS")

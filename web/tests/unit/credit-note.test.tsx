@@ -31,6 +31,7 @@ const note = {
 const credit = (notes: unknown[] = [], remainingQty = "10", remaining = "1180.00") => ({
   invoice_id: "doc-1", doc_number: "PR-0042", is_practice: true, last_date: "2027-11-30", remaining_total: remaining, notes,
   reasons: { goods_returned: "Goods returned", value_too_high: "Taxable value or tax charged too high", deficient: "Goods or services deficient" },
+  debit_reasons: { value_too_low: "Taxable value charged too low", more_goods: "More goods sent than invoiced" },
   lines: [{ original_line_id: "l-1", line_no: 1, name: "Aloe Vera Gel", hsn: "3304", uqc: "PCS", rate: "18", quantity: "10", remaining_quantity: remainingQty,
     taxable: "1000.00", remaining_taxable: remainingQty === "10" ? "1000.00" : "800.00", remaining_tax: "144.00" }],
 }); // fmt: skip
@@ -58,7 +59,7 @@ describe("credit notes", () => {
     server.reply(`GET ${B}/documents/doc-1/credit`, { status: 200, body: credit([{ id: "cn-1", doc_number: "PR-CN-0001", doc_date: "2026-11-20", doc_total: "236.00", is_practice: true, reason_code: "goods_returned" }], "8", "944.00") });
     go("/b/b-1/documents/doc-1");
     expect(await screen.findByRole("link", { name: "Adjust invoice" })).toHaveAttribute("href", "/b/b-1/documents/doc-1/adjust");
-    const notes = await screen.findByRole("region", { name: "Credit notes" });
+    const notes = await screen.findByRole("region", { name: "Credit and debit notes" });
     expect(notes).toHaveTextContent("PR-CN-0001");
     expect(notes).toHaveTextContent("−₹236.00");
     expect(notes).toHaveTextContent(/Still on the invoice\s*₹944.00/);
@@ -125,6 +126,64 @@ describe("credit notes", () => {
   });
 });
 
+describe("debit notes", () => {
+  const debitNote = {
+    ...note, id: "dn-1", kind: "debit_note", doc_number: "PR-DN-0001", doc_total: "177.00", taxable_total: "150.00", cgst_total: "13.50", sgst_total: "13.50",
+    lines: [line("—", "150.00", "13.50", "177.00")], reason: "Taxable value charged too low", reason_code: "value_too_low", stock_treatment: null,
+  }; // fmt: skip
+
+  it("adds a value charged too low with one key, then opens the debit note", async () => {
+    server.reply(`GET ${B}/documents/doc-1`, { status: 200, body: invoice });
+    server.reply(`GET ${B}/documents/doc-1/credit`, { status: 200, body: credit() });
+    server.reply(`POST ${B}/documents/doc-1/debit-notes`, { status: 201, body: debitNote });
+    server.reply(`GET ${B}/documents/dn-1`, { status: 200, body: debitNote });
+    go("/b/b-1/documents/doc-1/adjust");
+    fireEvent.click(await screen.findByRole("radio", { name: /Debit note/ }));
+    expect(screen.getByText(/Required when an invoice charged too little/)).toBeInTheDocument();
+    const create = screen.getByRole("button", { name: "Create practice debit note" });
+    expect(create).toBeDisabled();
+    fireEvent.change(screen.getByRole("textbox", { name: "Extra taxable value, Aloe Vera Gel" }), { target: { value: "150.00" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create practice debit note" }));
+    expect(await screen.findByRole("heading", { name: "Debit note issued PR-DN-0001" })).toBeInTheDocument();
+    expect(screen.getByText(/Practice debit note\./)).toBeInTheDocument();
+    expect(screen.getByText("Added").nextElementSibling).toHaveTextContent("₹177.00");
+    const post = server.sent.find((s) => s.method === "POST" && s.path === `${B}/documents/doc-1/debit-notes`);
+    expect(post?.body).toMatchObject({ reason: "value_too_low", lines: [{ original_line_id: "l-1", taxable: "150.00" }] });
+    expect(post?.headers.get("Idempotency-Key")).toBeTruthy();
+  });
+
+  it("adds more goods sent by quantity, opened straight from #debit", async () => {
+    server.reply(`GET ${B}/documents/doc-1`, { status: 200, body: invoice });
+    server.reply(`GET ${B}/documents/doc-1/credit`, { status: 200, body: credit() });
+    server.reply(`POST ${B}/documents/doc-1/debit-notes`, { status: 201, body: { ...debitNote, reason_code: "more_goods" } });
+    server.reply(`GET ${B}/documents/dn-1`, { status: 200, body: debitNote });
+    go("/b/b-1/documents/doc-1/adjust#debit");
+    fireEvent.change(await screen.findByRole("combobox", { name: "Reason" }), { target: { value: "more_goods" } });
+    expect(screen.getByText(/leaves stock/)).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox", { name: "Extra quantity, Aloe Vera Gel" }), { target: { value: "2" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create practice debit note" }));
+    await screen.findByRole("heading", { name: "Debit note issued PR-DN-0001" });
+    const post = server.sent.find((s) => s.method === "POST" && s.path === `${B}/documents/doc-1/debit-notes`);
+    expect(post?.body).toMatchObject({ reason: "more_goods", lines: [{ original_line_id: "l-1", quantity: "2" }] });
+  });
+
+  it("lists a debit note on its invoice as adding, and in the issued list", async () => {
+    server.reply(`GET ${B}/documents/doc-1`, { status: 200, body: invoice });
+    server.reply(`GET ${B}/documents/doc-1/credit`, { status: 200, body: credit([{ id: "dn-1", kind: "debit_note", doc_number: "PR-DN-0001", doc_date: "2026-11-21", doc_total: "177.00", is_practice: true, reason_code: "value_too_low" }], "10", "1357.00") });
+    go("/b/b-1/documents/doc-1");
+    const notes = await screen.findByRole("region", { name: "Credit and debit notes" });
+    expect(notes).toHaveTextContent("Debit note");
+    expect(notes).toHaveTextContent("+₹177.00");
+  });
+
+  it("refuses cancel up front when a debit note exists", async () => {
+    server.reply(`GET ${B}/documents/doc-1`, { status: 200, body: invoice });
+    server.reply(`GET ${B}/documents/doc-1/credit`, { status: 200, body: credit([{ id: "dn-1", kind: "debit_note", doc_number: "PR-DN-0001", doc_date: "2026-11-21", doc_total: "177.00", is_practice: true, reason_code: "value_too_low" }]) });
+    go("/b/b-1/documents/doc-1/adjust#cancel");
+    expect((await screen.findByText(/can't be cancelled/)).parentElement).toHaveTextContent("Debit note PR-DN-0001 already exists");
+  });
+});
+
 describe("cancelling an invoice", () => {
   it("needs the declaration, sends one key, and then shows the invoice as cancelled", async () => {
     server.reply(`GET ${B}/documents/doc-1`, { status: 200, body: invoice }, { status: 200, body: { ...invoice, cancel_reason: "raised_in_error" } });
@@ -137,12 +196,14 @@ describe("cancelling an invoice", () => {
     go("/b/b-1/documents/doc-1/adjust#cancel");
     const button = await screen.findByRole("button", { name: "Cancel invoice PR-0042" });
     expect(button).toBeDisabled();
-    expect(screen.getByText(/e-way bill portal within 24 hours/)).toBeInTheDocument();
+    expect(screen.getByText(/e-way bill portal within 24 hours of making it, and before it\s+is checked in transit/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("radio", { name: "Duplicate of another invoice" }));
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument(); // a duplicate needs no declaration
+    expect(screen.getByRole("button", { name: "Cancel invoice PR-0042" })).toBeDisabled(); // but it names the kept invoice
+    fireEvent.change(screen.getByRole("textbox", { name: "The invoice you are keeping" }), { target: { value: "PR-0041" } });
     expect(screen.getByRole("button", { name: "Cancel invoice PR-0042" })).toBeEnabled();
     fireEvent.click(screen.getByRole("radio", { name: "Raised by mistake" }));
-    fireEvent.click(screen.getByRole("checkbox", { name: /were not removed or delivered/ }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /were not dispatched or delivered to the buyer/ }));
     fireEvent.click(button);
     expect(await screen.findByText("Make a credit note instead")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Cancel invoice PR-0042" }));

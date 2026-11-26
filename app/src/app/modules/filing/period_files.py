@@ -180,7 +180,8 @@ def build_workbook(gstin: str, period: Period, sales, purchases, practice, due_d
         ("Sales and purchases", label), ("GSTIN", gstin), ("Period", f"{period.start:%d-%m-%Y} to {period.end:%d-%m-%Y}"),
         (), ("A working file from your own records. It is not a return and nothing here is filed.",), (),
     ]
-    for title, kind in (("Sales: invoices", "invoice"), ("Sales: credit notes", "credit_note")):
+    for title, kind in (("Sales: invoices", "invoice"), ("Sales: credit notes", "credit_note"),
+                        ("Sales: debit notes", "debit_note")):
         picked = [r for r in sales if r[SALES_COLUMNS.index("doc_kind")] == kind]
         docs = len({(r[0], r[-1]) for r in picked})
         t = _sum(picked, SALES_COLUMNS, TAXES)

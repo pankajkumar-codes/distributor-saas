@@ -217,7 +217,15 @@ def test_a_credit_note_has_an_original_and_a_duplicate_only():  # #456: the trip
         template.render_htmls(full_doc(copies=["Original for Recipient", "Duplicate for Supplier"]))
 
 
-@pytest.mark.parametrize("note", [{"kind": "debit_note"}, "credit_note", {"kind": "<b>"}])
+def test_a_debit_note_says_debit_note_and_amount_payable():  # #456 part 3
+    html = template.render_html(full_doc(note={**NOTE, "kind": "debit_note", "reason": "Taxable value charged too low"},
+                                         number="PR-DN-0001"))
+    assert document_template.PRACTICE_DEBIT_TITLE in html and document_template.PRACTICE_NOTE_TITLE not in html
+    assert "Against invoice: PR-0042 dated 2026-11-18" in html and "Reason: Taxable value charged too low" in html
+    assert "Amount payable ₹" in html and "Credit amount" not in html
+
+
+@pytest.mark.parametrize("note", [{"kind": "invoice"}, "credit_note", {"kind": "<b>"}])
 def test_an_unknown_note_kind_is_refused(note):
     with pytest.raises(ValueError):
         template.render_html(full_doc(note=note))

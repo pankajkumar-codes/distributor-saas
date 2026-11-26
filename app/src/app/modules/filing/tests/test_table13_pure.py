@@ -63,9 +63,9 @@ def test_the_range_runs_by_the_number_in_the_text_not_by_the_text():
     assert (r.from_no, r.to_no, r.total, r.missing) == ("INV-2", "INV-9", 3, 5)  # 2 to 9 is 8 numbers, 3 found
 
 
-def test_a_series_made_only_of_live_documents_says_so_and_a_debit_note_is_left_out():
+def test_a_series_made_only_of_live_documents_says_so_and_debit_notes_are_their_own_nature():
     out = table13.suggest(docs_of("INV-1", "INV-2", live=True) + docs_of("DN-1", kind="debit_note"))
-    assert [(r.source, r.total) for r in out] == [("own_live", 2)]
+    assert sorted((r.nature, r.total) for r in out) == [(1, 2), (4, 1)]  # #462: debit notes are nature 4
 
 
 def test_nothing_to_suggest_for_no_documents():

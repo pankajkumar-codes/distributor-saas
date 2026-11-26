@@ -47,9 +47,10 @@ export function FinalizedPanel({ businessId, doc }: { businessId: string; doc: D
     };
   }, []);
   const s = doc.pdf.status;
-  const isNote = doc.kind === "credit_note";
+  const isDebit = doc.kind === "debit_note";
+  const isNote = doc.kind === "credit_note" || isDebit;
   const credit = useCreditState(businessId, doc.id, !isNote); // an invoice lists the notes made against it (#456)
-  const what = isNote ? "credit note" : "invoice";
+  const what = isDebit ? "debit note" : isNote ? "credit note" : "invoice";
   const cancelled = doc.cancel_reason != null;
   const working = busy || ask.isPending;
   const download = () =>
@@ -71,7 +72,7 @@ export function FinalizedPanel({ businessId, doc }: { businessId: string; doc: D
       </p>
       <div className="between docact">
         <h1>
-          {isNote ? "Credit note issued" : cancelled ? "Invoice cancelled" : "Invoice issued"} <span className="muted num">{doc.doc_number}</span>
+          {isDebit ? "Debit note issued" : isNote ? "Credit note issued" : cancelled ? "Invoice cancelled" : "Invoice issued"} <span className="muted num">{doc.doc_number}</span>
         </h1>
         <div className="row">
           <Link to={`/b/${businessId}/documents`}>Issued invoices</Link>
@@ -113,7 +114,7 @@ export function FinalizedPanel({ businessId, doc }: { businessId: string; doc: D
       )}
       {doc.is_practice && isNote ? (
         <Banner tone="warn">
-          <strong>Practice credit note.</strong> Not for customers and never in GST filing. Issued, locked · {formatDate(doc.doc_date)}
+          <strong>Practice {what}.</strong> Not for customers and never in GST filing. Issued, locked · {formatDate(doc.doc_date)}
         </Banner>
       ) : doc.is_practice ? (
         <Banner tone="warn">
@@ -250,7 +251,7 @@ export function FinalizedPanel({ businessId, doc }: { businessId: string; doc: D
               )}
               {nonzero(doc.cess_total) && <Kv k="Cess">{formatRupees(doc.cess_total)}</Kv>}
               {nonzero(doc.round_off) && <Kv k="Round off">{formatRupees(doc.round_off)}</Kv>}
-              <Kv k={isNote ? "Credited" : "Total"} total>
+              <Kv k={isDebit ? "Added" : isNote ? "Credited" : "Total"} total>
                 {formatRupees(doc.doc_total)}
               </Kv>
               <p className="hint words">{doc.amount_in_words}</p>
@@ -259,7 +260,7 @@ export function FinalizedPanel({ businessId, doc }: { businessId: string; doc: D
           {!isNote && credit.data && credit.data.notes.length > 0 && (
             <section className="panel" aria-labelledby="notes">
               <div className="panel-h">
-                <h2 id="notes">Credit notes</h2>
+                <h2 id="notes">Credit and debit notes</h2>
               </div>
               <div className="pad">
                 {credit.data.notes.map((n) => (
@@ -268,9 +269,14 @@ export function FinalizedPanel({ businessId, doc }: { businessId: string; doc: D
                       <Link className="num" to={`/b/${businessId}/documents/${n.id}`}>
                         {n.doc_number}
                       </Link>{" "}
-                      <span className="sub2">{formatDate(n.doc_date)}</span>
+                      <span className="sub2">
+                        {n.kind === "debit_note" ? "Debit note" : "Credit note"} · {formatDate(n.doc_date)}
+                      </span>
                     </span>
-                    <span className="num">−{formatRupees(n.doc_total)}</span>
+                    <span className="num">
+                      {n.kind === "debit_note" ? "+" : "−"}
+                      {formatRupees(n.doc_total)}
+                    </span>
                   </div>
                 ))}
                 <Kv k="Still on the invoice" total>

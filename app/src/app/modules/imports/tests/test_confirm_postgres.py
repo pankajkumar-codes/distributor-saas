@@ -75,10 +75,10 @@ def test_a_run_is_confirmed_into_documents_assigned_once_to_its_return(shop):  #
     assert out.json() == {"run_id": run_id, "documents": 5, "lines": 6, "accepted_changes": 0, "skipped_changes": 0}
     docs = {r.doc_number: r for r in q(pg, "select * from imports.documents")}
     assert {k: v.supply_class for k, v in docs.items()} == {
-        "INV-1": "B2CS", "INV-2": "B2CS", "INV-3": "B2B", "CN-1": "B2CS", "DN-1": None}
+        "INV-1": "B2CS", "INV-2": "B2CS", "INV-3": "B2B", "CN-1": "B2CS", "DN-1": "B2CS"}
     assert docs["INV-2"].is_inter_state and not docs["INV-1"].is_inter_state
     assert docs["INV-1"].return_instance_id is not None and docs["INV-1"].return_period == "2026-10"
-    assert docs["DN-1"].return_instance_id is None  # no section for a debit note yet
+    assert docs["DN-1"].return_period == "2026-10"  # #462: a debit note is netted into B2CS like a credit note
     assert not docs["CN-1"].original_not_in_app
     assert scalar(pg.owner, "select count(*) from imports.document_lines where document_id = "
                   f"'{docs['INV-1'].id}'") == 2

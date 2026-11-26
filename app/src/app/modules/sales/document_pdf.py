@@ -93,7 +93,8 @@ def status(uow: UnitOfWork, document_id: uuid.UUID, job_id: uuid.UUID) -> dict:
     kind = uow.tx.execute(
         text("select kind from sales.documents where id = :d and business_id = :b"), {"d": document_id, "b": business},
     ).scalar_one_or_none()
-    name = "practice-credit-note.pdf" if kind == "credit_note" else "practice-invoice.pdf"
+    name = {"credit_note": "practice-credit-note.pdf", "debit_note": "practice-debit-note.pdf"}.get(
+        kind, "practice-invoice.pdf")
     url = get_store().presign_get(business, render.document_key(business, job_id), download_name=name)
     return {"status": "ready", "url": url}
 
@@ -108,6 +109,9 @@ def current(uow: UnitOfWork, document_id: uuid.UUID) -> dict:
 
 
 # -- the job ------------------------------------------------------------------------------
+
+DASH = "—"
+
 
 def _money(value) -> str | None:
     return None if value is None else str(Decimal(value).quantize(Decimal("0.01")))
@@ -164,8 +168,11 @@ def _lines(tx, business_id: uuid.UUID, document_id: uuid.UUID) -> list[dict]:
             {"l": ln["id"], "b": business_id},
         ).all()
         lines.append({
-            "no": str(ln["line_no"]), "description": ln["name"], "hsn": ln["hsn"], "quantity": _qty(ln["quantity"]),
-            "uqc": ln["uqc"], "mrp": _money(ln["mrp"]), "unit_price": _money(ln["unit_price"]),
+            # A note line (#466) has no unit price, and one made by amount no quantity: the page shows a dash.
+            "no": str(ln["line_no"]), "description": ln["name"], "hsn": ln["hsn"],
+            "quantity": DASH if ln["quantity"] is None else _qty(ln["quantity"]),
+            "uqc": None if ln["quantity"] is None else ln["uqc"], "mrp": _money(ln["mrp"]),
+            "unit_price": DASH if ln["unit_price"] is None else _money(ln["unit_price"]),
             "gross": _money(ln["gross"]),
             "discount": _money(ln["line_discount"]) if ln["line_discount"] else None,
             "discount_percent": _qty(ln["discount_percent"])
@@ -288,10 +295,10 @@ def build(tx, business_id: uuid.UUID, document_id: uuid.UUID) -> dict:
     note = None
     # CGST Rule 48(1): goods invoices in triplicate. One PDF holds the three copies, each its own page set (#454).
     copies = ["Original for Recipient", "Duplicate for Transporter", "Triplicate for Supplier"]
-    if doc["kind"] == "credit_note":
+    if doc["kind"] in ("credit_note", "debit_note"):
         # Rule 53(1A) (#456): the note names the invoice it adjusts; an original and a duplicate, no transporter copy.
         original = snap.get("original") or {}
-        note = {"kind": "credit_note", "original_number": original.get("number"),
+        note = {"kind": doc["kind"], "original_number": original.get("number"),
                 "original_date": original.get("date"), "reason": snap.get("reason")}
         copies = ["Original for Recipient", "Duplicate for Supplier"]
     return {

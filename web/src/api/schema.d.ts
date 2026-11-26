@@ -426,7 +426,7 @@ export interface paths {
         put?: never;
         /**
          * Cancel Document
-         * @description Cancels an issued invoice while the return holding it is open and no credit note exists for it (#456). The
+         * @description Cancels an issued invoice while the return holding it is open and no credit or debit note exists for it (#456). The
          *     invoice row never changes: a cancellation is written beside it, its number stays used, it leaves Tables 4 to 12
          *     and Table 13 counts it as cancelled, and its stock comes back. "Raised by mistake" and "did not happen" need the
          *     declaration that the goods were not removed or delivered. Off, like finalize, until `sales.finalize.enabled`.
@@ -476,6 +476,29 @@ export interface paths {
          *     `sales.finalize.enabled` is true (a 404). The same key and body give the same note once.
          */
         post: operations["create_credit_note_api_v1_b__business_id__documents__document_id__credit_notes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/documents/{document_id}/debit-notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Debit Note
+         * @description Issues a debit note against an issued invoice (#456 part 3, s.34(3)): by amount for a taxable value charged too
+         *     low, by quantity for more goods sent than invoiced (they leave stock). Tax is the line's rate on the added value.
+         *     A practice invoice gets a practice note (PR-DN-), never in GST filing. The invoice itself never changes. Off, like
+         *     finalize, until `sales.finalize.enabled` is true (a 404). The same key and body give the same note once.
+         */
+        post: operations["create_debit_note_api_v1_b__business_id__documents__document_id__debit_notes_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3517,6 +3540,12 @@ export interface components {
             id: string;
             /** Is Practice */
             is_practice: boolean;
+            /**
+             * Kind
+             * @default credit_note
+             * @enum {string}
+             */
+            kind: "credit_note" | "debit_note";
             /** Reason Code */
             reason_code: string | null;
         };
@@ -3527,6 +3556,13 @@ export interface components {
              * @default false
              */
             cancelled: boolean;
+            /**
+             * Debit Reasons
+             * @default {}
+             */
+            debit_reasons: {
+                [key: string]: string;
+            };
             /** Doc Number */
             doc_number: string;
             /** Invoice Id */
@@ -3654,6 +3690,27 @@ export interface components {
             gstin?: string | null;
             /** Name */
             name?: string | null;
+        };
+        /** DebitLineIn */
+        DebitLineIn: {
+            /** Original Line Id */
+            original_line_id: string;
+            /** Quantity */
+            quantity?: string | null;
+            /** Taxable */
+            taxable?: string | null;
+        };
+        /** DebitNoteIn */
+        DebitNoteIn: {
+            /** Doc Date */
+            doc_date?: string | null;
+            /** Lines */
+            lines: components["schemas"]["DebitLineIn"][];
+            /**
+             * Reason
+             * @enum {string}
+             */
+            reason: "value_too_low" | "more_goods";
         };
         /** DebitNotesOut */
         DebitNotesOut: {
@@ -7840,6 +7897,44 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CreditNoteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_debit_note_api_v1_b__business_id__documents__document_id__debit_notes_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string | null;
+            };
+            path: {
+                document_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DebitNoteIn"];
             };
         };
         responses: {

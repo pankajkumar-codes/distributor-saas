@@ -22,6 +22,7 @@ from ..inventory import (
     ReceivedLine,
     receive_confirmed_purchase_line,
     record_credit_note_return,
+    record_debit_note_out,
     reverse_invoice_stock,
     record_sale_out,
 )
@@ -39,6 +40,7 @@ __all__ = [
     "receive_confirmed_purchase_line",
     "record_sale_out",
     "record_credit_note_return",
+    "record_debit_note_out",
     "reverse_invoice_stock",
     "CustomerSnapshot",
     "ProductForLine",
@@ -262,5 +264,5 @@ def code_in_use(tx: Session, code: str) -> bool:
 def movements_for_document(tx: Session, document_id: uuid.UUID) -> int:
     """How many stock movements a sales document wrote (an invoice's sale_out rows, a credit note's return_in and written_off rows), in the bound business. Read-only."""
     return tx.execute(
-        text(f"select count(*) from catalog.stock_movements where {_MINE} and source_type in ('sales_invoice', 'sales_credit_note', 'credit_note_write_off')"
+        text(f"select count(*) from catalog.stock_movements where {_MINE} and source_type in ('sales_invoice', 'sales_credit_note', 'credit_note_write_off', 'sales_debit_note')"
              " and source_id = :d"), {"d": document_id}).scalar_one()

@@ -367,6 +367,9 @@
   value: "5"
   reason: "the offline tool's document nature code for a credit note (the master list of the GSTR-1 workbook, research gstr1-offline-json-structure section 3); a form code, not a tax number"
 - path: app/src/app/modules/filing/table13.py
+  value: "4"
+  reason: "the offline tool's document nature code for a debit note (the same master list; #462); a form code, not a tax number"
+- path: app/src/app/modules/filing/table13.py
   value: "16"
   reason: "the longest document number the portal takes in Table 13 (GSTR-1 FAQ Q31, rule 46); a field length, not a tax number"
 - path: app/src/app/modules/filing/api_table13.py

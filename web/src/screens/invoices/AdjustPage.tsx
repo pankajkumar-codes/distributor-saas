@@ -18,6 +18,7 @@ import { SelectField } from "../../kit/SelectField";
 import { useSingleFlight } from "../../kit/singleFlight";
 import { TopBar } from "../../kit/TopBar";
 import { CancelForm } from "./CancelForm";
+import { DebitForm } from "./DebitForm";
 import { useCreateCreditNote, useCreditState, type CreditNoteIn } from "./useCredit";
 import { useDocument } from "./useFinalize";
 
@@ -27,7 +28,8 @@ const words = (e: ApiError) => e.fix ?? (e.status === 422 && e.message ? e.messa
 type Stock = "restock" | "write_off";
 
 /**
- * Adjust invoice (mocks v17, R.adjust; #456): a credit note against an issued invoice. Goods returned are credited by
+ * Adjust invoice (mocks v17, R.adjust; #456): a credit note, a debit note (DebitForm) or a cancel (CancelForm) against
+ * an issued invoice. Goods returned are credited by
  * quantity, a price that was too high or deficient goods by taxable value; never more than is left on a line. The
  * invoice itself never changes. The server works out every amount, the tax from the invoice's own rates and the
  * closing note takes the exact remainder, so the page shows only what is left and the note it made.
@@ -36,7 +38,8 @@ export function AdjustPage() {
   const { businessId = "", documentId = "" } = useParams();
   const navigate = useNavigate();
   const { hash } = useLocation();
-  const [mode, setMode] = useState<"credit" | "cancel">(hash === "#cancel" ? "cancel" : "credit");
+  type Mode = "credit" | "debit" | "cancel";
+  const [mode, setMode] = useState<Mode>(hash === "#cancel" ? "cancel" : hash === "#debit" ? "debit" : "credit");
   const businesses = useMyBusinesses();
   const business = businesses.data?.find((b) => b.business_id === businessId);
   const allowed = Boolean(business && canCreateDocuments(business.role));
@@ -86,13 +89,14 @@ export function AdjustPage() {
             Adjust invoice <span className="muted num">{s?.doc_number}</span>
           </h1>
           {s && !s.cancelled && (
-            <RadioGroup<"credit" | "cancel">
+            <RadioGroup<Mode>
               legend="What do you want to do?"
               name="adjust"
               value={mode}
               onChange={setMode}
               options={[
                 { value: "credit", label: "Credit note", sub: "lowers what the buyer owes" },
+                { value: "debit", label: "Debit note", sub: "raises what the buyer owes" },
                 { value: "cancel", label: "Cancel the invoice", sub: "it should never have been made" },
               ]}
             />
@@ -109,12 +113,15 @@ export function AdjustPage() {
         {s?.cancelled && <Banner tone="info">This invoice is cancelled. It can't be adjusted again.</Banner>}
         {s && !s.cancelled && mode === "cancel" && s.notes.length > 0 && (
           <Banner tone="error">
-            <strong>{s.doc_number} can't be cancelled.</strong> Credit note {s.notes[0].doc_number} already exists for it, and cancelling would undo a sale the note treats
-            as made. Use a credit note instead.
+            <strong>{s.doc_number} can't be cancelled.</strong> {s.notes[0].kind === "debit_note" ? "Debit" : "Credit"} note {s.notes[0].doc_number} already exists
+            for it, and cancelling would undo a sale the note treats as made. Use a credit note instead.
           </Banner>
         )}
         {s && !s.cancelled && mode === "cancel" && s.notes.length === 0 && (
           <CancelForm businessId={businessId} documentId={documentId} number={s.doc_number} onCancelled={() => navigate(`/b/${businessId}/documents/${documentId}`)} />
+        )}
+        {s && !s.cancelled && mode === "debit" && (
+          <DebitForm businessId={businessId} documentId={documentId} state={s} onDone={(note) => navigate(`/b/${businessId}/documents/${note.id}`)} />
         )}
         {s && !s.cancelled && mode === "credit" && s.remaining_total === "0.00" && (
           <Banner tone="info">This invoice has been credited in full. There is nothing left to credit.</Banner>
@@ -233,10 +240,10 @@ export function AdjustPage() {
             </div>
           </>
         )}
-        {s && mode === "credit" && s.notes.length > 0 && (
+        {s && mode !== "cancel" && s.notes.length > 0 && (
           <section className="panel" aria-labelledby="made">
             <div className="panel-h">
-              <h2 id="made">Credit notes already made</h2>
+              <h2 id="made">Notes already made</h2>
             </div>
             <div className="pad">
               {s.notes.map((n) => (
@@ -245,9 +252,14 @@ export function AdjustPage() {
                     <Link className="num" to={`/b/${businessId}/documents/${n.id}`}>
                       {n.doc_number}
                     </Link>{" "}
-                    <span className="sub2">{formatDate(n.doc_date)}</span>
+                    <span className="sub2">
+                      {n.kind === "debit_note" ? "Debit note" : "Credit note"} · {formatDate(n.doc_date)}
+                    </span>
                   </span>
-                  <span className="num">−{formatRupees(n.doc_total)}</span>
+                  <span className="num">
+                    {n.kind === "debit_note" ? "+" : "−"}
+                    {formatRupees(n.doc_total)}
+                  </span>
                 </div>
               ))}
             </div>

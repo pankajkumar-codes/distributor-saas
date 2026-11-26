@@ -268,7 +268,7 @@ def _covering(
 def target_return_instance(
     tx: Session,
     gstin: str,
-    kind: Literal["invoice", "credit_note"],
+    kind: Literal["invoice", "credit_note", "debit_note"],
     doc_date: date,
     supply_class: str,
     original: DocumentRef | None = None,
@@ -280,12 +280,13 @@ def target_return_instance(
     `taxable_value`: the invoice's taxable total, for the IFF cap (L5-3). Raises
     PeriodLocked when the covering return is not open and the dated treatment row
     (`filing.locked_return_treatment` for invoices, `filing.credit_note_locked_treatment`
-    for credit notes, L5-4) does not roll it forward to an open return covering today."""
+    for credit and debit notes, L5-4) does not roll it forward to an open return covering today. A debit note is
+    reported in the return of the month it is issued (GSTR-1 FAQ 17), so it takes the notes' treatment (#462)."""
     today = today or Clock().today()
     inst = _covering(tx, gstin, kind, doc_date, supply_class, taxable_value, today)
     if inst.status == "open":
         return inst
-    key = "filing.credit_note_locked_treatment" if kind == "credit_note" else "filing.locked_return_treatment"
+    key = "filing.locked_return_treatment" if kind == "invoice" else "filing.credit_note_locked_treatment"
     # The treatment in force when the document is finalized (today), not on its date.
     if value_on(tx, key, today) == "roll_forward":
         now = _covering(tx, gstin, kind, today, supply_class, taxable_value, today)
