@@ -272,7 +272,7 @@ def test_the_cancel_fields_are_escaped(field):
     (NOTE, "CREDIT NOTE", "Credit note number"),
     ({**NOTE, "kind": "debit_note"}, "DEBIT NOTE", "Debit note number"),
 ])
-def test_a_live_document_is_titled_as_such_and_has_no_practice_marks(note, title, label):  # #477, D-119
+def test_a_live_document_is_titled_as_such_and_has_no_practice_marks(note, title, label):  # #477, D-121
     html = template.render_html(full_doc(practice=False, note=note, number="INV/26-11/000001"))
     assert f"<h1>{title}</h1>" in html and f"{label}: INV/26-11/000001" in html
     assert "PRACTICE" not in html and "practice" not in html.lower().replace(".practice {", "")

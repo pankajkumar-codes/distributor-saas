@@ -372,7 +372,7 @@ def get_numbering(uow: BusinessUoW, clock: Today) -> NumberingOut:
 
 @router.post("/numbering/live", dependencies=EDIT)
 def turn_on_live_numbering(uow: BusinessUoW, clock: Today) -> NumberingOut:
-    """Turns on live numbering for this business (#477, D-119): from now on its invoices, credit notes and debit notes
+    """Turns on live numbering for this business (#477, D-121): from now on its invoices, credit notes and debit notes
     get live numbers (INV/YY-MM/NNNNNN) and go into GST filing. Owner only, refused while the platform switch for live
     numbers is off, and not undone here. Calling it again changes nothing."""
     if uow.principal.role != "owner":

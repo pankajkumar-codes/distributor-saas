@@ -4,7 +4,7 @@ Written by app.modules.sales.document_pdf from the stored, insert-only document,
 live profile, customer or product data. The fields follow team/gst/document-fields.md §1
 (CGST Rule 46) so far as the document has them. A practice document (`practice` true) says so at
 the top, in a box and in a PRACTICE watermark on every page: "PRACTICE INVOICE, NOT A TAX
-INVOICE". A live one (`practice` false: live numbering, #477, D-119) is the same layout titled
+INVOICE". A live one (`practice` false: live numbering, #477, D-121) is the same layout titled
 TAX INVOICE, CREDIT NOTE or DEBIT NOTE, with its number labelled as such and no practice marks.
 
 Layout (#450, LLM council 2026-11-26, D-112): title and copy label; Seller | Bill to (Ship to
@@ -43,7 +43,7 @@ and the template does no arithmetic.
 
 from .template import LINE_STYLE, MAX_LINES, _bill_to, _lines_table, _list, _obj, _party, _t
 
-# Live documents (#477, D-119): Rule 46 tax invoice, Rule 53(1A) credit and debit notes.
+# Live documents (#477, D-121): Rule 46 tax invoice, Rule 53(1A) credit and debit notes.
 LIVE_TITLE = {None: "TAX INVOICE", "credit_note": "CREDIT NOTE", "debit_note": "DEBIT NOTE"}
 LIVE_NUMBER_LABEL = {None: "Invoice number", "credit_note": "Credit note number", "debit_note": "Debit note number"}
 PRACTICE_TITLE = "PRACTICE INVOICE, NOT A TAX INVOICE"

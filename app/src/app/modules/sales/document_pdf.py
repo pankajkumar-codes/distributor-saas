@@ -9,7 +9,7 @@ live profile, customer or product. Asking again gives the same job and the same 
 the last attempt failed does a new request make a new attempt: the job's natural key is
 `<document id>:<attempt>`, and the earlier failed jobs stay as the record.
 
-A practice document's page says so in its title, a box and a watermark; a live one (#477, D-119) is titled tax
+A practice document's page says so in its title, a box and a watermark; a live one (#477, D-121) is titled tax
 invoice, credit note or debit note (renderer/document_template.py). The PDF is
 made on request, not queued by finalize, so a finalize never waits on the renderer.
 A cancelled invoice's PDF says CANCELLED with the date and reason (#468). Cancelling is the one thing that changes

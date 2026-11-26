@@ -133,7 +133,7 @@ def set_numbering(uow, sent: dict[str, dict], *, scope: str, max_length: int) ->
 
 
 def set_live(uow) -> Numbering:
-    """Turns on live numbering for the bound business (#477, BH-5, D-119): invoices, credit notes and debit notes all
+    """Turns on live numbering for the bound business (#477, BH-5, D-121): invoices, credit notes and debit notes all
     leave practice mode, keeping their saved or default prefixes. It can't be undone here, because a live number is a
     legal document number and its series must carry on. Calling it again changes nothing and writes no audit row."""
     tx, p = uow.tx, uow.principal

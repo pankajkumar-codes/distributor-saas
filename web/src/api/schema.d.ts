@@ -963,7 +963,7 @@ export interface paths {
         put?: never;
         /**
          * Turn On Live Numbering
-         * @description Turns on live numbering for this business (#477, D-119): from now on its invoices, credit notes and debit notes
+         * @description Turns on live numbering for this business (#477, D-121): from now on its invoices, credit notes and debit notes
          *     get live numbers (INV/YY-MM/NNNNNN) and go into GST filing. Owner only, refused while the platform switch for live
          *     numbers is off, and not undone here. Calling it again changes nothing.
          */

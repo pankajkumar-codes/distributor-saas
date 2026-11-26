@@ -80,7 +80,7 @@ button does nothing here either. To try it, start the demo with the switch:
 ./demo.sh --finalize       # Windows: .\demo.ps1 -Finalize
 ```
 
-This turns on finalize and makes live numbering available (#477, D-119). Every business starts in practice mode (`PR-0001`
+This turns on finalize and makes live numbering available (#477, D-121). Every business starts in practice mode (`PR-0001`
 numbers, never in GST filing). To issue live numbers:
 
 1. **Settings > Company > Turnover and e-invoicing:** answer the e-invoicing question ("No" for a small business). While it
@@ -92,7 +92,7 @@ numbers, never in GST filing). To issue live numbers:
 
 > **Demo only.** Both switches are turned on in this demo's own throwaway database and nowhere else, and everything is
 > forgotten when the demo stops. The switches are not available in staging or production configuration, and stay off there
-> until Pankaj approves them (D-010, D-044, D-119). Without the flag the demo behaves as the product ships.
+> until Pankaj approves them (D-010, D-044, D-121). Without the flag the demo behaves as the product ships.
 
 ### Windows with WSL (an alternative that is partly verified)
 

@@ -147,7 +147,7 @@ def test_live_numbering_is_refused_while_the_platform_switch_is_off(nov27):  # #
     assert scalar(pg.owner, "select count(*) from business.series_settings where business_id = :b", b=bid) == 0
 
 
-def test_the_owner_turns_on_live_numbering_for_all_three_kinds_once(platform_live):  # #477, D-119
+def test_the_owner_turns_on_live_numbering_for_all_three_kinds_once(platform_live):  # #477, D-121
     pg, bid = platform_live
     assert put(pg, bid, {"credit_note": {"prefix": "SCN"}}).status_code == 200
     assert get(pg, bid).json()["live_available"] is True
