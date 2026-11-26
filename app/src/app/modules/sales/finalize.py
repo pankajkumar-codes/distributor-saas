@@ -29,9 +29,23 @@ from platform_common.uow import UnitOfWork
 from . import drafts
 from .compute import Computation, Issue
 
-# L4-2's default: one series per GSTIN, document kind and FY. The only scope refdata may
-# name today; another one needs code here and a migration for its unique index.
+# The numbering scopes refdata `sales.numbering_scope` may name (D-010). L4-2's first one: a series per GSTIN,
+# document kind and FY. Pankaj's (#457, 2026-11-26): a series per GSTIN, kind and month of the invoice date.
 SCOPE_GSTIN_KIND_FY = "gstin_kind_fy"
+SCOPE_GSTIN_KIND_MONTH = "gstin_kind_month"  # #457: INV/YY-MM/NNNNNN, a series per month of the invoice date
+
+
+def monthly_prefix(prefix: str, on: date) -> str:
+    """INV and an invoice dated in November 2026 -> "INV/26-11/". The month is the invoice date's, never the finalize
+    date's."""
+    return f"{prefix}/{on.year % 100:02d}-{on.month:02d}/"
+
+
+def monthly_number_fits(prefix: str, width: int, max_length: int) -> bool:
+    """Whether every number of a monthly series fits Rule 46(b)'s limit (refdata invoice.number.max_length): prefix +
+    "/YY-MM/" + width digits. For the numbering settings to check when they are saved (#457); allocate checks each
+    number again."""
+    return len(monthly_prefix(prefix, date.min)) + width <= max_length
 _DOCUMENT_COLUMNS = (
     "id, draft_id, kind, is_practice, doc_number, doc_date, fy, gstin, supply_class, pos_state_code,"
     " is_inter_state, customer_id, counterparty_name, due_date, taxable_total, cgst_total, sgst_total, utgst,"
@@ -234,34 +248,49 @@ def finalize(uow: UnitOfWork, draft_id: uuid.UUID, if_match: int | None, today: 
 def allocate(
     uow: UnitOfWork, *, gstin: str, kind: str, fy: str, practice: bool, setting: SeriesSetting | None, on: date
 ) -> tuple[uuid.UUID, str]:
-    """The next number in the series the configured scope picks (D-030): the FY's series
-    row is created on first use with the prefix in force then (L4-2), then locked FOR
-    UPDATE and advanced by one. A rollback leaves next_value where it was."""
+    """The next number in the series the configured scope picks (D-030). The series row is created on first use with
+    the prefix in force then (L4-2), then locked FOR UPDATE and advanced by one. A rollback leaves next_value where it
+    was. Practice numbers are always one series per FY (PR-0001). Live numbers follow `sales.numbering_scope`:
+    gstin_kind_fy, one series per FY; or gstin_kind_month (#457, Pankaj's decision, D-114), one series per month of the
+    invoice date, numbered <prefix>/YY-MM/NNNNNN (INV/26-11/000001) and restarting at 1 each month."""
     tx = uow.tx
-    scope = value_on(tx, "sales.numbering_scope", on)
-    if scope != SCOPE_GSTIN_KIND_FY:
-        raise RuntimeError(f"numbering scope {scope!r} is not built")  # refdata allows only the one
+    month = ""
     if practice:
         series_kind = "practice"
         prefix = value_on(tx, "sales.practice_prefix", on)
         width = value_on(tx, "sales.practice_width", on)
         first = 1
-    else:  # F2; unreachable in F1
+    else:
         assert setting is not None
+        scope = value_on(tx, "sales.numbering_scope", on)
+        if scope not in (SCOPE_GSTIN_KIND_FY, SCOPE_GSTIN_KIND_MONTH):
+            raise RuntimeError(f"numbering scope {scope!r} is not built")
         series_kind, prefix, width, first = kind, setting.prefix, setting.width, setting.first_value
-    key = {"b": _business(uow), "g": gstin, "k": series_kind, "fy": fy}
+        if scope == SCOPE_GSTIN_KIND_MONTH:
+            month = f"{on.year:04d}-{on.month:02d}"
+            prefix = monthly_prefix(setting.prefix, on)
+            # first_value continues a series begun in other software: only the FY's first series of this kind uses it.
+            earlier = tx.execute(
+                text(
+                    "select 1 from sales.number_series where business_id = :b and gstin = :g and kind = :k"
+                    " and fy = :fy limit 1"
+                ),
+                {"b": _business(uow), "g": gstin, "k": kind, "fy": fy},
+            ).first()
+            first = 1 if earlier is not None else first
+    key = {"b": _business(uow), "g": gstin, "k": series_kind, "fy": fy, "m": month}
     tx.execute(
         text(
-            "insert into sales.number_series (id, business_id, gstin, kind, fy, prefix, width, next_value)"
-            " values (:id, :b, :g, :k, :fy, :prefix, :width, :first)"
-            " on conflict (business_id, gstin, kind, fy) do nothing"
+            "insert into sales.number_series (id, business_id, gstin, kind, fy, month, prefix, width, next_value)"
+            " values (:id, :b, :g, :k, :fy, :m, :prefix, :width, :first)"
+            " on conflict (business_id, gstin, kind, fy, month) do nothing"
         ),
         {**key, "id": uuid7(), "prefix": prefix, "width": width, "first": first},
     )
     series_id, prefix, width, value = tx.execute(
         text(
             "select id, prefix, width, next_value from sales.number_series"
-            " where business_id = :b and gstin = :g and kind = :k and fy = :fy for update"
+            " where business_id = :b and gstin = :g and kind = :k and fy = :fy and month = :m for update"
         ),
         key,
     ).one()

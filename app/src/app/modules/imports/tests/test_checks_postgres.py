@@ -44,7 +44,8 @@ def test_a_clean_invoice_has_only_the_standing_unconfirmed_values_finding_and_th
     assert codes(fs) == ["C-08", "C-16"]  # C-08: Table 13 is not confirmed yet (it is confirmed by the person, not read from the file)
     c16 = next(f for f in fs if f.code == "C-16")
     assert c16.level == "warn" and c16.needs_ca_check
-    assert "the rules for invoice numbers" in c16.message and "invoice.number" not in c16.message
+    assert "the format of an HSN code" in c16.message and "invoice.number" not in c16.message
+    assert "the rules for invoice numbers" not in c16.message  # confirmed by the GST CA expert (CA-7, #457)
 
 
 def test_a_tax_that_is_not_taxable_times_rate_is_shown_with_the_difference_never_blocked(shop):  # noqa: F811
