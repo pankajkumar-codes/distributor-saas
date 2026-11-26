@@ -74,6 +74,30 @@ These sharpen the priorities above for the approved design (docs/ARCHITECTURE.md
 - Verification codes and share tokens are stored only as hashes.
 - Nothing secret is kept in the repo.
 
+## Rate limits (D-120, #472)
+
+Three layers, outermost first:
+
+1. **API Gateway stage throttle** (`infra/modules/api`): 50 requests a second, burst 100, for the whole API, and 10 a
+   second, burst 20, for `/api/v1/auth/*`. Shared by every caller, so it protects the servers, not one user from
+   another. Not exercised until the first AWS deploy; the local demo has no API Gateway.
+2. **Lambda reserved concurrency** (`infra/modules/function`, `reserved_concurrency`): caps how many copies run, and
+   so the bill. To be set once the account's concurrency limit is raised (P-4).
+3. **App limits** (`platform.rate_counters`, numbers in refdata so they change without a release, 429 with
+   Retry-After):
+   - before sign-in, per email and per IP address: sign-up and reset codes, code checks, sign-in, two-step codes,
+     token refresh (`auth.*`);
+   - per user: GSTIN lookup; per business: team invites (20 a day); support TOTP recovery (`support.*`);
+   - per user per business, every write route and the heavy reads (`app/ratelimits.py`, `ratelimit.*`): PDFs 120 an
+     hour, exports 30, upload steps 120, return rebuilds 60, issuing or cancelling documents 300, invoice-form
+     estimates 3000, any other change 1200. `app/tests/test_ratelimits.py` fails when a write route is in neither
+     `LIMITS` nor `NO_LIMIT` (with a reason).
+
+Counting is per user and per business on purpose: a count per business alone would let a stranger who calls another
+business's routes (and gets 404) use up that business's allowance. Plain page reads have no app counter (each counter
+is a database write); the gateway throttle covers them. No AWS WAF yet: WAF cannot attach to an HTTP API, so it would
+need a REST API or CloudFront in front (D-094); revisit before go-live or on signs of abuse.
+
 ## Data residency (D-094)
 Tenant data, files, backups and logs that hold them stay in AWS Mumbai (ap-south-1) and Hyderabad (ap-south-2). No replication, backup copy, multi-region key or global inference profile; no third-party service receives tenant data unless it processes it in India and the decision is recorded. The CI check `scripts/ci_checks/india_only.py` fails the build on any other region name or cross-region construct; the only exception is the CloudFront certificate in `us-east-1`. CloudFront serves only public static files; the API is a regional API Gateway endpoint in Mumbai (D-096), and sets its own security headers. Real tenant data never goes to GitHub, CI, AI sessions or shared project files.
 

@@ -40,6 +40,15 @@ BOOTSTRAP = REPO / "migrator" / "migrator" / "bootstrap.sql"
 LOCAL_ONLY = REPO / "migrator" / "local_only.sql"
 
 
+def _no_throttle(monkeypatch, app_api) -> None:
+    """These databases are built without refdata (and SQLite has no rate counters), so the per-user API limits
+    (app/ratelimits.py, #472) are switched off here. They are tested on the full local database in
+    catalog/tests/test_ratelimits_postgres.py; identity's own auth limits are untouched."""
+    from app.ratelimits import throttle
+
+    monkeypatch.setitem(app_api.app.dependency_overrides, throttle, lambda: None)
+
+
 @pytest.fixture()
 def client(monkeypatch):
     from sqlalchemy import create_engine
@@ -59,6 +68,7 @@ def client(monkeypatch):
     monkeypatch.setattr(main, "engine", lambda: eng)
     main._factory.cache_clear()
     Base.metadata.create_all(eng.execution_options(schema_translate_map={"identity": None}))
+    _no_throttle(monkeypatch, app_api)
     yield TestClient(app_api.app)
     main._factory.cache_clear()
 
@@ -119,6 +129,7 @@ def pg_client(monkeypatch):
     from platform_common import uow as uow_mod
 
     uow_mod.set_session_factory(sessionmaker(bind=svc, expire_on_commit=False))
+    _no_throttle(monkeypatch, app_api)
     yield TestClient(app_api.app), svc
     uow_mod.set_session_factory(None)
     main._factory.cache_clear()

@@ -1,0 +1,79 @@
+# Per-user, per-business hourly limits on API writes and heavy reads (#472, D-120; app/ratelimits.py).
+# Product rules sized well above what one person does by hand; provisional until the PO confirms them.
+
+- key: ratelimit.render_per_user_per_business_per_hour
+  value: "120"
+  type: integer
+  kind: product
+  valid_from: 2017-07-01
+  source_url: team/staff-engineer/rate-limit-plan-2026-11-26.md
+  source_title: "Rate limits for every API: review and plan (Staff Engineer, approved by Pankaj 2026-11-26)"
+  last_checked: 2026-11-26
+  status: provisional
+  note: "Calls one user may make in an hour for one business: PDFs made (invoice, draft preview, GSTR-3B worksheet). Past it: 429 with Retry-After."
+
+- key: ratelimit.export_per_user_per_business_per_hour
+  value: "30"
+  type: integer
+  kind: product
+  valid_from: 2017-07-01
+  source_url: team/staff-engineer/rate-limit-plan-2026-11-26.md
+  source_title: "Rate limits for every API: review and plan (Staff Engineer, approved by Pankaj 2026-11-26)"
+  last_checked: 2026-11-26
+  status: provisional
+  note: "Calls one user may make in an hour for one business: exports and downloads built from a period or log (audit log, period files, return exports, worksheet Excel, lock file). Past it: 429 with Retry-After."
+
+- key: ratelimit.upload_per_user_per_business_per_hour
+  value: "120"
+  type: integer
+  kind: product
+  valid_from: 2017-07-01
+  source_url: team/staff-engineer/rate-limit-plan-2026-11-26.md
+  source_title: "Rate limits for every API: review and plan (Staff Engineer, approved by Pankaj 2026-11-26)"
+  last_checked: 2026-11-26
+  status: provisional
+  note: "Calls one user may make in an hour for one business: upload steps (start and complete count one each, so about 60 files an hour). Past it: 429 with Retry-After."
+
+- key: ratelimit.rebuild_per_user_per_business_per_hour
+  value: "60"
+  type: integer
+  kind: product
+  valid_from: 2017-07-01
+  source_url: team/staff-engineer/rate-limit-plan-2026-11-26.md
+  source_title: "Rate limits for every API: review and plan (Staff Engineer, approved by Pankaj 2026-11-26)"
+  last_checked: 2026-11-26
+  status: provisional
+  note: "Calls one user may make in an hour for one business: return worksheet rebuilds and acceptance checks. Past it: 429 with Retry-After."
+
+- key: ratelimit.issue_per_user_per_business_per_hour
+  value: "300"
+  type: integer
+  kind: product
+  valid_from: 2017-07-01
+  source_url: team/staff-engineer/rate-limit-plan-2026-11-26.md
+  source_title: "Rate limits for every API: review and plan (Staff Engineer, approved by Pankaj 2026-11-26)"
+  last_checked: 2026-11-26
+  status: provisional
+  note: "Calls one user may make in an hour for one business: invoices finalized and credit notes, debit notes or cancels issued. Past it: 429 with Retry-After."
+
+- key: ratelimit.estimate_per_user_per_business_per_hour
+  value: "3000"
+  type: integer
+  kind: product
+  valid_from: 2017-07-01
+  source_url: team/staff-engineer/rate-limit-plan-2026-11-26.md
+  source_title: "Rate limits for every API: review and plan (Staff Engineer, approved by Pankaj 2026-11-26)"
+  last_checked: 2026-11-26
+  status: provisional
+  note: "Calls one user may make in an hour for one business: live totals on the invoice form (asked for after typing settles). Past it: 429 with Retry-After."
+
+- key: ratelimit.write_per_user_per_business_per_hour
+  value: "1200"
+  type: integer
+  kind: product
+  valid_from: 2017-07-01
+  source_url: team/staff-engineer/rate-limit-plan-2026-11-26.md
+  source_title: "Rate limits for every API: review and plan (Staff Engineer, approved by Pankaj 2026-11-26)"
+  last_checked: 2026-11-26
+  status: provisional
+  note: "Calls one user may make in an hour for one business: any other change (customers, products, drafts, settings, team, own account): 20 a minute. Past it: 429 with Retry-After."
