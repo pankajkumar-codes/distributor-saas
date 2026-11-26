@@ -164,7 +164,7 @@ POST /b already reads `identity.max_owned_businesses` (5, provisional; **Pankaj 
 
 ## Finalize (S5, D-044)
 - **Turning finalize on (CA, then CEO or Pankaj):** refdata `sales.finalize.enabled` ships `"false"`, so finalize is a 404 and issues no numbers. Flip it with a new row only after the CA confirms the invoice-numbering scope (D-010, CA-1). The scope the code uses today is `sales.numbering_scope` = `gstin_kind_fy` (LLD-4 L4-2), provisional; another scope would need code and a migration for its unique index.
-- **F1 is practice only.** No `series_settings` row, or `practice_mode` true, gives a practice document (`PR-0001`, refdata `sales.practice_prefix` and `sales.practice_width`, both provisional product rows). A business set to live numbering gets 422 `live_numbering_unavailable` until F2 (return assignment through the Senior's filing interface, `lock_gstin`, the e-invoicing block). The settings screen that writes `series_settings` also comes later.
+- **F1 is practice only.** No `series_settings` row, or `practice_mode` true, gives a practice document (`PR-0001`, refdata `sales.practice_prefix` and `sales.practice_width`, both provisional product rows). A business set to live numbering gets 422 `live_numbering_unavailable` until F2 (return assignment through the Senior's filing interface, `lock_gstin`, the e-invoicing block). The settings screen writes prefixes (#461), and the owner turns live numbering on there (#477, D-119).
 - **Not yet in F1:** the PDF render job after finalize, the `invoice.first` usage event, and branding in the snapshot (empty until LLD-1's branding table lands). A document's `print` holds the seller and buyer as they were at finalize.
 
 ## Invoice drafts (S4) items waiting on the GST expert, CA or PO

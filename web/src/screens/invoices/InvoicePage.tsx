@@ -41,12 +41,10 @@ import { useFormKey } from "../../kit/formKey";
 import { useSingleFlight } from "../../kit/singleFlight";
 import { NoAccess } from "../../kit/NoAccess";
 import { useDebounced } from "../../kit/useDebounced";
+import { usePracticeMode } from "../../kit/useNumbering";
 
 type Product = components["schemas"]["ProductOut"];
 type Computation = components["schemas"]["ComputationOut"];
-
-// Invoice numbering is off until the CA confirms it (D-010), so every invoice made here is a practice one and the button says so.
-const PRACTICE_ONLY = true;
 
 type Stock = components["schemas"]["StockPageOut"];
 type SavedLine = Draft["lines"][number];
@@ -108,6 +106,8 @@ export function InvoicePage() {
   const businesses = useMyBusinesses();
   const business = businesses.data?.find((b) => b.business_id === businessId);
   const states = useStateCodes();
+  // Practice until the owner turns on live numbering (#477): the button, the chip and the preview say so.
+  const { practice: practiceOnly, liveAvailable } = usePracticeMode(businessId);
   const formKey = useFormKey(`invoice:${businessId}`); // one create, however many times Save is pressed or the page is rebuilt
   const once = useSingleFlight();
   const [form, setForm] = useState<Form | null>(draftId ? null : blankForm());
@@ -490,13 +490,19 @@ export function InvoicePage() {
       <main className="page page-wide invpage">
         <div className="invhead">
           <h1>{draftId ? "Draft invoice" : "New invoice"}</h1>
-          {PRACTICE_ONLY && (
+          {practiceOnly && (
             <span className="chip chip-warn">Practice mode</span>
           )}
           <span className="hint">
             Draft · gets its number when you create it.
-            {PRACTICE_ONLY &&
+            {practiceOnly &&
               " Practice invoices get a PR- number, are not for your customers and never go into GST filing."}
+            {practiceOnly && liveAvailable && (
+              <>
+                {" "}
+                <Link to={`/b/${businessId}/settings/numbering`}>Turn on live numbering</Link>
+              </>
+            )}
           </span>
         </div>
         {stale && (
@@ -962,7 +968,7 @@ export function InvoicePage() {
                 disabled={createOff}
                 onClick={createInvoice}
               >
-                {PRACTICE_ONLY ? "Create practice invoice" : "Create invoice"}
+                {practiceOnly ? "Create practice invoice" : "Create invoice"}
               </Button>
               <Button
                 type="submit"
@@ -989,7 +995,7 @@ export function InvoicePage() {
                     ? `Total as last saved: ${saved.total ? formatRupees(saved.total) : "—"}. Save to see the tax and any checks.`
                     : dirty && saved
                       ? "Totals include your changes. Save draft to keep them and see any checks."
-                      : PRACTICE_ONLY
+                      : practiceOnly
                         ? "Makes a practice invoice with a PR- number: not for your customer, locked once made."
                         : "Gives the invoice its number and locks it; later changes need a credit note."}
                 </span>
@@ -1046,7 +1052,7 @@ export function InvoicePage() {
             <Paper
               c={shown ?? c}
               stale={!shown}
-              practice={PRACTICE_ONLY}
+              practice={practiceOnly}
               from={{ name: business.display_name, gstin: business.gstin }}
               to={buyerOnPaper}
               date={form.doc_date || todayIst()}

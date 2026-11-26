@@ -10,6 +10,7 @@ import { formatDateTimeIst } from "../format/dates";
 import { Button } from "./Button";
 import { GlobalSearch } from "./GlobalSearch";
 import { NAV_GROUPS, PHONE_TABS, currentNav, type NavItem } from "./nav";
+import { usePracticeMode } from "./useNumbering";
 import { useReturnLinks } from "./useReturnLinks";
 
 /** Two letters for the brand tile, from the business name ("Vaashi Essentials" gives "VE"). */
@@ -41,6 +42,8 @@ export function TopBar({ title, gstin }: { title?: string; gstin?: string | null
   const support = mine?.role === SUPPORT_ROLE ? mine : undefined;
   const base = businessId && mine ? `/b/${businessId}` : null;
   const returns = useReturnLinks(businessId ?? "", !!base);
+  // #477: the practice label follows the business's own numbering, not a build flag.
+  const numbering = usePracticeMode(base && FEATURES.invoicing ? businessId : undefined);
 
   const show = (item: NavItem) => {
     if (!mine) return false;
@@ -113,8 +116,14 @@ export function TopBar({ title, gstin }: { title?: string; gstin?: string | null
             <strong className="bizname">{title ?? mine.display_name}</strong>
             <GlobalSearch businessId={businessId!} invoices={FEATURES.invoicing && !!mine && canCreateDocuments(mine.role)} />
             <span className="sp" />
-            {FEATURES.invoicing && FEATURES.practiceOnly && (
-              <span className="practice">Practice invoices until numbering is confirmed</span>
+            {FEATURES.invoicing && numbering.practice && (
+              numbering.liveAvailable ? (
+                <Link className="practice" to={`${base}/settings/numbering`}>
+                  Practice mode · Turn on live numbering
+                </Link>
+              ) : (
+                <span className="practice">Practice invoices until numbering is confirmed</span>
+              )
             )}
             {FEATURES.invoicing && canCreateDocuments(mine.role) && (
               <Link className="btn btn-secondary btn-sm top-new" to={`${base}/invoices/new`}>

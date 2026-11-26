@@ -2,11 +2,10 @@
 
 Written by app.modules.sales.document_pdf from the stored, insert-only document, never from
 live profile, customer or product data. The fields follow team/gst/document-fields.md §1
-(CGST Rule 46) so far as the document has them. Until live numbering is approved (the CA
-confirms the scope, D-010), every document is a practice document, and the page says so at
+(CGST Rule 46) so far as the document has them. A practice document (`practice` true) says so at
 the top, in a box and in a PRACTICE watermark on every page: "PRACTICE INVOICE, NOT A TAX
-INVOICE". A document that is not a practice one is refused here, so a live "Tax Invoice" page
-cannot be made before its template has been approved.
+INVOICE". A live one (`practice` false: live numbering, #477, D-119) is the same layout titled
+TAX INVOICE, CREDIT NOTE or DEBIT NOTE, with its number labelled as such and no practice marks.
 
 Layout (#450, LLM council 2026-11-26, D-112): title and copy label; Seller | Bill to (Ship to
 under it); the invoice details; the line table (template.LINE_HEAD: # Description HSN Qty MRP
@@ -24,7 +23,7 @@ A debit note (#456 part 3) is the same with kind "debit_note": its title says de
 A cancelled invoice (#468, #456 part 2) carries `cancelled`: every copy gets a CANCELLED box under the title with the
 cancel date and reason, and a CANCELLED watermark, so the PDF can't pass for a valid invoice.
 
-    {"v": 1, "template": "invoice-document", "practice": true,
+    {"v": 1, "template": "invoice-document", "practice": bool,
      "note"?: {"kind": "credit_note" | "debit_note", "original_number": str, "original_date": str, "reason": str},
      "cancelled"?: {"date": str, "reason": str},
      "number": str, "doc_date": str, "due_date"?: str, "copy_label"?: str, "copies"?: [str],
@@ -44,6 +43,9 @@ and the template does no arithmetic.
 
 from .template import LINE_STYLE, MAX_LINES, _bill_to, _lines_table, _list, _obj, _party, _t
 
+# Live documents (#477, D-119): Rule 46 tax invoice, Rule 53(1A) credit and debit notes.
+LIVE_TITLE = {None: "TAX INVOICE", "credit_note": "CREDIT NOTE", "debit_note": "DEBIT NOTE"}
+LIVE_NUMBER_LABEL = {None: "Invoice number", "credit_note": "Credit note number", "debit_note": "Debit note number"}
 PRACTICE_TITLE = "PRACTICE INVOICE, NOT A TAX INVOICE"
 PRACTICE_NOTICE = (
     "This is a practice document. It is not a tax invoice and its number is not a legal invoice number. "
@@ -183,8 +185,9 @@ def render_html(doc: dict) -> str:
     """The whole page for one render input. Raises ValueError on a malformed input."""
     if _obj(doc) is None or doc.get("v") != 1 or doc.get("template") != "invoice-document":
         raise ValueError("not an invoice-document render input v1")
-    if doc.get("practice") is not True:
-        raise ValueError("only practice invoices can be rendered until live numbering is approved")
+    practice = doc.get("practice")
+    if practice is not True and practice is not False:
+        raise ValueError("practice must be true or false")
     totals = _obj(doc.get("totals"))
     if totals is None:
         raise ValueError("an invoice needs its totals")
@@ -198,7 +201,11 @@ def render_html(doc: dict) -> str:
         title, notice, payable = PRACTICE_DEBIT_TITLE, PRACTICE_DEBIT_NOTICE, "Amount payable"
     else:
         title, notice, payable = PRACTICE_NOTE_TITLE, PRACTICE_NOTE_NOTICE, "Credit amount"
-    details_left = [f"Practice number: {_t(doc.get('number'), optional=False)}",
+    kind = None if note is None else note.get("kind")
+    number_label = "Practice number" if practice else LIVE_NUMBER_LABEL[kind]
+    if not practice:
+        title = LIVE_TITLE[kind]
+    details_left = [f"{number_label}: {_t(doc.get('number'), optional=False)}",
                     f"Date: {_t(doc.get('doc_date'), optional=False)}"]
     if doc.get("due_date") and note is None:
         details_left.append(f"Due date: {_t(doc.get('due_date'))}")
@@ -211,12 +218,12 @@ def render_html(doc: dict) -> str:
     out = [
         '<!doctype html><html lang="en"><meta charset="utf-8">',
         f"<style>{STYLE}{LINE_STYLE}</style><body>",
-        '<div class="wm">PRACTICE</div>',
+        '<div class="wm">PRACTICE</div>' if practice else "",
         '<div class="wm2">CANCELLED</div>' if cancelled else "",
         f'<table class="top"><tr><td><h1>{title}</h1></td>'
         f'<td class="copy">{_t(_copy_label(doc))}</td></tr></table>',
         cancelled,
-        f'<div class="practice">{notice}</div>',
+        f'<div class="practice">{notice}</div>' if practice else "",
         '<table class="parties"><tr>',
         _seller(seller),
         _bill_to(_obj(doc.get("buyer")), _obj(doc.get("ship_to"))),

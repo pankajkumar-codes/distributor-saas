@@ -38,6 +38,7 @@ ALLOWED_DATA: dict[str, frozenset[str]] = {
     "business.frequency_set": frozenset({"frequency", "effective_from", "warnings"}),
     "business.channels_update": frozenset({"enabled"}),
     "business.numbering_update": frozenset({"prefixes"}),  # #461: kind -> prefix, first number; no amounts
+    "business.numbering_live_on": frozenset({"kinds"}),  # #477: the document kinds that left practice mode
     "business.gstin_locked": frozenset(),
     # Team (LLD-2 §4). member.accept is written by identity.auth_accept_invitation.
     "member.invite": frozenset({"role"}),

@@ -7506,7 +7506,7 @@
       },
       "NumberingIn": {
         "additionalProperties": false,
-        "description": "Only the kinds sent change. Live numbering is not switched here.",
+        "description": "Only the kinds sent change. Live numbering is switched by POST /numbering/live, not here.",
         "properties": {
           "credit_note": {
             "anyOf": [
@@ -15909,6 +15909,49 @@
           }
         },
         "summary": "Put Numbering",
+        "tags": [
+          "business"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/numbering/live": {
+      "post": {
+        "description": "Turns on live numbering for this business (#477, D-119): from now on its invoices, credit notes and debit notes\nget live numbers (INV/YY-MM/NNNNNN) and go into GST filing. Owner only, refused while the platform switch for live\nnumbers is off, and not undone here. Calling it again changes nothing.",
+        "operationId": "turn_on_live_numbering_api_v1_b__business_id__numbering_live_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NumberingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Turn On Live Numbering",
         "tags": [
           "business"
         ]

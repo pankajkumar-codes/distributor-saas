@@ -130,3 +130,24 @@ def set_numbering(uow, sent: dict[str, dict], *, scope: str, max_length: int) ->
     audit.record(uow, "business.numbering_update", "business", p.business_id,
                  data={"prefixes": {k: {"prefix": v[0], "first_value": v[1]} for k, v in clean.items()}})
     return numbering(tx)
+
+
+def set_live(uow) -> Numbering:
+    """Turns on live numbering for the bound business (#477, BH-5, D-119): invoices, credit notes and debit notes all
+    leave practice mode, keeping their saved or default prefixes. It can't be undone here, because a live number is a
+    legal document number and its series must carry on. Calling it again changes nothing and writes no audit row."""
+    tx, p = uow.tx, uow.principal
+    current = numbering(tx)
+    if all(not s.practice_mode for s in current.settings):
+        return current
+    for s in current.settings:
+        tx.execute(
+            text("insert into business.series_settings (business_id, kind, prefix, width, first_value, practice_mode,"
+                 " updated_by) values (:b, :k, :p, :w, :f, false, :by) on conflict (business_id, kind) do update"
+                 " set practice_mode = false, updated_at = now(), updated_by = excluded.updated_by"
+                 " where business.series_settings.practice_mode"),
+            {"b": p.business_id, "k": s.kind, "p": s.prefix, "w": s.width, "f": s.first_value, "by": p.user_id},
+        )
+    audit.record(uow, "business.numbering_live_on", "business", p.business_id,
+                 data={"kinds": [s.kind for s in current.settings if s.practice_mode]})
+    return numbering(tx)

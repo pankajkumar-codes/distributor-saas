@@ -35,10 +35,11 @@ const fromSaved = (n: NumberingOut): Record<Kind, Edit> =>
 
 /**
  * Invoice numbering (#461): the prefix of each numbered document type and the invoice series' first number, with the
- * number a new series would start with (D-114: INV/YY-MM/NNNNNN, restarting each month). Live numbering is shown, never
- * switched, here. Anyone who can open Settings can see it; the server decides who can save.
+ * number a new series would start with (D-114: INV/YY-MM/NNNNNN, restarting each month). Anyone who can open Settings can
+ * see it; the server decides who can save. Once the platform offers live numbers, the owner turns them on here (#477):
+ * one step, confirmed, and not undone.
  */
-export function NumberingSection({ businessId, canEdit }: { businessId: string; canEdit: boolean }) {
+export function NumberingSection({ businessId, canEdit, isOwner = false }: { businessId: string; canEdit: boolean; isOwner?: boolean }) {
   const queryClient = useQueryClient();
   const key = ["b", businessId, "numbering"];
   const saved = useQuery<NumberingOut, ApiError>({
@@ -64,6 +65,16 @@ export function NumberingSection({ businessId, canEdit }: { businessId: string; 
     },
   });
 
+  const today = new Date();
+  const [confirming, setConfirming] = useState(false);
+  const goLive = useMutation<NumberingOut, ApiError, void>({
+    mutationFn: () => call(() => api.POST("/api/v1/b/{business_id}/numbering/live", { params: { path: { business_id: businessId } } })),
+    onSuccess: (out) => {
+      queryClient.setQueryData(key, out);
+      setConfirming(false);
+    },
+  });
+
   const problems: Partial<Record<Kind, string>> = {};
   if (n && shown) {
     for (const s of n.series) {
@@ -84,8 +95,6 @@ export function NumberingSection({ businessId, canEdit }: { businessId: string; 
     e.preventDefault();
     if (shown && dirty && ok) save.mutate(shown);
   };
-  const today = new Date();
-
   return (
     <section className="panel" aria-labelledby="numbering">
       <div className="panel-h">
@@ -104,6 +113,32 @@ export function NumberingSection({ businessId, canEdit }: { businessId: string; 
                   : "Live numbering is off: every invoice is a practice one for now."}{" "}
               Each number is the prefix, the month of the document's date and a 6-digit count that starts again each month.
             </p>
+            {!n.live && n.live_available && (
+              <div className="golive">
+                {!isOwner ? (
+                  <p className="hint">Only an owner of this business can turn on live numbering.</p>
+                ) : !confirming ? (
+                  <Button type="button" variant="primary" onClick={() => setConfirming(true)}>
+                    Turn on live numbering
+                  </Button>
+                ) : (
+                  <Banner tone="warn">
+                    <strong>Turn on live numbering?</strong> From now on your invoices, credit notes and debit notes get real
+                    numbers ({previewNumber(n.series.find((x) => x.kind === "invoice")?.prefix ?? "INV", 1, 6, n.scope, today)} and
+                    on), are legal documents for your customers and go into your GST returns. This can't be turned off again.
+                    <div className="actions">
+                      <Button type="button" variant="primary" busy={goLive.isPending} onClick={() => goLive.mutate()}>
+                        Yes, turn on live numbering
+                      </Button>
+                      <Button type="button" variant="secondary" onClick={() => setConfirming(false)}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </Banner>
+                )}
+                {goLive.isError && <Banner tone="error">{errorText(goLive.error)}</Banner>}
+              </div>
+            )}
             {n.series.map((s) => {
               const e = shown[s.kind];
               const first = s.kind === "invoice" ? Number(e.first) || 1 : s.first_number;

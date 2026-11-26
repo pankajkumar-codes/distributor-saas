@@ -9,8 +9,8 @@ live profile, customer or product. Asking again gives the same job and the same 
 the last attempt failed does a new request make a new attempt: the job's natural key is
 `<document id>:<attempt>`, and the earlier failed jobs stay as the record.
 
-Until live numbering is approved (D-010, D-044) every document is a practice document and the
-page says so; the renderer refuses anything else (renderer/document_template.py). The PDF is
+A practice document's page says so in its title, a box and a watermark; a live one (#477, D-119) is titled tax
+invoice, credit note or debit note (renderer/document_template.py). The PDF is
 made on request, not queued by finalize, so a finalize never waits on the renderer.
 A cancelled invoice's PDF says CANCELLED with the date and reason (#468). Cancelling is the one thing that changes
 what the PDF shows, so a PDF made before the cancel is not handed back after it: the next request is a new attempt.
@@ -96,11 +96,13 @@ def status(uow: UnitOfWork, document_id: uuid.UUID, job_id: uuid.UUID) -> dict:
     business = uow.principal.business_id
     if not render.is_rendered(business, job_id):
         return {"status": "rendering"}
-    kind = uow.tx.execute(
-        text("select kind from sales.documents where id = :d and business_id = :b"), {"d": document_id, "b": business},
-    ).scalar_one_or_none()
-    name = {"credit_note": "practice-credit-note.pdf", "debit_note": "practice-debit-note.pdf"}.get(
-        kind, "practice-invoice.pdf")
+    row = uow.tx.execute(
+        text("select kind, is_practice from sales.documents where id = :d and business_id = :b"),
+        {"d": document_id, "b": business},
+    ).one()
+    name = {"credit_note": "credit-note.pdf", "debit_note": "debit-note.pdf"}.get(row.kind, "invoice.pdf")
+    if row.is_practice:
+        name = f"practice-{name}"
     url = get_store().presign_get(business, render.document_key(business, job_id), download_name=name)
     return {"status": "ready", "url": url}
 
@@ -283,8 +285,6 @@ def build(tx, business_id: uuid.UUID, document_id: uuid.UUID) -> dict:
     ).mappings().one_or_none()
     if doc is None:
         raise jobs.JobFailed("document_not_found")
-    if not doc["is_practice"]:
-        raise jobs.JobFailed("live_template_not_approved")
     on, snap = doc["doc_date"], doc["print"]
     lines = _lines(tx, business_id, document_id)
     if doc["is_inter_state"]:
@@ -310,7 +310,7 @@ def build(tx, business_id: uuid.UUID, document_id: uuid.UUID) -> dict:
     cancel = cancellation(tx, business_id, document_id)
     return {
         "template": "invoice-document",
-        "practice": True,
+        "practice": doc["is_practice"],
         "note": note,
         "cancelled": None if cancel is None else {
             "date": cancel.cancelled_at.astimezone(IST).date().isoformat(), "reason": cancel.reason_label},
