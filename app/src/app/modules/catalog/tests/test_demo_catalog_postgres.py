@@ -80,7 +80,7 @@ def test_a_second_run_adds_nothing(shop, capsys):
     pg, biz = shop
     seed._catalog("", str(biz), None)
     seed._catalog("", str(biz), None)
-    assert capsys.readouterr().out.splitlines()[-1] == "demo customers and products: 0 added, 0 given their MRP"
+    assert capsys.readouterr().out.splitlines()[-1] == "demo customers and products: 0 added; all 10 demo products have their MRP (0 older ones filled in on this run)"
     assert len(items(pg, biz, "customers")) == 5 and len(items(pg, biz, "products")) == 10
 
 
@@ -90,6 +90,6 @@ def test_a_demo_product_saved_without_an_mrp_gets_it_on_the_next_run(shop, capsy
     with pg.owner.connect() as c:
         c.execute(text("update catalog.products set mrp = null where code = 'DEMO-CREAM'"))
     seed._catalog("", str(biz), None)
-    assert capsys.readouterr().out.splitlines()[-1] == "demo customers and products: 0 added, 1 given their MRP"
+    assert capsys.readouterr().out.splitlines()[-1] == "demo customers and products: 0 added; all 10 demo products have their MRP (1 older ones filled in on this run)"
     cream = next(p for p in items(pg, biz, "products") if p["code"] == "DEMO-CREAM")
     assert (cream["mrp"], cream["rate_from_mrp"]) == ("413.00", "350.00")

@@ -85,7 +85,7 @@ MSG
     dc logs -f --no-log-prefix --tail 0 codes
     ;;
   stop) check_docker; dc down -v --remove-orphans && echo "The demo is stopped and its data is gone." ;;
-  codes) check_docker; dc logs -f --no-log-prefix --tail 0 codes ;;
+  codes) check_docker; dc logs -f --no-log-prefix --tail 50 codes ;;   # the codes already printed, then new ones
   check)
     check_docker
     dc ps

@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 
 path = Path(sys.argv[1] if len(sys.argv) > 1 else "build/mail/outbox.jsonl")
-hide = os.environ.get("HIDE_EMAIL", "")
+hide = os.environ.get("HIDE_EMAIL", "")  # only this address's SIGN-UP code is hidden
 pos = path.stat().st_size if path.exists() else 0  # only mail that arrives from now on
 print("Watching for sign-up, password-reset and two-step codes and team invitation links. They will appear here.", flush=True)
 while True:
@@ -26,8 +26,8 @@ while True:
                 m = json.loads(line)
             except ValueError:
                 continue
-            if m.get("to") == hide:
-                continue
+            if hide and m.get("to") == hide and m.get("template") == "signup_code":
+                continue  # the seed's own sign-up code for the ready-made account; its two-step code still shows (#447)
             params = m.get("params", {})
             if m["template"] == "invitation" and params.get("link"):
                 # The demo has no real email, so the accept link is printed here (never on the Team page).

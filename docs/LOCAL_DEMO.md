@@ -144,7 +144,8 @@ so you create a business through the sign-up page.
 - **Two-step sign-in** (Settings, Two-step sign-in): an authenticator app on your phone cannot give the right code
   here, because the stand-in has its own code. When you press Turn on, and each time you sign in with it on, the
   demo prints `TWO-STEP CODE for <email>: 123456` in the same terminal as the sign-up codes (`./demo.sh codes`
-  shows them again), and the page says so. Type that code. Real Cognito and a real phone app work as normal
+  shows the ones already printed, then new ones), and the page says so. This works for the ready-made
+  account `demo@example.com` too: only its own sign-up code (made by the demo's setup) is hidden. Type that code. Real Cognito and a real phone app work as normal
   outside the demo. If the page does not answer within 20 seconds it says it could not reach the server.
 - The own-invoice Excel reader is real (R1-M5). Its sample is read, previewed and can be confirmed into documents (R1-M7, step 14 below). The PDF reader arrives in R1-M6. Confirming Amazon, Flipkart or Meesho files is refused on purpose, until the CA settles how their rows are treated.
 - Retention (clean-up of old uploads) is switched off, as it ships.
