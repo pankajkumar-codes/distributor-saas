@@ -112,11 +112,16 @@ GSTR3B_CATEGORIES = ("category_1", "category_2")  # the 22nd and the 24th (issue
 
 def _extension(tx: Session, spec: _Spec, state: str) -> tuple[str, date] | None:
     """A government extension of this return's due date, if a refdata row holds one (issue #424): first one for the
-    GSTIN's state, then one for all states. Keyed by the form and the month the period ends; the value is the new date."""
-    base = f"due.extension.{spec.form.lower()}.p{spec.end:%Y_%m}"
-    for key in (f"{base}.state_{state}", base):
-        if first_valid_from(tx, key) is not None:
-            return key, date.fromisoformat(str(value_on(tx, key, spec.end)).strip())
+    GSTIN's state, then one for all states. Keyed by the form, for GSTR-1 and GSTR-3B the filing frequency (a monthly
+    December return and a QRMP Oct-Dec return both end in December and are extended separately), and the month the
+    period ends; the value is the new date. A row is read on its own first day when that is after the period ends, so
+    a row dated from its notification still applies."""
+    freq = f".{spec.frequency}" if spec.form in ("GSTR1", "GSTR3B") else ""
+    base = f"due.extension.{spec.form.lower()}{freq}.p{spec.end:%Y_%m}"
+    for name in (f"{base}.state_{state}", base):
+        first = first_valid_from(tx, name)
+        if first is not None:
+            return name, date.fromisoformat(str(value_on(tx, name, max(first, spec.end))).strip())
     return None
 
 
@@ -128,7 +133,7 @@ def due_date(tx: Session, spec: _Spec, gstin: str) -> Due:
     state = gstin_state(gstin)
     ext = _extension(tx, spec, state)
     if ext is not None:
-        confirmed, url = provenance_on(tx, ext[0], spec.end)
+        confirmed, url = provenance_on(tx, ext[0], max(first_valid_from(tx, ext[0]), spec.end))
         return Due(ext[1], f"{ext[0]} on {spec.end.isoformat()}", confirmed, url or None)
     if key == "due.gstr3b.quarterly":
         for group in GSTR3B_CATEGORIES:

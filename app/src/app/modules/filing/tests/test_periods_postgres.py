@@ -174,16 +174,16 @@ def test_other_territory_has_no_quarterly_3b_date_never_a_guess(biz):
     assert [i.due_date for i in got if i.form == "GSTR1"] == [date(2027, 1, 13)]
 
 
-def add_extension(pg, key, value):
+def add_extension(pg, key, value, valid_from="2021-01-01"):
     """An extension row, as the migrator would load it, then a loads row so the reader sees it."""
     with pg.owner.connect() as c:
         c.execute(
             text(
                 "insert into refdata.values (key, value, type, kind, valid_from, source_url, source_title, last_checked,"
-                " status, loaded_from) values (:k, :v, 'text', 'tax', '2021-01-01', 'https://example.org', 'test',"
+                " status, loaded_from) values (:k, :v, 'text', 'tax', :f, 'https://example.org', 'test',"
                 " '2026-11-26', 'provisional', 'test')"
             ),
-            {"k": key, "v": value},
+            {"k": key, "v": value, "f": valid_from},
         )
         c.execute(
             text(
@@ -196,19 +196,31 @@ def add_extension(pg, key, value):
 
 def test_an_extension_row_moves_the_date_for_all_states_or_one(biz):
     pg, b, alice = biz
-    add_extension(pg, "due.extension.gstr3b.p2026_12", "2027-01-31")
-    add_extension(pg, "due.extension.gstr3b.p2026_12.state_19", "2027-02-05")
+    add_extension(pg, "due.extension.gstr3b.quarterly.p2026_12", "2027-01-31")
+    add_extension(pg, "due.extension.gstr3b.quarterly.p2026_12.state_19", "2027-02-05", valid_from="2027-01-15")
 
     def got(tx):
         return {g: due_date(tx, Q3, g) for g in ("19AAPFU0939F1ZS", "27AAPFU0939F1ZV", "97AAPFU0939F1Z1")}
 
     d = tx_for(pg, b, alice, got)
-    assert d["19AAPFU0939F1ZS"].date == date(2027, 2, 5)  # the one-state row wins
+    assert d["19AAPFU0939F1ZS"].date == date(2027, 2, 5)  # the one-state row wins, though dated after the period ends
     assert d["27AAPFU0939F1ZV"].date == date(2027, 1, 31)  # the all-states row
     assert d["97AAPFU0939F1Z1"].date == date(2027, 1, 31)  # an extension names a date, so even 97 has one
-    assert d["19AAPFU0939F1ZS"].ref.startswith("due.extension.gstr3b.p2026_12.state_19")
+    assert d["19AAPFU0939F1ZS"].ref.startswith("due.extension.gstr3b.quarterly.p2026_12.state_19")
     other = _Spec("GSTR3B", "quarterly", date(2027, 1, 1), date(2027, 3, 31), "due.gstr3b.quarterly")
     assert tx_for(pg, b, alice, lambda tx: due_date(tx, other, "19AAPFU0939F1ZS")).date == date(2027, 4, 24)  # untouched
+
+
+def test_a_monthly_extension_leaves_the_quarterly_return_ending_that_month_alone(biz):
+    pg, b, alice = biz
+    add_extension(pg, "due.extension.gstr3b.monthly.p2026_12", "2027-01-27")
+    add_extension(pg, "due.extension.gstr1.monthly.p2026_12", "2027-01-15")
+    dec_3b = _Spec("GSTR3B", "monthly", date(2026, 12, 1), date(2026, 12, 31), "due.gstr3b.monthly.day")
+    dec_1 = _Spec("GSTR1", "monthly", date(2026, 12, 1), date(2026, 12, 31), "due.gstr1.monthly.day")
+    q3_1 = _Spec("GSTR1", "quarterly", date(2026, 10, 1), date(2026, 12, 31), "due.gstr1.quarterly.day")
+    g = "19AAPFU0939F1ZS"
+    got = tx_for(pg, b, alice, lambda tx: [due_date(tx, s, g).date for s in (dec_3b, dec_1, Q3, q3_1)])
+    assert got == [date(2027, 1, 27), date(2027, 1, 15), date(2027, 1, 24), date(2027, 1, 13)]
 
 
 def test_ensure_instances_is_idempotent(biz):
