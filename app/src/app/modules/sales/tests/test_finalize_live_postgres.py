@@ -217,3 +217,23 @@ def test_an_owner_who_turns_on_live_numbering_issues_inv_numbers_that_reach_fili
         assert all("Invoice number: INV/26-11/000001" in p for p in pages)
     finally:
         flip_live(pg, False)
+
+
+@pytest.mark.parametrize("practice", [True, False])
+def test_a_document_dated_before_the_numbering_settings_begin_is_a_422_not_a_500(live, practice):  # #494
+    pg, biz = live
+    flip_live(pg, True)
+    if practice:
+        with pg.owner.connect() as c:
+            c.execute(text("update business.series_settings set practice_mode = true"))
+    else:
+        _series_setting(pg, "INV", 6)
+    _clock((2026, 11, 20))
+    d = ready_draft(pg, biz, doc_date="2026-10-20")  # before sales.practice_prefix and sales.numbering_scope (2026-11-09)
+    r = fin(pg, biz, d)
+    assert r.status_code == 422, r.text
+    err = r.json()["error"]
+    assert err["code"] == "doc_date_too_early" and err["field"] == "doc_date"
+    assert "09-Nov-2026" in err["message"]
+    assert counts(pg) == (0, 0, 0, 0)  # no document, no series row, no number, no audit
+    assert fin(pg, biz, ready_draft(pg, biz, doc_date="2026-11-09")).status_code == 200  # the first day works

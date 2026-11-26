@@ -1,5 +1,11 @@
 # Served at /robots.txt for the landing page and the app (same host). Without this file the app's own page
 # answered /robots.txt, which search engines read as an invalid robots file (Lighthouse SEO, #493).
-# Nothing is blocked: the app's screens need a sign-in, so a crawler only ever sees the landing and sign-in pages.
+# The landing page, sign-in and sign-up may be indexed; the API and each business's screens may not (they need a
+# sign-in anyway). Lighthouse marks a page it can't crawl as an SEO failure, so app screens score lower there; that
+# is intended.
 User-agent: *
-Allow: /
+Allow: /$
+Disallow: /api/
+Disallow: /b/
+Disallow: /invite/
+Disallow: /reset

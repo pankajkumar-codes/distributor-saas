@@ -20,7 +20,7 @@ from sqlalchemy.types import JSON
 from app.modules.business.interface import Profile, SeriesSetting, fy_of, get_profile, series_setting
 from app.modules.filing.interface import FREE_INVOICES, invoicing_allowed, target_return_instance
 from app.modules.catalog.interface import customer_snapshot, mark_used, record_sale_out
-from app.modules.refdata import RefdataMissing, value_on
+from app.modules.refdata import RefdataMissing, first_valid_from, value_on
 from platform_common import audit
 from platform_common.errors import AppError, Deny, Invalid
 from platform_common.ids import uuid7
@@ -251,6 +251,28 @@ def finalize(uow: UnitOfWork, draft_id: uuid.UUID, if_match: int | None, today: 
     return document_for_draft(uow, draft_id)
 
 
+_LABELS = {"invoice": "an invoice", "credit_note": "a credit note", "debit_note": "a debit note"}
+
+
+def _refuse_before_settings(tx, *, kind: str, practice: bool, on: date) -> None:
+    """A document dated before the numbering settings it needs begin is refused with a plain 422, not a 500 (#494).
+    The settings are read on the document's date (below); a date before their first row has no value, and backfilling
+    those rows is a separate decision (CEO, 2026-11-27)."""
+    if practice:
+        keys = ("sales.practice_prefix" if kind == "invoice" else f"sales.practice_{kind}_prefix", "sales.practice_width")
+    else:
+        keys = ("sales.numbering_scope",)
+    starts = [d for d in (first_valid_from(tx, k) for k in keys) if d is not None]
+    if starts and on < max(starts):
+        first = max(starts)
+        raise Invalid(
+            "doc_date_too_early",
+            f"Kartaa can't issue {_LABELS.get(kind, 'a document')} dated before {first.strftime('%d-%b-%Y')} yet."
+            f" Change the date to {first.strftime('%d-%b-%Y')} or later.",
+            field="doc_date",
+        )
+
+
 def allocate(
     uow: UnitOfWork, *, gstin: str, kind: str, fy: str, practice: bool, setting: SeriesSetting | None, on: date
 ) -> tuple[uuid.UUID, str]:
@@ -261,6 +283,7 @@ def allocate(
     invoice date, numbered <prefix>/YY-MM/NNNNNN (INV/26-11/000001) and restarting at 1 each month."""
     tx = uow.tx
     month = ""
+    _refuse_before_settings(tx, kind=kind, practice=practice, on=on)
     if practice:
         # Each kind has its own practice series (PR-0001, PR-CN-0001): a credit note never takes an invoice's number.
         series_kind = "practice" if kind == "invoice" else f"practice_{kind}"
