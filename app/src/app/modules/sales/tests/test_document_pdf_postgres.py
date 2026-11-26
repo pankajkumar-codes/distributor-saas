@@ -322,3 +322,27 @@ def test_ship_to_on_the_pdf_carries_a_name(shop, ship, name):  # #452
     job_id = _ask(pg, biz, r.json()).json()["job_id"]
     jobs_q.drain(jobs.handle_message)
     assert _input(store, biz, job_id)["ship_to"]["name"] == name
+
+
+def test_a_cancelled_invoice_pdf_says_cancelled_and_one_made_before_the_cancel_is_not_handed_back(shop):  # #468
+    from .test_debit_notes_postgres import rendered
+
+    pg, biz, _, jobs_q, render_q, store = shop
+    doc = _document(pg, biz)
+    first = _ask(pg, biz, doc).json()
+    jobs_q.drain(jobs.handle_message)
+    assert _input(store, biz, first["job_id"])["cancelled"] is None
+    r = pg.client.post(f"/api/v1/b/{biz}/documents/{doc['id']}/cancel", headers={**h("alice"), "Idempotency-Key": "c1"},
+                       json={"reason": "raised_in_error", "declared_not_delivered": True})
+    assert r.status_code == 200, r.text
+    again = _ask(pg, biz, doc).json()
+    assert again["attempt"] == 2 and again["job_id"] != first["job_id"]
+    assert _ask(pg, biz, doc).json() == again  # asking again after that is the same job
+    jobs_q.drain(jobs.handle_message)
+    body = _input(store, biz, again["job_id"])
+    with pg.owner.connect() as c:
+        day = c.execute(text("select (cancelled_at at time zone 'Asia/Kolkata')::date from sales.document_cancellations"
+                             " where document_id = :d"), {"d": doc["id"]}).scalar_one()
+    assert body["cancelled"] == {"date": day.isoformat(), "reason": "Raised by mistake"}
+    pages = rendered(body)
+    assert len(pages) == 3 and all(f"CANCELLED on {day.isoformat()}: Raised by mistake" in p for p in pages)

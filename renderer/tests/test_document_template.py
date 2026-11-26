@@ -235,3 +235,32 @@ def test_an_unknown_note_kind_is_refused(note):
 def test_the_note_fields_are_escaped(field):
     html = template.render_html(full_doc(note={**NOTE, field: "<script>x</script>"}))
     assert "<script>x</script>" not in html and "&lt;script&gt;" in html
+
+
+CANCELLED = {"date": "2026-11-26", "reason": "Raised by mistake"}
+
+
+def test_a_cancelled_invoice_says_cancelled_on_every_copy():  # #468, #456 part 2
+    htmls = template.render_htmls(full_doc(cancelled=CANCELLED, copies=list(document_template.COPY_LABELS)))
+    assert len(htmls) == 3
+    for html in htmls:
+        assert '<div class="cancelled">CANCELLED on 2026-11-26: Raised by mistake</div>' in html
+        assert '<div class="wm2">CANCELLED</div>' in html
+    assert "CANCELLED" not in template.render_html(full_doc())
+
+
+@pytest.mark.parametrize("bad", [{"date": "2026-11-26"}, {"reason": "x"}, "yes", True])
+def test_a_malformed_cancel_mark_is_refused(bad):
+    with pytest.raises(ValueError):
+        template.render_html(full_doc(cancelled=bad))
+
+
+def test_only_an_invoice_can_be_marked_cancelled():
+    with pytest.raises(ValueError):
+        template.render_html(full_doc(note=NOTE, cancelled=CANCELLED))
+
+
+@pytest.mark.parametrize("field", ["date", "reason"])
+def test_the_cancel_fields_are_escaped(field):
+    html = template.render_html(full_doc(cancelled={**CANCELLED, field: "<script>x</script>"}))
+    assert "<script>x</script>" not in html and "&lt;script&gt;" in html

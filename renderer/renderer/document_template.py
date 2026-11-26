@@ -21,9 +21,12 @@ the original invoice's number and date and the reason, the last line reads "Cred
 NOTE_COPY_LABELS (original and duplicate; the triplicate for the transporter is an invoice rule, Rule 48(1)).
 A debit note (#456 part 3) is the same with kind "debit_note": its title says debit note and its last line reads
 "Amount payable", since it adds to what the buyer owes.
+A cancelled invoice (#468, #456 part 2) carries `cancelled`: every copy gets a CANCELLED box under the title with the
+cancel date and reason, and a CANCELLED watermark, so the PDF can't pass for a valid invoice.
 
     {"v": 1, "template": "invoice-document", "practice": true,
      "note"?: {"kind": "credit_note" | "debit_note", "original_number": str, "original_date": str, "reason": str},
+     "cancelled"?: {"date": str, "reason": str},
      "number": str, "doc_date": str, "due_date"?: str, "copy_label"?: str, "copies"?: [str],
      "seller": {"name", "trade_name"?, "gstin"?, "pan"?, "address": [str], "state"},
      "buyer": {"name"?, "gstin"?, "address": [str], "state"?},
@@ -74,6 +77,10 @@ body { font-family: "Noto Sans", "Noto Sans Devanagari", "Noto Sans Bengali"; fo
 .top td { padding: 0; vertical-align: bottom }
 h1 { font-size: 13pt; margin: 0 }
 .copy { text-align: right; font-size: 8pt; color: #444; string-set: copylabel content() }
+.cancelled { border: 2pt solid #000; padding: 2mm; font-size: 12pt; font-weight: bold; text-align: center;
+  margin-bottom: 3mm }
+.wm2 { position: fixed; top: 160mm; left: 15mm; width: 160mm; text-align: center; font-size: 70pt; font-weight: bold;
+  color: #000; opacity: 0.1; transform: rotate(-35deg) }
 .practice { border: 1.5pt solid #000; padding: 1.5mm; font-weight: bold; text-align: center; margin-bottom: 3mm }
 .parties { width: 100%; border-collapse: collapse; margin-bottom: 2mm }
 .parties td { vertical-align: top; width: 50%; padding: 1.5mm; border: 0.5pt solid #555 }
@@ -106,6 +113,17 @@ def _note(doc: dict) -> dict | None:
     if note is None or note.get("kind") not in ("credit_note", "debit_note"):
         raise ValueError("unknown note kind")
     return note
+
+
+def _cancelled(doc: dict, note: dict | None) -> str:
+    """The CANCELLED box for a cancelled invoice, else nothing. Only an invoice can be cancelled (D-117)."""
+    if doc.get("cancelled") is None:
+        return ""
+    c = _obj(doc.get("cancelled"))
+    if c is None or note is not None:
+        raise ValueError("only an invoice can be marked cancelled")
+    return (f'<div class="cancelled">CANCELLED on {_t(c.get("date"), optional=False)}:'
+            f' {_t(c.get("reason"), optional=False)}</div>')
 
 
 def _labels(doc: dict) -> tuple[str, ...]:
@@ -172,6 +190,7 @@ def render_html(doc: dict) -> str:
     seller = _obj(doc.get("seller"))
     note = _note(doc)
     debit = note is not None and note.get("kind") == "debit_note"
+    cancelled = _cancelled(doc, note)
     if note is None:
         title, notice, payable = PRACTICE_TITLE, PRACTICE_NOTICE, "Amount payable"
     elif debit:
@@ -192,8 +211,10 @@ def render_html(doc: dict) -> str:
         '<!doctype html><html lang="en"><meta charset="utf-8">',
         f"<style>{STYLE}{LINE_STYLE}</style><body>",
         '<div class="wm">PRACTICE</div>',
+        '<div class="wm2">CANCELLED</div>' if cancelled else "",
         f'<table class="top"><tr><td><h1>{title}</h1></td>'
         f'<td class="copy">{_t(_copy_label(doc))}</td></tr></table>',
+        cancelled,
         f'<div class="practice">{notice}</div>',
         '<table class="parties"><tr>',
         _seller(seller),
