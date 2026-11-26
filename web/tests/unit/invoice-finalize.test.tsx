@@ -246,6 +246,11 @@ describe("the issued invoice page", () => {
     show({});
     expect(await screen.findByRole("heading", { name: "Invoice issued PI-2026-27-0001" })).toBeInTheDocument();
     const parties = screen.getByRole("region", { name: "Parties" });
+    // #444: Items sit under Parties in the same column; Totals are beside them
+    const items = screen.getByRole("region", { name: "Items" });
+    expect(items.parentElement).toBe(parties.parentElement);
+    expect(parties.compareDocumentPosition(items) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Totals" }).parentElement).not.toBe(parties.parentElement);
     expect(parties).toHaveTextContent(/Sharma Traders\s*GSTIN 19AAAAA0000A1Z5/);
     expect(screen.getByText(/12 Market Road, Howrah 711101/)).toBeInTheDocument();
     expect(parties).toHaveTextContent(/West Bengal \(19\) · Within the state/);
