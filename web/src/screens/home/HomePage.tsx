@@ -397,7 +397,7 @@ export function HomePage() {
             </ul>
           </Banner>
         )}
-        {home.isPending && <Loading query={home} />}
+        {home.isPending ? <Loading query={home} /> : filing && returns.isPending && <Loading query={returns} />}
         {home.error && (
           <Banner tone="error">
             {errorText(home.error)}{" "}
@@ -406,7 +406,9 @@ export function HomePage() {
             </Button>
           </Banner>
         )}
-        {data && step && (
+        {/* The grid waits for the filing dates too (#493): drawn first with no dates, the timeline grew when they
+            came and pushed the panel below it down, a layout shift Lighthouse scored 0.19 on a phone. */}
+        {data && step && !(filing && returns.isPending) && (
           <div className="homegrid">
             <NextStepCard step={step} />
             <div>

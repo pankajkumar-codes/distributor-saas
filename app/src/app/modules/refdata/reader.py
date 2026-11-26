@@ -63,6 +63,20 @@ _lock = threading.Lock()
 _snapshot: _Snapshot | None = None
 
 
+def _load_id(tx: Session):
+    """The latest refdata.loads id, asked once per transaction (#492). A request reads many values (an invoice of one
+    line read about 26), and each used to ask again: a third of the statements an invoice save sent. Within one
+    transaction the answer is the transaction's own view, so the first answer stands until it ends; the next
+    transaction asks again and so still sees a migrator load at once."""
+    current = tx.get_transaction()
+    cached = tx.info.get("refdata_load")
+    if current is not None and cached is not None and cached[0] is current:
+        return cached[1]
+    load_id = tx.execute(text("select id from refdata.loads order by at desc, id limit 1")).scalar()
+    tx.info["refdata_load"] = (tx.get_transaction(), load_id)
+    return load_id
+
+
 def _current(tx: Session) -> _Snapshot:
     global _snapshot
     # Races, all benign: two requests that miss together both rebuild and the last
@@ -71,7 +85,7 @@ def _current(tx: Session) -> _Snapshot:
     # with the older id but holding newer rows; the next call sees the newer id and
     # rebuilds. Each table is read by one statement, so each is consistent in itself, and
     # values and state codes don't depend on each other.
-    load_id = tx.execute(text("select id from refdata.loads order by at desc, id limit 1")).scalar()
+    load_id = _load_id(tx)
     snap = _snapshot
     if snap is not None and snap.load_id == load_id:
         return snap

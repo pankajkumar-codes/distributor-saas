@@ -103,15 +103,41 @@ def test_first_valid_from_tells_an_early_date_from_a_missing_key(tx):
     assert first_valid_from(tx, "no.such.key") is None
 
 
-def test_a_new_load_is_seen_by_the_next_call_and_dates_pick_the_row(engines, tx):
+def test_a_new_load_is_seen_by_the_next_transaction_and_dates_pick_the_row(engines, tx):
+    # Each request is one transaction, so ending it (tx.rollback()) is "the next request".
     _, admin = engines
     add_row(admin, "test.rate", "0.05", "decimal", "2026-01-01", "2026-11-01")
     assert value_on(tx, "test.rate", TODAY) == Decimal("0.05")
+    tx.rollback()
     add_row(admin, "test.rate", "0.06", "decimal", "2026-11-01")
     assert value_on(tx, "test.rate", dt.date(2026, 10, 31)) == Decimal("0.05")
     assert value_on(tx, "test.rate", dt.date(2026, 11, 1)) == Decimal("0.06")
+    tx.rollback()
     add_row(admin, "test.flag", "true", "boolean", "2026-01-01")
     assert value_on(tx, "test.flag", TODAY) is True
+
+
+def test_the_load_id_is_asked_once_per_transaction(engines, tx):
+    """#492: an invoice save read refdata ~26 times and asked for the load id each time. Now the first answer in a
+    transaction stands until it ends, and the next transaction asks again."""
+    _, admin = engines
+    asked = []
+    listen = lambda *a: asked.append(a[2]) if "refdata.loads" in a[2] else None  # noqa: E731
+    from sqlalchemy import event
+
+    event.listen(engines[0], "before_cursor_execute", listen)
+    try:
+        for _ in range(5):
+            value_on(tx, "auth.code_ttl_minutes", TODAY)
+        assert len(asked) == 1
+        add_row(admin, "test.later", "1", "integer", "2026-01-01")
+        with pytest.raises(RefdataMissing):
+            value_on(tx, "test.later", TODAY)  # same transaction: the load it started with
+        tx.rollback()
+        assert value_on(tx, "test.later", TODAY) == 1  # next transaction: the new load
+        assert len(asked) == 2
+    finally:
+        event.remove(engines[0], "before_cursor_execute", listen)
 
 
 def test_require_confirmed_wants_the_right_party_for_the_kind(engines, tx):
@@ -120,6 +146,7 @@ def test_require_confirmed_wants_the_right_party_for_the_kind(engines, tx):
         require_confirmed(tx, "auth.code_ttl_minutes", TODAY)  # provisional
     add_row(admin, "test.product_ok", "1", "integer", "2026-01-01", status="po_confirmed")
     add_row(admin, "test.tax_ok", "1", "integer", "2026-01-01", status="ca_confirmed", kind="tax")
+    tx.rollback()  # the next request sees the new load (#492)
     require_confirmed(tx, "test.product_ok", TODAY)
     require_confirmed(tx, "test.tax_ok", TODAY)
 
