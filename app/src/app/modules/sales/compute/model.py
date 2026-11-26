@@ -54,7 +54,7 @@ class Rules:
     """Refdata in force on doc_date (LLD-4 §3, refdata-lld4.md)."""
 
     rounding_mode: str  # invoice.rounding_mode
-    round_off_line: bool  # invoice.round_off_line
+    round_off_line: bool  # invoice.round_to_rupee (D-111)
     utgst_state_codes: frozenset[str]  # gst.utgst_state_codes
     b2cl_threshold: Decimal  # gstr1.b2cl_threshold
     unregistered_address_threshold: Decimal  # invoice.unregistered_address_threshold

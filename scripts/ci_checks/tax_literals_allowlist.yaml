@@ -110,7 +110,7 @@
   reason: "MAX_CHARGES, the most extra charges (freight, packing) on one draft; an abuse limit, not a tax rule"
 - path: app/src/app/modules/sales/compute/core.py
   value: "1"
-  reason: "Decimal(1) is the rupee quantum for the round-off line, as 0.01 is the paise quantum; the line itself is refdata invoice.round_off_line"
+  reason: "Decimal(1) is the rupee quantum for the round-off line, as 0.01 is the paise quantum; the line itself is refdata invoice.round_to_rupee"
 - path: app/src/app/modules/sales/compute/core.py
   value: "2"
   reason: "CGST and SGST/UTGST each take half the rate (LLD-4 §3.2 step 5); the rate itself comes from product data"

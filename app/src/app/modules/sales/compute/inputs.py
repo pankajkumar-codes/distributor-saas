@@ -94,7 +94,7 @@ def _rules(tx: Session, on: date, gstin: str | None = None) -> Rules:
     b2cl_on = gstr1_period_month(tx, gstin, on) if gstin else on
     return Rules(
         rounding_mode=value_on(tx, "invoice.rounding_mode", on),
-        round_off_line=value_on(tx, "invoice.round_off_line", on),
+        round_off_line=value_on(tx, "invoice.round_to_rupee", on),  # D-111: replaces invoice.round_off_line, now unread
         utgst_state_codes=frozenset(c.strip() for c in value_on(tx, "gst.utgst_state_codes", on).split(",")),
         b2cl_threshold=value_on(tx, "gstr1.b2cl_threshold", b2cl_on),
         unregistered_address_threshold=value_on(tx, "invoice.unregistered_address_threshold", on),
