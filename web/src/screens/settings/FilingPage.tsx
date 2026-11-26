@@ -60,6 +60,8 @@ export function FilingPage({ embedded = false }: { embedded?: boolean } = {}) {
       setStartsOn("");
       queryClient.invalidateQueries({ queryKey: ["b", businessId, "filing-profile"] });
       queryClient.invalidateQueries({ queryKey: ["b", businessId, "home"] });
+      // The change can replace this quarter's returns (#476): the deadlines list must be read again.
+      queryClient.invalidateQueries({ queryKey: ["b", businessId, "returns"] });
     },
   });
   const choose = (next: () => void) => {

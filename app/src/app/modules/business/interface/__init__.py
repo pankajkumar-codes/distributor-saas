@@ -26,7 +26,7 @@ from ..fiscal import (
     quarter_months,
     quarter_start,
 )
-from ..frequency import FrequencyRow, add_frequency_row, filing_frequency_on
+from ..frequency import FrequencyRow, FrequencyRowOut, add_frequency_row, filing_frequency_on, row_out as frequency_row_out
 from ..gstin import GstinCheck, check_gstin
 from ..gstin import message as gstin_message
 from ..profile import (
@@ -61,6 +61,7 @@ __all__ = [
     "Channels",
     "EinvoiceStatus",
     "FrequencyRow",
+    "FrequencyRowOut",
     "GstinCheck",
     "NewBusinessProfile",
     "Profile",
@@ -75,6 +76,7 @@ __all__ = [
     "display_name",
     "einvoice_status",
     "filing_frequency_on",
+    "frequency_row_out",
     "fy_of",
     "fy_quarter_label",
     "fy_quarters",

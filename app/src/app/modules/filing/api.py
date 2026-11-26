@@ -20,12 +20,15 @@ from decimal import Decimal
 from typing import Annotated, Literal
 
 from sqlalchemy import text
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Header, Query, Request
 from fastapi import status as http
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.modules.business.interface import (
+    FrequencyRowOut,
+    add_frequency_row,
     filing_frequency_on,
+    frequency_row_out,
     fy_of,
     fy_quarters,
     get_profile,
@@ -35,6 +38,7 @@ from app.modules.business.interface import (
 )
 from platform_common.clock import Clock, get_clock
 from platform_common.errors import Conflict, Deny, Invalid
+from platform_common.idempotency import run_once
 from platform_common.permissions import Permission, require
 from platform_common.uow import BusinessUoW, parse_id
 
@@ -118,6 +122,65 @@ def list_returns(uow: BusinessUoW, clock: Today, fy: Annotated[str | None, Query
                 due_date_source_url=due.source_url, status=inst.status, **_filed_on_arn(uow.tx, inst),
             ))  # fmt: skip
     return ReturnsOut(fy=fy, gstin=gstin, filing_frequency=None if current is None else current.frequency, returns=out)
+
+
+# -- Filing frequency (LLD-5 §11, L5-9, AC5-24, AC5-26; issue #476) ---------------------------------------------------
+
+
+class FrequencyIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    frequency: Literal["monthly", "quarterly"]
+    effective_from: date  # a quarter's first day
+
+
+class FrequencyOut(BaseModel):
+    row: FrequencyRowOut
+    warnings: list[str]
+    superseded_instances: list[str]  # the empty returns this change replaced; reads make the new ones
+
+
+@router.post("/filing-profile/frequency", status_code=http.HTTP_201_CREATED,
+             dependencies=[Depends(require(Permission.SETTINGS_EDIT))])
+def post_frequency(
+    body: FrequencyIn,
+    request: Request,
+    uow: BusinessUoW,
+    clock: Today,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> FrequencyOut:
+    """Record a filing frequency (business keeps every rule: L1-13, the rule 61A warnings, insert-only history),
+    then supersede the open, empty returns from its start on that were made for the other frequency, so the
+    returns list shows the new frequency's returns (with their due dates) on its next read. A quarter whose
+    replaced returns hold documents or saved work, or are filed, skipped or unlocked, refuses the change: 409
+    `quarter_has_documents`, and nothing is written (the history row rolls back with the transaction)."""
+
+    def choose() -> dict:
+        profile = get_profile(uow.tx)
+        gstin = None if profile is None else profile.gstin
+        row, warnings = add_frequency_row(uow, gstin, body.frequency, body.effective_from, today=clock.today())
+        stale = periods.mismatched(uow.tx, row.gstin, row.effective_from)
+        held = [m.instance for m in stale if m.blocked]
+        if not held:
+            done, held = periods.supersede(uow.tx, [m.instance for m in stale], uow.principal.user_id)
+        if held:
+            q = quarter_start(min(i.period_start for i in held))
+            raise Conflict(
+                "quarter_has_documents",
+                f"The quarter starting {q:%d-%b-%Y} already has invoices, saved work or a filed return, so the"
+                " frequency can't change for it. Choose a later quarter.",
+            )
+        return FrequencyOut(row=frequency_row_out(row), warnings=warnings,
+                            superseded_instances=[str(i) for i in done]).model_dump(mode="json")
+
+    return run_once(
+        uow.tx,
+        uow.principal.business_id,
+        idempotency_key,
+        method=request.method,
+        route=request.scope["route"].path,
+        payload=body.model_dump(mode="json"),
+        operation=choose,
+    )
 
 
 # -- A built return (R1-M7 slice 5) ---------------------------------------------------------------------------------

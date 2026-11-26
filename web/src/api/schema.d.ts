@@ -699,7 +699,14 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Post Frequency */
+        /**
+         * Post Frequency
+         * @description Record a filing frequency (business keeps every rule: L1-13, the rule 61A warnings, insert-only history),
+         *     then supersede the open, empty returns from its start on that were made for the other frequency, so the
+         *     returns list shows the new frequency's returns (with their due dates) on its next read. A quarter whose
+         *     replaced returns hold documents or saved work, or are filed, skipped or unlocked, refuses the change: 409
+         *     `quarter_has_documents`, and nothing is written (the history row rolls back with the transaction).
+         */
         post: operations["post_frequency_api_v1_b__business_id__filing_profile_frequency_post"];
         delete?: never;
         options?: never;
@@ -4446,7 +4453,10 @@ export interface components {
             /** Warnings */
             warnings: string[];
         };
-        /** FrequencyRowOut */
+        /**
+         * FrequencyRowOut
+         * @description A history row as the API shows it (GET /filing-profile here, POST /filing-profile/frequency in filing).
+         */
         FrequencyRowOut: {
             /**
              * Chosen At

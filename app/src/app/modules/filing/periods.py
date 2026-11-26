@@ -191,10 +191,113 @@ def gstr1_period_month(tx: Session, gstin: str, on: date) -> date:
     return month
 
 
+# -- A frequency change (LLD-5 L5-9, issue #476) -------------------------------------------
+
+SUPERSEDED_REASON = "filing frequency changed"
+
+
+@dataclass(frozen=True)
+class Mismatch:
+    """A live instance made for the other frequency than the one now in force for its quarter."""
+
+    instance: ReturnInstance
+    blocked: bool  # not open, or holds documents or saved work: it can't be superseded
+
+
+def _has_work(tx: Session, ids: list[uuid.UUID]) -> set[uuid.UUID]:
+    """The instances among `ids` that hold an assigned document (current or cancelled), an IFF running total, a
+    GSTR-3B worksheet entry or a Table 13 confirmation: superseding them would hide what the user did."""
+    if not ids:
+        return set()
+    rows = tx.execute(
+        text(
+            f"select return_instance_id as id from filing.v_supply_lines where {BOUND} and return_instance_id = any(:ids)"
+            f" union select return_instance_id from sales.v_cancelled_documents where {BOUND}"
+            " and return_instance_id = any(:ids)"
+            f" union select id from filing.return_instances where {BOUND} and id = any(:ids) and iff_b2b_taxable > 0"
+            f" union select instance_id from filing.worksheet_entries where {BOUND} and instance_id = any(:ids)"
+            f" union select instance_id from filing.table13_confirmations where {BOUND} and instance_id = any(:ids)"
+        ),
+        {"ids": ids},
+    ).all()
+    return {r.id for r in rows}
+
+
+def mismatched(tx: Session, gstin: str, start: date, end: date | None = None) -> list[Mismatch]:
+    """Live instances from the quarter of `start` on (to `end`, if given) whose filer frequency differs from the
+    one now in force for their quarter. A quarter with no frequency in force is left alone."""
+    rows = tx.execute(
+        text(
+            f"select {_COLUMNS}, filer_frequency from filing.return_instances where {BOUND} and gstin = :g"
+            " and status <> 'superseded' and period_start >= :s and (cast(:e as date) is null or period_start <= :e)"
+            " order by period_start, form"
+        ),
+        {"g": gstin, "s": quarter_start(start), "e": end},
+    ).all()
+    filers: dict[date, str | None] = {}
+    out: list[ReturnInstance] = []
+    for r in rows:
+        q = quarter_start(r.period_start)
+        if q not in filers:
+            row = filing_frequency_on(tx, gstin, q)
+            filers[q] = None if row is None else ("qrmp" if row.frequency == "quarterly" else "monthly")
+        if filers[q] is not None and r.filer_frequency != filers[q]:
+            out.append(_instance(r))
+    work = _has_work(tx, [i.id for i in out])
+    return [Mismatch(i, i.status != "open" or i.id in work) for i in out]
+
+
+def supersede(tx: Session, instances: list[ReturnInstance], actor: uuid.UUID | None) -> tuple[list[uuid.UUID], list[ReturnInstance]]:
+    """Mark open, empty instances superseded, each with its event in the same transaction (the status guard
+    refuses the change otherwise). The rows stay; reads skip them. Each is locked FOR UPDATE and checked again
+    once locked (finalize assigns under FOR SHARE, so a document assigned meanwhile is seen): returns the ids
+    superseded and the instances that turned out to hold work or to be no longer open, left as they are."""
+    locked = [
+        inst for inst in instances
+        if tx.execute(
+            text(f"select 1 from filing.return_instances where {BOUND} and id = :i and status = 'open' for update"),
+            {"i": inst.id},
+        ).first() is not None
+    ]
+    work = _has_work(tx, [i.id for i in locked])
+    blocked = [i for i in instances if i not in locked or i.id in work]
+    done = []
+    for inst in locked:
+        if inst.id in work:
+            continue
+        done.append(inst.id)
+        tx.execute(
+            text(
+                "insert into filing.instance_events (id, business_id, instance_id, kind, reason, actor_user_id)"
+                " values (:i, nullif(current_setting('app.tenant_id', true), '')::uuid, :n, 'superseded', :r, :u)"
+            ),
+            {"i": uuid7(), "n": inst.id, "r": SUPERSEDED_REASON, "u": actor},
+        )
+        tx.execute(
+            text(
+                "update filing.return_instances set status = 'superseded', status_changed_at = now()"
+                f" where {BOUND} and id = :i"
+            ),
+            {"i": inst.id},
+        )
+    return done, blocked
+
+
 def ensure_instances(tx: Session, gstin: str, on: date) -> list[ReturnInstance]:
     """Create `on`'s quarter's instances if missing (two callers at once both succeed:
-    ON CONFLICT DO NOTHING) and return them, in period and form order."""
+    ON CONFLICT DO NOTHING) and return them, in period and form order. Open, empty instances made for the
+    other frequency (the frequency changed after they were made) are superseded first (issue #476); ones
+    that hold work stay, and the frequency route refuses a change that would hit them."""
     filer = filer_on(tx, gstin, quarter_start(on))
+    stale = mismatched(tx, gstin, quarter_start(on), month_end(quarter_months(on)[-1]))
+    # All or nothing for the quarter: a half-replaced quarter would mix the two frequencies' returns.
+    if stale and not any(m.blocked for m in stale):
+        nested = tx.begin_nested()
+        _, blocked = supersede(tx, [m.instance for m in stale], None)
+        if blocked:  # a document was assigned meanwhile: leave the quarter as it was
+            nested.rollback()
+        else:
+            nested.commit()
     for spec in specs(filer, on):
         due = due_date(tx, spec, gstin)
         tx.execute(
