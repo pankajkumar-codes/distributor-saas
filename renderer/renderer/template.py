@@ -33,11 +33,12 @@ MAX_LIST = 50
 
 STYLE = """
 @page { size: A4; margin: 12mm }
-body { font-family: "Noto Sans", "Noto Sans Devanagari", "Noto Sans Bengali"; font-size: 8pt; color: #000 }
+body { font-family: "Noto Sans", "Noto Sans Devanagari", "Noto Sans Bengali"; font-size: 8pt; color: #000;
+  overflow-wrap: break-word }
 h1 { font-size: 14pt; margin: 0 0 2mm }
 .draft { border: 1pt solid #000; padding: 1.5mm; font-size: 7pt; text-align: center; margin-bottom: 3mm }
 .parties { width: 100%; border-collapse: collapse; margin-bottom: 3mm }
-.parties td { vertical-align: top; width: 50%; padding: 1mm }
+.parties td { vertical-align: top; width: 50%; padding: 1mm; overflow-wrap: anywhere }
 .shipto { margin: 2mm 0 0 }
 td.n { text-align: right; white-space: nowrap }
 .totals { margin-top: 3mm; width: 60%; margin-left: 40%; border-collapse: collapse }
@@ -120,6 +121,7 @@ table.lines th:nth-child(2) { width: 27% }
 table.lines th small { display: block; font-weight: normal; color: #444; font-size: 6.5pt }
 table.lines td { border: 0.5pt solid #555; padding: 1mm 0.8mm; vertical-align: top }
 table.lines td.n { text-align: right; white-space: nowrap }
+table.lines td:nth-child(2) { overflow-wrap: anywhere }  /* a long product name wraps in its column */
 table.lines td.mrp { color: #555 }
 table.lines td.tax { white-space: nowrap; text-align: right; font-size: 7.5pt }
 """

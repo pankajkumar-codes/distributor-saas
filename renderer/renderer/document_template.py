@@ -70,7 +70,8 @@ STYLE = """
 @page { size: A4; margin: 10mm 10mm 14mm;
   @bottom-left { content: string(copylabel); font: 7pt "Noto Sans"; color: #444 }
   @bottom-right { content: "Page " counter(page) " of " counter(pages); font: 7pt "Noto Sans"; color: #444 } }
-body { font-family: "Noto Sans", "Noto Sans Devanagari", "Noto Sans Bengali"; font-size: 8pt; color: #000 }
+body { font-family: "Noto Sans", "Noto Sans Devanagari", "Noto Sans Bengali"; font-size: 8pt; color: #000;
+  overflow-wrap: break-word }
 .wm { position: fixed; top: 110mm; left: 15mm; width: 160mm; text-align: center; font-size: 80pt; font-weight: bold;
   color: #000; opacity: 0.06; transform: rotate(-35deg) }
 .top { width: 100%; border-collapse: collapse; margin-bottom: 2mm }
@@ -83,7 +84,7 @@ h1 { font-size: 13pt; margin: 0 }
   color: #000; opacity: 0.1; transform: rotate(-35deg) }
 .practice { border: 1.5pt solid #000; padding: 1.5mm; font-weight: bold; text-align: center; margin-bottom: 3mm }
 .parties { width: 100%; border-collapse: collapse; margin-bottom: 2mm }
-.parties td { vertical-align: top; width: 50%; padding: 1.5mm; border: 0.5pt solid #555 }
+.parties td { vertical-align: top; width: 50%; padding: 1.5mm; border: 0.5pt solid #555; overflow-wrap: anywhere }
 .shipto { margin: 2mm 0 0 }
 .details { width: 100%; border-collapse: collapse; margin-bottom: 3mm }
 .details td { vertical-align: top; width: 50%; padding: 0 1.5mm }

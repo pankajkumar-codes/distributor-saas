@@ -2723,7 +2723,7 @@
             "title": "Gstin"
           },
           "name": {
-            "maxLength": 1000,
+            "maxLength": 200,
             "title": "Name",
             "type": "string"
           }
@@ -2905,7 +2905,7 @@
           "name": {
             "anyOf": [
               {
-                "maxLength": 1000,
+                "maxLength": 200,
                 "type": "string"
               },
               {
@@ -8480,7 +8480,7 @@
             "title": "Mrp"
           },
           "name": {
-            "maxLength": 1000,
+            "maxLength": 200,
             "title": "Name",
             "type": "string"
           },
@@ -8741,7 +8741,7 @@
           "name": {
             "anyOf": [
               {
-                "maxLength": 1000,
+                "maxLength": 200,
                 "type": "string"
               },
               {

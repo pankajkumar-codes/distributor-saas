@@ -30,10 +30,13 @@ def code(tx: Session, raw: str, today: date) -> str:
     return value
 
 
+NAME_MAX = 200  # catalog.customers.name and catalog.products.name are varchar(200); the law sets no length (#470)
+
+
 def name(raw: str) -> str:
     value = (raw or "").strip()
-    if not value or len(value) > 200:
-        raise Invalid("name_invalid", "Enter a name of up to 200 characters", field="name")
+    if not value or len(value) > NAME_MAX:
+        raise Invalid("name_invalid", f"Enter a name of up to {NAME_MAX} characters", field="name")
     printable(value, "name")
     return value
 
