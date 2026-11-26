@@ -124,3 +124,48 @@ describe("credit notes", () => {
     expect(server.paths()).not.toContain(`${B}/documents/cn-1/credit`);
   });
 });
+
+describe("cancelling an invoice", () => {
+  it("needs the declaration, sends one key, and then shows the invoice as cancelled", async () => {
+    server.reply(`GET ${B}/documents/doc-1`, { status: 200, body: invoice }, { status: 200, body: { ...invoice, cancel_reason: "raised_in_error" } });
+    server.reply(`GET ${B}/documents/doc-1/credit`, { status: 200, body: credit() });
+    server.reply(
+      `POST ${B}/documents/doc-1/cancel`,
+      { status: 409, body: { error: { code: "return_filed", message: "The return that holds this invoice is already filed, so it can't be cancelled", fix: "Make a credit note instead" } } },
+      { status: 200, body: { ...invoice, cancel_reason: "raised_in_error" } },
+    );
+    go("/b/b-1/documents/doc-1/adjust#cancel");
+    const button = await screen.findByRole("button", { name: "Cancel invoice PR-0042" });
+    expect(button).toBeDisabled();
+    expect(screen.getByText(/e-way bill portal within 24 hours/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: "Duplicate of another invoice" }));
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument(); // a duplicate needs no declaration
+    expect(screen.getByRole("button", { name: "Cancel invoice PR-0042" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("radio", { name: "Raised by mistake" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /were not removed or delivered/ }));
+    fireEvent.click(button);
+    expect(await screen.findByText("Make a credit note instead")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel invoice PR-0042" }));
+    expect(await screen.findByRole("heading", { name: "Invoice cancelled PR-0042" })).toBeInTheDocument();
+    expect(screen.getByText(/raised by mistake/)).toBeInTheDocument();
+    const posts = server.sent.filter((s) => s.method === "POST" && s.path === `${B}/documents/doc-1/cancel`);
+    expect(posts).toHaveLength(2);
+    expect(posts[1].body).toEqual({ reason: "raised_in_error", declared_not_delivered: true, duplicate_of: null });
+    expect(posts[0].headers.get("Idempotency-Key")).toBe(posts[1].headers.get("Idempotency-Key"));
+  });
+
+  it("refuses up front when a credit note exists", async () => {
+    server.reply(`GET ${B}/documents/doc-1`, { status: 200, body: invoice });
+    server.reply(`GET ${B}/documents/doc-1/credit`, { status: 200, body: credit([{ id: "cn-1", doc_number: "PR-CN-0001", doc_date: "2026-11-20", doc_total: "236.00", is_practice: true, reason_code: "goods_returned" }], "8", "944.00") });
+    go("/b/b-1/documents/doc-1/adjust");
+    fireEvent.click(await screen.findByRole("radio", { name: /Cancel the invoice/ }));
+    expect(screen.getByText(/can't be cancelled/).parentElement).toHaveTextContent("Credit note PR-CN-0001 already exists");
+    expect(screen.queryByRole("button", { name: /Cancel invoice/ })).not.toBeInTheDocument();
+  });
+
+  it("marks a cancelled invoice in the issued list", async () => {
+    server.reply(`GET ${B}/documents`, { status: 200, body: { documents: [{ ...invoice, cancel_reason: "duplicate" }], has_more: false } });
+    go("/b/b-1/documents");
+    expect(await screen.findByText("Cancelled")).toBeInTheDocument();
+  });
+});

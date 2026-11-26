@@ -11,6 +11,11 @@ import { useSingleFlight } from "../../kit/singleFlight";
 import { useCreditState } from "./useCredit";
 import { downloadDocumentPdf, useDocumentPdfRequest, type DocumentDetail } from "./useFinalize";
 
+const CANCEL_REASON: Record<string, string> = {
+  raised_in_error: "raised by mistake",
+  duplicate: "a duplicate of another invoice",
+  did_not_happen: "the sale did not happen",
+};
 const nonzero = (amount: string) => /[1-9]/.test(amount);
 const lines = (parts: string[]) => (parts.length ? parts.join(", ") : "—");
 
@@ -45,6 +50,7 @@ export function FinalizedPanel({ businessId, doc }: { businessId: string; doc: D
   const isNote = doc.kind === "credit_note";
   const credit = useCreditState(businessId, doc.id, !isNote); // an invoice lists the notes made against it (#456)
   const what = isNote ? "credit note" : "invoice";
+  const cancelled = doc.cancel_reason != null;
   const working = busy || ask.isPending;
   const download = () =>
     once((done) => {
@@ -65,11 +71,11 @@ export function FinalizedPanel({ businessId, doc }: { businessId: string; doc: D
       </p>
       <div className="between docact">
         <h1>
-          {isNote ? "Credit note issued" : "Invoice issued"} <span className="muted num">{doc.doc_number}</span>
+          {isNote ? "Credit note issued" : cancelled ? "Invoice cancelled" : "Invoice issued"} <span className="muted num">{doc.doc_number}</span>
         </h1>
         <div className="row">
           <Link to={`/b/${businessId}/documents`}>Issued invoices</Link>
-          {isNote ? (
+          {isNote || cancelled ? (
             <Link className="btn btn-secondary" to={`/b/${businessId}/invoices/new`}>
               New invoice
             </Link>
@@ -98,6 +104,12 @@ export function FinalizedPanel({ businessId, doc }: { businessId: string; doc: D
           </a>{" "}
           (this link works for a minute; press Download again for a new one).
         </p>
+      )}
+      {cancelled && (
+        <Banner tone="error">
+          <strong>Cancelled</strong> ({CANCEL_REASON[doc.cancel_reason ?? ""] ?? doc.cancel_reason}). The number stays used and the invoice stays in your records; it is
+          counted as cancelled in GSTR-1 Table 13 and its goods went back to stock.
+        </Banner>
       )}
       {doc.is_practice && isNote ? (
         <Banner tone="warn">

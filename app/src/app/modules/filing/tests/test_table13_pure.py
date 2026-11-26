@@ -40,6 +40,19 @@ def test_lines_of_one_document_count_once_and_credit_notes_are_their_own_nature(
     assert [(r.nature, r.from_no, r.to_no, r.total) for r in out] == [(1, "A-1", "A-2", 2), (5, "CN-1", "CN-1", 1)]
 
 
+def test_an_invoice_cancelled_in_the_app_counts_in_total_and_cancelled_not_net_issue():  # #456
+    from app.modules.filing.build import CancelledDoc
+
+    nums = [f"INV/26-11/{n:06d}" for n in (1, 3)]
+    (r,) = table13.suggest(docs_of(*nums, live=True), [CancelledDoc("invoice", "INV/26-11/000002")])
+    assert (r.from_no, r.to_no, r.total, r.cancelled, r.net_issue, r.missing) == (
+        "INV/26-11/000001", "INV/26-11/000003", 3, 1, 2, 0)
+    assert r.source == "own_live"
+    # A return holding only a cancelled invoice still lists its series.
+    (only,) = table13.suggest([], [CancelledDoc("invoice", "INV/26-11/000004")])
+    assert (only.total, only.cancelled, only.net_issue) == (1, 1, 0)
+
+
 def test_two_prefixes_and_two_digit_widths_are_separate_series():
     out = table13.suggest(docs_of("A-001", "A-002", "B-001", "A-0003"))
     assert [(r.from_no, r.to_no, r.total) for r in out] == [("A-0003", "A-0003", 1), ("A-001", "A-002", 2), ("B-001", "B-001", 1)]

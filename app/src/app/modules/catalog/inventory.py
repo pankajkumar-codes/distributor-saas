@@ -367,6 +367,19 @@ def reverse(uow: UnitOfWork, movement_id: uuid.UUID, reason, *, today: date) -> 
     return new_id
 
 
+def reverse_invoice_stock(uow: UnitOfWork, *, document_id: uuid.UUID, reason: str, today: date) -> list[uuid.UUID]:
+    """A cancelled invoice (#456) gives its goods back: each of its sale_out movements not already reversed gets a
+    reversal row linked to it, dated today. The original movements stay. Called only by sales, in its unit of work;
+    a movement someone already reversed by hand is left as it is."""
+    rows = uow.tx.execute(
+        text("select m.id from catalog.stock_movements m where m.business_id = :b and m.kind = 'sale_out'"
+             " and m.source_type = 'sales_invoice' and m.source_id = :d and not exists (select 1 from"
+             " catalog.stock_movements r where r.business_id = m.business_id and r.reverses_id = m.id) order by m.id"),
+        {"b": uow.principal.business_id, "d": document_id},
+    ).scalars().all()
+    return [reverse(uow, movement_id, reason, today=today) for movement_id in rows]
+
+
 def record_sale_out(uow: UnitOfWork, *, product_id: uuid.UUID, quantity: Decimal, document_id: uuid.UUID,
                     document_line_id: uuid.UUID, sold_on: date, practice: bool = False) -> uuid.UUID:
     """A finalized invoice line takes stock out: one negative movement, once per

@@ -22,6 +22,7 @@ from ..inventory import (
     ReceivedLine,
     receive_confirmed_purchase_line,
     record_credit_note_return,
+    reverse_invoice_stock,
     record_sale_out,
 )
 from ..rates import RateRow, rate_on
@@ -38,6 +39,7 @@ __all__ = [
     "receive_confirmed_purchase_line",
     "record_sale_out",
     "record_credit_note_return",
+    "reverse_invoice_stock",
     "CustomerSnapshot",
     "ProductForLine",
     "SetupCounts",

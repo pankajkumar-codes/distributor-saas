@@ -52,7 +52,10 @@ _DOCUMENT_COLUMNS = (
     "id, draft_id, kind, is_practice, doc_number, doc_date, fy, gstin, supply_class, pos_state_code, original_document_id,"
     " reason_code,"
     " is_inter_state, customer_id, counterparty_name, due_date, taxable_total, cgst_total, sgst_total, utgst,"
-    " igst_total, round_off, doc_total, finalized_at"
+    " igst_total, round_off, doc_total, finalized_at,"
+    # #456: set when the invoice is cancelled (the document row itself never changes)
+    " (select c.reason from sales.document_cancellations c where c.document_id = d.id"
+    " and c.business_id = d.business_id) as cancel_reason"
 )
 
 
@@ -120,7 +123,7 @@ def _business(uow: UnitOfWork) -> uuid.UUID:
 def document_for_draft(uow: UnitOfWork, draft_id: uuid.UUID) -> dict | None:
     row = (
         uow.tx.execute(
-            text(f"select {_DOCUMENT_COLUMNS} from sales.documents where draft_id = :d and business_id = :b"),
+            text(f"select {_DOCUMENT_COLUMNS} from sales.documents d where draft_id = :d and business_id = :b"),
             {"d": draft_id, "b": _business(uow)},
         )
         .mappings()
@@ -133,7 +136,7 @@ def get_document(uow: UnitOfWork, document_id: uuid.UUID) -> dict:
     """One finalized document of this business; another business's, or an unknown one, is a 404."""
     row = (
         uow.tx.execute(
-            text(f"select {_DOCUMENT_COLUMNS} from sales.documents where id = :i and business_id = :b"),
+            text(f"select {_DOCUMENT_COLUMNS} from sales.documents d where id = :i and business_id = :b"),
             {"i": document_id, "b": _business(uow)},
         )
         .mappings()
@@ -155,7 +158,7 @@ def list_documents(uow: UnitOfWork, limit: int, offset: int, q: str | None = Non
         params.update(frag=f"%{needle}%", prefix=f"{needle.upper().replace(' ', '')}%")
     rows = (
         uow.tx.execute(
-            text(f"select {_DOCUMENT_COLUMNS} from sales.documents where {' and '.join(where)}"
+            text(f"select {_DOCUMENT_COLUMNS} from sales.documents d where {' and '.join(where)}"
                  " order by finalized_at desc, id desc limit :n offset :o"),
             params,
         )

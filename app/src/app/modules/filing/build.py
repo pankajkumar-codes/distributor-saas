@@ -63,7 +63,24 @@ class ReturnBuild:
     debit_notes: int  # confirmed debit notes dated in this period that are not in the return
     draft: bool  # a return is a draft until it is marked filed and locked
     lines: tuple[SupplyLine, ...] = ()  # every member line (liability and Table 12), for the checks
+    # Own live documents cancelled in this return's member sets (#456): out of Tables 4 to 12, counted in Table 13.
+    cancelled: tuple["CancelledDoc", ...] = ()
     iff_sections: tuple[Gstr1Sections, ...] = ()  # a quarter's IFF months filed with the IFF; counted in `liability`
+
+
+@dataclass(frozen=True)
+class CancelledDoc:
+    doc_kind: str
+    doc_number: str
+
+
+def _cancelled(tx: Session, instance: ReturnInstance, ids: list[uuid.UUID]) -> list[CancelledDoc]:
+    rows = tx.execute(
+        text(f"select doc_kind, doc_number from sales.v_cancelled_documents where {BOUND} and gstin = :g"
+             " and return_instance_id = any(:ids) order by doc_number"),
+        {"g": instance.gstin, "ids": ids},
+    ).all()
+    return [CancelledDoc(r.doc_kind, r.doc_number) for r in rows]
 
 
 def build_return(tx: Session, instance: ReturnInstance) -> ReturnBuild:
@@ -87,6 +104,7 @@ def build_return(tx: Session, instance: ReturnInstance) -> ReturnBuild:
     iff_builds = [build_sections(_lines(tx, instance, iff_filed), kind="IFF")] if iff_filed else []
     all_lines = liability_lines if hsn_lines is None else _union(liability_lines, hsn_lines)
     debit_notes = _debit_notes(tx, instance)  # a debit note has no return, so count by the instance's own dates
+    cancelled = _cancelled(tx, instance, own + iff_months if quarter else own)
     return ReturnBuild(
         instance=instance,
         sections=sections,
@@ -95,13 +113,14 @@ def build_return(tx: Session, instance: ReturnInstance) -> ReturnBuild:
         gap=reconciliation_gap(sections, iff_builds=iff_builds),
         members=tuple(sorted({f"{ln.doc_number}|{ln.source_kind}|{ln.source_id}" for ln in all_lines})),
         line_items=sections.line_items,
-        fingerprint=_fingerprint(instance, all_lines, debit_notes),
+        fingerprint=_fingerprint(instance, all_lines, debit_notes, cancelled),
         refdata_as_of={},  # nothing is read from refdata here: classification used its dated thresholds at confirm
         ca_flags=_flags(tx, instance, all_lines, sections, debit_notes),
         debit_notes=debit_notes,
         draft=instance.status != "filed_locked",
         lines=tuple(all_lines),
         iff_sections=tuple(iff_builds),
+        cancelled=tuple(cancelled),
     )
 
 
@@ -189,9 +208,12 @@ def _line_key(ln: SupplyLine) -> tuple:
     )  # fmt: skip
 
 
-def _fingerprint(instance: ReturnInstance, lines: list[SupplyLine], debit_notes: int) -> str:
+def _fingerprint(instance: ReturnInstance, lines: list[SupplyLine], debit_notes: int,
+                 cancelled: list[CancelledDoc] = ()) -> str:
     h = hashlib.sha256()
     h.update(f"{instance.id}|{instance.form}|{instance.period}|{debit_notes}\n".encode())
     for k in sorted(_line_key(ln) for ln in lines):
         h.update("|".join(k).encode() + b"\n")
+    for c in sorted((c.doc_kind, c.doc_number) for c in cancelled):  # a cancel changes Table 13, so the build too
+        h.update(f"cancelled|{c[0]}|{c[1]}\n".encode())
     return h.hexdigest()

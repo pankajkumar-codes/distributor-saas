@@ -1595,6 +1595,41 @@
         "title": "CaFlagOut",
         "type": "object"
       },
+      "CancelIn": {
+        "additionalProperties": false,
+        "properties": {
+          "declared_not_delivered": {
+            "default": false,
+            "title": "Declared Not Delivered",
+            "type": "boolean"
+          },
+          "duplicate_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duplicate Of"
+          },
+          "reason": {
+            "enum": [
+              "raised_in_error",
+              "duplicate",
+              "did_not_happen"
+            ],
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "CancelIn",
+        "type": "object"
+      },
       "CashBuyerIn": {
         "additionalProperties": false,
         "properties": {
@@ -2461,6 +2496,11 @@
       },
       "CreditStateOut": {
         "properties": {
+          "cancelled": {
+            "default": false,
+            "title": "Cancelled",
+            "type": "boolean"
+          },
           "doc_number": {
             "title": "Doc Number",
             "type": "string"
@@ -3053,6 +3093,17 @@
               }
             ]
           },
+          "cancel_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancel Reason"
+          },
           "cess_total": {
             "title": "Cess Total",
             "type": "string"
@@ -3486,6 +3537,17 @@
       "DocumentOut": {
         "description": "The finalized document (LLD-4 \u00a72.3), as stored: it never changes after this.",
         "properties": {
+          "cancel_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancel Reason"
+          },
           "cgst_total": {
             "title": "Cgst Total",
             "type": "string"
@@ -13841,6 +13903,84 @@
           }
         },
         "summary": "Get Document",
+        "tags": [
+          "sales"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/documents/{document_id}/cancel": {
+      "post": {
+        "description": "Cancels an issued invoice while the return holding it is open and no credit note exists for it (#456). The\ninvoice row never changes: a cancellation is written beside it, its number stays used, it leaves Tables 4 to 12\nand Table 13 counts it as cancelled, and its stock comes back. \"Raised by mistake\" and \"did not happen\" need the\ndeclaration that the goods were not removed or delivered. Off, like finalize, until `sales.finalize.enabled`.",
+        "operationId": "cancel_document_api_v1_b__business_id__documents__document_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "title": "Document Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Document",
         "tags": [
           "sales"
         ]

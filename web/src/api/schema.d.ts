@@ -415,6 +415,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/documents/{document_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel Document
+         * @description Cancels an issued invoice while the return holding it is open and no credit note exists for it (#456). The
+         *     invoice row never changes: a cancellation is written beside it, its number stays used, it leaves Tables 4 to 12
+         *     and Table 13 counts it as cancelled, and its stock comes back. "Raised by mistake" and "did not happen" need the
+         *     declaration that the goods were not removed or delivered. Off, like finalize, until `sales.finalize.enabled`.
+         */
+        post: operations["cancel_document_api_v1_b__business_id__documents__document_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/documents/{document_id}/credit": {
         parameters: {
             query?: never;
@@ -3180,6 +3203,21 @@ export interface components {
             /** Text */
             text: string;
         };
+        /** CancelIn */
+        CancelIn: {
+            /**
+             * Declared Not Delivered
+             * @default false
+             */
+            declared_not_delivered: boolean;
+            /** Duplicate Of */
+            duplicate_of?: string | null;
+            /**
+             * Reason
+             * @enum {string}
+             */
+            reason: "raised_in_error" | "duplicate" | "did_not_happen";
+        };
         /** CashBuyerIn */
         CashBuyerIn: {
             /** Address */
@@ -3484,6 +3522,11 @@ export interface components {
         };
         /** CreditStateOut */
         CreditStateOut: {
+            /**
+             * Cancelled
+             * @default false
+             */
+            cancelled: boolean;
             /** Doc Number */
             doc_number: string;
             /** Invoice Id */
@@ -3686,6 +3729,8 @@ export interface components {
             /** Amount In Words */
             amount_in_words: string;
             buyer: components["schemas"]["DocumentParty"] | null;
+            /** Cancel Reason */
+            cancel_reason?: string | null;
             /** Cess Total */
             cess_total: string;
             /** Cgst Total */
@@ -3822,6 +3867,8 @@ export interface components {
          * @description The finalized document (LLD-4 §2.3), as stored: it never changes after this.
          */
         DocumentOut: {
+            /** Cancel Reason */
+            cancel_reason?: string | null;
             /** Cgst Total */
             cgst_total: string;
             /** Counterparty Name */
@@ -7695,6 +7742,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DocumentDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_document_api_v1_b__business_id__documents__document_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string | null;
+            };
+            path: {
+                document_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentOut"];
                 };
             };
             /** @description Validation Error */

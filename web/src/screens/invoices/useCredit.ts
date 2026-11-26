@@ -39,3 +39,25 @@ export function useCreateCreditNote(businessId: string, documentId: string, key:
     },
   });
 }
+
+export type CancelIn = components["schemas"]["CancelIn"];
+
+/** Cancels the invoice (#456). One key per form fill, so a retry cancels once. */
+export function useCancelInvoice(businessId: string, documentId: string, key: () => string, onDone: (doc: Document) => void) {
+  const queryClient = useQueryClient();
+  return useMutation<Document, ApiError, CancelIn>({
+    mutationFn: (body) =>
+      call(() =>
+        api.POST("/api/v1/b/{business_id}/documents/{document_id}/cancel", {
+          params: { path: { business_id: businessId, document_id: documentId }, header: { "Idempotency-Key": key() } },
+          body,
+        }),
+      ),
+    onSuccess: (doc) => {
+      queryClient.invalidateQueries({ queryKey: ["b", businessId, "document", documentId] });
+      queryClient.invalidateQueries({ queryKey: ["b", businessId, "drafts"] });
+      queryClient.invalidateQueries({ queryKey: ["b", businessId, "stock"] });
+      onDone(doc);
+    },
+  });
+}

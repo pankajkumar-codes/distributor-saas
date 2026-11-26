@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { errorText, type ApiError } from "../../api/errors";
 import { canCreateDocuments } from "../../auth/roles";
@@ -17,6 +17,7 @@ import { RadioGroup } from "../../kit/RadioGroup";
 import { SelectField } from "../../kit/SelectField";
 import { useSingleFlight } from "../../kit/singleFlight";
 import { TopBar } from "../../kit/TopBar";
+import { CancelForm } from "./CancelForm";
 import { useCreateCreditNote, useCreditState, type CreditNoteIn } from "./useCredit";
 import { useDocument } from "./useFinalize";
 
@@ -34,6 +35,8 @@ type Stock = "restock" | "write_off";
 export function AdjustPage() {
   const { businessId = "", documentId = "" } = useParams();
   const navigate = useNavigate();
+  const { hash } = useLocation();
+  const [mode, setMode] = useState<"credit" | "cancel">(hash === "#cancel" ? "cancel" : "credit");
   const businesses = useMyBusinesses();
   const business = businesses.data?.find((b) => b.business_id === businessId);
   const allowed = Boolean(business && canCreateDocuments(business.role));
@@ -78,9 +81,23 @@ export function AdjustPage() {
           </Link>{" "}
           / Adjust
         </p>
-        <h1>
-          Credit note <span className="muted num">against {s?.doc_number}</span>
-        </h1>
+        <div className="between docact">
+          <h1>
+            Adjust invoice <span className="muted num">{s?.doc_number}</span>
+          </h1>
+          {s && !s.cancelled && (
+            <RadioGroup<"credit" | "cancel">
+              legend="What do you want to do?"
+              name="adjust"
+              value={mode}
+              onChange={setMode}
+              options={[
+                { value: "credit", label: "Credit note", sub: "lowers what the buyer owes" },
+                { value: "cancel", label: "Cancel the invoice", sub: "it should never have been made" },
+              ]}
+            />
+          )}
+        </div>
         {doc.data && (
           <p className="lead">
             {doc.data.counterparty_name ?? "Cash sale"} · {formatDate(doc.data.doc_date)} · {formatRupees(doc.data.doc_total)}. The invoice itself never
@@ -89,10 +106,20 @@ export function AdjustPage() {
         )}
         {(credit.isPending || doc.isPending) && <Loading query={credit.isPending ? credit : doc} />}
         {credit.error && credit.error.status !== 404 && <Banner tone="error">{errorText(credit.error)}</Banner>}
-        {s && s.remaining_total === "0.00" && (
+        {s?.cancelled && <Banner tone="info">This invoice is cancelled. It can't be adjusted again.</Banner>}
+        {s && !s.cancelled && mode === "cancel" && s.notes.length > 0 && (
+          <Banner tone="error">
+            <strong>{s.doc_number} can't be cancelled.</strong> Credit note {s.notes[0].doc_number} already exists for it, and cancelling would undo a sale the note treats
+            as made. Use a credit note instead.
+          </Banner>
+        )}
+        {s && !s.cancelled && mode === "cancel" && s.notes.length === 0 && (
+          <CancelForm businessId={businessId} documentId={documentId} number={s.doc_number} onCancelled={() => navigate(`/b/${businessId}/documents/${documentId}`)} />
+        )}
+        {s && !s.cancelled && mode === "credit" && s.remaining_total === "0.00" && (
           <Banner tone="info">This invoice has been credited in full. There is nothing left to credit.</Banner>
         )}
-        {s && s.remaining_total !== "0.00" && (
+        {s && !s.cancelled && mode === "credit" && s.remaining_total !== "0.00" && (
           <>
             <div className="grid2 adjgrid">
               <section className="panel" aria-labelledby="what">
@@ -206,7 +233,7 @@ export function AdjustPage() {
             </div>
           </>
         )}
-        {s && s.notes.length > 0 && (
+        {s && mode === "credit" && s.notes.length > 0 && (
           <section className="panel" aria-labelledby="made">
             <div className="panel-h">
               <h2 id="made">Credit notes already made</h2>
