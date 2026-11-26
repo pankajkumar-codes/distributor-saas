@@ -49,6 +49,17 @@
   last_checked: 2026-10-24
   status: provisional
   note: "Default off (D-022). CA to confirm whether a whole-rupee round-off line is wanted."
+- key: invoice.round_off_line
+  value: "true"
+  type: boolean
+  kind: tax
+  valid_from: 2026-11-26
+  valid_to: null
+  source_url: https://taxinformation.cbic.gov.in/content/html/tax_repository/gst/rules/cgst_rules/active/chapter6/rule46_v1.00.html
+  source_title: "Not required by Rule 46; a whole-rupee round-off line is common practice and changes no line's taxable value or tax"
+  last_checked: 2026-11-26
+  status: provisional
+  note: "On from 2026-11-26 (D-109, Pankaj): an MRP-based invoice then totals the MRP in whole rupees (MRP 100 at 18%: 84.75 + 7.63 + 7.63 = 100.01, round off -0.01, total 100.00). Rounding is invoice.rounding_mode to the rupee. Earlier dates keep the row above (off). CA to confirm (D-022)."
 - key: invoice.unregistered_address_threshold
   value: "50000.00"
   type: decimal
