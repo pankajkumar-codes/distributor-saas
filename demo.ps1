@@ -104,7 +104,7 @@ switch ($Command.ToLower()) {
         Dc logs -f --no-log-prefix --tail 0 codes
     }
     "stop" { Test-Docker; Dc down -v --remove-orphans; Say "The demo is stopped and its data is gone." Green }
-    "codes" { Test-Docker; Dc logs -f --no-log-prefix --tail 0 codes }
+    "codes" { Test-Docker; Dc logs -f --no-log-prefix --tail 50 codes }  # the codes already printed, then new ones
     "check" {
         Test-Docker
         Dc ps

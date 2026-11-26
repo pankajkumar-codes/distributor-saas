@@ -140,7 +140,9 @@ def _catalog(base, business, token):
             need(*call(base, "PATCH", f"/b/{business}/products/{had['id']}", {"mrp": p["mrp"]}, token,
                        {"If-Match": str(had["version"])}), (200,), f"MRP of {p['code']}")
             mrp += 1
-    print(f"demo customers and products: {added} added, {mrp} given their MRP")
+    # Every demo product now has its MRP: new ones are created with it, older ones were filled in above (#448).
+    print(f"demo customers and products: {added} added; all {len(PRODUCTS)} demo products have their MRP"
+          f" ({mrp} older ones filled in on this run)")
 
 
 if __name__ == "__main__":
