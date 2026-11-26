@@ -67,7 +67,7 @@ describe("Filing home", () => {
     expect(rows[1]).toHaveTextContent("24-Jan-2027");
     expect(screen.getByText("Quarterly (QRMP) filer.")).toBeInTheDocument();
     expect(within(table).queryByRole("button")).toBeNull(); // no filing action until the upload screens exist
-    expect(within(table).getAllByText("Confirmed on GST portal")).toHaveLength(2);
+    expect(within(table).getAllByText("Unless the government extends it")).toHaveLength(2);
   });
 
   it("offers the draft and the worksheet as row buttons, and a What you can add card with the sales channels", async () => {
@@ -130,24 +130,24 @@ describe("Filing home", () => {
     }
   });
 
-  it("shows no date at all when the server hasn't confirmed it, with the source link only when it is https", async () => {
+  it("shows the date even when not confirmed yet, and for no date says to check the portal with an https source link only (D-106)", async () => {
     server.reply(
       NOW,
       ok([
         row({ due_date_confirmed: false, due_date_source_url: "https://example.gov/notice" }),
         row({ form: "GSTR3B", due_date_confirmed: false, due_date_source_url: "javascript:alert(1)" }),
-        row({ form: "GSTR3B", period: "2026-Q2", period_label: "Jul–Sep 2026", due_date: null, due_date_confirmed: false }),
+        row({ form: "GSTR3B", period: "2026-Q2", period_label: "Jul–Sep 2026", due_date: null, due_date_confirmed: false, due_date_source_url: "https://example.gov/notice" }),
+        row({ form: "GSTR3B", period: "2026-Q2", period_label: "Jul–Sep 2026", due_date: null, due_date_confirmed: false, due_date_source_url: "javascript:alert(1)" }),
       ]),
       ok([]),
     );
     open();
     await screen.findByRole("table");
-    expect(screen.getAllByText("Check on the GST portal")).toHaveLength(2);
-    expect(screen.queryByText(/13-Jan-2027|24-Jan-2027/)).toBeNull(); // the provisional dates are not shown
+    expect(screen.getAllByText("13-Jan-2027")).toHaveLength(2); // not confirmed yet, still shown
+    expect(screen.getAllByText("No date available. Check on the GST portal.")).toHaveLength(2);
     const link = screen.getByRole("link", { name: "Where this date comes from" });
     expect(link).toHaveAttribute("href", "https://example.gov/notice");
     expect(screen.getAllByRole("link", { name: "Where this date comes from" })).toHaveLength(1);
-    expect(screen.getByText(/No date available/)).toBeInTheDocument();
   });
 
   it("shows each status in words, and monthly labels as sent", async () => {
@@ -205,5 +205,41 @@ describe("Filing home", () => {
     server.reply(NOW, ok([row({})]), ok([]));
     open("ca");
     expect(await screen.findByRole("table")).toBeInTheDocument();
+  });
+
+  it("asks whether a past-due return was filed outside Kartaa, and marks it completed with the date and ARN (#424)", async () => {
+    const r3b = row({ form: "GSTR3B", period: "2026-10", period_label: "October 2026", period_start: "2026-10-01", period_end: "2026-10-31", due_date: "2026-11-20" });
+    const r1 = row({ form: "GSTR1", period: "2026-10", period_label: "October 2026", period_start: "2026-10-01", period_end: "2026-10-31", due_date: "2026-11-11", status: "filed_locked", arn: "AA19" });
+    const later = row({ form: "GSTR1", period: "2026-11", period_label: "November 2026", period_start: "2026-11-01", period_end: "2026-11-30", due_date: "2026-12-11" });
+    server.reply(NOW, ok([r1, r3b, later], "monthly"), ok([]), ok([r1, { ...r3b, status: "filed_locked", arn: "AB12" }, later], "monthly"));
+    server.reply(`/api/v1/b/b-1/returns/${r3b.instance_id}/completed`, { status: 200, body: { status: "filed_locked", filed_on: "2026-11-21", arn: "AB12" } });
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-26T06:00:00Z"));
+    onTestFinished(() => void vi.useRealTimers());
+    open();
+    await screen.findByRole("table");
+    // Only the open return whose due date has passed asks; the filed one and the one not yet due do not.
+    expect(screen.getAllByRole("button", { name: /outside Kartaa\? Mark as completed/ })).toHaveLength(1);
+    expect(screen.getByText("Due date passed")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Filed GSTR-3B for October 2026 outside Kartaa? Mark as completed" }));
+    const form = screen.getByRole("form", { name: "Mark GSTR-3B for October 2026 as completed" });
+    fireEvent.change(within(form).getByLabelText("Date you filed it"), { target: { value: "2026-11-21" } });
+    fireEvent.change(within(form).getByLabelText("ARN"), { target: { value: " AB12 " } });
+    fireEvent.click(within(form).getByRole("button", { name: "Mark as completed" }));
+    expect(await screen.findByText("ARN AB12")).toBeInTheDocument();
+    expect(server.sent.filter((x) => x.path === `/api/v1/b/b-1/returns/${r3b.instance_id}/completed`).map((x) => x.body)).toEqual([{ filed_on: "2026-11-21", arn: "AB12" }]);
+    expect(screen.queryByRole("form")).toBeNull();
+  });
+
+  it("does not offer Mark as completed to a role that cannot mark returns filed", async () => {
+    const r3b = row({ form: "GSTR3B", period: "2026-10", period_label: "October 2026", period_start: "2026-10-01", period_end: "2026-10-31", due_date: "2026-11-20" });
+    server.reply(NOW, ok([r3b], "monthly"), ok([]));
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-26T06:00:00Z"));
+    onTestFinished(() => void vi.useRealTimers());
+    open("support");
+    await screen.findByRole("table");
+    expect(screen.getByText("Due date passed")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Mark as completed/ })).toBeNull();
   });
 });
