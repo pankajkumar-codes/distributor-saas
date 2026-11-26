@@ -159,10 +159,11 @@ export function ChosenCustomer({ businessId, customerId, name, stateNames, onCha
         Change
       </button>
       {c && (
-        <span className="sub2">
-          {c.gstin ? <span className="num">GSTIN {c.gstin}</span> : "No GSTIN (unregistered)"}
-          {billing && ` · Bill to: ${billing}`}
-          {delivery && ` · Ship to: ${delivery}`}
+        // #439: GSTIN, Bill to and Ship to each on a line of their own inside the box
+        <span className="sub2 clines">
+          <span className={c.gstin ? "num" : undefined}>{c.gstin ? `GSTIN ${c.gstin}` : "No GSTIN (unregistered)"}</span>
+          {billing && <span>Bill to: {billing}</span>}
+          {delivery && <span>Ship to: {delivery}</span>}
         </span>
       )}
     </section>

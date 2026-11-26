@@ -60,6 +60,12 @@ describe("the customer on a new invoice", () => {
     expect(card).toHaveTextContent("Bill to: 9 Demo Chowk, New Delhi, 110001, Delhi (07)");
     expect(card).toHaveTextContent("Ship to: 3 Demo Godown Road, Siliguri, 734001, West Bengal (19)");
     expect(screen.queryByLabelText("Find a customer")).toBeNull();
+    // #439: GSTIN, Bill to and Ship to are each a line of their own in the box
+    expect([...card.querySelectorAll(".clines > span")].map((e) => e.textContent)).toEqual([
+      "GSTIN 07DEMOE3333E1ZU",
+      "Bill to: 9 Demo Chowk, New Delhi, 110001, Delhi (07)",
+      "Ship to: 3 Demo Godown Road, Siliguri, 734001, West Bengal (19)",
+    ]);
     // the picked customer came with its details, so nothing more was read
     expect(server.paths()).not.toContain("/api/v1/b/b-1/customers/c-1");
 
