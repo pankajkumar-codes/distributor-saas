@@ -139,7 +139,7 @@ class FrequencyOut(BaseModel):
     superseded_instances: list[str]  # the empty returns this change replaced; reads make the new ones
 
 
-@router.post("/filing-profile/frequency", status_code=201,
+@router.post("/filing-profile/frequency", status_code=http.HTTP_201_CREATED,
              dependencies=[Depends(require(Permission.SETTINGS_EDIT))])
 def post_frequency(
     body: FrequencyIn,
