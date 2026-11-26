@@ -431,3 +431,7 @@ For each answer, update `docs/DECISIONS.md` with the decision, rationale, trade-
 ## Marketplace place of supply (2026-11-19, #345)
 - **OQ-POS-1 (CA):** confirm holding a marketplace row when Bill To and Ship To are in different states, and how the user decides it (D-102). Built with Pick the state and a note; no third-party question is asked.
 - **OQ-POS-2 (CA or a real file):** does a real Flipkart or Meesho report carry a Bill To column? Today neither does, so the rule applies to Amazon B2B only.
+
+## Quarterly returns and IFF months not marked filed (2026-11-27, #482, #483)
+- **OQ-IFF-1 (build, follow-up):** the daily IFF skip job of LLD-5 §8 (`filing.skip_iff`, `platform_ops.filing_due_work`, the `skipped` event and audit row) is still not built. Until it is, a quarterly GSTR-1 counts every IFF month of its quarter that is not marked filed as skipped: its B2B invoices and registered notes are in the quarter's Tables 4A and 9B, and check C-19 warns the owner to mark the IFF filed first if it was filed on the portal (#483). An IFF has no Table 12, so it is no longer reconciled against one (C-07 and C-09 skip it, #482).
+- **OQ-IFF-2 (CA):** is it right to show an IFF month's documents in the quarter as soon as the IFF is unfiled (before its due date), given the quarterly return can only be exported after the quarter ends? Built that way so no date is needed; the C-19 warning names the IFF month.

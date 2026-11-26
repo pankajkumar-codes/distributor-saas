@@ -213,7 +213,7 @@ export function FinalizedPanel({ businessId, doc }: { businessId: string; doc: D
                         <div className="sub2 num">HSN {l.hsn}</div>
                       </td>
                       <td data-label="Qty" className="r num">
-                        {l.quantity} {l.uqc}
+                        {l.quantity} {l.uqc ?? ""}
                       </td>
                       <td data-label="Rate" className="r num">{l.unit_price ? formatRupees(l.unit_price) : "—"}</td>
                       <td data-label="Taxable" className="r num">

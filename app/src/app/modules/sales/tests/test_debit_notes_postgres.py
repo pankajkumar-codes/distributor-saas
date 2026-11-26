@@ -222,3 +222,39 @@ def test_a_live_debit_note_takes_a_live_number_its_return_and_is_a_supply_line(l
                                " filing.v_supply_lines where source_id = :d"), {"d": n["id"]}).all()
     assert period == "2026-11"
     assert [tuple(x) for x in lines] == [("own_debit_note", "debit_note", inv["doc_number"], Decimal("10.00"))]
+
+
+def test_value_notes_have_quantity_zero_and_the_return_still_builds(live):  # noqa: F811
+    """#480: a live credit or debit note by amount has no quantity. The return used to fail on it (500 on every
+    section); now the note is in Table 9B and moves the HSN row's value, not its quantity."""
+    pg, biz = live
+    flip_live(pg, True)
+    r = fin(pg, biz, ready_draft(pg, biz))  # 2.500 x 45.50: taxable 113.75
+    assert r.status_code == 200, r.text
+    inv = r.json()
+    line = state(pg, biz, inv["id"]).json()["lines"][0]["original_line_id"]
+    up = debit(pg, biz, inv["id"], by_value(line, "10.00"))
+    assert up.status_code == 201, up.text
+    down = note(pg, biz, inv["id"], {"reason": "value_too_high", "lines": [{"original_line_id": line, "taxable": "3.75"}]})
+    assert down.status_code == 201, down.text
+    with pg.owner.connect() as c:
+        quantities = c.execute(text("select quantity from filing.v_supply_lines where source_id in (:u, :d)"),
+                               {"u": up.json()["id"], "d": down.json()["id"]}).scalars().all()
+        instance = c.execute(text("select return_instance_id from sales.documents where id = :d"),
+                             {"d": inv["id"]}).scalar()
+    assert quantities == [Decimal("0.000")] * 2
+    sections = {}
+    for name in ("b2b", "cdnr", "hsn_b2b"):
+        r = pg.client.get(f"/api/v1/b/{biz}/returns/{instance}/sections/{name}", headers=as_user("alice"))
+        assert r.status_code == 200, r.text
+        sections[name] = r.json()["rows"]
+    assert sorted((n["note_number"], n["note_type"], n["taxable_value"]) for n in sections["cdnr"]) == sorted(
+        [(up.json()["doc_number"], "D", "10.00"), (down.json()["doc_number"], "C", "3.75")])
+    [hsn] = sections["hsn_b2b"]
+    assert hsn["quantity"] == "2.500" and hsn["taxable_value"] == "120.00"  # 113.75 + 10.00 - 3.75
+    # #485: the note's own page reads it too, with no quantity or unit on its line.
+    for n in (up.json(), down.json()):
+        r = pg.client.get(f"/api/v1/b/{biz}/documents/{n['id']}", headers=as_user("alice"))
+        assert r.status_code == 200, r.text
+        [ln] = r.json()["lines"]
+        assert ln["uqc"] is None and ln["quantity"] == "—" and ln["taxable"] in ("10.00", "3.75")
