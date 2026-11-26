@@ -367,6 +367,8 @@ jobs:
           python -m uvicorn app.api:asgi --app-dir app/src --port 8000 > api.log 2>&1 &
           for i in $(seq 30); do curl -sf http://localhost:8000/api/v1/health && exit 0; sleep 1; done
           cat api.log; exit 1
+      - name: Turn on finalize and live numbering (test setup only; notes, cancel and numbering e2e tests)
+        run: psql postgresql://postgres@localhost:5432/saas -v ON_ERROR_STOP=1 -f tests/e2e/enable-finalize.sql
       - name: End-to-end tests
         env:
           E2E_BASE_URL: http://localhost:8000

@@ -109,6 +109,9 @@ def test_more_goods_sent_are_valued_at_the_invoice_price_and_leave_stock(shop): 
     ({"reason": "value_too_low", "lines": [{"original_line_id": "x", "taxable": "1.00"}]}, "line_not_on_invoice"),
     ({"reason": "value_too_low", "doc_date": "2099-01-01", "lines": [{"original_line_id": "L", "taxable": "1.00"}]},
      "date_in_future"),
+    # #481: a note that can't fit a money column is refused, not a 500.
+    ({"reason": "value_too_low", "lines": [{"original_line_id": "L", "taxable": "9999999999999999.99"}]},
+     "amount_too_large"),
 ])
 def test_bad_debit_notes_are_refused_and_write_nothing(shop, body, code):  # noqa: F811
     pg, biz, _ = shop
@@ -222,3 +225,17 @@ def test_a_live_debit_note_takes_a_live_number_its_return_and_is_a_supply_line(l
                                " filing.v_supply_lines where source_id = :d"), {"d": n["id"]}).all()
     assert period == "2026-11"
     assert [tuple(x) for x in lines] == [("own_debit_note", "debit_note", inv["doc_number"], Decimal("10.00"))]
+
+
+def test_a_credit_note_closing_a_line_grown_past_the_limit_is_refused(shop):  # noqa: F811
+    """#481: each debit note fits, but a credit note taking everything left would not; refused, not a 500."""
+    pg, biz, _ = shop
+    switch(pg, True)
+    inv = invoice(pg, biz)  # 3 x 0.50
+    line = state(pg, biz, inv["id"]).json()["lines"][0]["original_line_id"]
+    for _ in range(2):
+        assert debit(pg, biz, inv["id"], by_value(line, "8000000000000000.00")).status_code == 201
+    r = note(pg, biz, inv["id"], returned(line, "3"))
+    assert r.status_code == 422 and r.json()["error"] == {
+        "code": "amount_too_large", "message": "This amount is too large. Check the quantity or amount.", "field": "lines"}
+    assert note(pg, biz, inv["id"], returned(line, "1")).status_code == 201  # a third of it still fits

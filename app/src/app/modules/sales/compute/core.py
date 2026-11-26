@@ -15,7 +15,7 @@ where LLD-4 says, with the rounding mode from refdata.
 from decimal import ROUND_FLOOR, Decimal
 
 from platform_common.errors import Invalid
-from platform_common.money import PAISE, round_to_paise
+from platform_common.money import AMOUNT_LIMIT, PAISE, round_to_paise
 
 from .model import ComputeInput, Computation, Issue, LineIn, LineOut, Tax
 from .words import inr
@@ -24,6 +24,7 @@ ZERO = Decimal()
 RUPEE = Decimal(1)
 HALVES = 2  # CGST and SGST/UTGST each take half the rate (LLD-4 §3.2 step 5, tax-computation §3)
 
+TOO_LARGE = "This amount is too large. Check the quantity and price."  # #481: past what a money column holds
 _EXEMPT_FIX = "Exempt items need a bill of supply; not supported yet."  # BH-2
 _NOT_TAXABLE_FIX = {
     "exempt": _EXEMPT_FIX,
@@ -66,6 +67,8 @@ def compute(inp: ComputeInput) -> Computation:
             field="invoice_discount",
         )
     charges_total = _charges_total(inp)
+    if charges_total >= AMOUNT_LIMIT:
+        raise Invalid("amount_too_large", TOO_LARGE, field="charges")
     # AC4-24: never divides by zero. With no lines yet, a typed charge or discount is kept
     # and the no_lines block stops finalize, so the draft can still be saved (Staff, #80).
     if charges_total > ZERO and inp.lines and sum(after, ZERO) == ZERO:
@@ -106,6 +109,8 @@ def compute(inp: ComputeInput) -> Computation:
     total = taxable_total + cgst + sgst + igst
     round_off = total.quantize(RUPEE, rounding=mode) - total if inp.rules.round_off_line else ZERO
     doc_total = total + round_off
+    if doc_total >= AMOUNT_LIMIT:
+        raise Invalid("amount_too_large", TOO_LARGE, field="lines")
 
     supply_class = _classify(inp, inter, doc_total)
     _document_checks(inp, checks, doc_total, supply_class)
@@ -177,6 +182,8 @@ def _base(i: int, line: LineIn, r) -> tuple[Decimal, Decimal]:
     if p is not None and p < ZERO:
         raise Invalid("price_negative", "Price can't be below zero.", field=f"lines.{i}.unit_price")
     value = ZERO if q is None or p is None else q * p
+    if value >= AMOUNT_LIMIT:  # checked before rounding, which can't take a number this long (#481)
+        raise Invalid("amount_too_large", TOO_LARGE, field=f"lines.{i}.quantity")
     gross = r(value)
     kind, d = line.discount_kind, line.discount_value
     if kind is None or d is None:

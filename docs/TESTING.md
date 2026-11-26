@@ -115,6 +115,11 @@ You should see `ALL CHECKS PASSED`. Then run the fuller end-to-end suite:
 make e2e-local      # tests/e2e: onboarding, isolation, roles, error leakage
 ```
 
+`tests/e2e/test_notes_security_e2e.py` (credit and debit notes, cancel, numbering and the live switch: other
+businesses get 404 even with the same GSTIN, roles, races, idempotency, amounts too large to store) skips unless
+finalize and live numbering are on. On a throwaway local database turn them on first, as CI's `e2e` job does:
+`psql postgresql://postgres:local-only@localhost:5432/saas -f tests/e2e/enable-finalize.sql`.
+
 The same suite runs against staging with two Cognito tokens:
 `E2E_BASE_URL=$API E2E_TOKEN_A=... E2E_TOKEN_B=... pytest tests/e2e`. Tests that need a
 third user skip there. You can also open http://localhost:8000/docs to
