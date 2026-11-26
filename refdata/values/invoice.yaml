@@ -1,6 +1,5 @@
-# Invoice and note numbering (LLD-0 §6.5). Tax rows: provisional until the GST expert or
-# the CA confirms them. The figures are from CGST Rule 46(b) as summarised in
-# team/gst/document-fields.md; uniqueness per FY per GSTIN (case-insensitive) is the
+# Invoice and note numbering (LLD-0 §6.5). The figures are CGST Rule 46(b), confirmed on the
+# official rules text 2026-11-26 (#458); uniqueness per FY per GSTIN (case-insensitive) is the
 # numbering code's rule, not a refdata row.
 
 - key: invoice.number.max_length
@@ -8,21 +7,25 @@
   type: integer
   kind: tax
   valid_from: 2017-07-01
-  source_url: https://gstzen.in/a/tax-invoice-cgst-rule-46.html
-  source_title: "CGST Rule 46(b): consecutive serial number not exceeding sixteen characters (text via GSTZen)"
-  last_checked: 2026-10-14
-  status: provisional
-  note: "valid_from is the GST start date; the GST expert to confirm the rule's own date."
+  source_url: https://taxinformation.cbic.gov.in/content/html/tax_repository/gst/rules/cgst_rules/active/chapter6/rule46_v1.00.html
+  source_title: "CGST Rule 46(b): 'a consecutive serial number not exceeding sixteen characters, in one or multiple series ... unique for a financial year'; the same in rules 49(b) and 53(1A)(c). Read in the official CGST Rules 2017 compilation (GST Docs, amended to about March 2025)"
+  last_checked: 2026-11-26
+  status: expert_confirmed
+  confirmed_by: "GST invoice rules review against the official CGST Rules text (issue #458)"
+  confirmed_on: 2026-11-26
+  note: "valid_from is the GST start date (the limit came by amendment; its own start date is not on file and no earlier invoice is issued here). Not cbic-gst.gov.in/gst-invoice-rules.html: that page shows the 2017 draft rules, without the 16-character limit."
 
 - key: invoice.number.charset
   value: "^[A-Za-z0-9/-]+$"
   type: pattern
   kind: tax
   valid_from: 2017-07-01
-  source_url: https://gstzen.in/a/tax-invoice-cgst-rule-46.html
-  source_title: "CGST Rule 46(b): alphabets or numerals, hyphen or dash and slash (text via GSTZen)"
-  last_checked: 2026-10-14
-  status: provisional
+  source_url: https://taxinformation.cbic.gov.in/content/html/tax_repository/gst/rules/cgst_rules/active/chapter6/rule46_v1.00.html
+  source_title: "CGST Rule 46(b): 'containing alphabets or numerals or special characters- hyphen or dash and slash symbolised as - and / respectively, and any combination thereof'. Read in the official CGST Rules 2017 compilation (GST Docs, amended to about March 2025)"
+  last_checked: 2026-11-26
+  status: expert_confirmed
+  confirmed_by: "GST invoice rules review against the official CGST Rules text (issue #458)"
+  confirmed_on: 2026-11-26
   note: "Length is invoice.number.max_length. team/gst/document-fields.md row 3 writes A-Z; the rule says alphabets, so lower case is allowed here and uniqueness is case-insensitive."
 
 # Invoice computation (LLD-4 §3, L4-1). Copied from the GST expert's

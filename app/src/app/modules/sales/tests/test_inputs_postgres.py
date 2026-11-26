@@ -84,6 +84,20 @@ def test_a_registered_customer_in_another_state(shop):
     assert c.blocks == ()
 
 
+def test_a_registered_customer_without_an_address_is_blocked(shop):  # Rule 46(d), #453
+    pg, biz, alice = shop
+    pid = soap(pg, biz)
+    cid = post(pg, biz, "customers", {"name": "No Address Traders", "gstin": KA_GSTIN, "billing": {"state_code": "29"},
+                                       "credit_days": 0})
+    lines = [DraftLineIn(1, pid, D(1), D("50.00"))]
+    assert [b.code for b in run(pg, biz, alice, DraftIn(doc_date=TODAY, customer_id=cid), lines).blocks] == [
+        "buyer_address_missing"
+    ]
+    # An address typed on the draft itself is enough.
+    draft = DraftIn(doc_date=TODAY, customer_id=cid, bill_to={"line1": "2 MG Road", "state_code": "29"})
+    assert run(pg, biz, alice, draft, lines).blocks == ()
+
+
 def test_a_cash_sale_with_only_a_state(shop):
     pg, biz, alice = shop
     pid = soap(pg, biz)

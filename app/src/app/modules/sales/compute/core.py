@@ -396,6 +396,12 @@ def _document_checks(inp: ComputeInput, checks: _Checks, doc_total: Decimal, sup
                 "For this amount an unregistered buyer's name and delivery address are required.",
                 field="ship_to",
             )
+    if b.gstin and not b.has_billing_address:  # Rule 46(d): a registered buyer's address (#453)
+        checks.block(
+            "buyer_address_missing",
+            "Add the buyer's address. A tax invoice must show a registered buyer's address.",
+            field="bill_to",
+        )
     if inp.seller.ready_missing:
         checks.block("business_not_ready", _business_not_ready_words(inp.seller.ready_missing), field="business")
     if supply_class == "B2B" and inp.seller.einvoice_status == "applies":  # L4-4
