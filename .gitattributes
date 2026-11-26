@@ -4,3 +4,4 @@ demo/** text=auto eol=lf
 demo/samples/*.zip binary
 demo/samples/*.xlsx binary
 docker-compose*.yml text eol=lf
+web/public/products-template.csv -text

@@ -142,27 +142,6 @@ export function ImportPage() {
       }),
   });
 
-  const template = useMutation<void, ApiError>({
-    mutationFn: async () => {
-      const text = await call(() =>
-        api.GET("/api/v1/b/{business_id}/products/import-template", {
-          params: { path },
-          parseAs: "text",
-        }),
-      );
-      const url = URL.createObjectURL(new Blob([text as string], { type: "text/csv" }));
-      const a = Object.assign(document.createElement("a"), {
-        href: url,
-        download: "products-template.csv",
-        hidden: true,
-      });
-      document.body.append(a); // Firefox ignores a click on a link that is not in the page
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000); // Safari drops the download if it is revoked at once
-    },
-  });
-
   if (businesses.isPending) {
     return (
       <main className="page" aria-busy="true">
@@ -238,11 +217,12 @@ export function ImportPage() {
               changes.
             </p>
             <p>
-              <Button type="button" variant="link" busy={template.isPending} onClick={() => template.mutate()}>
+              {/* A plain link to a static file (#425): the header row holds no business data, so the browser downloads it
+                  itself, with no sign-in, script or blob in the way. A test keeps it equal to the API's template. */}
+              <a className="btn btn-link" href={`${import.meta.env.BASE_URL}products-template.csv`} download="products-template.csv">
                 Download the template
-              </Button>
+              </a>
             </p>
-            {template.error && <Banner tone="error">The template didn't download. {errorText(template.error)}</Banner>}
             <div className="field">
               <label htmlFor="import-file">File</label>
               <input
