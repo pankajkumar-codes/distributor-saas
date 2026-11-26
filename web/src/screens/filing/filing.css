@@ -234,3 +234,10 @@ main.ledger .head h1 { margin: 0; }
 .ledger .ret .dl { padding: 8px 16px; gap: 4px; margin-top: 8px; }
 .ledger .ret .dl p { font-size: 13px; }
 .ledger .ret .head2:not(.bar) { margin-top: 4px; }
+
+/* "Filed outside Kartaa? Mark as completed" (#424): a short form in the row under a past-due return, fields side by side. */
+.ledger .deadlines .completing td { background: var(--sunk); }
+.ledger .inline-form { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: flex-end; }
+.ledger .inline-form > .hint { flex-basis: 100%; margin: 0; }
+.ledger .inline-form .field { margin: 0; min-width: 180px; }
+.ledger .deadlines td .btn-link { min-height: 0; font-size: 13px; display: block; }

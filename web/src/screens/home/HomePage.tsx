@@ -94,7 +94,7 @@ function NextStepCard({ step }: { step: NextStep }) {
   );
 }
 
-/** Today and the confirmed due dates of this month, as a track; on a phone, as a list. */
+/** Today and the due dates of this month, as a track; on a phone, as a list. */
 function Timeline({ today, rows, period, frequency }: { today: string; rows: { form: string; due_date?: string | null; due_date_confirmed: boolean }[]; period?: string; frequency?: string | null }) {
   const t = timeline(today, rows);
   const pct = (x: number) => `${(x * 100).toFixed(2)}%`;
@@ -131,7 +131,7 @@ function Timeline({ today, rows, period, frequency }: { today: string; rows: { f
           </div>
         ))}
       </dl>
-      {t.markers.length === 1 && <p className="hint">Due dates show here once they are confirmed. See Your GST filing.</p>}
+      {t.markers.length === 1 && <p className="hint">No due dates to show for this period yet. See Your GST filing.</p>}
     </section>
   );
 }

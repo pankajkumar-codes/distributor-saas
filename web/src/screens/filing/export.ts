@@ -85,3 +85,12 @@ export function useUnlock(businessId: string, instanceId: string) {
     onSuccess: reload,
   });
 }
+
+/** POST …/completed: the user filed this return on the portal outside Kartaa (#424). Any form, GSTR-3B included. */
+export function useMarkCompleted(businessId: string, instanceId: string) {
+  const reload = useReload(businessId, instanceId);
+  return useMutation<unknown, ApiError, { filed_on: string; arn: string }>({
+    mutationFn: (body) => call(() => api.POST("/api/v1/b/{business_id}/returns/{instance_id}/completed", { params: { path: path(businessId, instanceId) }, body })),
+    onSuccess: reload,
+  });
+}

@@ -395,6 +395,18 @@ def _instance_or_404(uow: BusinessUoW, instance_id: str):
     return inst
 
 
+def _any_instance_or_404(uow: BusinessUoW, instance_id: str):
+    """This business's instance of any form (GSTR-3B included), for marking it filed outside Kartaa or unlocking it."""
+    try:
+        iid = uuid.UUID(instance_id)
+    except ValueError:
+        raise Deny("not_found") from None
+    inst = periods.get_instance(uow.tx, iid)
+    if inst is None:  # another business's instance is not found either (RLS and the bound business)
+        raise Deny("not_found")
+    return inst
+
+
 @router.get("/returns/{instance_id}", dependencies=PREPARE)
 def get_return(instance_id: str, uow: BusinessUoW) -> ReturnDetailOut:
     inst = _instance_or_404(uow, instance_id)
@@ -584,6 +596,27 @@ def mark_filed(instance_id: str, body: FiledIn, uow: BusinessUoW, clock: Today) 
     return FiledOut(**lock.mark_filed(uow, inst.id, body.filed_on, body.arn, reason, clock.today()))
 
 
+class CompletedIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    filed_on: date
+    arn: str
+
+
+class CompletedOut(BaseModel):
+    status: Literal["filed_locked"]
+    filed_on: date
+    arn: str
+
+
+@router.post("/returns/{instance_id}/completed", dependencies=LOCK)
+def mark_completed(instance_id: str, body: CompletedIn, uow: BusinessUoW, clock: Today) -> CompletedOut:
+    """The user filed this return on the GST portal outside Kartaa (issue #424): any form, GSTR-3B included. A GSTR-1 or
+    IFF is locked as it is now with the reason "Filed outside Kartaa"; 409 `period_not_open` when it is already locked."""
+    inst = _any_instance_or_404(uow, instance_id)
+    return CompletedOut(**lock.mark_completed_outside(uow, inst.id, body.filed_on, body.arn, clock.today()))
+
+
 @router.get("/returns/{instance_id}/lock-file", dependencies=PREPARE)
 def lock_file(instance_id: str, uow: BusinessUoW) -> ExportStatusOut:
     """The file of a locked return, from its lock snapshot, with 60-second links."""
@@ -593,6 +626,7 @@ def lock_file(instance_id: str, uow: BusinessUoW) -> ExportStatusOut:
 
 @router.post("/returns/{instance_id}/unlock", dependencies=UNLOCK)
 def unlock_return(instance_id: str, body: UnlockIn, uow: BusinessUoW) -> UnlockOut:
-    """Owner only, with a reason. The snapshots stay; marking filed again is a relock."""
-    inst = _instance_or_404(uow, instance_id)
+    """Owner only, with a reason. The snapshots stay; marking filed again is a relock. Any form: a GSTR-3B marked
+    completed outside Kartaa by mistake is unlocked the same way (#424)."""
+    inst = _any_instance_or_404(uow, instance_id)
     return UnlockOut(**lock.unlock(uow, inst.id, body.reason))
