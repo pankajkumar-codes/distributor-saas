@@ -87,6 +87,17 @@
   value: "PR-CN-"
   type: text
   kind: product
+  valid_from: 2026-11-09
+  source_url: team/program-lead/ca-cancel-credit-note-answer-v1.md
+  source_title: "Pankaj 2026-11-26 (decision card on #456): practice credit notes on practice invoices, own series PR-CN-"
+  last_checked: 2026-11-27
+  status: provisional
+  note: "Added for #496 (CEO 2026-11-27): the same prefix from the invoice series' first day (sales.practice_prefix, 09-Nov-2026), so a practice note dated 09 to 25 Nov is not refused. The loader closes this row at the 26-Nov row; no document changes."
+
+- key: sales.practice_credit_note_prefix
+  value: "PR-CN-"
+  type: text
+  kind: product
   valid_from: 2026-11-26
   source_url: team/program-lead/ca-cancel-credit-note-answer-v1.md
   source_title: "Pankaj 2026-11-26 (decision card on #456): practice credit notes on practice invoices, own series PR-CN-"
@@ -95,6 +106,17 @@
   note: "Width is sales.practice_width. A live credit note uses the credit_note series settings (CN/YY-MM/NNNNNN, D-114)."
 
 # Debit notes (#456 part 3): practice debit notes on practice invoices, in their own practice series, as credit notes.
+
+- key: sales.practice_debit_note_prefix
+  value: "PR-DN-"
+  type: text
+  kind: product
+  valid_from: 2026-11-09
+  source_url: team/program-lead/ca-cancel-credit-note-answer-v1.md
+  source_title: "Pankaj 2026-11-26 (decision card on #456): practice notes on practice invoices; mocks v17 PR-DN-"
+  last_checked: 2026-11-27
+  status: provisional
+  note: "Added for #496 (CEO 2026-11-27): the same prefix from the invoice series' first day (sales.practice_prefix, 09-Nov-2026), so a practice note dated 09 to 25 Nov is not refused. The loader closes this row at the 26-Nov row; no document changes."
 
 - key: sales.practice_debit_note_prefix
   value: "PR-DN-"
