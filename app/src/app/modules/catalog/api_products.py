@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.modules.refdata import uqc_codes
 from platform_common.clock import Clock, get_clock
+from platform_common.errors import Invalid
 from platform_common.etag import if_match_version, set_etag
 from platform_common.idempotency import run_once
 from platform_common.paging import PageParams, page_params
@@ -21,6 +22,7 @@ from platform_common.permissions import Permission, require
 from platform_common.uow import BusinessUoW, parse_id
 
 from . import products
+from .interface import rate_from_mrp
 from .rates import valid_until
 
 router = APIRouter(tags=["catalog"])
@@ -51,7 +53,7 @@ class ProductIn(BaseModel):
     hsn: Text | None = None
     uqc: Text
     sale_rate: Money
-    mrp: Money | None = None  # optional, display only (D-104); blank or null means none
+    mrp: Money | None = None  # required (D-107): per unit, GST included; refused when missing or blank
     barcode: Text | None = None
     tax_category: Literal["taxable", "exempt", "nil_rated", "non_gst"]
     has_cess: bool = False
@@ -66,7 +68,7 @@ class ProductPatch(BaseModel):
     hsn: Text | None = None
     uqc: Text | None = None
     sale_rate: Money | None = None
-    mrp: Money | None = None  # null or "" clears it
+    mrp: Money | None = None  # required (D-107): may change, never be cleared
     barcode: Text | None = None
     tax_category: Literal["taxable", "exempt", "nil_rated", "non_gst"] | None = None
     has_cess: bool | None = None
@@ -106,7 +108,8 @@ class ProductOut(BaseModel):
     hsn: str | None
     uqc: str
     sale_rate: str
-    mrp: str | None  # per 1 qty, 2 decimals; display only, never used for tax (D-104)
+    mrp: str | None  # per 1 qty, GST included, 2 decimals; None only on a product saved before D-107
+    rate_from_mrp: str | None  # MRP / (1 + GST%/100) on the day asked, the invoice line's default rate (D-107)
     barcode: str | None
     tax_category: str
     has_cess: bool
@@ -149,6 +152,18 @@ class UnitOut(BaseModel):
     name: str
 
 
+def _str_or_none(value) -> str | None:
+    return None if value is None else f"{value:.2f}"
+
+
+def _mrp_required(value) -> None:
+    """D-107: a product typed in by a person always has its MRP. Imports and purchase items may still arrive
+    without one; the invoice then blocks the line (mrp_missing) until it is added."""
+    if value is None or not str(value).strip():
+        raise Invalid("mrp_required", "Enter the MRP, the price per unit with GST included", field="mrp",
+                      fix="Enter the MRP, the price per unit with GST included")
+
+
 def _rate_str(value) -> str:
     return f"{value.normalize():f}"
 
@@ -163,6 +178,7 @@ def _out(p: products.Product, rate: dict | None) -> dict:
         "uqc": p.uqc,
         "sale_rate": f"{p.sale_rate:.2f}",
         "mrp": None if p.mrp is None else f"{p.mrp:.2f}",
+        "rate_from_mrp": _str_or_none(rate_from_mrp(p.mrp, p.tax_category, rate["rate"] if rate else None, p.has_cess)),
         "barcode": p.barcode,
         "tax_category": p.tax_category,
         "has_cess": p.has_cess,
@@ -242,6 +258,7 @@ def create_product(
     today = clock.today()
 
     def create():
+        _mrp_required(body.mrp)
         return _detail(uow, products.create(uow, body.model_dump(), today), today)
 
     return _once(request, uow, idempotency_key, body.model_dump(mode="json"), create)
@@ -266,7 +283,10 @@ def update_product(
 ):
     pid = parse_id(product_id)
     today = clock.today()
-    products.update(uow, pid, body.model_dump(exclude_unset=True), if_match_version(if_match), today)
+    changes = body.model_dump(exclude_unset=True)
+    if "mrp" in changes:
+        _mrp_required(changes["mrp"])
+    products.update(uow, pid, changes, if_match_version(if_match), today)
     out = _detail(uow, pid, today)
     set_etag(response, out["version"])
     return out

@@ -30,7 +30,7 @@ import { todayIst } from "../../format/dates";
 import { formatRupees } from "../../format/money";
 import { useStockFlags } from "../stock/useStock";
 import { ChosenCustomer, CustomerPicker, ProductPicker } from "./Pickers";
-import { HsnFix } from "./HsnFix";
+import { HsnFix, MrpFix } from "./HsnFix";
 import { IssueText, Issues, Paper, type Issue } from "./Totals";
 import { gstText, hsnText, mrpText } from "./lineFacts";
 import { DeliveryDialog } from "./DeliveryDialog";
@@ -426,6 +426,23 @@ export function InvoicePage() {
         />
       )
     : undefined;
+  // D-107: a product without an MRP blocks its line; the MRP can be added here. The saved line keeps the rate it was saved
+  // with, so it takes the rate the new MRP implies (the server's figure), and the next save or Create uses it.
+  const mrpFixFor = canEditCatalog(business.role)
+    ? (n: number, productId: string) => (
+        <MrpFix
+          businessId={businessId}
+          productId={productId}
+          productName={names[productId] ?? "this product"}
+          onSaved={async (p) => {
+            const again = await loaded.refetch();
+            if (again.data) setSaved(again.data);
+            if (p.rate_from_mrp)
+              setForm((f) => (f ? { ...f, lines: f.lines.map((l, i) => (i === n - 1 && l.product_id === productId ? { ...l, unit_price: p.rate_from_mrp! } : l)) } : f));
+          }}
+        />
+      )
+    : undefined;
   const buyerOnPaper =
     form.buyer === "cash" ? (
       <b>{form.cash_name.trim() || "Cash sale"}</b>
@@ -761,6 +778,7 @@ export function InvoicePage() {
                               </div>
                             )}
                             {flags.priceNeeded.has(l.product_id) &&
+                              !p?.rate_from_mrp &&
                               /^0*(\.0*)?$/.test(l.unit_price.trim()) && (
                                 <div className="lnote mute">
                                   This product has no selling price yet. Enter a
@@ -783,6 +801,7 @@ export function InvoicePage() {
                                   canLeave={!dirty}
                                   productId={saved?.lines?.[i]?.product_id}
                                   hsnFix={hsnFixFor}
+                                  mrpFix={mrpFixFor}
                                 />
                               </div>
                             ))}
@@ -807,11 +826,13 @@ export function InvoicePage() {
                               inputMode="decimal"
                               aria-label={`Rate of ${name}, excluding GST`}
                               placeholder={
-                                p && !/^0*(\.0*)?$/.test(p.sale_rate)
-                                  ? p.sale_rate
-                                  : "—"
+                                p?.rate_from_mrp
+                                  ? p.rate_from_mrp
+                                  : p && !/^0*(\.0*)?$/.test(p.sale_rate)
+                                    ? p.sale_rate
+                                    : "—"
                               }
-                              title="Blank uses the product's sale rate."
+                              title="Blank uses the rate the MRP implies: MRP ÷ (1 + GST%)."
                               value={l.unit_price}
                               onChange={(e) =>
                                 setLine(i, { unit_price: e.target.value })
