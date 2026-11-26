@@ -517,7 +517,7 @@ export function InvoicePage() {
                       onChange={() => setChangingCustomer(true)}
                     />
                   ) : (
-                    <div className="row-pick">
+                    <div className="pick-stack">
                       <CustomerPicker
                         businessId={businessId}
                         stateNames={stateNames}
@@ -546,9 +546,12 @@ export function InvoicePage() {
                         }}
                       />
                       {form.customer_id && (
+                        // Under the box, not beside it, so a long name never squeezes the search box (#427).
                         <Button
                           type="button"
                           variant="link"
+                          className="keep-link"
+                          title={`Keep ${form.customer_name || "the customer"}`}
                           onClick={() => setChangingCustomer(false)}
                         >
                           Keep {form.customer_name || "the customer"}
@@ -689,6 +692,7 @@ export function InvoicePage() {
                     </Link>
                   }
                   onPick={pickProduct}
+                  taken={new Set(form.lines.map((l) => l.product_id))}
                 />
               </div>
               <div className="itemscroll">
