@@ -19,6 +19,9 @@ type Props<T> = {
   onPick: (item: T) => void;
   /** Shown under the results when nothing matches, e.g. a link to add one. */
   none?: ReactNode;
+  /** Results already used (a product already on the invoice): still listed, greyed out and not pickable, with `takenNote` (#427). */
+  taken?: ReadonlySet<string>;
+  takenNote?: string;
 };
 
 /**
@@ -26,7 +29,7 @@ type Props<T> = {
  * from the first letter the server's own search answers. Picking a result calls onPick and
  * clears the box. The server scopes the search to this business.
  */
-function Picker<T extends { id: string }>({ label, placeholder, error, onPick, none, kind, businessId, show, fetchItems }: Props<T> & {
+function Picker<T extends { id: string }>({ label, placeholder, error, onPick, none, taken, takenNote, kind, businessId, show, fetchItems }: Props<T> & {
   kind: "customers" | "products";
   show: (i: T) => ReactNode;
   fetchItems: (q: string) => Promise<{ items: T[] }>;
@@ -64,18 +67,25 @@ function Picker<T extends { id: string }>({ label, placeholder, error, onPick, n
               Nothing matches “{q}”. {none}
             </p>
           )}
-          {items.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => {
-                onPick(item);
-                setText("");
-              }}
-            >
-              {show(item)}
-            </button>
-          ))}
+          {items.map((item) =>
+            taken?.has(item.id) ? (
+              <button key={item.id} type="button" className="taken" aria-disabled="true" onClick={(e) => e.preventDefault()}>
+                {show(item)}
+                <span className="sub2 taken-note">{takenNote ?? "Already chosen."}</span>
+              </button>
+            ) : (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  onPick(item);
+                  setText("");
+                }}
+              >
+                {show(item)}
+              </button>
+            ),
+          )}
         </div>
       )}
     </div>
@@ -103,6 +113,7 @@ export const CustomerPicker = (p: Props<Customer> & { stateNames: Record<string,
 
 export const ProductPicker = (p: Props<Product>) => (
   <Picker<Product>
+    takenNote="Already on this invoice. Change its quantity in the list below."
     {...p}
     kind="products"
     show={(x) => (
