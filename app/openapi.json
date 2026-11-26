@@ -15008,7 +15008,7 @@
     },
     "/api/v1/b/{business_id}/numbering": {
       "get": {
-        "description": "The prefix and first number of each numbered document type, saved or the default, with a preview of the number\na new series dated today would start with. Any member may read it.",
+        "description": "The prefix and first number of each numbered document type, saved or the default, with a preview of the number\na new series dated today would start with. Anyone who may view invoices may read it.",
         "operationId": "get_numbering_api_v1_b__business_id__numbering_get",
         "parameters": [
           {

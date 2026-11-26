@@ -846,7 +846,7 @@ export interface paths {
         /**
          * Get Numbering
          * @description The prefix and first number of each numbered document type, saved or the default, with a preview of the number
-         *     a new series dated today would start with. Any member may read it.
+         *     a new series dated today would start with. Anyone who may view invoices may read it.
          */
         get: operations["get_numbering_api_v1_b__business_id__numbering_get"];
         /**
