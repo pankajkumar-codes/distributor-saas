@@ -288,6 +288,7 @@ def test_the_pdf_prints_the_mrp_and_percent_as_finalized_and_an_hsn_summary_that
     assert third["discount"] is None and third["discount_percent"] is None
     assert all("_rate" not in ln for ln in body["lines"])
     assert body["copy_label"] == "Original for Recipient"
+    assert body["copies"] == ["Original for Recipient", "Duplicate for Transporter", "Triplicate for Supplier"]  # #454
     assert body["seller"]["pan"] == doc["gstin"][2:12]
     # one row per (HSN, rate), in first-seen order, adding up to the stored totals exactly
     summary = body["hsn_summary"]

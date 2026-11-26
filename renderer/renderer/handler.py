@@ -74,6 +74,21 @@ def render_pdf(html: str, fetcher: DenyAllFetcher | None = None) -> bytes:
     return weasyprint.HTML(string=html, base_url=None, url_fetcher=fetcher).write_pdf()
 
 
+def render_pdfs(htmls: list[str], fetcher: DenyAllFetcher | None = None) -> bytes:
+    """Several page sets as one PDF (#454: the invoice copies). Each is laid out on its own, so each has its own
+    "Page x of y"; the pages are then joined in order. One page set is exactly render_pdf."""
+    if len(htmls) == 1:
+        return render_pdf(htmls[0], fetcher)
+    return joined(htmls, fetcher).write_pdf()
+
+
+def joined(htmls: list[str], fetcher: DenyAllFetcher | None = None):
+    """The page sets laid out one by one and joined, as one WeasyPrint document."""
+    fetcher = fetcher or DenyAllFetcher()
+    docs = [weasyprint.HTML(string=h, base_url=None, url_fetcher=fetcher).render() for h in htmls]
+    return docs[0].copy([page for d in docs for page in d.pages])
+
+
 def selftest() -> dict:
     start = time.perf_counter()
     document = weasyprint.HTML(string=SAMPLE, url_fetcher=DenyAllFetcher()).render()
@@ -95,7 +110,7 @@ def render_one(s3, bucket: str, key: str) -> str:
     body = obj["Body"].read(MAX_INPUT_BYTES + 1)
     if len(body) > MAX_INPUT_BYTES:
         raise ValueError("render input too large")
-    pdf = render_pdf(template.render_html(json.loads(body)))
+    pdf = render_pdfs(template.render_htmls(json.loads(body)))
     # One PutObject: S3 shows the whole object or none of it. The bucket's default
     # encryption (SSE-KMS, our key) applies.
     s3.put_object(Bucket=bucket, Key=out, Body=pdf, ContentType="application/pdf")

@@ -143,7 +143,8 @@ def test_igst_prints_one_tax_row_and_the_summary_has_an_igst_column():  # #450
 
 def test_the_page_carries_the_copy_label_pan_watermark_payable_signatory_and_page_numbers():  # #450
     html = document_template.render_html(full_doc())
-    assert html.count("Original for Recipient") == 2  # the top right, and the footer of every page
+    assert html.count("Original for Recipient") == 1  # the top right; the footer repeats it by string-set (#454)
+    assert "string-set: copylabel content()" in html and "content: string(copylabel)" in html
     assert 'counter(page) " of " counter(pages)' in html
     assert '<div class="wm">PRACTICE</div>' in html
     assert "PAN: AAPFU0939F" in html and "GSTIN: Unregistered" in html
@@ -153,7 +154,7 @@ def test_the_page_carries_the_copy_label_pan_watermark_payable_signatory_and_pag
     assert "page-break-inside: avoid" in html and "table-header-group" in html
 
 
-@pytest.mark.parametrize("field", ["mrp", "discount_percent", "pan", "hsn_summary", "copy_label"])
+@pytest.mark.parametrize("field", ["mrp", "discount_percent", "pan", "hsn_summary"])
 def test_the_new_fields_are_escaped_too(field):  # #450
     evil = '<img src="http://x/y">'
     d = full_doc()
@@ -163,8 +164,6 @@ def test_the_new_fields_are_escaped_too(field):  # #450
         d["seller"] = {**d["seller"], "pan": evil}
     elif field == "hsn_summary":
         d["hsn_summary"] = [{"hsn": evil, "rate": evil, "taxable": evil, "taxes": [{"component": evil, "amount": evil}]}]
-    else:
-        d["copy_label"] = evil
     html = template.render_html(d)
     assert "<img" not in html and "&lt;img" in html
 
@@ -173,3 +172,24 @@ def test_a_200_line_invoice_renders():  # #450: headings repeat by CSS, totals k
     lines = [{**full_doc()["lines"][0], "no": str(i)} for i in range(1, 201)]
     html = document_template.render_html(full_doc(lines=lines))
     assert html.count("<tr><td class=\"n\">") >= 200 and html.count("<thead>") == 1
+
+
+@pytest.mark.parametrize("label", ['<img src="http://x/y">', "Copy for Bank", "original for recipient"])
+def test_a_copy_label_is_one_of_the_rule_48_labels(label):  # #454: it is also the page footer
+    with pytest.raises(ValueError):
+        template.render_html(full_doc(copy_label=label))
+
+
+def test_copies_make_one_page_set_per_rule_48_label():  # #454, Rule 48(1)
+    labels = list(document_template.COPY_LABELS)
+    htmls = template.render_htmls(full_doc(copies=labels))
+    assert len(htmls) == 3
+    for html, label in zip(htmls, labels, strict=True):
+        assert f'<td class="copy">{label}</td>' in html
+    assert template.render_htmls(full_doc()) == [template.render_html(full_doc())]
+
+
+@pytest.mark.parametrize("copies", [["Original for Recipient", "Original for Recipient"], ["Copy for Bank"], ["x"] * 4])
+def test_copies_must_be_distinct_rule_48_labels(copies):
+    with pytest.raises(ValueError):
+        template.render_htmls(full_doc(copies=copies))
