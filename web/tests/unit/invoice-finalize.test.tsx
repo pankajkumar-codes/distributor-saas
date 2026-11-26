@@ -39,7 +39,18 @@ beforeEach(() => {
   server.reply(`${B}/products/p-1`, { status: 200, body: product });
   server.reply(`${B}/stock`, { status: 200, body: { items: [stockItem("p-1")], has_more: false } }, { status: 200, body: { items: [stockItem("p-1")], has_more: false } });
 });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
+/** The links the page started a download from: a hidden anchor's click, recorded instead of navigating (jsdom can't). */
+const saved = () => {
+  const urls: string[] = [];
+  vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
+    urls.push(this.href);
+  });
+  return urls;
+};
 const open = () => {
   window.history.replaceState(null, "", "/b/b-1/invoices/d-1");
   render(<App />);
@@ -81,9 +92,10 @@ describe("a sales invoice from the catalog", () => {
     const fin = server.sent.find((s) => s.path === `${ONE}/finalize`)!;
     expect(fin.headers.get("If-Match")).toBe("2");
     expect(fin.headers.get("Idempotency-Key")).toBeTruthy();
+    const clicks = saved();
     fireEvent.click(screen.getByRole("button", { name: "Download practice PDF" }));
-    const link = await screen.findByRole("link", { name: "Open the PDF" });
-    expect(link).toHaveAttribute("href", "https://files.example/p.pdf");
+    await vi.waitFor(() => expect(clicks).toEqual(["https://files.example/p.pdf"]));
+    expect(await screen.findByRole("link", { name: "open the PDF" })).toHaveAttribute("href", "https://files.example/p.pdf");
   });
 
   it("saves unsaved changes and then creates the invoice from the saved version, in one press", async () => {
@@ -152,12 +164,50 @@ describe("a sales invoice from the catalog", () => {
     expect(server.sent.filter((s) => s.method === "POST" && s.path === `${B}/documents/doc-1/pdf`)).toHaveLength(1);
   });
 
-  it("shows a PDF that is already ready when the invoice is opened later", async () => {
-    server.reply(`GET ${B}/documents/doc-1`, { status: 200, body: { ...docFull, stock_movements: 1, pdf: { status: "ready", job_id: "j-1", attempt: 1, url: "https://files.example/p.pdf" } } });
+  it("downloads a PDF made on an earlier visit from a fresh link, never the one read when the page opened (#422)", async () => {
+    const ready = (url: string) => ({ status: 200, body: { ...docFull, stock_movements: 1, pdf: { status: "ready", job_id: "j-1", attempt: 1, url } } });
+    server.reply(`GET ${B}/documents/doc-1`, ready("https://files.example/old.pdf"), ready("https://files.example/new.pdf"), ready("https://files.example/newer.pdf"));
+    server.reply(`POST ${B}/documents/doc-1/pdf`, { status: 202, body: { job_id: "j-1", attempt: 1 } }, { status: 202, body: { job_id: "j-1", attempt: 1 } });
+    const clicks = saved();
     window.history.replaceState(null, "", "/b/b-1/documents/doc-1");
     render(<App />);
-    expect(await screen.findByRole("link", { name: "Open the PDF" })).toBeInTheDocument();
+    const button = await screen.findByRole("button", { name: "Download practice PDF" });
     expect(screen.getByText("Practice invoice.")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /open the PDF/i })).toBeNull(); // a link read on opening may have expired
+    fireEvent.click(button);
+    await vi.waitFor(() => expect(clicks).toEqual(["https://files.example/new.pdf"]));
+    await vi.waitFor(() => expect(button).toBeEnabled());
+    fireEvent.click(button); // pressed again later: another fresh link, another download
+    await vi.waitFor(() => expect(clicks).toEqual(["https://files.example/new.pdf", "https://files.example/newer.pdf"]));
+  });
+
+  it("waits while the PDF is being made and then downloads it (#422)", async () => {
+    const detail = (pdf: Record<string, unknown>) => ({ status: 200, body: { ...docFull, stock_movements: 1, pdf } });
+    server.reply(
+      `GET ${B}/documents/doc-1`,
+      detail({ status: "none", job_id: null, attempt: null }),
+      detail({ status: "rendering", job_id: "j-1", attempt: 1 }),
+      detail({ status: "ready", job_id: "j-1", attempt: 1, url: "https://files.example/p.pdf" }),
+    );
+    server.reply(`POST ${B}/documents/doc-1/pdf`, { status: 202, body: { job_id: "j-1", attempt: 1 } });
+    const clicks = saved();
+    window.history.replaceState(null, "", "/b/b-1/documents/doc-1");
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: "Download practice PDF" }));
+    expect(await screen.findByText(/Making the PDF\. It downloads by itself when it is ready\./)).toBeInTheDocument();
+    await vi.waitFor(() => expect(clicks).toEqual(["https://files.example/p.pdf"]), { timeout: 4000 });
+  });
+
+  it("downloads nothing and says so when the PDF could not be made (#422)", async () => {
+    const detail = (pdf: Record<string, unknown>) => ({ status: 200, body: { ...docFull, stock_movements: 1, pdf } });
+    server.reply(`GET ${B}/documents/doc-1`, detail({ status: "none", job_id: null, attempt: null }), detail({ status: "failed", job_id: "j-1", attempt: 1, error_code: "render_failed" }));
+    server.reply(`POST ${B}/documents/doc-1/pdf`, { status: 202, body: { job_id: "j-1", attempt: 1 } });
+    const clicks = saved();
+    window.history.replaceState(null, "", "/b/b-1/documents/doc-1");
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: "Download practice PDF" }));
+    expect(await screen.findByText(/We couldn't make the PDF\. Try again\./)).toBeInTheDocument();
+    expect(clicks).toEqual([]);
   });
 
   it("lists issued invoices, practice ones marked", async () => {
