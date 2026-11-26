@@ -308,3 +308,16 @@ def test_pan_is_read_from_a_gstin_only_when_it_has_the_pan_shape():  # #450
 
     assert pan_of("19AAPFU0939F1ZS") == "AAPFU0939F"
     assert pan_of(None) is None and pan_of("19AAPFU0939F1Z") is None and pan_of("19AAPF10939F1ZS") is None
+
+
+@pytest.mark.parametrize(("ship", "name"), [
+    ({**KOLKATA, "name": "Ghosh Godown"}, "Ghosh Godown"),  # a consignee named on the invoice
+    ({**KOLKATA, "name": None}, "Sharma Stores"),  # no consignee named: the buyer's name
+])
+def test_ship_to_on_the_pdf_carries_a_name(shop, ship, name):  # #452
+    pg, biz, _, jobs_q, _, store = shop
+    r = fin(pg, biz, ready_draft(pg, biz, ship_to=ship, ship_to_third_party=True))
+    assert r.status_code == 200, r.text
+    job_id = _ask(pg, biz, r.json()).json()["job_id"]
+    jobs_q.drain(jobs.handle_message)
+    assert _input(store, biz, job_id)["ship_to"]["name"] == name

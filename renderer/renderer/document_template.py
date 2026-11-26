@@ -19,7 +19,7 @@ sit in every page's footer.
      "number": str, "doc_date": str, "due_date"?: str, "copy_label"?: str,
      "seller": {"name", "trade_name"?, "gstin"?, "pan"?, "address": [str], "state"},
      "buyer": {"name"?, "gstin"?, "address": [str], "state"?},
-     "ship_to": {"address": [str], "state"?} | null,
+     "ship_to": {"name"?, "address": [str], "state"?} | null,
      "place_of_supply": str, "reverse_charge": str,
      "lines": [{"no", "description", "hsn"?, "quantity", "uqc", "mrp"?, "unit_price", "gross", "discount"?,
                 "discount_percent"?, "taxable", "taxes": [{"component", "rate", "amount"}], "total"}],

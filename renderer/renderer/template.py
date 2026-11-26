@@ -12,7 +12,7 @@ Render input v1, template "invoice-draft" (written by app.modules.sales.preview)
     {"v": 1, "template": "invoice-draft",
      "seller": {"name", "trade_name"?, "gstin"?, "address": [str], "state"},
      "buyer": {"name"?, "gstin"?, "address": [str], "state"?} | null,
-     "ship_to": {"address": [str], "state"?} | null,
+     "ship_to": {"name"?, "address": [str], "state"?} | null,
      "doc_date"?, "place_of_supply"?, "reverse_charge",
      "lines": [{"no", "description", "hsn"?, "quantity", "uqc", "mrp"?, "unit_price", "gross"?, "discount"?,
                 "discount_percent"?, "taxable"?, "rate"?, "taxes"?: [{"component", "rate", "amount"}], "total"?}],
@@ -95,6 +95,8 @@ def _bill_to(buyer: dict | None, ship: dict | None) -> str:
     if ship is None:
         return cell
     address = "<br>".join(_t(line) for line in _list(ship.get("address"), 6))
+    if ship.get("name"):  # #452: who the goods go to
+        address = f"<b>{_t(ship.get('name'))}</b><br>" + address
     state = f"<br>State: {_t(ship.get('state'))}" if ship.get("state") else ""
     return cell[: -len("</td>")] + f'<p class="shipto"><b>Ship to</b><br>{address}{state}</p></td>'
 

@@ -125,6 +125,17 @@ def _address(*parts) -> list[str]:
     return [p for p in parts if p]
 
 
+def _ship_to(tx, snap: dict, on: date) -> dict | None:
+    """The ship-to for the page: its address and state, and a name (#452): the consignee named on the invoice, else the
+    bill-to's name, because without a consignee the goods go to the buyer's own delivery address."""
+    ship = _party(tx, snap.get("ship_to"), on)
+    if ship is None:
+        return None
+    bill = snap.get("bill_to") or snap.get("cash_buyer") or {}
+    return {"name": ship["name"] or bill.get("name") or bill.get("legal_name"), "address": ship["address"],
+            "state": ship["state"]}
+
+
 def _party(tx, p: dict | None, on: date) -> dict | None:
     if p is None:
         return None
@@ -224,7 +235,7 @@ def view(tx, business_id: uuid.UUID, document_id: uuid.UUID) -> dict:
     buyer = _party(tx, snap.get("bill_to"), on)
     if buyer is None and snap.get("cash_buyer"):
         buyer = _party(tx, snap["cash_buyer"], on)
-    ship = _party(tx, snap.get("ship_to"), on)
+    ship = _ship_to(tx, snap, on)
     labels = snap.get("charge_labels") or []
     return {
         "buyer": buyer,
@@ -263,7 +274,7 @@ def build(tx, business_id: uuid.UUID, document_id: uuid.UUID) -> dict:
         heads = [("CGST", doc["cgst_total"]), ("UTGST" if doc["utgst"] else "SGST", doc["sgst_total"])]
     labels = snap.get("charge_labels") or []
     seller = snap.get("seller") or {}
-    ship = _party(tx, snap.get("ship_to"), on)
+    ship = _ship_to(tx, snap, on)
     seller_out = _party(tx, seller, on) or {}
     trade = seller.get("trade_name")
     seller_out["trade_name"] = trade if trade and trade != seller.get("legal_name") else None
@@ -277,7 +288,7 @@ def build(tx, business_id: uuid.UUID, document_id: uuid.UUID) -> dict:
         "copy_label": "Original for Recipient",
         "seller": seller_out,
         "buyer": _party(tx, snap.get("bill_to"), on),
-        "ship_to": None if ship is None else {"address": ship["address"], "state": ship["state"]},
+        "ship_to": ship,
         "place_of_supply": _state(tx, doc["pos_state_code"], on),
         "reverse_charge": "No",
         "lines": _without_rate(lines),

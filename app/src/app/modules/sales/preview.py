@@ -162,7 +162,8 @@ def build(tx, d: dict, today: date, comp: Computation) -> dict:
     ship = d["ship_to"]
     ship_to = None
     if ship is not None and bill is not None and any(ship.get(k) != bill.get(k) for k in ship):
-        ship_to = {"address": _address(ship.get("line1"), ship.get("line2"),
+        ship_to = {"name": ship.get("name") or bill.get("name"),  # #452: the consignee, else the buyer
+                   "address": _address(ship.get("line1"), ship.get("line2"),
                                        " ".join(_address(ship.get("city"), ship.get("pin"))) or None),
                    "state": _state(tx, ship.get("state_code"), on)}
     products = products_for_lines(tx, [ln["product_id"] for ln in d["lines"]], on)
