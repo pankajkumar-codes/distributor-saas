@@ -83,6 +83,7 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   await page.getByLabel("HSN (optional)").fill("3401");
   await page.getByLabel("Unit", { exact: true }).selectOption("NOS");
   await page.getByLabel("Sale rate per unit, excluding GST (₹)").fill("1234.5");
+  await page.getByLabel("MRP per unit, incl. GST (₹)").fill("1456.71");
   await page.getByRole("radio", { name: "Taxable" }).check();
   await page.getByLabel("GST rate", { exact: true }).selectOption("18");
   await noSeriousAxeFindings(page);

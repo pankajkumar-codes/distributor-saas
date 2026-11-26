@@ -2,8 +2,8 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { createBusiness, fitsOneScreen, signUp } from "./helpers";
 
-// Mocks v16 catalogue screens (#398): the product form saves an MRP, the list shows "—" for a blank one, the lists
-// page five at a time, and every catalogue screen fits one laptop screen. Laptop only: phone views may scroll.
+// Mocks v16 catalogue screens (#398): the product form saves an MRP (required since D-106), the lists page five at a
+// time, and every catalogue screen fits one laptop screen. Laptop only: phone views may scroll.
 
 const JPEG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.from("e2e catalogue photo ".repeat(8))]);
 
@@ -13,7 +13,7 @@ async function addProduct(page: Page, businessId: string, name: string, code: st
   await page.getByLabel("Product code").fill(code);
   await page.getByLabel("Unit", { exact: true }).selectOption("NOS");
   await page.getByLabel("Sale rate per unit, excluding GST (₹)").fill("50");
-  if (mrp) await page.getByLabel("MRP, incl. GST (₹, optional)").fill(mrp);
+  await page.getByLabel("MRP per unit, incl. GST (₹)").fill(mrp);
   await page.getByRole("radio", { name: "Exempt" }).check();
   await page.getByRole("button", { name: "Add product" }).click();
   await expect(page.getByText(`Added ${name}.`)).toBeVisible();
@@ -27,29 +27,32 @@ test("catalogue screens: MRP, pages of five, one screen each", async ({ page }, 
   const businessId = page.url().match(/\/b\/([0-9a-f-]{36})\//)![1];
   const b = `/b/${businessId}`;
 
-  // Six products: one more than a page. The first has an MRP, the rest have none.
+  // Six products: one more than a page, each with its MRP.
   await addProduct(page, businessId, "Product A", "E2E-A", "60.50");
-  for (const x of ["B", "C", "D", "E", "F"]) await addProduct(page, businessId, `Product ${x}`, `E2E-${x}`, "");
+  for (const x of ["B", "C", "D", "E", "F"]) await addProduct(page, businessId, `Product ${x}`, `E2E-${x}`, "55");
 
   await page.goto(`${b}/products`);
   await expect(page.getByRole("row").filter({ hasText: "Product A" }).getByText("₹60.50")).toBeVisible();
-  await expect(page.getByRole("row").filter({ hasText: "Product B" }).getByText("—")).toBeVisible();
+  await expect(page.getByRole("row").filter({ hasText: "Product B" }).getByText("₹55.00")).toBeVisible();
   await expect(page.getByRole("row")).toHaveCount(6); // the head and five rows
   await fitsOneScreen(page);
   await page.getByRole("button", { name: "Next" }).click();
   await expect(page).toHaveURL(/\?page=2$/);
   await expect(page.getByRole("row")).toHaveCount(2);
 
-  // The product form keeps the MRP, and a blank MRP saves as none.
+  // The product form keeps the MRP, and it can't be cleared (D-106).
   await page.goto(`${b}/products`);
   await page.getByRole("link", { name: "Product A" }).click();
-  await expect(page.getByLabel("MRP, incl. GST (₹, optional)")).toHaveValue("60.50");
+  await expect(page.getByLabel("MRP per unit, incl. GST (₹)")).toHaveValue("60.50");
   await fitsOneScreen(page);
-  await page.getByLabel("MRP, incl. GST (₹, optional)").fill("");
+  await page.getByLabel("MRP per unit, incl. GST (₹)").fill("");
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByText("Enter the MRP, the price per unit with GST included.")).toBeVisible();
+  await page.getByLabel("MRP per unit, incl. GST (₹)").fill("61");
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByText("Saved. Invoices already finalized keep the details they were issued with.")).toBeVisible();
   await page.goto(`${b}/products?q=E2E-A`);
-  await expect(page.getByRole("row").filter({ hasText: "Product A" }).getByText("—")).toBeVisible();
+  await expect(page.getByRole("row").filter({ hasText: "Product A" }).getByText("₹61.00").first()).toBeVisible(); // MRP, and the exempt rate that follows it
 
   await page.goto(`${b}/products/new`);
   await expect(page.getByRole("group", { name: "GST treatment" })).toBeVisible();

@@ -20,7 +20,7 @@ import { RadioGroup } from "../../kit/RadioGroup";
 import { SelectField } from "../../kit/SelectField";
 import { TopBar } from "../../kit/TopBar";
 import { RateHistory } from "./RateHistory";
-import { mrpProblem, saleRateProblem } from "./saleRate";
+import { mrpProblem, rateFromMrp, saleRateProblem } from "./saleRate";
 import { useGstRates } from "./useGstRates";
 import { NoAccess } from "../../kit/NoAccess";
 import { useFormKey } from "../../kit/formKey";
@@ -144,6 +144,8 @@ export function ProductPage() {
   const [stale, setStale] = useState(false);
   const [rateMissing, setRateMissing] = useState(false);
   const [saleRateChecked, setSaleRateChecked] = useState(false); // a save was tried: a half-typed "10." is now a problem
+  // D-106: the sale rate follows the MRP and GST rate (MRP / (1 + GST%)) until the person types a rate of their own.
+  const [rateTyped, setRateTyped] = useState(false);
   const [tab, setTab] = useState(0);
   const latest = product.data ?? null;
 
@@ -199,7 +201,7 @@ export function ProductPage() {
             hsn: blank(values.hsn),
             uqc: values.uqc,
             sale_rate: values.sale_rate.trim(),
-            mrp: blank(values.mrp),
+            mrp: values.mrp.trim(),
             barcode: blank(values.barcode),
             tax_category: values.tax_category as Category,
             has_cess: values.has_cess,
@@ -327,6 +329,16 @@ export function ProductPage() {
         ? "Its GST rates will be voided. They stay in the rate history."
         : undefined;
   const set = (field: keyof Values) => (e: { target: { value: string } }) => setValues({ ...values, [field]: e.target.value });
+  // The GST rate the MRP includes: the one chosen on the form, else the product's rate today.
+  const gstNow = needsRate ? chosenRate : (base?.rate_on?.rate ?? null);
+  const fromMrp = (next: Values, gst: string | null) => rateFromMrp(next.mrp, gst, next.tax_category === "taxable");
+  /** Values with the sale rate worked out from the MRP, unless the person typed their own rate. */
+  const follow = (next: Values, gst: string | null = gstNow): Values => {
+    const r = rateTyped ? null : fromMrp(next, gst);
+    return r === null ? next : { ...next, sale_rate: r };
+  };
+  const derived = fromMrp(values, gstNow);
+  const gstWords = values.tax_category === "taxable" ? (gstNow ? `the MRP without its ${formatRate(gstNow)} GST` : null) : "no GST in this MRP";
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (saleRateProblem(values.sale_rate, true) || mrpProblem(values.mrp, true)) {
@@ -378,25 +390,45 @@ export function ProductPage() {
             </p>
             <div className="f2">
               <Field
-                label="Sale rate per unit, excluding GST (₹)"
-                inputMode="decimal"
-                value={values.sale_rate}
-                onChange={(e) => setValues({ ...values, sale_rate: e.target.value })}
-                hint={hint("sale_rate")}
-                error={errorFor("sale_rate")}
-              />
-              <Field
-                label="MRP, incl. GST (₹, optional)"
+                label="MRP per unit, incl. GST (₹)"
                 inputMode="decimal"
                 value={values.mrp}
-                onChange={set("mrp")}
+                onChange={(e) => setValues(follow({ ...values, mrp: e.target.value }))}
                 hint={hint("mrp")}
                 describedBy="mrp-note"
                 error={errorFor("mrp")}
               />
+              <Field
+                label="Sale rate per unit, excluding GST (₹)"
+                inputMode="decimal"
+                value={values.sale_rate}
+                onChange={(e) => {
+                  setRateTyped(true);
+                  setValues({ ...values, sale_rate: e.target.value });
+                }}
+                hint={hint("sale_rate")}
+                error={errorFor("sale_rate")}
+              />
             </div>
             <p id="mrp-note" className="hint row-note">
-              MRP is shown on the invoice line only. GST is worked out from the sale rate.
+              {derived && gstWords
+                ? `From the MRP: ₹${derived} (${gstWords}). Invoices use this rate unless you type another on the invoice.`
+                : "The rate is the MRP without GST: MRP ÷ (1 + GST%). Invoices use it unless you type another on the invoice."}
+              {derived && rateTyped && derived !== values.sale_rate.trim() && (
+                <>
+                  {" "}
+                  <Button
+                    type="button"
+                    variant="link"
+                    onClick={() => {
+                      setRateTyped(false);
+                      setValues({ ...values, sale_rate: derived });
+                    }}
+                  >
+                    Use ₹{derived}
+                  </Button>
+                </>
+              )}
             </p>
           </section>
           <section className="panel pad" aria-label="GST">
@@ -422,6 +454,7 @@ export function ProductPage() {
                   onChange={(e) => {
                     setRate(e.target.value);
                     setRateMissing(false);
+                    setValues(follow(values, e.target.value || null));
                   }}
                   hint={ratesNote ?? "The rate your CA advised. It applies from today; an earlier start date can be added in Rate history after saving."}
                   error={errorFor("rate") ?? errorFor("valid_from")}

@@ -567,3 +567,49 @@ describe("live totals while typing (#411)", () => {
     expect(within(screen.getByRole("region", { name: "Items" })).getByRole("row", { name: /Aloe Vera Gel/ })).not.toHaveTextContent("₹");
   });
 });
+
+describe("a product without an MRP on the invoice (D-106)", () => {
+  const P1 = "/api/v1/b/b-1/products/p-1";
+  const noMrp = { ...product, uqc: "NOS", barcode: null, mrp: null, rate_from_mrp: null, tax_category: "taxable", has_cess: false, in_use: true, rate_on: { rate: "18", rate_id: "r-1", valid_from: "2025-09-22", confirmed: true }, rate_changed_within_warning_window: false, rates: [] }; // fmt: skip
+  const block = { code: "mrp_missing", fix: "Add the product's MRP.", field: "lines.0.product_id", line_no: 1 };
+
+  it("blocks the line, takes the MRP on the invoice, and the line takes the rate the MRP implies", async () => {
+    server.reply(P1, { status: 200, body: noMrp });
+    server.reply(`PATCH ${P1}`, { status: 200, body: { ...noMrp, mrp: "100.00", rate_from_mrp: "84.75", version: 2 } });
+    server.reply(ONE, { status: 200, body: draft({ ready: false, computation: computation({ blocks: [block] }) }) }, { status: 200, body: draft({ ready: true, computation: computation() }) });
+    server.reply(`PUT ${ONE}`, { status: 200, body: draft({ version: 2, lines: [{ ...draft().lines[0], unit_price: "84.75" }] }) });
+    open("/b/b-1/invoices/d-1");
+    expect(await screen.findAllByText(/Add the product's MRP\./)).not.toHaveLength(0);
+    expect(screen.getByRole("button", { name: "Create practice invoice" })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("MRP per unit, incl. GST, for Aloe Vera Gel 200 ml (₹)"), { target: { value: "100" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save MRP" }));
+    await waitFor(() => expect(sent(P1, "PATCH")).toHaveLength(1));
+    expect(sent(ONE, "PUT")).toHaveLength(0); // the fix is its own form: it does not save the draft too
+    expect(sent(P1, "PATCH")[0].body).toEqual({ mrp: "100" });
+    expect(sent(P1, "PATCH")[0].headers.get("If-Match")).toBe("1");
+    await waitFor(() => expect(screen.getByLabelText("Rate of Aloe Vera Gel 200 ml, excluding GST")).toHaveValue("84.75"));
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+    await waitFor(() => expect(sent(ONE, "PUT")).toHaveLength(1));
+    expect((sent(ONE, "PUT")[0].body as unknown as { lines: { unit_price: string }[] }).lines[0].unit_price).toBe("84.75");
+  });
+
+  it("refuses an MRP that is not an amount, without sending it", async () => {
+    server.reply(P1, { status: 200, body: noMrp });
+    server.reply(ONE, { status: 200, body: draft({ ready: false, computation: computation({ blocks: [block] }) }) });
+    open("/b/b-1/invoices/d-1");
+    const box = await screen.findByLabelText("MRP per unit, incl. GST, for Aloe Vera Gel 200 ml (₹)");
+    fireEvent.change(box, { target: { value: "1,00" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save MRP" }));
+    expect(await screen.findByText(/Enter the MRP as a number with up to 2 decimals/)).toBeInTheDocument();
+    expect(sent(P1, "PATCH")).toHaveLength(0);
+  });
+
+  it("shows the rate the MRP implies as the blank rate's placeholder", async () => {
+    server.reply(P1, { status: 200, body: { ...noMrp, mrp: "100.00", rate_from_mrp: "84.75" } });
+    server.reply(ONE, { status: 200, body: draft({ lines: [{ ...draft().lines[0], unit_price: "84.75" }] }) });
+    open("/b/b-1/invoices/d-1");
+    const rate = await screen.findByLabelText("Rate of Aloe Vera Gel 200 ml, excluding GST");
+    await waitFor(() => expect(rate).toHaveAttribute("placeholder", "84.75"));
+    expect(within(screen.getByRole("region", { name: "Items" })).getByRole("row", { name: /Aloe Vera Gel/ })).toHaveTextContent("₹100.00");
+  });
+});

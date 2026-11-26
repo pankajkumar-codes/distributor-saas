@@ -20,7 +20,7 @@ from sqlalchemy import bindparam, text
 from sqlalchemy.types import JSON
 
 from app.modules.business.interface import check_state
-from app.modules.catalog.interface import customer_snapshot, products_for_lines
+from app.modules.catalog.interface import customer_snapshot, products_for_lines, rate_from_mrp
 from app.modules.refdata import value_on
 from platform_common import audit
 from platform_common.money import to_decimal
@@ -126,7 +126,12 @@ def _checked(uow: UnitOfWork, body: dict, today: date) -> tuple[dict, list[dict]
         disc = money(value, f"{field}.discount_value") if value is not None else None
         if kind == "percent" and disc > _HUNDRED:
             raise Invalid("discount_invalid", "A percent discount can't be more than 100", field=f"{field}.discount_value")
-        price = money(ln["unit_price"], f"{field}.unit_price") if ln.get("unit_price") is not None else p.sale_rate
+        if ln.get("unit_price") is not None:
+            price = money(ln["unit_price"], f"{field}.unit_price")
+        else:
+            # A blank rate is the one the product's MRP implies (D-106), else its sale rate as before.
+            from_mrp = rate_from_mrp(p.mrp, p.tax_category, p.rate)
+            price = from_mrp if from_mrp is not None else p.sale_rate
         out.append({"id": uuid7(), "line_no": i, "product_id": pid, "quantity": quantity(ln.get("quantity"), f"{field}.quantity"),
                     "unit_price": price, "discount_kind": kind, "discount_value": disc})
     return cols, out

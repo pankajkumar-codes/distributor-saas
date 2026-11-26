@@ -259,6 +259,9 @@ def _line_checks(i: int, line: LineIn, inp: ComputeInput, checks: _Checks) -> De
         )
     elif line.unit_price == ZERO:
         checks.warn("price_zero", "This line's price is 0. Check it before you finalize.", f"{at}.unit_price", n)
+    if p.mrp is None:
+        # D-106 (Pankaj, 2026-11-26): every product on an invoice carries its MRP; the line's rate comes from it.
+        checks.block("mrp_missing", "Add the product's MRP.", f"{at}.product_id", n)
     if p.status != "active":
         checks.block(
             "product_archived", "This product is archived. Restore it or choose another.", f"{at}.product_id", n

@@ -50,26 +50,27 @@ def _taxable(rate):
     return {"tax_category": "taxable", "rate": {"rate": rate, "valid_from": RATE_FROM}}
 
 
-# sale_rate is per unit, before GST, as a decimal string (never a float).
+# sale_rate is per unit, before GST, as a decimal string (never a float). mrp is per unit with GST included and
+# required (D-106); each is chosen so MRP / (1 + GST%) gives back the sale rate, so a blank invoice rate shows the same figure.
 PRODUCTS = [
-    {"code": "DEMO-TSHIRT", "name": "Cotton T-shirt (demo)", "hsn": "6109", "uqc": "PCS", "sale_rate": "499.00",
+    {"code": "DEMO-TSHIRT", "name": "Cotton T-shirt (demo)", "hsn": "6109", "uqc": "PCS", "sale_rate": "499.00", "mrp": "523.95",
      "barcode": "8900000000017", **_taxable("5")},                       # 4-digit HSN, 5%, has a barcode
     {"code": "DEMO-FABRIC", "name": "Cotton fabric by the metre (demo)", "hsn": "520811", "uqc": "MTR",
-     "sale_rate": "120.75", **_taxable("5")},                            # 6-digit HSN, paise in the price
+     "sale_rate": "120.75", "mrp": "126.79", **_taxable("5")},                            # 6-digit HSN, paise in the price
     {"code": "DEMO-CREAM", "name": "Face cream 50 g (demo)", "hsn": "33049910", "uqc": "NOS",
-     "sale_rate": "350.00", **_taxable("18")},                           # 8-digit HSN, 18%
+     "sale_rate": "350.00", "mrp": "413.00", **_taxable("18")},                           # 8-digit HSN, 18%
     {"code": "DEMO-HAMPER", "name": "Festive gift hamper (demo, no HSN)", "hsn": None, "uqc": "BOX",
-     "sale_rate": "1499.00", **_taxable("18")},                          # Missing HSN on purpose
+     "sale_rate": "1499.00", "mrp": "1768.82", **_taxable("18")},                          # Missing HSN on purpose
     {"code": "DEMO-SODA", "name": "Aerated soft drink 750 ml (demo)", "hsn": "22021010", "uqc": "BTL",
-     "sale_rate": "40.00", **_taxable("40")},                            # 40%
+     "sale_rate": "40.00", "mrp": "56.00", **_taxable("40")},                            # 40%
     {"code": "DEMO-RING", "name": "Gold ring, priced per gram (demo)", "hsn": "7113", "uqc": "GMS",
-     "sale_rate": "6500.00", **_taxable("3")},                           # 3%, weight unit
+     "sale_rate": "6500.00", "mrp": "6695.00", **_taxable("3")},                           # 3%, weight unit
     {"code": "DEMO-CONSULT", "name": "Business consulting, per hour (demo service)", "hsn": "998311",
-     "uqc": "OTH", "sale_rate": "2500.00", **_taxable("18")},           # SAC (service code), 18%
-    {"code": "DEMO-RICE", "name": "Loose rice (demo)", "hsn": "1006", "uqc": "KGS", "sale_rate": "62.50",
+     "uqc": "OTH", "sale_rate": "2500.00", "mrp": "2950.00", **_taxable("18")},           # SAC (service code), 18%
+    {"code": "DEMO-RICE", "name": "Loose rice (demo)", "hsn": "1006", "uqc": "KGS", "sale_rate": "62.50", "mrp": "62.50",
      "tax_category": "nil_rated"},                                       # nil-rated, no rate
-    {"code": "DEMO-BOOK", "name": "Printed story book (demo)", "hsn": "4901", "uqc": "NOS", "sale_rate": "250.00",
+    {"code": "DEMO-BOOK", "name": "Printed story book (demo)", "hsn": "4901", "uqc": "NOS", "sale_rate": "250.00", "mrp": "250.00",
      "tax_category": "exempt"},                                          # exempt, no rate
     {"code": "DEMO-DIESEL", "name": "Diesel (demo, outside GST)", "hsn": "2710", "uqc": "LTR",
-     "sale_rate": "90.50", "tax_category": "non_gst"},                   # non-GST supply
+     "sale_rate": "90.50", "mrp": "90.50", "tax_category": "non_gst"},                   # non-GST supply
 ]

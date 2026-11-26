@@ -42,7 +42,7 @@ def post(pg, path, body=None, sub="alice", key=None, **headers):
 
 
 def product(code="SOAP-1", rate="18", valid_from="2026-04-01", **extra):
-    body = {"code": code, "name": "Neem soap 100 g", "hsn": "3401", "uqc": "PCS", "sale_rate": "45.50",
+    body = {"code": code, "name": "Neem soap 100 g", "hsn": "3401", "uqc": "PCS", "sale_rate": "45.50", "mrp": "53.69",
             "tax_category": "taxable", "rate": {"rate": rate, "valid_from": valid_from}}
     body.update(extra)
     return body
@@ -636,34 +636,61 @@ def test_etag_is_the_version_and_a_weak_or_star_if_match_is_stale(shop):  # plat
 # --- MRP (#398, D-104): optional, display only --------------------------------------
 
 
-def test_mrp_is_optional_and_set_edited_and_cleared_with_the_version(shop):
+@pytest.mark.parametrize("missing", [{"mrp": None}, {"mrp": ""}, {"mrp": "  "}, "absent"])
+def test_mrp_is_required_on_create(shop, missing):  # D-106
+    pg, biz = shop
+    body = product()
+    if missing == "absent":
+        del body["mrp"]
+    else:
+        body.update(missing)
+    r = post(pg, url(biz), body)
+    e = r.json()["error"]
+    assert (r.status_code, e["code"], e["field"]) == (422, "mrp_required", "mrp")
+
+
+def test_mrp_is_edited_with_the_version_and_never_cleared(shop):  # D-106
     pg, biz = shop
     h = as_user("alice")
     p = make(pg, biz)
-    assert p["mrp"] is None
+    assert (p["mrp"], p["rate_from_mrp"]) == ("53.69", "45.50")  # 53.69 / 1.18
     pid = p["id"]
     patch = lambda body, v: pg.client.patch(url(biz, f"/{pid}"), json=body, headers={**h, "If-Match": str(v)})  # noqa: E731
-    r = patch({"mrp": "60"}, 1)
-    assert (r.status_code, r.json()["mrp"], r.json()["version"]) == (200, "60.00", 2)
+    r = patch({"mrp": "100"}, 1)
+    assert (r.status_code, r.json()["mrp"], r.json()["rate_from_mrp"], r.json()["version"]) == (200, "100.00", "84.75", 2)
     r = patch({"mrp": " 59.5 "}, 2)
     assert (r.json()["mrp"], r.json()["version"]) == ("59.50", 3)
     assert patch({"mrp": "59.50"}, 3).json()["version"] == 3  # the same value is no change
-    r = patch({"mrp": ""}, 3)
-    assert (r.json()["mrp"], r.json()["version"]) == (None, 4)
-    assert patch({"mrp": "10"}, 4).json()["mrp"] == "10.00"
-    r = patch({"mrp": None}, 5)
-    assert (r.json()["mrp"], r.json()["version"]) == (None, 6)
+    for blank in ("", None):
+        r = patch({"mrp": blank}, 3)
+        assert (r.status_code, r.json()["error"]["code"]) == (422, "mrp_required")
+    assert patch({"name": "Neem soap 125 g"}, 3).json()["mrp"] == "59.50"  # an edit without mrp keeps it
     assert patch({"mrp": "1"}, 3).status_code == 409  # a stale version, as for every edit
     created = make(pg, biz, code="SOAP-2", mrp="75.25")
     assert created["mrp"] == "75.25"
     listed = {i["code"]: i["mrp"] for i in pg.client.get(url(biz), headers=h).json()["items"]}
-    assert listed == {"SOAP-1": None, "SOAP-2": "75.25"}
+    assert listed == {"SOAP-1": "59.50", "SOAP-2": "75.25"}
     with pg.owner.connect() as c:
         saved = c.execute(text("select mrp from catalog.products where id = :p"), {"p": created["id"]}).scalar_one()
         fields = c.execute(text("select data->'fields' from platform.audit_log where business_id = :b"
                                 " and action = 'product.updated' order by at, id"), {"b": biz}).scalars().all()
     assert isinstance(saved, Decimal) and saved == Decimal("75.25")
-    assert fields == [["mrp"]] * 5  # audited like any edit, with the field name only
+    assert fields == [["mrp"], ["mrp"], ["name"]]  # audited like any edit, with the field name only
+
+
+@pytest.mark.parametrize(("mrp", "rate", "category", "expected"), [
+    ("100", "18", "taxable", "84.75"),     # Pankaj's example: 100 / 1.18 = 84.7457...
+    ("413", "18", "taxable", "350.00"),
+    ("105", "5", "taxable", "100.00"),
+    ("100", "0.25", "taxable", "99.75"),   # 99.7506...
+    ("62.50", None, "nil_rated", "62.50"),  # no GST: the rate is the MRP
+])
+def test_rate_from_mrp_is_mrp_over_one_plus_gst_rounded_half_up(mrp, rate, category, expected):
+    from app.modules.catalog.interface import rate_from_mrp
+    got = rate_from_mrp(Decimal(mrp), category, None if rate is None else Decimal(rate))
+    assert str(got) == expected
+    assert rate_from_mrp(None, category, Decimal("18")) is None
+    assert rate_from_mrp(Decimal(mrp), "taxable", None) is None  # a taxable product with no rate on the day
 
 
 @pytest.mark.parametrize("bad", ["-1", "12.345", "abc", "1e3", "1234567890123", " . "])

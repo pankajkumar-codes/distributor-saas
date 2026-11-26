@@ -7698,6 +7698,17 @@
             "title": "Rate Changed Within Warning Window",
             "type": "boolean"
           },
+          "rate_from_mrp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate From Mrp"
+          },
           "rate_on": {
             "anyOf": [
               {
@@ -7751,6 +7762,7 @@
           "uqc",
           "sale_rate",
           "mrp",
+          "rate_from_mrp",
           "barcode",
           "tax_category",
           "has_cess",
@@ -7920,6 +7932,17 @@
             "title": "Price Needed",
             "type": "boolean"
           },
+          "rate_from_mrp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate From Mrp"
+          },
           "rate_on": {
             "anyOf": [
               {
@@ -7966,6 +7989,7 @@
           "uqc",
           "sale_rate",
           "mrp",
+          "rate_from_mrp",
           "barcode",
           "tax_category",
           "has_cess",

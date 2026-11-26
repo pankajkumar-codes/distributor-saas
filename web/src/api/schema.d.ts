@@ -5168,6 +5168,8 @@ export interface components {
             price_needed: boolean;
             /** Rate Changed Within Warning Window */
             rate_changed_within_warning_window: boolean;
+            /** Rate From Mrp */
+            rate_from_mrp: string | null;
             rate_on: components["schemas"]["RateOnOut"] | null;
             /** Rates */
             rates: components["schemas"]["RateOut"][];
@@ -5232,6 +5234,8 @@ export interface components {
             name: string;
             /** Price Needed */
             price_needed: boolean;
+            /** Rate From Mrp */
+            rate_from_mrp: string | null;
             rate_on: components["schemas"]["RateOnOut"] | null;
             /** Sale Rate */
             sale_rate: string;

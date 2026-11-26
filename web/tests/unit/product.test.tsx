@@ -23,6 +23,8 @@ const detail = (over: Record<string, unknown> = {}) => ({
   hsn: "3401",
   uqc: "NOS",
   sale_rate: "45.00",
+  mrp: "53.10",
+  rate_from_mrp: "45.00",
   barcode: null,
   tax_category: "taxable",
   has_cess: false,
@@ -68,7 +70,7 @@ describe("a new product", () => {
     type("HSN (optional)", "3401");
     type("Unit", "NOS");
     type("Sale rate per unit, excluding GST (₹)", "45");
-    type("MRP, incl. GST (₹, optional)", " 52.50 ");
+    type("MRP per unit, incl. GST (₹)", " 52.50 ");
     server.reply(RATES, { status: 200, body: { on: todayIst(), rates: ["0.25", "3", "5", "12", "18", "28"] } });
     fireEvent.click(screen.getByRole("radio", { name: "Taxable" }));
     await screen.findByRole("option", { name: "18%" });
@@ -108,6 +110,7 @@ describe("a new product", () => {
     type("Name", "Neem soap");
     type("Unit", "NOS");
     type("Sale rate per unit, excluding GST (₹)", "45");
+    type("MRP per unit, incl. GST (₹)", "53.10");
     server.reply(RATES, { status: 200, body: { on: todayIst(), rates: ["18"] } });
     fireEvent.click(screen.getByRole("radio", { name: "Taxable" }));
     await screen.findByRole("option", { name: "18%" });
@@ -123,6 +126,7 @@ describe("a new product", () => {
   it("never shows the server's pattern text under the GST rate", async () => {
     open("/b/b-1/products/new");
     await screen.findByRole("option", { name: "Numbers (NOS)" });
+    type("MRP per unit, incl. GST (₹)", "53.10");
     server.reply(RATES, { status: 200, body: { on: todayIst(), rates: ["5", "18"] } });
     fireEvent.click(screen.getByRole("radio", { name: "Taxable" }));
     await screen.findByRole("option", { name: "18%" });
@@ -137,6 +141,7 @@ describe("a new product", () => {
     open("/b/b-1/products/new");
     await screen.findByRole("option", { name: "Numbers (NOS)" });
     server.reply(LIST, { status: 422, body: { error: { code: "code_taken", message: "Another product already uses this code", field: "code" } } });
+    type("MRP per unit, incl. GST (₹)", "53.10");
     type("Product code", "SOAP-1");
     fireEvent.click(screen.getByRole("radio", { name: "Exempt" }));
     expect(screen.queryByLabelText("GST rate")).toBeNull();
@@ -178,10 +183,12 @@ describe("the new product form's lists and fields", () => {
     type("Name", "Gel");
     type("Unit", "NOS");
     type("Sale rate per unit, excluding GST (₹)", "10.999");
+    type("MRP per unit, incl. GST (₹)", "53.10");
     fireEvent.click(screen.getByRole("button", { name: /add product/i }));
     expect(await screen.findByText("Use at most 2 decimal places.")).toBeInTheDocument();
     expect(server.sent.some((s) => s.method === "POST" && s.path.endsWith("/products"))).toBe(false);
     type("Sale rate per unit, excluding GST (₹)", "10.");
+    type("MRP per unit, incl. GST (₹)", "53.10");
     fireEvent.click(screen.getByRole("button", { name: /add product/i }));
     expect(await screen.findByText("Enter a number, like 45 or 45.50.")).toBeInTheDocument();
     expect(server.sent.some((s) => s.method === "POST" && s.path.endsWith("/products"))).toBe(false);
@@ -199,6 +206,7 @@ describe("the new product form's lists and fields", () => {
     type("Name", "Neem soap");
     type("Unit", "NOS");
     type("Sale rate per unit, excluding GST (₹)", "45");
+    type("MRP per unit, incl. GST (₹)", "53.10");
     type("GST rate", "18");
     server.reply(LIST, { status: 422, body: { error: { code: "invalid", message: "Pick a later date", field: "rate.valid_from" } } });
     fireEvent.click(screen.getByRole("button", { name: "Add product" }));
@@ -325,6 +333,7 @@ describe("editing a product", () => {
     );
     server.reply(`GET ${ONE}`, { status: 200, body: detail({ sale_rate: "50.00", version: 4 }) });
     type("Sale rate per unit, excluding GST (₹)", "48.00");
+    type("MRP per unit, incl. GST (₹)", "53.10");
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     expect(await screen.findByText(/Someone changed this product since you opened it/)).toBeInTheDocument();
     expect(await screen.findByText("Now saved as: 50.00")).toBeInTheDocument();
@@ -456,5 +465,50 @@ describe("helpers", () => {
     expect(formField("rate.valid_from")).toBe("valid_from");
     expect(formField("code")).toBe("code");
     expect(formField(undefined)).toBeUndefined();
+  });
+});
+
+describe("MRP and the sale rate (D-106)", () => {
+  it("needs an MRP before it sends anything", async () => {
+    open("/b/b-1/products/new");
+    await screen.findByRole("option", { name: "Numbers (NOS)" });
+    type("Product code", "SOAP-1");
+    type("Name", "Neem soap");
+    type("Unit", "NOS");
+    type("Sale rate per unit, excluding GST (₹)", "45");
+    fireEvent.click(screen.getByRole("radio", { name: "Exempt" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add product" }));
+    expect(await screen.findByText("Enter the MRP, the price per unit with GST included.")).toBeInTheDocument();
+    expect(sent(LIST, "POST")).toHaveLength(0);
+  });
+
+  it("works the sale rate out as MRP / (1 + GST%) until a rate of one's own is typed", async () => {
+    open("/b/b-1/products/new");
+    await screen.findByRole("option", { name: "Numbers (NOS)" });
+    server.reply(RATES, { status: 200, body: { on: todayIst(), rates: ["5", "18"] } });
+    fireEvent.click(screen.getByRole("radio", { name: "Taxable" }));
+    await screen.findByRole("option", { name: "18%" });
+    type("MRP per unit, incl. GST (₹)", "100");
+    type("GST rate", "18");
+    const rate = screen.getByLabelText("Sale rate per unit, excluding GST (₹)");
+    expect(rate).toHaveValue("84.75");
+    expect(screen.getByText(/From the MRP: ₹84\.75 \(the MRP without its 18% GST\)/)).toBeInTheDocument();
+    type("GST rate", "5");
+    expect(rate).toHaveValue("95.24"); // 100 / 1.05
+    type("Sale rate per unit, excluding GST (₹)", "90");
+    type("MRP per unit, incl. GST (₹)", "105");
+    expect(rate).toHaveValue("90"); // a typed rate stays
+    fireEvent.click(screen.getByRole("button", { name: "Use ₹100.00" }));
+    expect(rate).toHaveValue("100.00");
+  });
+
+  it("refuses to clear the MRP of a saved product", async () => {
+    server.reply(`GET ${ONE}`, { status: 200, body: detail() });
+    open("/b/b-1/products/p-1");
+    await screen.findByLabelText("MRP per unit, incl. GST (₹)");
+    type("MRP per unit, incl. GST (₹)", "");
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(await screen.findByText("Enter the MRP, the price per unit with GST included.")).toBeInTheDocument();
+    expect(sent(ONE, "PATCH")).toHaveLength(0);
   });
 });
