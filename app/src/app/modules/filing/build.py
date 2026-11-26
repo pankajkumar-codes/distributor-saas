@@ -165,7 +165,7 @@ def _unfiled(
     out = []
     for i in instances_between(tx, instance.gstin, instance.period_start, instance.period_end):
         if i.id in ids:
-            refs = tuple(sorted({ln.source_ref for ln in lines if ln.return_instance_id == i.id}))
+            refs = tuple(sorted({ln.doc_number for ln in lines if ln.return_instance_id == i.id}))
             if refs:
                 out.append((i.period_start.strftime("%b %Y"), refs))
     return tuple(out)
