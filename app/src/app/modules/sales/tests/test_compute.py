@@ -391,6 +391,11 @@ def test_a_draft_without_lines_keeps_its_charge_and_discount():  # Staff, #80
         ([line(0, 100, 18)], {}, "quantity_not_positive"),
         ([line(1, -1, 18)], {}, "price_negative"),
         ([line(1, 100, 18)], {"charges": (("Freight", D("-1")),)}, "charge_negative"),
+        # #481: past what a numeric(18, 2) column holds; the first is too long even to round to paise.
+        ([line("999999999999999.999", "9999999999999999.99", 18)], {}, "amount_too_large"),
+        ([line("1000000", "10000000000", 18)], {}, "amount_too_large"),  # a line of exactly 10^16
+        ([line("1", "9000000000000000", 18)], {}, "amount_too_large"),  # the line fits; with 18% tax the total doesn't
+        ([line(1, 100, 18)], {"charges": (("Freight", D("9999999999999999.99")),) * 2}, "amount_too_large"),
     ],
 )
 def test_amounts_that_cannot_be_computed_are_refused(lines, kw, code):

@@ -8,6 +8,9 @@ explicitly instead of relying on a default.
 from decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Decimal, InvalidOperation
 
 PAISE = Decimal("0.01")
+# Every money column is numeric(18, 2), so it holds amounts below 10^16 only. An amount at or above this is refused
+# with a clear message before it is rounded or stored (#481): rounding it can fail outright, and storing it does.
+AMOUNT_LIMIT = Decimal(10) ** 16
 ALLOWED_ROUNDING = {ROUND_HALF_UP, ROUND_HALF_EVEN}
 
 
