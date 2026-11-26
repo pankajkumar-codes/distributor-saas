@@ -94,8 +94,9 @@ export function draftIn(f: Form): DraftIn {
       product_id: l.product_id,
       quantity: l.quantity.trim(),
       unit_price: orNull(l.unit_price),
-      discount_kind: l.discount_kind || null,
-      discount_value: l.discount_kind ? orNull(l.discount_value) : null,
+      // The kind is the line's ₹ / % choice, kept even while the box is blank; a blank box is no discount.
+      discount_kind: l.discount_value.trim() ? l.discount_kind || "amount" : null,
+      discount_value: orNull(l.discount_value),
     })),
     customer_collects: f.customer_collects,
     ship_to: ship
