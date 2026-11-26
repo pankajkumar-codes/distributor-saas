@@ -78,6 +78,10 @@ test("catalogue screens: MRP, pages of five, one screen each", async ({ page }, 
 
   await page.goto(`${b}/products/import`);
   await expect(page.getByRole("heading", { level: 1, name: "Import products" })).toBeVisible();
+  // #425: the template is a plain link to a static file, so the browser itself downloads it.
+  const download = page.waitForEvent("download");
+  await page.getByRole("link", { name: "Download the template" }).click();
+  expect((await download).suggestedFilename()).toBe("products-template.csv");
   await fitsOneScreen(page);
 
   await page.goto(`${b}/purchases`);

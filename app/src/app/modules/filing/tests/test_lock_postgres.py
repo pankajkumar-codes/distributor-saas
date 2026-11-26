@@ -268,3 +268,75 @@ def test_a_direct_status_change_without_the_event_is_still_refused_by_the_databa
         with pg.owner.execution_options(isolation_level="READ COMMITTED").begin() as c:
             c.execute(text("select set_config('app.tenant_id', :b, true)"), {"b": str(b)})
             c.execute(text("update filing.return_instances set status = 'filed_locked' where id = :i"), {"i": inst})
+
+
+# -- Filed outside Kartaa (issue #424) -------------------------------------------------------------------------------
+
+
+def completed(pg, b, inst, sub="alice", arn="AA1911260000009", on="2026-11-14"):
+    return pg.client.post(f"/api/v1/b/{b}/returns/{inst}/completed", headers=as_user(sub), json={"filed_on": on, "arn": arn})
+
+
+def gstr3b(pg, b):
+    rows = pg.client.get(f"/api/v1/b/{b}/returns", params={"fy": "2026-27"}, headers=as_user("alice")).json()["returns"]
+    return next(x["instance_id"] for x in rows if x["form"] == "GSTR3B" and x["period"] == "2026-10")
+
+
+def test_a_gstr3b_filed_outside_kartaa_is_marked_filed_with_its_arn(lk):
+    pg, b, _, *_ = lk
+    inst = gstr3b(pg, b)
+    r = completed(pg, b, inst)
+    assert r.status_code == 200, r.text
+    assert r.json() == {"status": "filed_locked", "filed_on": "2026-11-14", "arn": "AA1911260000009"}
+    assert instance_status(pg, inst) == "filed_locked"
+    rows = pg.client.get(f"/api/v1/b/{b}/returns", params={"fy": "2026-27"}, headers=as_user("alice")).json()["returns"]
+    mine = next(x for x in rows if x["instance_id"] == inst)
+    assert (mine["status"], mine["arn"]) == ("filed_locked", "AA1911260000009")
+    [ev] = pg.owner.connect().execute(text("select * from filing.instance_events where kind = 'filed'")).all()
+    assert ev.reason == "Filed outside Kartaa" and ev.snapshot_id is None
+    assert scalar(pg.owner, "select data->>'form' from platform.audit_log where action = 'returns.filed_outside'") == "GSTR3B"
+    assert error_code(completed(pg, b, inst)) == "period_not_open"  # once only
+    assert unlock(pg, b, inst).status_code == 200  # the owner can take it back, and mark it again
+    assert completed(pg, b, inst).status_code == 200
+
+
+def test_a_gstr1_filed_outside_kartaa_locks_with_the_reason_even_without_a_file(lk):
+    pg, b, inst, *_ = lk
+    r = completed(pg, b, inst)
+    assert r.status_code == 200, r.text
+    assert instance_status(pg, inst) == "filed_locked"
+    snap = pg.owner.connect().execute(
+        text("select changed_since_export, accept_reason from filing.return_snapshots where purpose = 'lock'")
+    ).one()
+    assert (snap.changed_since_export, snap.accept_reason) == (True, "Filed outside Kartaa")
+
+
+@pytest.mark.parametrize(
+    "body, code",
+    [
+        ({"filed_on": "2026-11-14", "arn": "  "}, "arn_invalid"),
+        ({"filed_on": "2026-11-16", "arn": "A1"}, "filed_on_future"),  # today is frozen at 15 November
+        ({"filed_on": "2026-10-30", "arn": "A1"}, "filed_on_before_period"),
+    ],
+)
+def test_marking_a_gstr3b_completed_checks_the_date_and_arn(lk, body, code):
+    pg, b, _, *_ = lk
+    inst = gstr3b(pg, b)
+    r = pg.client.post(f"/api/v1/b/{b}/returns/{inst}/completed", headers=as_user("alice"), json=body)
+    assert r.status_code == 422 and error_code(r) == code, r.text
+    assert instance_status(pg, inst) == "open"
+
+
+def test_who_may_mark_completed_and_another_business_gets_404(lk):
+    pg, b, _, *_ = lk
+    inst = gstr3b(pg, b)
+    seed_member(pg, b, "bill", "billing")
+    assert completed(pg, b, inst, "bill").status_code in (403, 404)
+    other = new_business(pg, "mallory")
+    assert pg.client.post(f"/api/v1/b/{other}/returns/{inst}/completed", headers=as_user("mallory"),
+                          json={"filed_on": "2026-11-14", "arn": "A1"}).status_code == 404  # fmt: skip
+    assert pg.client.post(f"/api/v1/b/{b}/returns/not-a-uuid/completed", headers=as_user("alice"),
+                          json={"filed_on": "2026-11-14", "arn": "A1"}).status_code == 404  # fmt: skip
+    assert instance_status(pg, inst) == "open"
+    seed_member(pg, b, "cathy", "ca")
+    assert completed(pg, b, inst, "cathy").status_code == 200  # a CA may, as with marking filed

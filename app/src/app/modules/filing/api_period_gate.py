@@ -1,7 +1,7 @@
 """The per-period gate and the file button (R3-M1, R3-M2) under /api/v1/b/{business_id}.
 
 GET shows a period's gate: whether it has ended, the two confirmations and whether each still stands, the reasons the button is
-closed, and the due date only when it is confirmed. PUT records the business's answer for one item. POST opens the file
+closed, and the GSTR-1 due date from refdata (D-106). PUT records the business's answer for one item. POST opens the file
 button, refused with 409 `period_gate_closed` until the gate is open. `returns.prepare` is needed for all of it.
 """
 
@@ -52,7 +52,7 @@ class PeriodGateOut(BaseModel):
     confirmations: list[GateConfirmationOut]
     platform_files: list[GatePlatformOut]
     gstr1_returns: list[GateReturnOut]
-    due_date: date | None  # only when confirmed; otherwise the screen says "Check on the GST portal"
+    due_date: date | None  # the GSTR-1 due date (D-106); None: the screen says "Check on the GST portal"
     due_dates: str = "Check on the GST portal"
 
 

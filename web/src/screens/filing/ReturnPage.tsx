@@ -507,7 +507,7 @@ export function ReturnPage() {
               trail={
                 <>
                   <Link to={`/b/${businessId}/filing`}>Your GST filing</Link> / {form}
-                  {d.instance.due_date && d.instance.due_date_confirmed && !filed && <span className="chip chip-info">Due {formatDate(d.instance.due_date)}</span>}
+                  {d.instance.due_date && !filed && <span className="chip chip-info">Due {formatDate(d.instance.due_date)}</span>}
                   {filed && <span className="chip chip-ok">Filed and locked</span>}
                 </>
               }

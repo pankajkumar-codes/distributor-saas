@@ -102,23 +102,12 @@ describe("importing products", () => {
     expect(sent(`${RUN}/confirm`)[0].headers.get("Idempotency-Key")).toBeNull();
   });
 
-  it("downloads the template with the sign-in, and says so when it fails instead of staying greyed out", async () => {
-    const TEMPLATE = "/api/v1/b/b-1/products/import-template";
-    const create = vi.fn(() => "blob:t");
-    Object.assign(URL, { createObjectURL: create, revokeObjectURL: vi.fn() });
-    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
-    server.reply(TEMPLATE, { status: 200, body: undefined, headers: { "Content-Type": "text/csv" } }, { status: 500 });
+  it("offers the template as a plain link to the static file, with no sign-in or script needed (#425)", async () => {
     open();
-    const button = await screen.findByRole("button", { name: "Download the template" });
-    fireEvent.click(button);
-    await vi.waitFor(() => expect(click).toHaveBeenCalledTimes(1));
-    expect(sent(TEMPLATE, "GET")[0].headers.get("Authorization")).toBe("Bearer t");
-    expect(create).toHaveBeenCalledTimes(1);
-    expect(document.querySelector("a[download]")).toBeNull(); // the temporary link is removed again
-    fireEvent.click(button);
-    expect(await screen.findByText(/The template didn't download\. Something went wrong on our side/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Download the template" })).toBeEnabled();
-    click.mockRestore();
+    const link = await screen.findByRole("link", { name: "Download the template" });
+    expect(link).toHaveAttribute("href", "/products-template.csv");
+    expect(link).toHaveAttribute("download", "products-template.csv");
+    expect(sent("/api/v1/b/b-1/products/import-template", "GET")).toHaveLength(0);
   });
 
   it("shows the server's failure, not Imported, when the apply job is done but the run failed", async () => {

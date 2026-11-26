@@ -13,7 +13,8 @@ Every amount is Decimal and is written as it is held. Nothing is worked out or r
 
 Asking again for the same period when nothing under it changed returns the export already made: the fingerprint is a hash
 of every row that went into it. A changed period (a new purchase confirmed, an invoice finalized) makes a new export and
-the old one stays. A period must have ended. Due dates are not in these files: screens say "Check on the GST portal".
+the old one stays. A period must have ended. The workbook names the period's GSTR-1 and GSTR-3B due dates as refdata held
+them when it was made (issue #424); "Check on the GST portal" when there is none.
 """
 
 import hashlib
@@ -159,7 +160,15 @@ def _text(v) -> str:
     return "" if v is None else str(v)
 
 
-def build_workbook(gstin: str, period: Period, sales, purchases, practice) -> bytes:
+NO_DUE_DATES = "Check on the GST portal"
+
+
+def due_text(tx, gstin: str | None, start: date, end: date) -> str:
+    """The period's GSTR-1 and GSTR-3B due dates, or the portal hint when none is known."""
+    return periods.due_summary(tx, gstin, start, end) or NO_DUE_DATES
+
+
+def build_workbook(gstin: str, period: Period, sales, purchases, practice, due_dates: str = NO_DUE_DATES) -> bytes:
     wb = openpyxl.Workbook()
     wb.properties.creator = "Kartaa"
     wb.properties.created = wb.properties.modified = datetime(period.end.year, period.end.month, period.end.day)  # not the clock
@@ -184,7 +193,7 @@ def build_workbook(gstin: str, period: Period, sales, purchases, practice) -> by
              ("SGST/UTGST", pt["sgst"]), ("Cess", pt["cess"]),
              ("Input tax credit is not decided here: purchases are listed as you confirmed them. Ask your CA.",), (),
              ("Practice documents (on their own sheet, in no total above)", f"{len(practice)} document(s)"), (),
-             ("Due dates", "Check on the GST portal"), (),
+             ("Due dates", due_dates), (),
              ("Not in the sales figures:",)]
     rows += [(text_,) for _, text_ in M7_OMISSIONS]
     rows += [(), ("The GSTR-1 file for sales is made from the return screen, not here.",),
@@ -276,7 +285,7 @@ def generate(uow: UnitOfWork, kind: str, start: date, today: date) -> PeriodExpo
     if found is not None:
         return found
     export_id = uuid7()
-    files = {"workbook": (XLSX, build_workbook(gstin, period, sales, purchases, practice)),
+    files = {"workbook": (XLSX, build_workbook(gstin, period, sales, purchases, practice, due_text(tx, gstin, period.start, period.end))),
              "purchase_register": (JSON, build_register(gstin, period, purchases))}
     store = get_store()
     tx.execute(

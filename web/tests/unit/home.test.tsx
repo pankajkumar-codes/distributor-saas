@@ -117,7 +117,7 @@ describe("Home", () => {
     expect(within(next).getByText("2 to fix")).toBeInTheDocument(); // Table 13 is its own step, information needs nothing
     expect(within(next).getByText("Confirm documents issued").closest("li")).toHaveClass("todo");
     expect(within(next).getByRole("link", { name: /Fix 2 things/ })).toHaveAttribute("href", "/b/b-1/filing/GSTR1-1");
-    expect(within(next).getByText(/^You file it on the GST portal yourself/)).toBeInTheDocument(); // unconfirmed due date: no date
+    expect(within(next).getByText(/^Due .*You file it on the GST portal yourself/)).toBeInTheDocument(); // a date shows, confirmed or not (D-106)
     expect(server.paths()).not.toContain("/api/v1/b/b-1/returns/GSTR1-1/changes"); // not asked before its step
   });
 
@@ -153,14 +153,15 @@ describe("Home", () => {
     expect(within(next).queryByText(/Step \d/)).toBeNull();
   });
 
-  it("draws the month timeline from confirmed due dates only", async () => {
+  it("draws the month timeline from the server's due dates, confirmed or not (D-106)", async () => {
     server.reply(HOME, allSet);
     server.reply(RETURNS, returns(ret("GSTR1", { due_date: "2026-12-11", due_date_confirmed: true }), ret("GSTR3B", { due_date: "2026-12-20", due_date_confirmed: false })));
     open();
     const tl = await screen.findByRole("region", { name: new Date().toLocaleString("en-IN", { month: "long", timeZone: "Asia/Kolkata" }) });
     expect(await within(tl).findByText("GSTR-1 due")).toBeInTheDocument();
     expect(within(tl).getByText(/^11-Dec-2026/)).toBeInTheDocument();
-    expect(within(tl).queryByText("GSTR-3B due")).toBeNull(); // not confirmed: not drawn
+    expect(within(tl).getByText("GSTR-3B due")).toBeInTheDocument(); // not confirmed yet: still drawn
+    expect(within(tl).getByText(/^20-Dec-2026/)).toBeInTheDocument();
     expect(within(tl).getByText("Filing for November 2026 · monthly")).toBeInTheDocument();
   });
 
@@ -298,9 +299,10 @@ describe("next step and timeline (pure)", () => {
     expect(at(b(), true)).toEqual([4, "Mark it filed"]);
   });
 
-  it("says when the return is due only from a confirmed date", () => {
+  it("says when the return is due whenever the server sends a date (D-106)", () => {
     expect(nextStep({ businessId: "b-1", today: "2026-12-07", checklist: [], gstr1: row }).hint).toMatch(/^Due 11-Dec-2026, in 4 days\./);
-    expect(nextStep({ businessId: "b-1", today: "2026-12-07", checklist: [], gstr1: { ...row, due_date_confirmed: false } }).hint).toMatch(/^You file it/);
+    expect(nextStep({ businessId: "b-1", today: "2026-12-07", checklist: [], gstr1: { ...row, due_date_confirmed: false } }).hint).toMatch(/^Due 11-Dec-2026/);
+    expect(nextStep({ businessId: "b-1", today: "2026-12-07", checklist: [], gstr1: { ...row, due_date: null } }).hint).toMatch(/^You file it/);
     expect([dueWords(0), dueWords(1), dueWords(-1), dueWords(-3)]).toEqual(["today", "tomorrow", "1 day ago", "3 days ago"]);
     expect(daysUntil("2027-01-01", "2026-12-31")).toBe(1);
   });

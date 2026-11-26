@@ -1,4 +1,4 @@
-# Gitleaks config: the default rules plus one narrow allowlist (CI job `secrets`).
+# Gitleaks config: the default rules plus one narrow allowlist of whole lines (CI job `secrets`).
 #
 # generic-api-key reads a refdata row's `key:` line (e.g. `- key: gstr1.b2cl_threshold`)
 # as an API key. The allowlist matches only a whole line that is `key:` followed by a
@@ -19,4 +19,8 @@ regexes = [
     '''^\+?\s*key = spec\.due_key\s*$''',
     # The one test that flips a refdata row's status.
     '''^\+?\s*"update refdata\.values set status = 'expert_confirmed', confirmed_by = 'test', confirmed_on = '[0-9-]+' where key = '[a-z][a-z0-9_.]*'"\s*$''',
+    # Two exact lines from PR #430's first commit (#424), still in branch history after they were reworded: the test
+    # that takes a refdata row back to provisional, and the returns.yaml comment naming the extension-row pattern.
+    '''^\+?\s*"update refdata\.values set status = 'provisional', confirmed_by = null, confirmed_on = null where key = 'due\.gstr1\.monthly\.day'"\s*$''',
+    '''^\+?#   key:   due\.extension\.<form>\.p<yyyy>_<mm>              all states, e\.g\. due\.extension\.gstr3b\.p2026_10\s*$''',
 ]

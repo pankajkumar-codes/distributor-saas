@@ -39,11 +39,11 @@ test("create the business with a GSTIN and land on its Home", async ({ page }, i
   await expect(setup.getByRole("link", { name: /Add your first product/ })).toHaveAttribute("href", /\/products$/);
   await expect(setup.getByText("Invite your CA or a teammate")).toBeVisible();
   if (!info.project.name.startsWith("phone")) await fitsOneScreen(page);
-  // Filing home (R1-M2): the server's deadlines, none confirmed yet, so each row says to check the portal.
+  // Filing home (R1-M2): the server's deadlines, each a real date from refdata (D-106, #424).
   await page.goto(page.url().replace(/\/home$/, "/filing"));
   await expect(page.getByRole("heading", { name: "Your GST filing" })).toBeVisible();
   await expect(page.getByRole("table").getByText("GSTR-1").first()).toBeVisible();
-  await expect(page.getByText("Check on the GST portal").first()).toBeVisible();
+  await expect(page.getByRole("table").getByText("Unless the government extends it").first()).toBeVisible();
   await noSeriousAxeFindings(page);
   await page.getByRole("link", { name: "Home", exact: true }).first().click();
   await expect(page.getByRole("region", { name: "Finish setting up your business" })).toBeVisible();
