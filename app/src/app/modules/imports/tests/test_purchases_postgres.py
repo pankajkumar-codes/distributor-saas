@@ -117,7 +117,7 @@ def test_a_photo_is_kept_and_gets_a_blank_draft_the_business_types_in(shop):  # 
     assert scalar(pg.owner, "select draft_line_id from imports.purchase_review_lines") is None  # typed in
 
 
-def test_each_lines_description_is_offered_as_the_product_name_to_check(shop):  # noqa: F811  (#429, D-107)
+def test_each_lines_description_is_offered_as_the_product_name_to_check(shop):  # noqa: F811  (#429, D-108)
     pg, biz, _ = shop
     _, (d,) = read(shop, "named.pdf", invoice(descriptions=("Cotton tee white", "Wool sweater"),
                                               wrapped={2: "navy, size M"}))

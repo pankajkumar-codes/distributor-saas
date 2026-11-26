@@ -38,7 +38,7 @@ class ExtractedLine:
     """One invoice line. Amounts and the quantity are plain decimal text as printed (commas removed)."""
 
     page: int
-    description: str | None = None  # the item as printed, for a purchase line's product name (D-107); never staged
+    description: str | None = None  # the item as printed, for a purchase line's product name (D-108); never staged
     hsn: str | None = None
     quantity: str | None = None
     unit: str | None = None

@@ -1,4 +1,4 @@
-"""The reader keeps each line's item description for purchases (D-107, #429); own-invoice tables still drop it."""
+"""The reader keeps each line's item description for purchases (D-108, #429); own-invoice tables still drop it."""
 
 import re
 

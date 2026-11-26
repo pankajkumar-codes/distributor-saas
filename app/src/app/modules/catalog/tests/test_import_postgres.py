@@ -226,7 +226,8 @@ def test_rows_that_moved_after_the_preview_are_stale(shop):  # AC3-22, RM43-6
     assert run.counts["new"] == 2 and run.counts["changed"] == 1
     pg, biz, _ = shop
     h = {**as_user("alice"), "Idempotency-Key": uuid.uuid4().hex}
-    hand = {"code": "soap-1", "name": "Made by hand", "uqc": "PCS", "sale_rate": "1", "tax_category": "exempt"}
+    hand = {"code": "soap-1", "name": "Made by hand", "uqc": "PCS", "sale_rate": "1", "mrp": "1",
+            "tax_category": "exempt"}
     assert pg.client.post(f"/api/v1/b/{biz}/products", json=hand, headers=h).status_code == 201
     pid = pg.client.get(f"/api/v1/b/{biz}/products?q=OIL", headers=as_user("alice")).json()["items"][0]["id"]
     r = pg.client.post(f"/api/v1/b/{biz}/products/{pid}/rates", json={"rate": "18", "valid_from": "2026-09-01"},

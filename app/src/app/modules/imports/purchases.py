@@ -82,7 +82,7 @@ class DraftLine:
     id: uuid.UUID
     line_no: int
     page: int
-    description: str | None  # as read (D-107): the product name the screen offers, for the business to check
+    description: str | None  # as read (D-108): the product name the screen offers, for the business to check
     hsn: str | None
     quantity: str | None
     unit: str | None

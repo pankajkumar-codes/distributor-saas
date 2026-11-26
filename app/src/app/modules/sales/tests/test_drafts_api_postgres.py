@@ -29,7 +29,7 @@ def h(sub="alice", **extra):
 
 
 def make_product(pg, biz, code="SOAP-1", sub="alice", **extra):
-    body = {"code": code, "name": "Neem soap", "hsn": "3401", "uqc": "PCS", "sale_rate": "45.50",
+    body = {"code": code, "name": "Neem soap", "hsn": "3401", "uqc": "PCS", "sale_rate": "45.50", "mrp": "53.69",
             "tax_category": "taxable", "rate": {"rate": "18", "valid_from": "2026-04-01"}, **extra}
     r = pg.client.post(f"/api/v1/b/{biz}/products", json=body, headers=h(sub, **{"Idempotency-Key": uuid.uuid4().hex}))
     assert r.status_code == 201, r.text
@@ -515,3 +515,16 @@ def test_an_estimate_is_scoped_to_the_business_and_its_editors(shop):  # #411
     assert (r.status_code, r.json()["error"]["code"]) == (422, "product_not_found")
     r = estimate(pg, biz, draft_body(theirs))
     assert (r.status_code, r.json()["error"]["code"]) == (422, "product_not_found")
+
+
+def test_a_blank_rate_is_the_one_the_mrp_implies_and_a_typed_rate_wins(pg):  # D-107
+    biz = new_business(pg, "alice")
+    cust = make_customer(pg, biz)
+    p = make_product(pg, biz, mrp="100.00")  # sale rate 45.50 stays on the product; the MRP decides the line
+    body = {"customer_id": cust, "lines": [{"product_id": p, "quantity": "2"}]}
+    r = pg.client.post(f"/api/v1/b/{biz}/drafts", json=body, headers=h("alice", **{"Idempotency-Key": uuid.uuid4().hex}))
+    assert r.status_code == 201, r.text
+    assert r.json()["lines"][0]["unit_price"] == "84.75"  # 100 / 1.18, half up to the paisa
+    body["lines"][0]["unit_price"] = "80.00"
+    r = pg.client.post(f"/api/v1/b/{biz}/drafts", json=body, headers=h("alice", **{"Idempotency-Key": uuid.uuid4().hex}))
+    assert r.json()["lines"][0]["unit_price"] == "80.00"

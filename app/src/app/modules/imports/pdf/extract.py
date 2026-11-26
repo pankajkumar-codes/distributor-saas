@@ -4,7 +4,7 @@ It anchors on printed labels and on the line table's column headings, never on f
 nothing about a field it cannot place: that field stays blank and is named in `unclear`. What it does not
 do: no tax logic, no rate inference, no arithmetic check (R1-M7 does those), no buyer name, address or item
 description reaches an own-invoice table (`table.to_table` drops it; purchases use it as the product name to check,
-D-107), and no number is parsed through binary float.
+D-108), and no number is parsed through binary float.
 The HSN shape is the caller's refdata `hsn.pattern` (format only; the minimum length by turnover is a CA
 question this module never decides). Numeric dates are read day first (DD/MM/YYYY); a date that is not a real
 calendar date that way is left blank. Two further layouts are read (slice 4c): a tax group over "Rate" and "Amt"

@@ -49,6 +49,7 @@ def soap(pg, biz, hsn="340111"):
             "hsn": hsn,
             "uqc": "NOS",
             "sale_rate": "50.00",
+            "mrp": "59.00",
             "tax_category": "taxable",
             "rate": {"rate": "18", "valid_from": "2026-04-01"},
         },
