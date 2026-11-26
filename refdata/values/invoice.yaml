@@ -60,6 +60,17 @@
   last_checked: 2026-11-26
   status: provisional
   note: "On from 2026-11-26 (D-109, Pankaj): an MRP-based invoice then totals the MRP in whole rupees (MRP 100 at 18%: 84.75 + 7.63 + 7.63 = 100.01, round off -0.01, total 100.00). Rounding is invoice.rounding_mode to the rupee. Earlier dates keep the row above (off). CA to confirm (D-022)."
+- key: invoice.round_off_line
+  value: "false"
+  type: boolean
+  kind: tax
+  valid_from: 2026-11-27
+  valid_to: null
+  source_url: https://taxinformation.cbic.gov.in/content/html/tax_repository/gst/rules/cgst_rules/active/chapter6/rule46_v1.00.html
+  source_title: "Not required by Rule 46; s.170 rounding applies to amounts payable under the Act, not invoice totals"
+  last_checked: 2026-11-26
+  status: provisional
+  note: "Off again from 2026-11-27 (D-110, Pankaj): the bill shows exact paise; rounding to the nearest rupee charged or lost up to 50 paise. A loaded row is never edited or removed, so the 2026-11-26 row (on) still covers that one day."
 - key: invoice.unregistered_address_threshold
   value: "50000.00"
   type: decimal

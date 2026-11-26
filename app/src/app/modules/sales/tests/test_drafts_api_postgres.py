@@ -530,8 +530,11 @@ def test_a_blank_rate_is_the_one_the_mrp_implies_and_a_typed_rate_wins(pg):  # D
     assert r.json()["lines"][0]["unit_price"] == "80.00"
 
 
-@pytest.mark.parametrize(("doc_date", "round_off", "total"), [("2026-11-26", "-0.01", "100.00"), ("2026-11-25", "0.00", "100.01")])
-def test_an_mrp_invoice_totals_the_mrp_once_the_round_off_line_is_on(pg, doc_date, round_off, total):  # D-109, #437
+@pytest.mark.parametrize(
+    ("doc_date", "round_off", "total"),
+    [("2026-11-25", "0.00", "100.01"), ("2026-11-26", "-0.01", "100.00"), ("2026-11-27", "0.00", "100.01")],
+)
+def test_the_round_off_line_is_on_for_2026_11_26_only(pg, doc_date, round_off, total):  # D-109 #437, D-110 #441
     from decimal import Decimal as D
 
     biz = new_business(pg, "alice")
@@ -543,4 +546,4 @@ def test_an_mrp_invoice_totals_the_mrp_once_the_round_off_line_is_on(pg, doc_dat
     c = r.json()["computation"]
     tax = D(c["igst_total"]) + D(c["cgst_total"]) + D(c["sgst_total"])
     assert (c["taxable_total"], tax) == ("84.75", D("15.26"))  # lines and tax unchanged: 84.75 + 15.26 = 100.01
-    assert (c["round_off"], c["doc_total"]) == (round_off, total)  # on from 2026-11-26; earlier dates keep the old row
+    assert (c["round_off"], c["doc_total"]) == (round_off, total)  # exact paise except on 2026-11-26 (D-109, then D-110)
