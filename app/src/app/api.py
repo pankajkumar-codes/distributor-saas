@@ -1,5 +1,6 @@
 """The API Lambda: every module's router, mounted under /api/v1."""
 
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
@@ -77,6 +78,39 @@ class SecurityHeaders:
             await send(message)
 
         await self.inner(scope, receive, send_with_headers)
+
+
+# How many API requests one server process works on at once; the rest wait their turn (#491). Each request holds at
+# most one database connection at a time and runs its database steps in the threadpool (platform_common.uow), so
+# with more requests in flight than the connection pool holds (SQLAlchemy's default 5 + 10 overflow), requests that
+# hold a connection wait for a free thread while every thread waits for a connection: the process stops answering
+# until the pool's 30 second timeout fails them all. Waiting here, on the event loop, costs no thread and no
+# connection. On Lambda each instance takes one request at a time, so the limit never binds there.
+MAX_IN_FLIGHT = 15
+
+
+class InFlightLimit:
+    """Pure ASGI middleware: at most MAX_IN_FLIGHT /api/v1 requests at once in this process; /health never waits."""
+
+    def __init__(self, inner, limit: int = MAX_IN_FLIGHT):
+        self.inner = inner
+        self.limit = limit
+        self._sem: asyncio.Semaphore | None = None
+        self._loop: asyncio.AbstractEventLoop | None = None
+
+    def _semaphore(self) -> asyncio.Semaphore:
+        # One per event loop: a semaphore made on one loop can't be awaited on another (tests, Mangum).
+        loop = asyncio.get_running_loop()
+        if self._sem is None or self._loop is not loop:
+            self._sem, self._loop = asyncio.Semaphore(self.limit), loop
+        return self._sem
+
+    async def __call__(self, scope, receive, send):
+        path = scope.get("path", "")
+        if scope["type"] != "http" or not path.startswith(API_PREFIX) or path == f"{API_PREFIX}/health":
+            return await self.inner(scope, receive, send)
+        async with self._semaphore():
+            await self.inner(scope, receive, send)
 
 
 @asynccontextmanager
@@ -169,5 +203,5 @@ app.openapi = _openapi_with_required_headers  # type: ignore[method-assign]
 # The whole app is wrapped, not added with add_middleware: Starlette answers an unhandled exception (the 500) in
 # a layer outside every added middleware, which would leave that response without the headers. Lambda and
 # uvicorn run `asgi`; `app` stays for the OpenAPI export and the tests of single routes.
-asgi = SecurityHeaders(app)
+asgi = SecurityHeaders(InFlightLimit(app))
 handler = Mangum(asgi, lifespan="off")

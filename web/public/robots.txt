@@ -1,0 +1,5 @@
+# Served at /robots.txt for the landing page and the app (same host). Without this file the app's own page
+# answered /robots.txt, which search engines read as an invalid robots file (Lighthouse SEO, #493).
+# Nothing is blocked: the app's screens need a sign-in, so a crawler only ever sees the landing and sign-in pages.
+User-agent: *
+Allow: /
