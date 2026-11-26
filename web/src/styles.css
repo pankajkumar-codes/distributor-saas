@@ -661,6 +661,11 @@ table.items td.empty { color: var(--muted); padding: 14px 12px; }
 .lnote .hsn-fix .btn { min-height: 28px; padding: 0 10px; font-size: 12px; }
 .xbtn { border: 0; background: none; font-size: 18px; line-height: 1; color: var(--muted); cursor: pointer; width: 28px; height: 28px; border-radius: 4px; }
 .xbtn:hover { background: var(--panel); color: var(--ink); }
+.items .discbox { display: inline-flex; align-items: center; gap: 2px; }
+.items .dunit { height: 30px; border: 1px solid var(--control); border-radius: var(--r-sm); background: var(--surface); font-family: var(--mono); font-size: 13px; padding: 0 2px; }
+.alldisc { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+.alldisc .qty { width: 56px; height: 30px; border: 1px solid var(--control); border-radius: var(--r-sm); text-align: right; padding: 0 6px; font-family: var(--mono); font-size: 13px; }
+.alldisc .dunit { height: 30px; border: 1px solid var(--control); border-radius: var(--r-sm); background: var(--surface); font-family: var(--mono); font-size: 13px; padding: 0 2px; }
 .itemsfoot { display: flex; justify-content: space-between; gap: 12px; padding: 7px 12px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
 .invleft .bar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 10px 0 0; }
 .stat { flex: 1; min-width: 200px; font-size: 13px; color: var(--muted); }
