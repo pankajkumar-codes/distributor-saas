@@ -21,7 +21,7 @@ from platform_common.paging import PageParams, page_params
 from platform_common.permissions import Permission, require
 from platform_common.uow import BusinessUoW, parse_id
 
-from . import products
+from . import checks, products
 from .interface import rate_from_mrp
 from .rates import valid_until
 
@@ -30,9 +30,10 @@ VIEW = [Depends(require(Permission.CATALOG_VIEW))]
 EDIT = [Depends(require(Permission.CATALOG_EDIT))]
 
 Text = Annotated[str, Field(max_length=300)]
-# A name: the limit is checks.name's 200, which answers in plain words. This one only stops absurd input, so a name of
-# 201 to 1000 characters gets that message instead of a framework one.
-Name = Annotated[str, Field(max_length=1000)]
+# A name (customer or product): the limit is checks.name's 200, which answers in plain words, so the published schema
+# says 200 (#470; the law sets no length, and the database column is varchar(200)). The framework guard stays at 1000
+# only to stop absurd input, so a name of 201 to 1000 characters gets the plain message instead of a framework one.
+Name = Annotated[str, Field(max_length=1000, json_schema_extra={"maxLength": checks.NAME_MAX})]
 Decimalish = Annotated[str, Field(max_length=24, pattern=r"^\s*[0-9]+(\.[0-9]+)?\s*$")]
 # A string only (a JSON number is refused); checks.sale_rate gives the field its own error.
 Money = Annotated[str, Field(max_length=24)]

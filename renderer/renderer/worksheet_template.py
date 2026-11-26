@@ -19,7 +19,8 @@ MAX_COLUMNS = 6
 
 STYLE = """
 @page { size: A4; margin: 12mm }
-body { font-family: "Noto Sans", "Noto Sans Devanagari", "Noto Sans Bengali"; font-size: 8.5pt; color: #000 }
+body { font-family: "Noto Sans", "Noto Sans Devanagari", "Noto Sans Bengali"; font-size: 8.5pt; color: #000;
+  overflow-wrap: break-word }
 h1 { font-size: 14pt; margin: 0 0 1mm }
 h2 { font-size: 10pt; margin: 4mm 0 1mm }
 .sub { margin: 0 0 1mm }
