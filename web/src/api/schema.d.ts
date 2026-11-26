@@ -836,6 +836,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/numbering": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Numbering
+         * @description The prefix and first number of each numbered document type, saved or the default, with a preview of the number
+         *     a new series dated today would start with. Anyone who may view invoices may read it.
+         */
+        get: operations["get_numbering_api_v1_b__business_id__numbering_get"];
+        /**
+         * Put Numbering
+         * @description Saves the prefixes (owner and admin). Each prefix must leave every number within GST's 16 characters, and two
+         *     document types may not share one. A series already started keeps its prefix; the change applies from the next.
+         */
+        put: operations["put_numbering_api_v1_b__business_id__numbering_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/own-invoices/crosscheck": {
         parameters: {
             query?: never;
@@ -4898,6 +4924,30 @@ export interface components {
             /** Label */
             label: string;
         };
+        /**
+         * NumberingIn
+         * @description Only the kinds sent change. Live numbering is not switched here.
+         */
+        NumberingIn: {
+            credit_note?: components["schemas"]["SeriesIn"] | null;
+            debit_note?: components["schemas"]["SeriesIn"] | null;
+            invoice?: components["schemas"]["SeriesIn"] | null;
+        };
+        /** NumberingOut */
+        NumberingOut: {
+            /** Live */
+            live: boolean;
+            /** Live Available */
+            live_available: boolean;
+            /** Max Length */
+            max_length: number;
+            /** Max Prefix Length */
+            max_prefix_length: number;
+            /** Scope */
+            scope: string;
+            /** Series */
+            series: components["schemas"]["SeriesOut"][];
+        };
         /** OutwardOut */
         OutwardOut: {
             /** Built At */
@@ -5989,6 +6039,38 @@ export interface components {
         SectionsOut: {
             /** Sections */
             sections: components["schemas"]["app__modules__imports__api__SectionOut"][];
+        };
+        /** SeriesIn */
+        SeriesIn: {
+            /**
+             * First Number
+             * @default 1
+             */
+            first_number: number;
+            /** Prefix */
+            prefix: string;
+        };
+        /** SeriesOut */
+        SeriesOut: {
+            /** First Number */
+            first_number: number;
+            /** Issued In App */
+            issued_in_app: boolean;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "invoice" | "credit_note" | "debit_note";
+            /** Label */
+            label: string;
+            /** Next Number */
+            next_number: string;
+            /** Prefix */
+            prefix: string;
+            /** Saved */
+            saved: boolean;
+            /** Width */
+            width: number;
         };
         /**
          * SessionActiveOut
@@ -8307,6 +8389,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MemberOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_numbering_api_v1_b__business_id__numbering_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NumberingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_numbering_api_v1_b__business_id__numbering_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NumberingIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NumberingOut"];
                 };
             };
             /** @description Validation Error */

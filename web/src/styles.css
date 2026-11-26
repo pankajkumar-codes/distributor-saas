@@ -136,6 +136,9 @@ fieldset.plain {
 .picker { list-style: none; margin: 0.25rem 0 0; padding: 0; }
 .picker li { padding: 0.125rem 0; }
 fieldset.line { margin: 0.75rem 0; }
+/* Invoice numbering (#461): one group per document type. */
+.numbering-row { margin-top: 0.75rem; }
+.numbering-row > legend { font-weight: 600; padding: 0; }
 .check-line { display: block; }
 .totals { max-width: 24rem; }
 .totals .row { display: flex; justify-content: space-between; }

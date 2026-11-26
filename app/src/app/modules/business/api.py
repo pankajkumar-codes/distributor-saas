@@ -18,7 +18,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Header, Path, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.modules.refdata import state_name
+from app.modules.refdata import RefdataMissing, state_name, value_on
 from platform_common.clock import Clock, get_clock
 from platform_common.errors import Deny
 from platform_common.etag import if_match_version, set_etag
@@ -28,6 +28,7 @@ from platform_common.uow import BusinessUoW
 
 from . import frequency as freq
 from . import profile as prof
+from . import series
 from .fiscal import fy_of, previous_fy
 from .registration import STATE
 
@@ -293,3 +294,84 @@ def get_channels(uow: BusinessUoW) -> ChannelsOut:
 @router.put("/channels", dependencies=EDIT)
 def put_channels(body: ChannelsIn, uow: BusinessUoW) -> ChannelsOut:
     return _channels_out(prof.set_channels(uow, body.model_dump()))
+
+
+# --- Invoice numbering (#461) ---------------------------------------------------------
+
+NumberedKind = Literal["invoice", "credit_note", "debit_note"]
+_KIND_LABEL = {"invoice": "Tax invoice", "credit_note": "Credit note", "debit_note": "Debit note"}
+
+
+class SeriesOut(BaseModel):
+    kind: NumberedKind
+    label: str
+    prefix: str
+    first_number: int  # continues a series begun in other software; used only by the FY's first series of the kind
+    width: int
+    next_number: str  # what the first number of a new series dated today looks like, e.g. INV/26-11/000001
+    saved: bool  # false: the default, nothing saved yet
+    issued_in_app: bool  # false for debit notes: not issued by Kartaa yet; the prefix is kept for later
+
+
+class NumberingOut(BaseModel):
+    series: list[SeriesOut]
+    scope: str  # refdata sales.numbering_scope today: gstin_kind_month is a series per month of the document's date
+    max_length: int  # Rule 46(b): characters in a number (refdata invoice.number.max_length)
+    max_prefix_length: int
+    live: bool  # this business issues live numbers (practice_mode off for invoices)
+    live_available: bool  # the platform switch sales.finalize.live is on; while off, every document is a practice one
+
+
+class SeriesIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    prefix: Annotated[str, Field(max_length=16)]
+    first_number: Annotated[int, Field(ge=1)] = 1
+
+
+class NumberingIn(BaseModel):
+    """Only the kinds sent change. Live numbering is not switched here."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    invoice: SeriesIn | None = None
+    credit_note: SeriesIn | None = None
+    debit_note: SeriesIn | None = None
+
+
+def _numbering_rules(uow: BusinessUoW, today: date) -> tuple[str, int, bool]:
+    scope = value_on(uow.tx, "sales.numbering_scope", today)
+    max_length = value_on(uow.tx, "invoice.number.max_length", today)
+    try:
+        live_available = value_on(uow.tx, "sales.finalize.live", today) is True
+    except RefdataMissing:
+        live_available = False
+    return scope, max_length, live_available
+
+
+def _numbering_out(uow: BusinessUoW, n: series.Numbering, today: date) -> NumberingOut:
+    scope, max_length, live_available = _numbering_rules(uow, today)
+    return NumberingOut(
+        series=[SeriesOut(kind=s.kind, label=_KIND_LABEL[s.kind], prefix=s.prefix, first_number=s.first_value,
+                          width=s.width, next_number=series.number_preview(s.prefix, s.width, s.first_value, scope, today),
+                          saved=s.kind in n.saved, issued_in_app=s.kind != "debit_note") for s in n.settings],
+        scope=scope, max_length=max_length, max_prefix_length=series.max_prefix_length(series.WIDTH, scope, max_length),
+        live=not next(s for s in n.settings if s.kind == "invoice").practice_mode, live_available=live_available,
+    )
+
+
+@router.get("/numbering", dependencies=[Depends(require(Permission.DOCUMENTS_VIEW))])
+def get_numbering(uow: BusinessUoW, clock: Today) -> NumberingOut:
+    """The prefix and first number of each numbered document type, saved or the default, with a preview of the number
+    a new series dated today would start with. Anyone who may view invoices may read it."""
+    uow.become_read_only()
+    return _numbering_out(uow, series.numbering(uow.tx), clock.today())
+
+
+@router.put("/numbering", dependencies=EDIT)
+def put_numbering(body: NumberingIn, uow: BusinessUoW, clock: Today) -> NumberingOut:
+    """Saves the prefixes (owner and admin). Each prefix must leave every number within GST's 16 characters, and two
+    document types may not share one. A series already started keeps its prefix; the change applies from the next."""
+    scope, max_length, _ = _numbering_rules(uow, clock.today())
+    sent = {k: v for k, v in body.model_dump().items() if v is not None}
+    return _numbering_out(uow, series.set_numbering(uow, sent, scope=scope, max_length=max_length), clock.today())

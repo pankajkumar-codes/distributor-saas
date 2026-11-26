@@ -6976,6 +6976,85 @@
         "title": "NoteOut",
         "type": "object"
       },
+      "NumberingIn": {
+        "additionalProperties": false,
+        "description": "Only the kinds sent change. Live numbering is not switched here.",
+        "properties": {
+          "credit_note": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SeriesIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "debit_note": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SeriesIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "invoice": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SeriesIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "NumberingIn",
+        "type": "object"
+      },
+      "NumberingOut": {
+        "properties": {
+          "live": {
+            "title": "Live",
+            "type": "boolean"
+          },
+          "live_available": {
+            "title": "Live Available",
+            "type": "boolean"
+          },
+          "max_length": {
+            "title": "Max Length",
+            "type": "integer"
+          },
+          "max_prefix_length": {
+            "title": "Max Prefix Length",
+            "type": "integer"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          },
+          "series": {
+            "items": {
+              "$ref": "#/components/schemas/SeriesOut"
+            },
+            "title": "Series",
+            "type": "array"
+          }
+        },
+        "required": [
+          "series",
+          "scope",
+          "max_length",
+          "max_prefix_length",
+          "live",
+          "live_available"
+        ],
+        "title": "NumberingOut",
+        "type": "object"
+      },
       "OutwardOut": {
         "properties": {
           "built_at": {
@@ -10346,6 +10425,80 @@
           "sections"
         ],
         "title": "SectionsOut",
+        "type": "object"
+      },
+      "SeriesIn": {
+        "additionalProperties": false,
+        "properties": {
+          "first_number": {
+            "default": 1,
+            "minimum": 1.0,
+            "title": "First Number",
+            "type": "integer"
+          },
+          "prefix": {
+            "maxLength": 16,
+            "title": "Prefix",
+            "type": "string"
+          }
+        },
+        "required": [
+          "prefix"
+        ],
+        "title": "SeriesIn",
+        "type": "object"
+      },
+      "SeriesOut": {
+        "properties": {
+          "first_number": {
+            "title": "First Number",
+            "type": "integer"
+          },
+          "issued_in_app": {
+            "title": "Issued In App",
+            "type": "boolean"
+          },
+          "kind": {
+            "enum": [
+              "invoice",
+              "credit_note",
+              "debit_note"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "next_number": {
+            "title": "Next Number",
+            "type": "string"
+          },
+          "prefix": {
+            "title": "Prefix",
+            "type": "string"
+          },
+          "saved": {
+            "title": "Saved",
+            "type": "boolean"
+          },
+          "width": {
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "label",
+          "prefix",
+          "first_number",
+          "width",
+          "next_number",
+          "saved",
+          "issued_in_app"
+        ],
+        "title": "SeriesOut",
         "type": "object"
       },
       "SessionActiveOut": {
@@ -14850,6 +15003,100 @@
         "summary": "Reactivate Member",
         "tags": [
           "team"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/numbering": {
+      "get": {
+        "description": "The prefix and first number of each numbered document type, saved or the default, with a preview of the number\na new series dated today would start with. Anyone who may view invoices may read it.",
+        "operationId": "get_numbering_api_v1_b__business_id__numbering_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NumberingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Numbering",
+        "tags": [
+          "business"
+        ]
+      },
+      "put": {
+        "description": "Saves the prefixes (owner and admin). Each prefix must leave every number within GST's 16 characters, and two\ndocument types may not share one. A series already started keeps its prefix; the change applies from the next.",
+        "operationId": "put_numbering_api_v1_b__business_id__numbering_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NumberingIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NumberingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Numbering",
+        "tags": [
+          "business"
         ]
       }
     },

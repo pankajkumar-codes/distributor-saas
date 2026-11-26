@@ -175,6 +175,11 @@ export function SettingsPage() {
             <Link to={`${base}/plan`}>Invoicing plan</Link>
           </li>
         )}
+        {member && FEATURES.invoicing && (
+          <li>
+            <Link to={`${base}/numbering`}>Invoice numbering</Link>
+          </li>
+        )}
       </ul>
     </Panel>
   );
