@@ -309,6 +309,15 @@ def test_g9_unregistered_at_50000_needs_name_and_delivery_address():
     assert run([line(1, "42372.87", 18)], unregistered(bill=MH, address=False)).blocks == ()  # 49,999.99
 
 
+def test_a_registered_buyer_needs_an_address():  # Rule 46(d), #453
+    lines = [line(1, 100, 18)]
+    (block,) = run(lines, registered(MH, has_billing_address=False)).blocks
+    assert (block.code, block.field) == ("buyer_address_missing", "bill_to")
+    assert run(lines, registered(MH)).blocks == ()
+    # Rule 46(d) is about registered buyers; an unregistered one under Rs 50,000 still needs none.
+    assert run(lines, unregistered(bill=MH, address=False)).blocks == ()
+
+
 def test_g10_invoice_discount_by_line_value():
     c = run([line(1, 600, 18), line(1, 400, 5)], registered(MH), invoice_discount=D("100"))
     assert [ln.discount_share for ln in c.lines] == [D("60.00"), D("40.00")]

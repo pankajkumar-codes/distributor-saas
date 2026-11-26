@@ -137,6 +137,7 @@ def _buyer(tx: Session, draft: DraftIn) -> Buyer:
         bill_to_state=_state(draft.bill_to) or _state(billing),
         ship_to_state=_state(draft.ship_to) or _state(delivery),
         has_delivery_address=_has_line(draft.ship_to) if draft.ship_to else _has_line(delivery),
+        has_billing_address=_has_line(draft.bill_to) if draft.bill_to else _has_line(billing),
         ship_to_third_party=draft.ship_to_third_party,
         customer_collects=draft.customer_collects,
     )

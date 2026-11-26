@@ -286,6 +286,8 @@ def build(tx, business_id: uuid.UUID, document_id: uuid.UUID) -> dict:
         "doc_date": on.isoformat(),
         "due_date": doc["due_date"].isoformat() if doc["due_date"] else None,
         "copy_label": "Original for Recipient",
+        # CGST Rule 48(1): goods invoices in triplicate. One PDF holds the three copies, each its own page set (#454).
+        "copies": ["Original for Recipient", "Duplicate for Transporter", "Triplicate for Supplier"],
         "seller": seller_out,
         "buyer": _party(tx, snap.get("bill_to"), on),
         "ship_to": ship,

@@ -179,6 +179,15 @@ def finalize(uow: UnitOfWork, draft_id: uuid.UUID, if_match: int | None, today: 
             "Live invoice numbers aren't available yet; this business can issue practice invoices only.",
             field="numbering",
         )
+    if not practice and c.supply_class == "B2B" and any(w.code == "einvoice_unsure" for w in c.warnings):
+        # Rule 48(5): an invoice that had to carry an IRN and doesn't is not an invoice. A practice document may go
+        # ahead with the warning; a live one waits until the business answers (#455).
+        raise Invalid(
+            "einvoice_unsure_live",
+            "Tell us whether e-invoicing applies to your business before you issue a live invoice to a GST-registered"
+            " buyer. An invoice that needed an e-invoice number and doesn't have one doesn't count as an invoice.",
+            field="business",
+        )
     profile = get_profile(uow.tx)
     if profile is None or not profile.gstin:  # ready_for_documents blocks this first; kept as a guard
         raise Invalid("business_profile_missing", "Add your business details first.", field="business")

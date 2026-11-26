@@ -104,3 +104,18 @@ def test_a_practice_business_is_unchanged_by_the_live_switch(live):
     assert fin(pg, biz, ready_draft(pg, biz)).status_code == 200
     with pg.owner.connect() as c:
         assert c.execute(text("select is_practice, return_instance_id is null from sales.documents")).one() == (True, True)
+
+
+def test_a_live_b2b_invoice_waits_while_e_invoicing_is_unsure(live):  # Rule 48(5), #455
+    pg, biz = live
+    flip_live(pg, True)
+    with pg.owner.connect() as c:
+        c.execute(text("update business.profiles set einvoice_history = 'not_sure' where business_id = :b"), {"b": biz})
+    d = ready_draft(pg, biz)
+    assert [w["code"] for w in d["computation"]["warnings"]].count("einvoice_unsure") == 1
+    r = fin(pg, biz, d)
+    assert r.status_code == 422 and r.json()["error"]["code"] == "einvoice_unsure_live", r.text
+    assert counts(pg) == (0, 0, 0, 0)
+    with pg.owner.connect() as c:  # a practice invoice still goes ahead with the warning
+        c.execute(text("update business.series_settings set practice_mode = true"))
+    assert fin(pg, biz, d).status_code == 200

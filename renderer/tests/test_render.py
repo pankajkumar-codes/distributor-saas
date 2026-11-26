@@ -304,3 +304,29 @@ def test_the_draft_prints_mrp_value_and_a_percent_discount():  # #450
                                              "discount": "70.00", "discount_percent": "10"}], note=None))
     assert "MRP" in html and "incl. GST" in html and ">413.00<" in html and ">700.00<" in html and "10% / 70.00" in html
     assert html.index("MRP") < html.index("Rate") < html.index("Value") < html.index("Discount")
+
+
+def test_three_copies_become_one_pdf_each_numbered_on_its_own():  # #454, CGST Rule 48(1)
+    from renderer import handler, template
+
+    page = ('<style>@page { size: A5; @bottom-left { content: string(copylabel) }'
+            ' @bottom-right { content: "Page " counter(page) " of " counter(pages) } }'
+            '.copy { string-set: copylabel content() }</style><p class="copy">{label}</p>'
+            '<p>one</p><p style="break-before: page">two</p>')
+    labels = ["Original for Recipient", "Duplicate for Transporter", "Triplicate for Supplier"]
+    htmls = [page.replace("{label}", label) for label in labels]
+    pdf = handler.render_pdfs(htmls)
+    assert pdf.startswith(b"%PDF-") and pdf.rstrip().endswith(b"%%EOF")
+    pages = [_texts(p._page_box) for p in handler.joined(htmls).pages]
+    expected = []
+    for label in labels:  # each copy laid out on its own: Page 1 of 2, Page 2 of 2, in label order
+        expected += [[label, "one", label, "Page 1 of 2"], ["two", label, "Page 2 of 2"]]
+    assert pages == expected
+    assert template.render_htmls(_doc()) == [template.render_html(_doc())]  # a draft is one page set
+
+
+def _texts(box) -> list[str]:
+    out = [box.text] if getattr(box, "text", None) else []
+    for child in getattr(box, "children", None) or []:
+        out += _texts(child)
+    return out

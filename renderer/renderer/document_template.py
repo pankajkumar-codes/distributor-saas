@@ -13,10 +13,11 @@ under it); the invoice details; the line table (template.LINE_HEAD: # Descriptio
 Rate Value Discount Taxable value Tax Total, headings repeated on every page); then, kept
 together on the last page, the tax summary by HSN and rate, the totals, "Amount payable" in
 the largest type, the amount in words and the signatory block. "Page x of y" and the copy label
-sit in every page's footer.
+sit in every page's footer. With `copies` (#454, Rule 48(1)) the same page set is made once per copy label, each
+numbered on its own, and the handler joins them into one PDF.
 
     {"v": 1, "template": "invoice-document", "practice": true,
-     "number": str, "doc_date": str, "due_date"?: str, "copy_label"?: str,
+     "number": str, "doc_date": str, "due_date"?: str, "copy_label"?: str, "copies"?: [str],
      "seller": {"name", "trade_name"?, "gstin"?, "pan"?, "address": [str], "state"},
      "buyer": {"name"?, "gstin"?, "address": [str], "state"?},
      "ship_to": {"name"?, "address": [str], "state"?} | null,
@@ -39,11 +40,14 @@ PRACTICE_NOTICE = (
     "Do not give it to a customer as an invoice."
 )
 COPY_LABEL = "Original for Recipient"
+# CGST Rule 48(1): a goods invoice is prepared in triplicate, each copy marked (#454). A document's PDF carries
+# every copy in `copies`, in this order; each copy is its own page set with its own "Page x of y" (handler.render_pdfs).
+COPY_LABELS = ("Original for Recipient", "Duplicate for Transporter", "Triplicate for Supplier")
 
 # The @page footer strings are fixed text here, never input: CSS content is not escaped by `_t`.
 STYLE = """
 @page { size: A4; margin: 10mm 10mm 14mm;
-  @bottom-left { content: "Original for Recipient"; font: 7pt "Noto Sans"; color: #444 }
+  @bottom-left { content: string(copylabel); font: 7pt "Noto Sans"; color: #444 }
   @bottom-right { content: "Page " counter(page) " of " counter(pages); font: 7pt "Noto Sans"; color: #444 } }
 body { font-family: "Noto Sans", "Noto Sans Devanagari", "Noto Sans Bengali"; font-size: 8pt; color: #000 }
 .wm { position: fixed; top: 110mm; left: 15mm; width: 160mm; text-align: center; font-size: 80pt; font-weight: bold;
@@ -51,7 +55,7 @@ body { font-family: "Noto Sans", "Noto Sans Devanagari", "Noto Sans Bengali"; fo
 .top { width: 100%; border-collapse: collapse; margin-bottom: 2mm }
 .top td { padding: 0; vertical-align: bottom }
 h1 { font-size: 13pt; margin: 0 }
-.copy { text-align: right; font-size: 8pt; color: #444 }
+.copy { text-align: right; font-size: 8pt; color: #444; string-set: copylabel content() }
 .practice { border: 1.5pt solid #000; padding: 1.5mm; font-weight: bold; text-align: center; margin-bottom: 3mm }
 .parties { width: 100%; border-collapse: collapse; margin-bottom: 2mm }
 .parties td { vertical-align: top; width: 50%; padding: 1.5mm; border: 0.5pt solid #555 }
@@ -74,6 +78,24 @@ td.n, th.n { text-align: right; white-space: nowrap }
 .sign { margin-top: 3mm; text-align: right }
 .sign .space { height: 12mm }
 """
+
+
+def _copy_label(doc: dict) -> str:
+    """The copy this page set is: one of the Rule 48(1) labels, never free text (it is also the page footer)."""
+    label = doc.get("copy_label") or COPY_LABEL
+    if label not in COPY_LABELS:
+        raise ValueError("unknown copy label")
+    return label
+
+
+def render_copies(doc: dict) -> list[str]:
+    """One page per copy the input asks for (`copies`, a list of COPY_LABELS), else the single copy in `copy_label`."""
+    copies = _list(doc.get("copies"), len(COPY_LABELS)) if isinstance(doc, dict) else []
+    if not copies:
+        return [render_html(doc)]
+    if len(set(copies)) != len(copies) or any(c not in COPY_LABELS for c in copies):
+        raise ValueError("copies must be distinct copy labels")
+    return [render_html({**doc, "copy_label": c, "copies": None}) for c in copies]
 
 
 def _seller(p: dict | None) -> str:
@@ -127,7 +149,7 @@ def render_html(doc: dict) -> str:
         f"<style>{STYLE}{LINE_STYLE}</style><body>",
         '<div class="wm">PRACTICE</div>',
         f'<table class="top"><tr><td><h1>{PRACTICE_TITLE}</h1></td>'
-        f'<td class="copy">{_t(doc.get("copy_label")) or COPY_LABEL}</td></tr></table>',
+        f'<td class="copy">{_t(_copy_label(doc))}</td></tr></table>',
         f'<div class="practice">{PRACTICE_NOTICE}</div>',
         '<table class="parties"><tr>',
         _seller(seller),

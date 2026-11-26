@@ -82,6 +82,7 @@ class Buyer:
     has_delivery_address: bool
     ship_to_third_party: bool = False
     customer_collects: bool = False
+    has_billing_address: bool = True  # a street line on the Bill to address (Rule 46(d), #453)
 
 
 @dataclass(frozen=True)
