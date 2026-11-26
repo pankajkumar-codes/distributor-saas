@@ -44,6 +44,17 @@
   last_checked: 2026-11-02
   status: provisional
 
+- key: retention.rate_window_keep_hours
+  value: "48"
+  type: integer
+  kind: product
+  valid_from: 2026-11-26
+  source_url: team/staff-engineer/rate-limit-plan-2026-11-26.md
+  source_title: "#474: rate-limit windows are kept 48 hours, twice the longest window in use (one day)"
+  last_checked: 2026-11-26
+  status: provisional
+  note: "Longest window: support.totp_recovery_per_email_per_day. Runs only while retention.purge_operational.enabled is true."
+
 - key: retention.pending_signup_keep_hours
   value: "24"
   type: integer

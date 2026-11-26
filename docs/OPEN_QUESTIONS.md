@@ -211,7 +211,7 @@ Every row in `refdata/` is `provisional`. Before go-live:
 ## Job runner follow-ups (S0b, D-039)
 - `retention.purge_operational()` is built (D-041) and ships **disabled**. Still open:
   - **Periods (PO):** every row in `refdata/values/retention.yaml` is a provisional LLD design period, not a statutory one: jobs and sent outbox 14 days, idempotency keys 24 h, pending sign-ups and codes 24 h, sessions and closed invitations 30 days.
-  - **Rate windows:** LLD-0 says "old windows" with no period, so there is no `retention.rate_window_keep_hours` row and the table is kept. The longest window in use is one hour; the PO picks a period.
+  - **Rate windows:** settled by #474: `retention.rate_window_keep_hours` = 48 (provisional), twice the longest window in use (one day, support TOTP recovery per email). PO to confirm.
   - **Switching it on:** a refdata change after a dry run on staging, which waits for the staging decision. The retention Lambda and its two schedules exist in Terraform, both schedules disabled.
   - **Sessions past the 24 h idle limit** but before absolute expiry are kept until absolute expiry + 30 days. That is conservative; LLD-1 §12 names only revocation and absolute expiry.
 - `retention.purge_drafts()` is built (LLD-6 §6.2) and also ships **disabled** (`retention.purge_drafts.enabled`); the daily `retention` run calls it after `purge_operational`. Still open:
