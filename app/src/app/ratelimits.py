@@ -162,12 +162,14 @@ def route_path(request: Request) -> str:
     return path if path.startswith(API) else API + path
 
 
-def _is_uuid(value: str) -> bool:
+def _canonical_uuid(value: str) -> str | None:
+    """The one spelling of a business id, or None if it isn't one. uuid.UUID (and so the route's own parse) accepts
+    the same id without hyphens, in braces or with urn:uuid:, so the key must be the canonical form, or each spelling
+    would be a separate allowance (#474 review)."""
     try:
-        uuid.UUID(value)
+        return str(uuid.UUID(value))
     except ValueError:
-        return False
-    return True
+        return None
 
 
 def key(kind: str) -> str:
@@ -185,8 +187,10 @@ def throttle(request: Request, clock: Annotated[Clock, Depends(get_clock)]) -> N
     except Deny:
         return
     business = request.path_params.get("business_id") or "-"
-    if business != "-" and not _is_uuid(business):
-        return  # can't be a business: the route answers 404 itself, and no counter row is made for it (#474)
+    if business != "-":
+        business = _canonical_uuid(business)
+        if business is None:
+            return  # can't be a business: the route answers 404 itself, and no counter row is made for it (#474)
     # Its own short read-only transaction, closed before rate.hit (which must run with no unit of work open).
     with unit_of_work(Principal(user_sub=None, request_id=request_id(request)), read_only=True) as uow:
         limit = int(value_on(uow.tx, key(kind), clock.today()))

@@ -81,3 +81,12 @@ def test_a_business_id_that_is_not_a_uuid_makes_no_counter_row(pg):  # #474
     for n in range(3):
         assert _customer(pg, f"not-a-uuid-{n}").status_code == 404
     assert _counters(pg) == before
+
+
+def test_every_spelling_of_a_business_id_shares_one_allowance(pg):  # #474 review
+    biz = new_business(pg, "alice")
+    _set(pg, "write", 2)
+    assert _customer(pg, biz.hex).status_code == 201  # no hyphens
+    assert _customer(pg, "{" + str(biz) + "}").status_code == 201  # braces
+    assert _customer(pg, f"urn:uuid:{biz}").status_code == 429  # same business, same allowance
+    assert _customer(pg, str(biz)).status_code == 429
