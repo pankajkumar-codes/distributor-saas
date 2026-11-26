@@ -12,6 +12,8 @@ the last attempt failed does a new request make a new attempt: the job's natural
 Until live numbering is approved (D-010, D-044) every document is a practice document and the
 page says so; the renderer refuses anything else (renderer/document_template.py). The PDF is
 made on request, not queued by finalize, so a finalize never waits on the renderer.
+A cancelled invoice's PDF says CANCELLED with the date and reason (#468). Cancelling is the one thing that changes
+what the PDF shows, so a PDF made before the cancel is not handed back after it: the next request is a new attempt.
 Every value is a decimal string formatted here. The only sums are a line's own total (its stored
 taxable value plus its stored tax amounts) and the tax summary by HSN and rate (#450), which adds
 up the stored line amounts, so it always equals the stored invoice totals.
@@ -27,11 +29,13 @@ from sqlalchemy import text
 from app.modules.identity.interface import member_role
 from app.modules.refdata import state_name
 from platform_common import audit, jobs, render
-from platform_common.clock import get_clock
+from platform_common.clock import IST, get_clock
 from platform_common.errors import Deny
 from platform_common.permissions import Permission, has_permission
 from platform_common.storage import get_store
 from platform_common.uow import UnitOfWork
+
+from .cancel import cancellation
 
 JOB = "sales.document_pdf"
 _GSTIN_PAN = re.compile(r"[0-9]{2}([A-Z]{5}[0-9]{4}[A-Z])[0-9A-Z]{3}")
@@ -69,7 +73,9 @@ def queue(uow: UnitOfWork, document_id: uuid.UUID) -> tuple[uuid.UUID, int]:
     """The job for this document's PDF: (job id, attempt). A new attempt only after the last one failed."""
     _exists(uow, document_id)
     last = jobs.latest(uow, JOB, f"{document_id}:")
-    attempt = 1 if last is None else _attempt(last) + (1 if _failed(uow, last) else 0)
+    cancel = cancellation(uow.tx, uow.principal.business_id, document_id)
+    stale = last is not None and cancel is not None and last.created_at < cancel.cancelled_at
+    attempt = 1 if last is None else _attempt(last) + (1 if stale or _failed(uow, last) else 0)
     job_id = jobs.create(uow, JOB, natural_key=f"{document_id}:{attempt}")
     if last is None or attempt != _attempt(last):
         audit.record(uow, "document.pdf_requested", "document", document_id, data={"attempt": attempt})
@@ -301,10 +307,13 @@ def build(tx, business_id: uuid.UUID, document_id: uuid.UUID) -> dict:
         note = {"kind": doc["kind"], "original_number": original.get("number"),
                 "original_date": original.get("date"), "reason": snap.get("reason")}
         copies = ["Original for Recipient", "Duplicate for Supplier"]
+    cancel = cancellation(tx, business_id, document_id)
     return {
         "template": "invoice-document",
         "practice": True,
         "note": note,
+        "cancelled": None if cancel is None else {
+            "date": cancel.cancelled_at.astimezone(IST).date().isoformat(), "reason": cancel.reason_label},
         "number": doc["number"],
         "doc_date": on.isoformat(),
         "due_date": doc["due_date"].isoformat() if doc["due_date"] and note is None else None,
