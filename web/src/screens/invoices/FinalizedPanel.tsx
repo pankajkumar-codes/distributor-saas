@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 
 import { errorText } from "../../api/errors";
@@ -8,7 +8,7 @@ import { formatRupees } from "../../format/money";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { useSingleFlight } from "../../kit/singleFlight";
-import { useDocumentPdfRequest, type DocumentDetail } from "./useFinalize";
+import { downloadDocumentPdf, useDocumentPdfRequest, type DocumentDetail } from "./useFinalize";
 
 const nonzero = (amount: string) => /[1-9]/.test(amount);
 const lines = (parts: string[]) => (parts.length ? parts.join(", ") : "—");
@@ -24,14 +24,36 @@ const Kv = ({ k, children, total }: { k: ReactNode; children: ReactNode; total?:
  * A finalized invoice in the Ledger look (mocks v16, R.doc): the number in the heading, Parties on the left, Items and
  * Totals on the right, and the PDF as the one primary button. While live numbering is off every invoice is a practice
  * one, and says so here and on the PDF. Every figure is the server's string and the PDF state is the server's; nothing
- * is worked out in the page.
+ * is worked out in the page. The button downloads the file (#422): a signed link lasts a minute, so the page never shows
+ * one it read earlier; it reads a fresh one on each press, and offers it as a link only right after a download started.
  */
 export function FinalizedPanel({ businessId, doc }: { businessId: string; doc: DocumentDetail }) {
   const queryClient = useQueryClient();
-  const ask = useDocumentPdfRequest(businessId, doc.id, () => queryClient.invalidateQueries({ queryKey: ["b", businessId, "document", doc.id] }));
+  const ask = useDocumentPdfRequest(businessId, doc.id, () => undefined); // the download reads the document itself
   const once = useSingleFlight();
+  const [busy, setBusy] = useState(false);
+  const [started, setStarted] = useState<string | null>(null); // the link the last press downloaded from
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
   const s = doc.pdf.status;
-  const working = ask.isPending || s === "queued" || s === "rendering";
+  const working = busy || ask.isPending;
+  const download = () =>
+    once((done) => {
+      setBusy(true);
+      setStarted(null);
+      downloadDocumentPdf(queryClient, businessId, doc.id, () => ask.mutateAsync(), () => alive.current)
+        .then((url) => alive.current && setStarted(url))
+        .catch(() => undefined) // the request's error is shown from `ask`, a failed read from the page's own query
+        .finally(() => {
+          if (alive.current) setBusy(false);
+          done();
+        });
+    });
   return (
     <>
       <p className="eyebrow">
@@ -46,19 +68,25 @@ export function FinalizedPanel({ businessId, doc }: { businessId: string; doc: D
           <Link className="btn btn-secondary" to={`/b/${businessId}/invoices/new`}>
             New invoice
           </Link>
-          <Button type="button" variant="primary" busy={working} onClick={() => once((done) => ask.mutate(undefined, { onSettled: done }))}>
+          <Button type="button" variant="primary" busy={working} onClick={download}>
             {doc.is_practice ? "Download practice PDF" : "Download PDF"}
           </Button>
         </div>
       </div>
       {ask.error && <Banner tone="error">{errorText(ask.error)}</Banner>}
       {s === "failed" && <Banner tone="error">We couldn't make the PDF. Try again. Your invoice is saved.</Banner>}
-      {s === "ready" && doc.pdf.url && (
-        <p className="hint">
-          <a href={doc.pdf.url} target="_blank" rel="noopener noreferrer">
-            Open the PDF
+      {working && (s === "queued" || s === "rendering") && (
+        <p className="hint" role="status">
+          Making the PDF. It downloads by itself when it is ready.
+        </p>
+      )}
+      {started && !working && (
+        <p className="hint" role="status">
+          Your PDF is downloading. If it didn't start,{" "}
+          <a href={started} target="_blank" rel="noopener noreferrer">
+            open the PDF
           </a>{" "}
-          The link works for a minute; ask again for a new one.
+          (this link works for a minute; press Download again for a new one).
         </p>
       )}
       {doc.is_practice ? (
