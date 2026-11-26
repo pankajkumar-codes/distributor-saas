@@ -4,7 +4,7 @@ import { LAPTOPS, createBusiness, fitsOneScreen, signUp } from "./helpers";
 
 // Mocks v16 one-screen rule for New invoice with a full invoice (#397, Staff review of #408): six or more lines and a
 // "Please check" line, at every laptop size. The page itself never scrolls; only the items box does. Also the live totals
-// (#411): the paper's total moves when a quantity changes, before any save. Laptop only: a phone page may scroll.
+// (#411): the paper's total moves when a quantity changes, before any save, and line discounts (#435). Laptop only: a phone page may scroll.
 test("New invoice with many lines and a check still fits one screen; the items box scrolls", async ({ page }, info) => {
   test.skip(info.project.name.startsWith("phone"), "the one-screen rule is for laptops");
   test.setTimeout(120_000);
@@ -51,6 +51,16 @@ test("New invoice with many lines and a check still fits one screen; the items b
   await page.getByLabel("Quantity of Neem soap").fill("3");
   await expect(items.getByRole("row").filter({ hasText: "Neem soap" })).toContainText("₹120.00");
   await expect(paper.getByText("Total", { exact: true }).locator("..")).not.toContainText("—");
+
+  // Line discounts as a percent or an amount, and one discount for every line (#435).
+  await page.getByLabel("Discount on Neem soap: rupees or percent").selectOption("percent");
+  await page.getByLabel("Discount on Neem soap in percent").fill("10");
+  await expect(items.getByRole("row").filter({ hasText: "Neem soap" })).toContainText("₹108.00");
+  const every = page.getByRole("group", { name: "Same discount on every line" });
+  await every.getByLabel("Discount for every line in percent").fill("5");
+  await every.getByRole("button", { name: "Apply to all lines" }).click();
+  await expect(items.getByRole("row").filter({ hasText: "Neem soap" })).toContainText("₹114.00");
+  await expect(page.getByLabel("Discount on Mint balm in percent")).toHaveValue("5");
 
   await page.getByRole("button", { name: /^Save/ }).click();
   await expect(page.getByRole("heading", { name: "Draft invoice" })).toBeVisible();

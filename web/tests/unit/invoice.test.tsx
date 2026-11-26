@@ -564,6 +564,74 @@ describe("live totals while typing (#411)", () => {
     fireEvent.change(screen.getByLabelText(/^Quantity of /), { target: { value: "1.2.3" } });
     await waitFor(() => expect(sent(`${DRAFTS}/estimate`, "POST")).toHaveLength(1));
     await waitFor(() => expect(paper).not.toHaveTextContent("₹1,180.00"));
-    expect(within(screen.getByRole("region", { name: "Items" })).getByRole("row", { name: /Aloe Vera Gel/ })).not.toHaveTextContent("₹");
+    expect(within(screen.getByRole("region", { name: "Items" })).getByRole("row", { name: /Aloe Vera Gel/ })).not.toHaveTextContent(/₹\d/); // the ₹ / % choice stays; no figure
+  });
+});
+
+describe("line discounts in rupees or percent (#435)", () => {
+  const two = [
+    { id: "l-1", line_no: 1, product_id: "p-1", quantity: "10", unit_price: "100.00", discount_kind: null, discount_value: null },
+    { id: "l-2", line_no: 2, product_id: "p-2", quantity: "5", unit_price: "50.00", discount_kind: null, discount_value: null },
+  ];
+  const openTwo = async () => {
+    server.reply(ONE, { status: 200, body: draft({ lines: two, computation: computation() }) });
+    server.reply("/api/v1/b/b-1/products/p-1", { status: 200, body: product });
+    server.reply("/api/v1/b/b-1/products/p-2", { status: 200, body: { ...product, id: "p-2", name: "Neem Soap 75 g", code: "NS" } });
+    server.reply(`POST ${DRAFTS}/estimate`, { status: 200, body: computation() });
+    open("/b/b-1/invoices/d-1");
+    await screen.findByLabelText("Discount on Aloe Vera Gel 200 ml: rupees or percent");
+  };
+  const lastEstimate = () => sent(`${DRAFTS}/estimate`, "POST").at(-1)?.body as unknown as { lines: Record<string, unknown>[] };
+
+  it("takes a percent or an amount on each line, keeping the choice while the box is blank", async () => {
+    await openTwo();
+    const kind = screen.getByLabelText("Discount on Aloe Vera Gel 200 ml: rupees or percent");
+    expect(kind).toHaveValue("amount"); // ₹ unless % is picked
+    fireEvent.change(kind, { target: { value: "percent" } });
+    expect(screen.getByLabelText("Discount on Aloe Vera Gel 200 ml in percent")).toHaveValue(""); // nothing to send yet
+    fireEvent.change(screen.getByLabelText("Discount on Aloe Vera Gel 200 ml in percent"), { target: { value: "10" } });
+    fireEvent.change(screen.getByLabelText("Discount on Neem Soap 75 g in rupees"), { target: { value: "25" } });
+    await waitFor(() =>
+      expect(lastEstimate()?.lines).toMatchObject([
+        { product_id: "p-1", discount_kind: "percent", discount_value: "10" },
+        { product_id: "p-2", discount_kind: "amount", discount_value: "25" },
+      ]),
+    );
+  });
+
+  it("sets the same discount on every line, and a blank one clears them all", async () => {
+    await openTwo();
+    const every = screen.getByRole("group", { name: "Same discount on every line" });
+    expect(within(every).getByLabelText("Discount for every line: rupees or percent")).toHaveValue("percent");
+    fireEvent.change(within(every).getByLabelText("Discount for every line in percent"), { target: { value: "5" } });
+    fireEvent.click(within(every).getByRole("button", { name: "Apply to all lines" }));
+    expect(screen.getByLabelText("Discount on Aloe Vera Gel 200 ml in percent")).toHaveValue("5");
+    expect(screen.getByLabelText("Discount on Neem Soap 75 g in percent")).toHaveValue("5");
+    await waitFor(() =>
+      expect(lastEstimate()?.lines).toMatchObject([
+        { discount_kind: "percent", discount_value: "5" },
+        { discount_kind: "percent", discount_value: "5" },
+      ]),
+    );
+    fireEvent.change(within(every).getByLabelText("Discount for every line in percent"), { target: { value: "" } });
+    fireEvent.keyDown(within(every).getByLabelText("Discount for every line in percent"), { key: "Enter" });
+    expect(screen.getByLabelText("Discount on Aloe Vera Gel 200 ml in percent")).toHaveValue("");
+    expect(sent(ONE, "PUT")).toHaveLength(0); // Enter applied the discount; it did not save or create
+  });
+
+  it("shows no every-line setting for a single line", async () => {
+    server.reply(ONE, { status: 200, body: draft() });
+    server.reply("/api/v1/b/b-1/products/p-1", { status: 200, body: product });
+    open("/b/b-1/invoices/d-1");
+    await screen.findByLabelText("Discount on Aloe Vera Gel 200 ml: rupees or percent");
+    expect(screen.queryByRole("group", { name: "Same discount on every line" })).toBeNull();
+  });
+
+  it("sends no discount for a blank box, whatever its kind", () => {
+    const body = draftIn({ ...blankForm(), lines: [{ ...newLine(), product_id: "p-1", discount_kind: "percent", discount_value: " " }, { ...newLine(), product_id: "p-2", discount_kind: "", discount_value: "12" }] });
+    expect(body.lines).toMatchObject([
+      { discount_kind: null, discount_value: null },
+      { discount_kind: "amount", discount_value: "12" },
+    ]);
   });
 });

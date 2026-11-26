@@ -58,10 +58,42 @@ const sameLine = (l: FormLine, s: SavedLine | undefined) =>
   s.product_id === l.product_id &&
   s.quantity === l.quantity.trim() &&
   (l.unit_price.trim() === "" || s.unit_price === l.unit_price.trim()) &&
-  (s.discount_kind ?? "") === l.discount_kind &&
-  (l.discount_kind
-    ? (s.discount_value ?? "") === l.discount_value.trim()
-    : true);
+  (s.discount_kind ?? "") === discountKind(l) &&
+  (discountKind(l) ? (s.discount_value ?? "") === l.discount_value.trim() : true);
+
+/** The discount kind a line sends: none while its box is blank, else its ₹ / % choice (₹ unless % was picked). */
+const discountKind = (l: FormLine) => (l.discount_value.trim() ? l.discount_kind || "amount" : "");
+
+/** One discount for every line (#435): the value and its ₹ / % kind, set on each line at once. */
+function DiscountAll({ onApply }: { onApply: (value: string, kind: "amount" | "percent") => void }) {
+  const [value, setValue] = useState("");
+  const [kind, setKind] = useState<"amount" | "percent">("percent");
+  return (
+    <div className="alldisc" role="group" aria-label="Same discount on every line">
+      <span>Same discount on every line</span>
+      <input
+        className="qty rate"
+        inputMode="decimal"
+        aria-label={kind === "percent" ? "Discount for every line in percent" : "Discount for every line in rupees"}
+        placeholder="—"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key !== "Enter") return;
+          e.preventDefault(); // inside the invoice form: Enter applies here, never creates the invoice
+          onApply(value.trim(), kind);
+        }}
+      />
+      <select className="dunit" aria-label="Discount for every line: rupees or percent" value={kind} onChange={(e) => setKind(e.target.value as "amount" | "percent")}>
+        <option value="amount">₹</option>
+        <option value="percent">%</option>
+      </select>
+      <Button type="button" variant="link" onClick={() => onApply(value.trim(), kind)}>
+        Apply to all lines
+      </Button>
+    </div>
+  );
+}
 
 /**
  * New invoice and a draft invoice (mocks v16): one laptop screen, no page scroll. Left: buyer, date, items, Create.
@@ -695,7 +727,7 @@ export function InvoicePage() {
                       <th
                         scope="col"
                         className="r"
-                        title="Discount on the line, in rupees"
+                        title="Discount on the line, in rupees (₹) or percent (%)"
                       >
                         Discount
                       </th>
@@ -815,29 +847,39 @@ export function InvoicePage() {
                             />
                           </td>
                           <td className="r">
-                            <input
-                              className="qty rate"
-                              inputMode="decimal"
-                              aria-label={
-                                percent
-                                  ? `Discount on ${name} in percent`
-                                  : `Discount on ${name} in rupees`
-                              }
-                              placeholder="—"
-                              value={l.discount_value}
-                              onChange={(e) => {
-                                const v = e.target.value;
-                                setLine(i, {
-                                  discount_value: v,
-                                  discount_kind: percent
-                                    ? "percent"
-                                    : v.trim()
-                                      ? "amount"
-                                      : "",
-                                });
-                              }}
-                            />
-                            {percent && <span className="sub2"> %</span>}
+                            <span className="discbox">
+                              <input
+                                className="qty rate"
+                                inputMode="decimal"
+                                aria-label={
+                                  percent
+                                    ? `Discount on ${name} in percent`
+                                    : `Discount on ${name} in rupees`
+                                }
+                                placeholder="—"
+                                value={l.discount_value}
+                                onChange={(e) =>
+                                  setLine(i, {
+                                    discount_value: e.target.value,
+                                    discount_kind: percent ? "percent" : "amount",
+                                  })
+                                }
+                              />
+                              <select
+                                className="dunit"
+                                aria-label={`Discount on ${name}: rupees or percent`}
+                                title="Discount in rupees (₹) or percent (%)"
+                                value={percent ? "percent" : "amount"}
+                                onChange={(e) =>
+                                  setLine(i, {
+                                    discount_kind: e.target.value as "amount" | "percent",
+                                  })
+                                }
+                              >
+                                <option value="amount">₹</option>
+                                <option value="percent">%</option>
+                              </select>
+                            </span>
                           </td>
                           <td className="r num">
                             {computed && (fresh || estimate)
@@ -864,6 +906,19 @@ export function InvoicePage() {
                   </tbody>
                 </table>
               </div>
+              {form.lines.length > 1 && (
+                <DiscountAll
+                  onApply={(value, kind) =>
+                    set({
+                      lines: form.lines.map((l) => ({
+                        ...l,
+                        discount_value: value,
+                        discount_kind: kind,
+                      })),
+                    })
+                  }
+                />
+              )}
               <div className="itemsfoot">
                 <span>
                   {form.lines.length}{" "}
