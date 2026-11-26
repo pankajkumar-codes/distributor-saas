@@ -2,7 +2,7 @@
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from mangum import Mangum
 
 from app import runtime
@@ -31,6 +31,7 @@ from app.modules.filing.api_period_gate import router as period_gate_router
 from app.modules.filing.api_table13 import router as table13_router
 from app.modules.filing.api_worksheet import router as worksheet_router
 from app.modules.refdata.api import router as refdata_router
+from app.ratelimits import throttle
 from platform_common.auth import debug_env
 from platform_common.errors import install_error_handlers
 from platform_common.jobs_api import router as jobs_router
@@ -38,6 +39,9 @@ from platform_common.textcheck import RejectNul
 from platform_common.uow import set_principal_resolver
 
 API_PREFIX = "/api/v1"
+# Per-user, per-business limits on writes and heavy reads (app/ratelimits.py, #472). Added to every router, so a
+# route only needs a line in ratelimits.LIMITS; a route not listed there costs nothing.
+THROTTLE = [Depends(throttle)]
 
 # Set on every response by the app itself, so they hold on the API Gateway endpoint (the API is not behind
 # CloudFront, D-094) and locally. An answer that already carries one keeps it. HSTS is harmless over plain
@@ -88,33 +92,33 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="gst-app", root_path_in_servers=False, lifespan=lifespan)
 app.add_middleware(RejectNul)  # no NUL character in any query string or JSON body (#281)
 install_error_handlers(app)  # Deny -> 404, AppError -> its status, anything else -> 500 (LLD-0 §3.2)
-app.include_router(identity_router, prefix=API_PREFIX)
-app.include_router(auth_router, prefix=API_PREFIX)
-app.include_router(me_router, prefix=API_PREFIX)
-app.include_router(support_router, prefix=API_PREFIX)
-app.include_router(grants_router, prefix=API_PREFIX)
-app.include_router(team_router, prefix=API_PREFIX)
-app.include_router(business_router, prefix=API_PREFIX)
-app.include_router(gstin_lookup_router, prefix=API_PREFIX)
-app.include_router(home_router, prefix=API_PREFIX)
-app.include_router(product_imports_router, prefix=API_PREFIX)  # before products: /products/import-template
-app.include_router(products_router, prefix=API_PREFIX)
-app.include_router(stock_router, prefix=API_PREFIX)
-app.include_router(customers_router, prefix=API_PREFIX)
-app.include_router(drafts_router, prefix=API_PREFIX)
-app.include_router(filing_router, prefix=API_PREFIX)
-app.include_router(worksheet_router, prefix=API_PREFIX)
-app.include_router(period_files_router, prefix=API_PREFIX)
-app.include_router(period_gate_router, prefix=API_PREFIX)
-app.include_router(table13_router, prefix=API_PREFIX)
-app.include_router(uploads_router, prefix=API_PREFIX)
-app.include_router(purchases_router, prefix=API_PREFIX)
-app.include_router(refdata_router, prefix=API_PREFIX)
-app.include_router(jobs_router, prefix=API_PREFIX)  # platform routes (LLD-0 §3.7)
+app.include_router(identity_router, prefix=API_PREFIX, dependencies=THROTTLE)
+app.include_router(auth_router, prefix=API_PREFIX, dependencies=THROTTLE)
+app.include_router(me_router, prefix=API_PREFIX, dependencies=THROTTLE)
+app.include_router(support_router, prefix=API_PREFIX, dependencies=THROTTLE)
+app.include_router(grants_router, prefix=API_PREFIX, dependencies=THROTTLE)
+app.include_router(team_router, prefix=API_PREFIX, dependencies=THROTTLE)
+app.include_router(business_router, prefix=API_PREFIX, dependencies=THROTTLE)
+app.include_router(gstin_lookup_router, prefix=API_PREFIX, dependencies=THROTTLE)
+app.include_router(home_router, prefix=API_PREFIX, dependencies=THROTTLE)
+app.include_router(product_imports_router, prefix=API_PREFIX, dependencies=THROTTLE)  # before products: /products/import-template
+app.include_router(products_router, prefix=API_PREFIX, dependencies=THROTTLE)
+app.include_router(stock_router, prefix=API_PREFIX, dependencies=THROTTLE)
+app.include_router(customers_router, prefix=API_PREFIX, dependencies=THROTTLE)
+app.include_router(drafts_router, prefix=API_PREFIX, dependencies=THROTTLE)
+app.include_router(filing_router, prefix=API_PREFIX, dependencies=THROTTLE)
+app.include_router(worksheet_router, prefix=API_PREFIX, dependencies=THROTTLE)
+app.include_router(period_files_router, prefix=API_PREFIX, dependencies=THROTTLE)
+app.include_router(period_gate_router, prefix=API_PREFIX, dependencies=THROTTLE)
+app.include_router(table13_router, prefix=API_PREFIX, dependencies=THROTTLE)
+app.include_router(uploads_router, prefix=API_PREFIX, dependencies=THROTTLE)
+app.include_router(purchases_router, prefix=API_PREFIX, dependencies=THROTTLE)
+app.include_router(refdata_router, prefix=API_PREFIX, dependencies=THROTTLE)
+app.include_router(jobs_router, prefix=API_PREFIX, dependencies=THROTTLE)  # platform routes (LLD-0 §3.7)
 if debug_env():
     from app.dev_routes import router as dev_router
 
-    app.include_router(dev_router, prefix=API_PREFIX)
+    app.include_router(dev_router, prefix=API_PREFIX, dependencies=THROTTLE)
 
     from app.demo_readers import register_demo_readers
 

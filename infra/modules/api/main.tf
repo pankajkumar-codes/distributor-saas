@@ -33,6 +33,17 @@ variable "throttling_rate_limit" {
   type    = number
   default = 50
 }
+# The sign-in routes are public and each call is a password, code or token check, so they get a lower cap of their
+# own (#472). Like the stage default it is shared by every caller: it caps a flood, while the app's own counters per
+# email and IP address (refdata auth.*) stop one person guessing.
+variable "auth_throttling_burst_limit" {
+  type    = number
+  default = 20
+}
+variable "auth_throttling_rate_limit" {
+  type    = number
+  default = 10
+}
 
 resource "aws_apigatewayv2_api" "this" {
   name          = var.name
@@ -103,6 +114,8 @@ resource "aws_cloudwatch_log_group" "access" {
 }
 
 resource "aws_apigatewayv2_stage" "default" {
+  # route_settings names a route key, which must exist first.
+  depends_on  = [aws_apigatewayv2_route.public]
   api_id      = aws_apigatewayv2_api.this.id
   name        = "$default"
   auto_deploy = true
@@ -110,6 +123,12 @@ resource "aws_apigatewayv2_stage" "default" {
   default_route_settings {
     throttling_burst_limit = var.throttling_burst_limit
     throttling_rate_limit  = var.throttling_rate_limit
+  }
+
+  route_settings {
+    route_key              = "ANY /api/v1/auth/{proxy+}"
+    throttling_burst_limit = var.auth_throttling_burst_limit
+    throttling_rate_limit  = var.auth_throttling_rate_limit
   }
 
   # No bodies, no headers, no query strings: codes and tokens never reach this log.
