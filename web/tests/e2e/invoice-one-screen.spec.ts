@@ -27,7 +27,7 @@ test("New invoice with many lines and a check still fits one screen; the items b
     expect(r.status(), await r.text()).toBe(201);
   };
   await post("customers", { name: "Kiran Traders", billing: { line1: "4 Station Road", city: "Pune", pin: "411001", state_code: "27" } });
-  // Each MRP is the sale rate with 18% GST, so the rate the MRP implies (D-106) is the sale rate: 47.20 / 1.18 = 40.00.
+  // Each MRP is the sale rate with 18% GST, so the rate the MRP implies (D-107) is the sale rate: 47.20 / 1.18 = 40.00.
   const MRPS = ["47.20", "48.38", "49.56", "50.74", "51.92", "53.10", "54.28"];
   const names = ["Neem soap", "Aloe gel", "Rose water", "Tulsi drops", "Amla oil", "Sandal powder", "Mint balm"];
   for (const [i, name] of names.entries())

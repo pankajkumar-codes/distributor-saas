@@ -98,7 +98,7 @@ def test_a_product_without_a_set_price_needs_one_before_finalize_but_the_draft_s
     pg, biz, _ = shop
     p = product(pg, biz)
     with pg.owner.connect() as c:
-        # A product made from a purchase line: no selling price and, as there, no MRP to take the rate from (D-106).
+        # A product made from a purchase line: no selling price and, as there, no MRP to take the rate from (D-107).
         c.execute(text("update catalog.products set price_needed = true, sale_rate = 0, mrp = null where id = :p"),
                   {"p": p})
     d = draft(pg, biz, p)

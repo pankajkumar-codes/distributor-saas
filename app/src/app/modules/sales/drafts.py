@@ -129,8 +129,8 @@ def _checked(uow: UnitOfWork, body: dict, today: date) -> tuple[dict, list[dict]
         if ln.get("unit_price") is not None:
             price = money(ln["unit_price"], f"{field}.unit_price")
         else:
-            # A blank rate is the one the product's MRP implies (D-106), else its sale rate as before.
-            from_mrp = rate_from_mrp(p.mrp, p.tax_category, p.rate)
+            # A blank rate is the one the product's MRP implies (D-107), else its sale rate as before.
+            from_mrp = rate_from_mrp(p.mrp, p.tax_category, p.rate, p.has_cess)
             price = from_mrp if from_mrp is not None else p.sale_rate
         out.append({"id": uuid7(), "line_no": i, "product_id": pid, "quantity": quantity(ln.get("quantity"), f"{field}.quantity"),
                     "unit_price": price, "discount_kind": kind, "discount_value": disc})

@@ -517,7 +517,7 @@ def test_an_estimate_is_scoped_to_the_business_and_its_editors(shop):  # #411
     assert (r.status_code, r.json()["error"]["code"]) == (422, "product_not_found")
 
 
-def test_a_blank_rate_is_the_one_the_mrp_implies_and_a_typed_rate_wins(pg):  # D-106
+def test_a_blank_rate_is_the_one_the_mrp_implies_and_a_typed_rate_wins(pg):  # D-107
     biz = new_business(pg, "alice")
     cust = make_customer(pg, biz)
     p = make_product(pg, biz, mrp="100.00")  # sale rate 45.50 stays on the product; the MRP decides the line

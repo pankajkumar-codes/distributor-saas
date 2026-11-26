@@ -468,7 +468,7 @@ describe("helpers", () => {
   });
 });
 
-describe("MRP and the sale rate (D-106)", () => {
+describe("MRP and the sale rate (D-107)", () => {
   it("needs an MRP before it sends anything", async () => {
     open("/b/b-1/products/new");
     await screen.findByRole("option", { name: "Numbers (NOS)" });
@@ -500,6 +500,19 @@ describe("MRP and the sale rate (D-106)", () => {
     expect(rate).toHaveValue("90"); // a typed rate stays
     fireEvent.click(screen.getByRole("button", { name: "Use ₹100.00" }));
     expect(rate).toHaveValue("100.00");
+  });
+
+  it("leaves the sale rate alone for a product with cess, whose MRP also holds the cess", async () => {
+    open("/b/b-1/products/new");
+    await screen.findByRole("option", { name: "Numbers (NOS)" });
+    server.reply(RATES, { status: 200, body: { on: todayIst(), rates: ["5", "18"] } });
+    fireEvent.click(screen.getByRole("radio", { name: "Taxable" }));
+    await screen.findByRole("option", { name: "18%" });
+    fireEvent.click(screen.getByRole("checkbox", { name: "This product attracts cess" }));
+    type("MRP per unit, incl. GST (₹)", "100");
+    type("GST rate", "18");
+    expect(screen.getByLabelText("Sale rate per unit, excluding GST (₹)")).toHaveValue("");
+    expect(screen.queryByText(/From the MRP/)).toBeNull();
   });
 
   it("refuses to clear the MRP of a saved product", async () => {

@@ -67,20 +67,20 @@ class ProductForLine:
     rate_changed_within_warning_window: bool
     price_needed: bool = False  # R2-M3: the selling price per 1 qty was never set
     on_hand: Decimal = Decimal()  # R2-M3: stock on hand now; a sale is never blocked by it
-    mrp: Decimal | None = None  # per unit, GST included; required on every invoiced product (D-106)
+    mrp: Decimal | None = None  # per unit, GST included; required on every invoiced product (D-107)
 
 
 _PAISE = Decimal("0.01")
 
 
-def rate_from_mrp(mrp: Decimal | None, tax_category: str, rate: Decimal | None) -> Decimal | None:
-    """The rate per unit before GST that an MRP implies (D-106, Pankaj 2026-11-26): MRP / (1 + GST%/100), rounded
+def rate_from_mrp(mrp: Decimal | None, tax_category: str, rate: Decimal | None, has_cess: bool = False) -> Decimal | None:
+    """The rate per unit before GST that an MRP implies (D-107, Pankaj): MRP / (1 + GST%/100), rounded
     half up to the paisa, e.g. MRP 100.00 at 18% gives 84.75. A product outside GST (exempt, nil-rated, non-GST)
-    carries no GST, so its rate is the MRP itself. None when there is no MRP, or a taxable product has no rate on
+    carries no GST, so its rate is the MRP itself. None when there is no MRP, the product has cess, or a taxable product has no rate on
     the day. Tax is still worked out on this rate, tax-exclusive; the paise the rounding leaves are what the
     invoice's round-off already absorbs (CA-5 stays open for back-calculating the taxable value itself)."""
-    if mrp is None:
-        return None
+    if mrp is None or has_cess:
+        return None  # an MRP with cess in it also holds the cess; MRP / (1 + GST%) would overstate the rate (D-107)
     if tax_category != "taxable":
         return mrp.quantize(_PAISE, ROUND_HALF_UP)
     if rate is None:

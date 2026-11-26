@@ -53,7 +53,7 @@ class ProductIn(BaseModel):
     hsn: Text | None = None
     uqc: Text
     sale_rate: Money
-    mrp: Money | None = None  # required (D-106): per unit, GST included; refused when missing or blank
+    mrp: Money | None = None  # required (D-107): per unit, GST included; refused when missing or blank
     barcode: Text | None = None
     tax_category: Literal["taxable", "exempt", "nil_rated", "non_gst"]
     has_cess: bool = False
@@ -68,7 +68,7 @@ class ProductPatch(BaseModel):
     hsn: Text | None = None
     uqc: Text | None = None
     sale_rate: Money | None = None
-    mrp: Money | None = None  # required (D-106): may change, never be cleared
+    mrp: Money | None = None  # required (D-107): may change, never be cleared
     barcode: Text | None = None
     tax_category: Literal["taxable", "exempt", "nil_rated", "non_gst"] | None = None
     has_cess: bool | None = None
@@ -108,8 +108,8 @@ class ProductOut(BaseModel):
     hsn: str | None
     uqc: str
     sale_rate: str
-    mrp: str | None  # per 1 qty, GST included, 2 decimals; None only on a product saved before D-106
-    rate_from_mrp: str | None  # MRP / (1 + GST%/100) on the day asked, the invoice line's default rate (D-106)
+    mrp: str | None  # per 1 qty, GST included, 2 decimals; None only on a product saved before D-107
+    rate_from_mrp: str | None  # MRP / (1 + GST%/100) on the day asked, the invoice line's default rate (D-107)
     barcode: str | None
     tax_category: str
     has_cess: bool
@@ -157,7 +157,7 @@ def _str_or_none(value) -> str | None:
 
 
 def _mrp_required(value) -> None:
-    """D-106: a product typed in by a person always has its MRP. Imports and purchase items may still arrive
+    """D-107: a product typed in by a person always has its MRP. Imports and purchase items may still arrive
     without one; the invoice then blocks the line (mrp_missing) until it is added."""
     if value is None or not str(value).strip():
         raise Invalid("mrp_required", "Enter the MRP, the price per unit with GST included", field="mrp",
@@ -178,7 +178,7 @@ def _out(p: products.Product, rate: dict | None) -> dict:
         "uqc": p.uqc,
         "sale_rate": f"{p.sale_rate:.2f}",
         "mrp": None if p.mrp is None else f"{p.mrp:.2f}",
-        "rate_from_mrp": _str_or_none(rate_from_mrp(p.mrp, p.tax_category, rate["rate"] if rate else None)),
+        "rate_from_mrp": _str_or_none(rate_from_mrp(p.mrp, p.tax_category, rate["rate"] if rate else None, p.has_cess)),
         "barcode": p.barcode,
         "tax_category": p.tax_category,
         "has_cess": p.has_cess,

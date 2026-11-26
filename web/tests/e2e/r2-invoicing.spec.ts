@@ -90,7 +90,7 @@ test("R2: purchase, stock, price, practice invoice, PDF request", async ({ page 
   if (!info.project.name.startsWith("phone")) await fitsOneScreen(page);
   await page.getByRole("button", { name: /^Save/ }).click();
   await expect(page.getByRole("heading", { name: "Draft invoice" })).toBeVisible();
-  // D-106: a product made from a purchase has no MRP yet; the invoice blocks the line and takes it here.
+  // D-107: a product made from a purchase has no MRP yet; the invoice blocks the line and takes it here.
   await page.getByLabel("MRP per unit, incl. GST, for Neem soap (₹)").fill("94.40");
   await page.getByRole("button", { name: "Save MRP" }).click();
   await expect(page.getByLabel("Rate of Neem soap, excluding GST")).toHaveValue("80.00"); // 94.40 / 1.18

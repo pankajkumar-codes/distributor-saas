@@ -18,7 +18,7 @@ export function saleRateProblem(raw: string, final = false): string | undefined 
   return undefined;
 }
 
-/** The same for the MRP (#398), required since D-106: the server keeps 12 digits before the point (numeric(14, 2)). */
+/** The same for the MRP (#398), required since D-107: the server keeps 12 digits before the point (numeric(14, 2)). */
 export function mrpProblem(raw: string, final = false): string | undefined {
   if (final && !raw.trim()) return "Enter the MRP, the price per unit with GST included.";
   const problem = saleRateProblem(raw, final);
@@ -35,7 +35,7 @@ function scaled(text: string, places: number): bigint | null {
 }
 
 /**
- * The sale rate an MRP implies (D-106): MRP / (1 + GST%/100), half up to the paisa, the same rule as the server's
+ * The sale rate an MRP implies (D-107): MRP / (1 + GST%/100), half up to the paisa, the same rule as the server's
  * `rate_from_mrp`. Whole-number arithmetic (paise and thousandths of a percent), never floating point. A product outside
  * GST has no GST in its MRP, so the rate is the MRP. Null when the MRP or the GST rate can't be read yet. A form helper
  * only: the server works the invoice line's rate out again.

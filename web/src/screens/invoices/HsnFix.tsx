@@ -27,7 +27,7 @@ type FixProps = {
  */
 export const HsnFix = (p: FixProps) => <ProductFieldFix {...p} field="hsn" />;
 
-/** The same for a missing MRP (D-106): saved on the product; the invoice line then takes the rate the MRP implies. */
+/** The same for a missing MRP (D-107): saved on the product; the invoice line then takes the rate the MRP implies. */
 export const MrpFix = (p: FixProps) => <ProductFieldFix {...p} field="mrp" />;
 
 function ProductFieldFix({ businessId, productId, productName, onSaved, field }: FixProps & { field: "hsn" | "mrp" }) {

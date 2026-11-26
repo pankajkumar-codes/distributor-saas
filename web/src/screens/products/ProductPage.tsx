@@ -144,7 +144,7 @@ export function ProductPage() {
   const [stale, setStale] = useState(false);
   const [rateMissing, setRateMissing] = useState(false);
   const [saleRateChecked, setSaleRateChecked] = useState(false); // a save was tried: a half-typed "10." is now a problem
-  // D-106: the sale rate follows the MRP and GST rate (MRP / (1 + GST%)) until the person types a rate of their own.
+  // D-107: the sale rate follows the MRP and GST rate (MRP / (1 + GST%)) until the person types a rate of their own.
   const [rateTyped, setRateTyped] = useState(false);
   const [tab, setTab] = useState(0);
   const latest = product.data ?? null;
@@ -331,7 +331,7 @@ export function ProductPage() {
   const set = (field: keyof Values) => (e: { target: { value: string } }) => setValues({ ...values, [field]: e.target.value });
   // The GST rate the MRP includes: the one chosen on the form, else the product's rate today.
   const gstNow = needsRate ? chosenRate : (base?.rate_on?.rate ?? null);
-  const fromMrp = (next: Values, gst: string | null) => rateFromMrp(next.mrp, gst, next.tax_category === "taxable");
+  const fromMrp = (next: Values, gst: string | null) => (next.has_cess ? null : rateFromMrp(next.mrp, gst, next.tax_category === "taxable"));
   /** Values with the sale rate worked out from the MRP, unless the person typed their own rate. */
   const follow = (next: Values, gst: string | null = gstNow): Values => {
     const r = rateTyped ? null : fromMrp(next, gst);

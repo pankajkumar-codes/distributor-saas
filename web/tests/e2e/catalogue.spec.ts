@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { createBusiness, fitsOneScreen, signUp } from "./helpers";
 
-// Mocks v16 catalogue screens (#398): the product form saves an MRP (required since D-106), the lists page five at a
+// Mocks v16 catalogue screens (#398): the product form saves an MRP (required since D-107), the lists page five at a
 // time, and every catalogue screen fits one laptop screen. Laptop only: phone views may scroll.
 
 const JPEG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.from("e2e catalogue photo ".repeat(8))]);
@@ -40,7 +40,7 @@ test("catalogue screens: MRP, pages of five, one screen each", async ({ page }, 
   await expect(page).toHaveURL(/\?page=2$/);
   await expect(page.getByRole("row")).toHaveCount(2);
 
-  // The product form keeps the MRP, and it can't be cleared (D-106).
+  // The product form keeps the MRP, and it can't be cleared (D-107).
   await page.goto(`${b}/products`);
   await page.getByRole("link", { name: "Product A" }).click();
   await expect(page.getByLabel("MRP per unit, incl. GST (₹)")).toHaveValue("60.50");

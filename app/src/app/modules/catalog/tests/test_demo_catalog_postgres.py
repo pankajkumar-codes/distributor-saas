@@ -71,7 +71,7 @@ def test_the_seed_adds_five_customers_and_ten_products(shop, capsys):
     assert {p["tax_category"] for p in products.values()} == {"taxable", "exempt", "nil_rated", "non_gst"}
     assert [p["code"] for p in items(pg, biz, "products", "&filter=no_hsn")] == ["DEMO-HAMPER"]
     assert len({p["uqc"] for p in products.values()}) >= 8
-    # D-106: every demo product has its MRP, and MRP / (1 + GST%) gives back its sale rate.
+    # D-107: every demo product has its MRP, and MRP / (1 + GST%) gives back its sale rate.
     assert all(p["mrp"] for p in products.values())
     assert all(p["rate_from_mrp"] == p["sale_rate"] for p in products.values() if p["rate_on"] or p["tax_category"] != "taxable")
 
@@ -84,7 +84,7 @@ def test_a_second_run_adds_nothing(shop, capsys):
     assert len(items(pg, biz, "customers")) == 5 and len(items(pg, biz, "products")) == 10
 
 
-def test_a_demo_product_saved_without_an_mrp_gets_it_on_the_next_run(shop, capsys):  # D-106 backfill
+def test_a_demo_product_saved_without_an_mrp_gets_it_on_the_next_run(shop, capsys):  # D-107 backfill
     pg, biz = shop
     seed._catalog("", str(biz), None)
     with pg.owner.connect() as c:

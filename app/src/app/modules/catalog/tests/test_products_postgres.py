@@ -637,7 +637,7 @@ def test_etag_is_the_version_and_a_weak_or_star_if_match_is_stale(shop):  # plat
 
 
 @pytest.mark.parametrize("missing", [{"mrp": None}, {"mrp": ""}, {"mrp": "  "}, "absent"])
-def test_mrp_is_required_on_create(shop, missing):  # D-106
+def test_mrp_is_required_on_create(shop, missing):  # D-107
     pg, biz = shop
     body = product()
     if missing == "absent":
@@ -649,7 +649,7 @@ def test_mrp_is_required_on_create(shop, missing):  # D-106
     assert (r.status_code, e["code"], e["field"]) == (422, "mrp_required", "mrp")
 
 
-def test_mrp_is_edited_with_the_version_and_never_cleared(shop):  # D-106
+def test_mrp_is_edited_with_the_version_and_never_cleared(shop):  # D-107
     pg, biz = shop
     h = as_user("alice")
     p = make(pg, biz)
@@ -691,6 +691,7 @@ def test_rate_from_mrp_is_mrp_over_one_plus_gst_rounded_half_up(mrp, rate, categ
     assert str(got) == expected
     assert rate_from_mrp(None, category, Decimal("18")) is None
     assert rate_from_mrp(Decimal(mrp), "taxable", None) is None  # a taxable product with no rate on the day
+    assert rate_from_mrp(Decimal(mrp), category, Decimal("18"), has_cess=True) is None  # the MRP also holds the cess
 
 
 @pytest.mark.parametrize("bad", ["-1", "12.345", "abc", "1e3", "1234567890123", " . "])

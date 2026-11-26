@@ -47,7 +47,7 @@ def product(rate, *, code="SYN", hsn="3401", **kw):
         rate_confirmed=True,
         rate_changed_within_warning_window=False,
         on_hand=D("1000000"),  # plenty: the older tests are not about stock
-        mrp=D("118.00"),  # every invoiced product has its MRP (D-106); the older tests are not about it
+        mrp=D("118.00"),  # every invoiced product has its MRP (D-107); the older tests are not about it
     )
     return ProductForLine(**{**fields, **kw})
 
@@ -640,12 +640,12 @@ def test_a_not_taxable_product_gets_one_block_that_says_why():
     ]
 
 
-def test_a_product_without_an_mrp_blocks_its_line_until_one_is_added():  # D-106
+def test_a_product_without_an_mrp_blocks_its_line_until_one_is_added():  # D-107
     c = run([line("1", "84.75", "18", n=1, mrp=None), line("1", "84.75", "18", n=2)], registered(MH))
     assert [(b.code, b.line_no, b.field) for b in c.blocks] == [("mrp_missing", 1, "lines.0.product_id")]
 
 
-def test_a_rate_from_the_mrp_can_end_a_paisa_off_the_mrp_and_the_round_off_line_settles_it():  # D-106
+def test_a_rate_from_the_mrp_can_end_a_paisa_off_the_mrp_and_the_round_off_line_settles_it():  # D-107
     # Pankaj's example: MRP 100 at 18% gives the rate 84.75; tax is still worked out on the rate (tax-exclusive),
     # so the line comes to 100.01. Only the whole-rupee round-off line (off by default, D-022) brings it to 100.00;
     # an exact match needs the tax-inclusive method, which waits on CA-5.

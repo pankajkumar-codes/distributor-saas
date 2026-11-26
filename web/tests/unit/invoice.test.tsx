@@ -568,7 +568,7 @@ describe("live totals while typing (#411)", () => {
   });
 });
 
-describe("a product without an MRP on the invoice (D-106)", () => {
+describe("a product without an MRP on the invoice (D-107)", () => {
   const P1 = "/api/v1/b/b-1/products/p-1";
   const noMrp = { ...product, uqc: "NOS", barcode: null, mrp: null, rate_from_mrp: null, tax_category: "taxable", has_cess: false, in_use: true, rate_on: { rate: "18", rate_id: "r-1", valid_from: "2025-09-22", confirmed: true }, rate_changed_within_warning_window: false, rates: [] }; // fmt: skip
   const block = { code: "mrp_missing", fix: "Add the product's MRP.", field: "lines.0.product_id", line_no: 1 };

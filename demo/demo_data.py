@@ -51,7 +51,7 @@ def _taxable(rate):
 
 
 # sale_rate is per unit, before GST, as a decimal string (never a float). mrp is per unit with GST included and
-# required (D-106); each is chosen so MRP / (1 + GST%) gives back the sale rate, so a blank invoice rate shows the same figure.
+# required (D-107); each is chosen so MRP / (1 + GST%) gives back the sale rate, so a blank invoice rate shows the same figure.
 PRODUCTS = [
     {"code": "DEMO-TSHIRT", "name": "Cotton T-shirt (demo)", "hsn": "6109", "uqc": "PCS", "sale_rate": "499.00", "mrp": "523.95",
      "barcode": "8900000000017", **_taxable("5")},                       # 4-digit HSN, 5%, has a barcode

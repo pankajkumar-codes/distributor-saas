@@ -426,7 +426,7 @@ export function InvoicePage() {
         />
       )
     : undefined;
-  // D-106: a product without an MRP blocks its line; the MRP can be added here. The saved line keeps the rate it was saved
+  // D-107: a product without an MRP blocks its line; the MRP can be added here. The saved line keeps the rate it was saved
   // with, so it takes the rate the new MRP implies (the server's figure), and the next save or Create uses it.
   const mrpFixFor = canEditCatalog(business.role)
     ? (n: number, productId: string) => (

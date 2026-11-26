@@ -136,7 +136,7 @@ def _catalog(base, business, token):
             need(*call(base, "POST", f"/b/{business}/products", p, token), (201,), f"product {p['code']}")
             added += 1
         elif had.get("mrp") is None:
-            # A demo product saved before MRP was required (D-106) gets its MRP, as a person would add it.
+            # A demo product saved before MRP was required (D-107) gets its MRP, as a person would add it.
             need(*call(base, "PATCH", f"/b/{business}/products/{had['id']}", {"mrp": p["mrp"]}, token,
                        {"If-Match": str(had["version"])}), (200,), f"MRP of {p['code']}")
             mrp += 1

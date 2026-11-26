@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { mrpProblem, rateFromMrp } from "../../src/screens/products/saleRate";
 
-describe("the rate an MRP implies (D-106)", () => {
+describe("the rate an MRP implies (D-107)", () => {
   it("is MRP / (1 + GST%), half up to the paisa, in whole-number arithmetic", () => {
     expect(rateFromMrp("100", "18", true)).toBe("84.75"); // Pankaj's example: 84.7457...
     expect(rateFromMrp("413", "18", true)).toBe("350.00");
