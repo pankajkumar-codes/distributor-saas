@@ -193,3 +193,37 @@ def test_copies_make_one_page_set_per_rule_48_label():  # #454, Rule 48(1)
 def test_copies_must_be_distinct_rule_48_labels(copies):
     with pytest.raises(ValueError):
         template.render_htmls(full_doc(copies=copies))
+
+
+NOTE = {"kind": "credit_note", "original_number": "PR-0042", "original_date": "2026-11-18", "reason": "Goods returned"}
+
+
+def test_a_credit_note_names_its_invoice_and_reason_and_says_credit_amount():  # #456, Rule 53(1A)
+    html = template.render_html(full_doc(note=NOTE, number="PR-CN-0001", due_date="2026-12-18"))
+    assert document_template.PRACTICE_NOTE_TITLE in html and document_template.PRACTICE_TITLE not in html
+    assert "Against invoice: PR-0042 dated 2026-11-18" in html
+    assert "Reason: Goods returned" in html
+    assert "Credit amount ₹" in html and "Amount payable" not in html
+    assert "Due date" not in html
+
+
+def test_a_credit_note_has_an_original_and_a_duplicate_only():  # #456: the triplicate is an invoice rule
+    htmls = template.render_htmls(full_doc(note=NOTE, copies=list(document_template.NOTE_COPY_LABELS)))
+    assert len(htmls) == 2
+    assert '<td class="copy">Duplicate for Supplier</td>' in htmls[1]
+    with pytest.raises(ValueError):
+        template.render_htmls(full_doc(note=NOTE, copies=list(document_template.COPY_LABELS)))
+    with pytest.raises(ValueError):
+        template.render_htmls(full_doc(copies=["Original for Recipient", "Duplicate for Supplier"]))
+
+
+@pytest.mark.parametrize("note", [{"kind": "debit_note"}, "credit_note", {"kind": "<b>"}])
+def test_an_unknown_note_kind_is_refused(note):
+    with pytest.raises(ValueError):
+        template.render_html(full_doc(note=note))
+
+
+@pytest.mark.parametrize("field", ["original_number", "original_date", "reason"])
+def test_the_note_fields_are_escaped(field):
+    html = template.render_html(full_doc(note={**NOTE, field: "<script>x</script>"}))
+    assert "<script>x</script>" not in html and "&lt;script&gt;" in html

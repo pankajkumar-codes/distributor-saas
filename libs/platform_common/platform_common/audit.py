@@ -75,6 +75,8 @@ ALLOWED_DATA: dict[str, frozenset[str]] = {
     "draft.deleted": frozenset(),
     # Finalize (LLD-4 §12): numbers, kinds and codes only; no amounts, names or GSTINs.
     "document.finalized": frozenset({"number", "kind", "practice", "draft_id", "return_period", "form"}),
+    "credit_note.issued": frozenset({"number", "practice", "original_id", "original_number", "reason", "return_period",
+                                     "form"}),
     "document.pdf_requested": frozenset({"attempt"}),
     "document.pos_override": frozenset({"computed_pos", "chosen_pos"}),  # reason required (G16)
     # Stock ledger (R2-M3): the product code and the signed quantity only; no cost or price.

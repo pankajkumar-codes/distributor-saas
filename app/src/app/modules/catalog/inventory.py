@@ -387,3 +387,26 @@ def record_sale_out(uow: UnitOfWork, *, product_id: uuid.UUID, quantity: Decimal
         return row.id
     return _post(uow, product_id, "sale_out", -qty, sold_on, source_type="sales_invoice", source_id=document_id,
                  source_line_id=document_line_id, practice=practice)
+
+
+def record_credit_note_return(uow: UnitOfWork, *, product_id: uuid.UUID, quantity: Decimal, note_id: uuid.UUID,
+                              note_line_id: uuid.UUID, on: date, practice: bool, write_off: bool) -> list[uuid.UUID]:
+    """A goods-returned credit note line (#456) brings the goods back: one positive return_in movement linked to the
+    note line. When the returned goods are written off (damaged, rule 56(2)), a second, negative written_off movement
+    on the same date records that, so the stock account shows both the return and the write-off. Called only by sales,
+    in its unit of work. A retry returns the movements already written."""
+    qty = parse_quantity(quantity)
+    out = []
+    for kind, stype, signed in (("return_in", "sales_credit_note", qty),
+                                ("written_off", "credit_note_write_off", -qty)):
+        if kind == "written_off" and not write_off:
+            break
+        row = uow.tx.execute(
+            text("select id from catalog.stock_movements where business_id = :b and kind = :k"
+                 " and source_type = :t and source_id = :s and source_line_id = :l"),
+            {"b": uow.principal.business_id, "k": kind, "t": stype, "s": note_id, "l": note_line_id},
+        ).one_or_none()
+        out.append(row.id if row is not None else _post(
+            uow, product_id, kind, signed, on, source_type=stype, source_id=note_id, source_line_id=note_line_id,
+            practice=practice))
+    return out

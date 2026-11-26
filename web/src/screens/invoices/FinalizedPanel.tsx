@@ -8,6 +8,7 @@ import { formatRupees } from "../../format/money";
 import { Banner } from "../../kit/Banner";
 import { Button } from "../../kit/Button";
 import { useSingleFlight } from "../../kit/singleFlight";
+import { useCreditState } from "./useCredit";
 import { downloadDocumentPdf, useDocumentPdfRequest, type DocumentDetail } from "./useFinalize";
 
 const nonzero = (amount: string) => /[1-9]/.test(amount);
@@ -41,6 +42,9 @@ export function FinalizedPanel({ businessId, doc }: { businessId: string; doc: D
     };
   }, []);
   const s = doc.pdf.status;
+  const isNote = doc.kind === "credit_note";
+  const credit = useCreditState(businessId, doc.id, !isNote); // an invoice lists the notes made against it (#456)
+  const what = isNote ? "credit note" : "invoice";
   const working = busy || ask.isPending;
   const download = () =>
     once((done) => {
@@ -61,20 +65,26 @@ export function FinalizedPanel({ businessId, doc }: { businessId: string; doc: D
       </p>
       <div className="between docact">
         <h1>
-          Invoice issued <span className="muted num">{doc.doc_number}</span>
+          {isNote ? "Credit note issued" : "Invoice issued"} <span className="muted num">{doc.doc_number}</span>
         </h1>
         <div className="row">
           <Link to={`/b/${businessId}/documents`}>Issued invoices</Link>
-          <Link className="btn btn-secondary" to={`/b/${businessId}/invoices/new`}>
-            New invoice
-          </Link>
+          {isNote ? (
+            <Link className="btn btn-secondary" to={`/b/${businessId}/invoices/new`}>
+              New invoice
+            </Link>
+          ) : (
+            <Link className="btn btn-secondary" to={`/b/${businessId}/documents/${doc.id}/adjust`}>
+              Adjust invoice
+            </Link>
+          )}
           <Button type="button" variant="primary" busy={working} onClick={download}>
             {doc.is_practice ? "Download practice PDF" : "Download PDF"}
           </Button>
         </div>
       </div>
       {ask.error && <Banner tone="error">{errorText(ask.error)}</Banner>}
-      {s === "failed" && <Banner tone="error">We couldn't make the PDF. Try again. Your invoice is saved.</Banner>}
+      {s === "failed" && <Banner tone="error">We couldn't make the PDF. Try again. Your {what} is saved.</Banner>}
       {working && (s === "queued" || s === "rendering") && (
         <p className="hint" role="status">
           Making the PDF. It downloads by itself when it is ready.
@@ -89,7 +99,11 @@ export function FinalizedPanel({ businessId, doc }: { businessId: string; doc: D
           (this link works for a minute; press Download again for a new one).
         </p>
       )}
-      {doc.is_practice ? (
+      {doc.is_practice && isNote ? (
+        <Banner tone="warn">
+          <strong>Practice credit note.</strong> Not for customers and never in GST filing. Issued, locked · {formatDate(doc.doc_date)}
+        </Banner>
+      ) : doc.is_practice ? (
         <Banner tone="warn">
           <strong>Practice invoice.</strong> Not for customers: it is not a tax invoice and is not in any GST return. Live invoice numbers start once your CA confirms the
           numbering. Issued, locked · {formatDate(doc.doc_date)}
@@ -105,6 +119,27 @@ export function FinalizedPanel({ businessId, doc }: { businessId: string; doc: D
               <h2 id="parties">Parties</h2>
             </div>
             <div className="pad">
+              {isNote && doc.original && (
+                <>
+                  <div className="kv">
+                    <span>Against invoice</span>
+                    <span className="r">
+                      {doc.original_document_id ? (
+                        <Link className="num" to={`/b/${businessId}/documents/${doc.original_document_id}`}>
+                          {doc.original.number}
+                        </Link>
+                      ) : (
+                        <span className="num">{doc.original.number}</span>
+                      )}{" "}
+                      <span className="sub2">dated {formatDate(doc.original.date)}</span>
+                    </span>
+                  </div>
+                  <Kv k="Reason">{doc.reason ?? "—"}</Kv>
+                  {doc.stock_treatment && (
+                    <Kv k="Returned goods">{doc.stock_treatment === "restock" ? "Back to stock" : "Returned and written off"}</Kv>
+                  )}
+                </>
+              )}
               <div className="kv">
                 <span>Buyer</span>
                 <span className="r">
@@ -203,12 +238,35 @@ export function FinalizedPanel({ businessId, doc }: { businessId: string; doc: D
               )}
               {nonzero(doc.cess_total) && <Kv k="Cess">{formatRupees(doc.cess_total)}</Kv>}
               {nonzero(doc.round_off) && <Kv k="Round off">{formatRupees(doc.round_off)}</Kv>}
-              <Kv k="Total" total>
+              <Kv k={isNote ? "Credited" : "Total"} total>
                 {formatRupees(doc.doc_total)}
               </Kv>
               <p className="hint words">{doc.amount_in_words}</p>
             </div>
           </section>
+          {!isNote && credit.data && credit.data.notes.length > 0 && (
+            <section className="panel" aria-labelledby="notes">
+              <div className="panel-h">
+                <h2 id="notes">Credit notes</h2>
+              </div>
+              <div className="pad">
+                {credit.data.notes.map((n) => (
+                  <div className="kv" key={n.id}>
+                    <span>
+                      <Link className="num" to={`/b/${businessId}/documents/${n.id}`}>
+                        {n.doc_number}
+                      </Link>{" "}
+                      <span className="sub2">{formatDate(n.doc_date)}</span>
+                    </span>
+                    <span className="num">−{formatRupees(n.doc_total)}</span>
+                  </div>
+                ))}
+                <Kv k="Still on the invoice" total>
+                  {formatRupees(credit.data.remaining_total)}
+                </Kv>
+              </div>
+            </section>
+          )}
         </div>
       </div>
     </>

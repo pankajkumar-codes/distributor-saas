@@ -44,7 +44,7 @@ from ..profile import (
     setup_state,
 )
 from ..registration import Address, Registration, blank_to_none, check_state, registration
-from ..series import SeriesSetting, series_setting
+from ..series import SeriesSetting, default_series_setting, series_setting
 from ..thresholds import (
     EinvoiceStatus,
     HsnBandMissing,
@@ -93,6 +93,7 @@ __all__ = [
     "ready_for_documents",
     "SeriesSetting",
     "series_setting",
+    "default_series_setting",
     "setup_state",
 ]
 

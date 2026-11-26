@@ -72,10 +72,15 @@ class Numbering:
     saved: frozenset[str]  # kinds with a saved row
 
 
+def default_series_setting(kind: str) -> SeriesSetting:
+    """The settings a kind has before any are saved: its default prefix, D-114's width, starting at 1, practice."""
+    return SeriesSetting(kind, DEFAULT_PREFIX[kind], WIDTH, 1, True)
+
+
 def numbering(tx: Session) -> Numbering:
     rows = {r.kind: SeriesSetting(*r) for r in tx.execute(text(
         f"select kind, prefix, width, first_value, practice_mode from business.series_settings where {BOUND}"))}
-    out = tuple(rows.get(k) or SeriesSetting(k, DEFAULT_PREFIX[k], WIDTH, 1, True) for k in KINDS)
+    out = tuple(rows.get(k) or default_series_setting(k) for k in KINDS)
     return Numbering(out, frozenset(rows))
 
 

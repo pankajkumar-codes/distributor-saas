@@ -25,6 +25,7 @@ import { AcceptInvitePage } from "./screens/team/AcceptInvitePage";
 import { TeamPage } from "./screens/team/TeamPage";
 import { PlanPage } from "./screens/plan/PlanPage";
 import { StockPage } from "./screens/stock/StockPage";
+import { AdjustPage } from "./screens/invoices/AdjustPage";
 import { DocumentPage } from "./screens/invoices/DocumentPage";
 import { DocumentsPage } from "./screens/invoices/DocumentsPage";
 import { DraftsPage } from "./screens/invoices/DraftsPage";
@@ -76,6 +77,7 @@ export const routes: RouteObject[] = [
         { path: "/b/:businessId/settings/plan", element: <PageTitle title="Invoicing plan"><RequireAuth><PlanPage /></RequireAuth></PageTitle> },
         { path: "/b/:businessId/documents", element: <PageTitle title="Issued invoices"><RequireAuth><DocumentsPage /></RequireAuth></PageTitle> },
         { path: "/b/:businessId/documents/:documentId", element: <PageTitle title="Invoice"><RequireAuth><DocumentPage /></RequireAuth></PageTitle> },
+        { path: "/b/:businessId/documents/:documentId/adjust", element: <PageTitle title="Adjust invoice"><RequireAuth><AdjustPage /></RequireAuth></PageTitle> },
         { path: "/b/:businessId/drafts", element: <PageTitle title="Draft invoices"><RequireAuth><DraftsPage /></RequireAuth></PageTitle> },
         { path: "/b/:businessId/invoices/new", element: <PageTitle title="New invoice"><RequireAuth><InvoicePage /></RequireAuth></PageTitle> },
         { path: "/b/:businessId/invoices/:draftId", element: <PageTitle title="Invoice"><RequireAuth><InvoicePage /></RequireAuth></PageTitle> },

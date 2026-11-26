@@ -415,6 +415,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/b/{business_id}/documents/{document_id}/credit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Credit State
+         * @description What is left to credit on an issued invoice, line by line, the credit notes made against it, and the last date
+         *     the law allows for one (s.34(2)). Read-only. A credit note, or another business's document, is a 404.
+         */
+        get: operations["get_credit_state_api_v1_b__business_id__documents__document_id__credit_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/b/{business_id}/documents/{document_id}/credit-notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Credit Note
+         * @description Issues a credit note against an issued invoice (#456): by quantity for goods returned (back to stock, or
+         *     returned and written off), by amount for a value charged too high or goods deficient. A practice invoice gets a
+         *     practice note (PR-CN-), never in GST filing. The invoice itself never changes. Off, like finalize, until
+         *     `sales.finalize.enabled` is true (a 404). The same key and body give the same note once.
+         */
+        post: operations["create_credit_note_api_v1_b__business_id__documents__document_id__credit_notes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/b/{business_id}/documents/{document_id}/pdf": {
         parameters: {
             query?: never;
@@ -3372,6 +3416,96 @@ export interface components {
             /** Months */
             months: components["schemas"]["MonthCoverageOut"][];
         };
+        /** CreditLineIn */
+        CreditLineIn: {
+            /** Original Line Id */
+            original_line_id: string;
+            /** Quantity */
+            quantity?: string | null;
+            /** Taxable */
+            taxable?: string | null;
+        };
+        /** CreditLineOut */
+        CreditLineOut: {
+            /** Hsn */
+            hsn: string;
+            /** Line No */
+            line_no: number;
+            /** Name */
+            name: string;
+            /** Original Line Id */
+            original_line_id: string;
+            /** Quantity */
+            quantity: string | null;
+            /** Rate */
+            rate: string;
+            /** Remaining Quantity */
+            remaining_quantity: string | null;
+            /** Remaining Tax */
+            remaining_tax: string;
+            /** Remaining Taxable */
+            remaining_taxable: string;
+            /** Taxable */
+            taxable: string;
+            /** Uqc */
+            uqc: string;
+        };
+        /** CreditNoteIn */
+        CreditNoteIn: {
+            /** Doc Date */
+            doc_date?: string | null;
+            /** Lines */
+            lines: components["schemas"]["CreditLineIn"][];
+            /**
+             * Reason
+             * @enum {string}
+             */
+            reason: "goods_returned" | "value_too_high" | "deficient";
+            /** Stock Treatment */
+            stock_treatment?: ("restock" | "write_off") | null;
+        };
+        /** CreditNoteRef */
+        CreditNoteRef: {
+            /**
+             * Doc Date
+             * Format: date
+             */
+            doc_date: string;
+            /** Doc Number */
+            doc_number: string;
+            /** Doc Total */
+            doc_total: string;
+            /** Id */
+            id: string;
+            /** Is Practice */
+            is_practice: boolean;
+            /** Reason Code */
+            reason_code: string | null;
+        };
+        /** CreditStateOut */
+        CreditStateOut: {
+            /** Doc Number */
+            doc_number: string;
+            /** Invoice Id */
+            invoice_id: string;
+            /** Is Practice */
+            is_practice: boolean;
+            /**
+             * Last Date
+             * Format: date
+             */
+            last_date: string;
+            /** Lines */
+            lines: components["schemas"]["CreditLineOut"][];
+            /** Notes */
+            notes: components["schemas"]["CreditNoteRef"][];
+            /** Reasons */
+            reasons: {
+                [key: string]: string;
+            };
+            /** Remaining Total */
+            remaining_total: string;
+        };
         /** CrossCheckOut */
         CrossCheckOut: {
             /** Compared */
@@ -3601,6 +3735,9 @@ export interface components {
             line_discount_total: string;
             /** Lines */
             lines: components["schemas"]["DocumentLineOut"][];
+            original?: components["schemas"]["DocumentOriginalOut"] | null;
+            /** Original Document Id */
+            original_document_id: string | null;
             pdf: components["schemas"]["DocumentPdfState"];
             /** Place Of Supply */
             place_of_supply: string | null;
@@ -3613,6 +3750,10 @@ export interface components {
             pos_override_reason: string | null;
             /** Pos State Code */
             pos_state_code: string;
+            /** Reason */
+            reason?: string | null;
+            /** Reason Code */
+            reason_code: string | null;
             /** Round Off */
             round_off: string;
             /** Sgst Total */
@@ -3620,6 +3761,8 @@ export interface components {
             ship_to: components["schemas"]["DocumentShipTo"] | null;
             /** Stock Movements */
             stock_movements: number;
+            /** Stock Treatment */
+            stock_treatment?: ("restock" | "write_off") | null;
             /** Supply Class */
             supply_class: string;
             /** Taxable Total */
@@ -3667,6 +3810,13 @@ export interface components {
             /** Rate */
             rate: string;
         };
+        /** DocumentOriginalOut */
+        DocumentOriginalOut: {
+            /** Date */
+            date: string;
+            /** Number */
+            number: string;
+        };
         /**
          * DocumentOut
          * @description The finalized document (LLD-4 §2.3), as stored: it never changes after this.
@@ -3707,8 +3857,12 @@ export interface components {
             is_practice: boolean;
             /** Kind */
             kind: string;
+            /** Original Document Id */
+            original_document_id: string | null;
             /** Pos State Code */
             pos_state_code: string;
+            /** Reason Code */
+            reason_code: string | null;
             /** Round Off */
             round_off: string;
             /** Sgst Total */
@@ -7541,6 +7695,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DocumentDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_credit_state_api_v1_b__business_id__documents__document_id__credit_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditStateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_credit_note_api_v1_b__business_id__documents__document_id__credit_notes_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string | null;
+            };
+            path: {
+                document_id: string;
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreditNoteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentOut"];
                 };
             };
             /** @description Validation Error */

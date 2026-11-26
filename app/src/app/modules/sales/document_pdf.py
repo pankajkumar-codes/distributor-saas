@@ -90,8 +90,11 @@ def status(uow: UnitOfWork, document_id: uuid.UUID, job_id: uuid.UUID) -> dict:
     business = uow.principal.business_id
     if not render.is_rendered(business, job_id):
         return {"status": "rendering"}
-    url = get_store().presign_get(business, render.document_key(business, job_id),
-                                  download_name="practice-invoice.pdf")
+    kind = uow.tx.execute(
+        text("select kind from sales.documents where id = :d and business_id = :b"), {"d": document_id, "b": business},
+    ).scalar_one_or_none()
+    name = "practice-credit-note.pdf" if kind == "credit_note" else "practice-invoice.pdf"
+    url = get_store().presign_get(business, render.document_key(business, job_id), download_name=name)
     return {"status": "ready", "url": url}
 
 
@@ -251,13 +254,16 @@ def view(tx, business_id: uuid.UUID, document_id: uuid.UUID) -> dict:
         "charges_label": ", ".join(labels) or ("Charges" if doc["charges_total"] else None),
         "cess_total": _money(doc["cess_total"]),
         "amount_in_words": doc["amount_in_words"],
+        "original": snap.get("original"),
+        "reason": snap.get("reason"),
+        "stock_treatment": snap.get("stock_treatment"),
     }
 
 
 def build(tx, business_id: uuid.UUID, document_id: uuid.UUID) -> dict:
     """The render input for one stored document (template invoice-document)."""
     doc = tx.execute(
-        text("select doc_number as number, doc_date, due_date, is_practice, print, pos_state_code, taxable_total,"
+        text("select doc_number as number, kind, doc_date, due_date, is_practice, print, pos_state_code, taxable_total,"
              " cgst_total, sgst_total, utgst, igst_total, round_off, doc_total, amount_in_words, is_inter_state,"
              " invoice_discount, charges_total from sales.documents where id = :d and business_id = :b"),
         {"d": document_id, "b": business_id},
@@ -279,15 +285,24 @@ def build(tx, business_id: uuid.UUID, document_id: uuid.UUID) -> dict:
     trade = seller.get("trade_name")
     seller_out["trade_name"] = trade if trade and trade != seller.get("legal_name") else None
     seller_out["pan"] = pan_of(seller_out.get("gstin"))
+    note = None
+    # CGST Rule 48(1): goods invoices in triplicate. One PDF holds the three copies, each its own page set (#454).
+    copies = ["Original for Recipient", "Duplicate for Transporter", "Triplicate for Supplier"]
+    if doc["kind"] == "credit_note":
+        # Rule 53(1A) (#456): the note names the invoice it adjusts; an original and a duplicate, no transporter copy.
+        original = snap.get("original") or {}
+        note = {"kind": "credit_note", "original_number": original.get("number"),
+                "original_date": original.get("date"), "reason": snap.get("reason")}
+        copies = ["Original for Recipient", "Duplicate for Supplier"]
     return {
         "template": "invoice-document",
         "practice": True,
+        "note": note,
         "number": doc["number"],
         "doc_date": on.isoformat(),
-        "due_date": doc["due_date"].isoformat() if doc["due_date"] else None,
+        "due_date": doc["due_date"].isoformat() if doc["due_date"] and note is None else None,
         "copy_label": "Original for Recipient",
-        # CGST Rule 48(1): goods invoices in triplicate. One PDF holds the three copies, each its own page set (#454).
-        "copies": ["Original for Recipient", "Duplicate for Transporter", "Triplicate for Supplier"],
+        "copies": copies,
         "seller": seller_out,
         "buyer": _party(tx, snap.get("bill_to"), on),
         "ship_to": ship,

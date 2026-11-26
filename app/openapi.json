@@ -2245,6 +2245,278 @@
         "title": "CoverageOut",
         "type": "object"
       },
+      "CreditLineIn": {
+        "additionalProperties": false,
+        "properties": {
+          "original_line_id": {
+            "title": "Original Line Id",
+            "type": "string"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quantity"
+          },
+          "taxable": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taxable"
+          }
+        },
+        "required": [
+          "original_line_id"
+        ],
+        "title": "CreditLineIn",
+        "type": "object"
+      },
+      "CreditLineOut": {
+        "properties": {
+          "hsn": {
+            "title": "Hsn",
+            "type": "string"
+          },
+          "line_no": {
+            "title": "Line No",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "original_line_id": {
+            "title": "Original Line Id",
+            "type": "string"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quantity"
+          },
+          "rate": {
+            "title": "Rate",
+            "type": "string"
+          },
+          "remaining_quantity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining Quantity"
+          },
+          "remaining_tax": {
+            "title": "Remaining Tax",
+            "type": "string"
+          },
+          "remaining_taxable": {
+            "title": "Remaining Taxable",
+            "type": "string"
+          },
+          "taxable": {
+            "title": "Taxable",
+            "type": "string"
+          },
+          "uqc": {
+            "title": "Uqc",
+            "type": "string"
+          }
+        },
+        "required": [
+          "original_line_id",
+          "line_no",
+          "name",
+          "hsn",
+          "uqc",
+          "rate",
+          "quantity",
+          "remaining_quantity",
+          "taxable",
+          "remaining_taxable",
+          "remaining_tax"
+        ],
+        "title": "CreditLineOut",
+        "type": "object"
+      },
+      "CreditNoteIn": {
+        "additionalProperties": false,
+        "properties": {
+          "doc_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doc Date"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/CreditLineIn"
+            },
+            "maxItems": 200,
+            "title": "Lines",
+            "type": "array"
+          },
+          "reason": {
+            "enum": [
+              "goods_returned",
+              "value_too_high",
+              "deficient"
+            ],
+            "title": "Reason",
+            "type": "string"
+          },
+          "stock_treatment": {
+            "anyOf": [
+              {
+                "enum": [
+                  "restock",
+                  "write_off"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stock Treatment"
+          }
+        },
+        "required": [
+          "reason",
+          "lines"
+        ],
+        "title": "CreditNoteIn",
+        "type": "object"
+      },
+      "CreditNoteRef": {
+        "properties": {
+          "doc_date": {
+            "format": "date",
+            "title": "Doc Date",
+            "type": "string"
+          },
+          "doc_number": {
+            "title": "Doc Number",
+            "type": "string"
+          },
+          "doc_total": {
+            "title": "Doc Total",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "is_practice": {
+            "title": "Is Practice",
+            "type": "boolean"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          }
+        },
+        "required": [
+          "id",
+          "doc_number",
+          "doc_date",
+          "reason_code",
+          "doc_total",
+          "is_practice"
+        ],
+        "title": "CreditNoteRef",
+        "type": "object"
+      },
+      "CreditStateOut": {
+        "properties": {
+          "doc_number": {
+            "title": "Doc Number",
+            "type": "string"
+          },
+          "invoice_id": {
+            "title": "Invoice Id",
+            "type": "string"
+          },
+          "is_practice": {
+            "title": "Is Practice",
+            "type": "boolean"
+          },
+          "last_date": {
+            "format": "date",
+            "title": "Last Date",
+            "type": "string"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/CreditLineOut"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "notes": {
+            "items": {
+              "$ref": "#/components/schemas/CreditNoteRef"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "reasons": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "object"
+          },
+          "remaining_total": {
+            "title": "Remaining Total",
+            "type": "string"
+          }
+        },
+        "required": [
+          "invoice_id",
+          "doc_number",
+          "is_practice",
+          "lines",
+          "notes",
+          "remaining_total",
+          "last_date",
+          "reasons"
+        ],
+        "title": "CreditStateOut",
+        "type": "object"
+      },
       "CrossCheckOut": {
         "properties": {
           "compared": {
@@ -2906,6 +3178,27 @@
             "title": "Lines",
             "type": "array"
           },
+          "original": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DocumentOriginalOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "original_document_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Document Id"
+          },
           "pdf": {
             "$ref": "#/components/schemas/DocumentPdfState"
           },
@@ -2946,6 +3239,28 @@
             "title": "Pos State Code",
             "type": "string"
           },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
           "round_off": {
             "title": "Round Off",
             "type": "string"
@@ -2968,6 +3283,21 @@
             "title": "Stock Movements",
             "type": "integer"
           },
+          "stock_treatment": {
+            "anyOf": [
+              {
+                "enum": [
+                  "restock",
+                  "write_off"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stock Treatment"
+          },
           "supply_class": {
             "title": "Supply Class",
             "type": "string"
@@ -2988,6 +3318,8 @@
           "is_practice",
           "doc_number",
           "doc_date",
+          "original_document_id",
+          "reason_code",
           "fy",
           "gstin",
           "supply_class",
@@ -3133,6 +3465,24 @@
         "title": "DocumentLineTax",
         "type": "object"
       },
+      "DocumentOriginalOut": {
+        "properties": {
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "string"
+          }
+        },
+        "required": [
+          "number",
+          "date"
+        ],
+        "title": "DocumentOriginalOut",
+        "type": "object"
+      },
       "DocumentOut": {
         "description": "The finalized document (LLD-4 \u00a72.3), as stored: it never changes after this.",
         "properties": {
@@ -3223,9 +3573,31 @@
             "title": "Kind",
             "type": "string"
           },
+          "original_document_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Document Id"
+          },
           "pos_state_code": {
             "title": "Pos State Code",
             "type": "string"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
           },
           "round_off": {
             "title": "Round Off",
@@ -3255,6 +3627,8 @@
           "is_practice",
           "doc_number",
           "doc_date",
+          "original_document_id",
+          "reason_code",
           "fy",
           "gstin",
           "supply_class",
@@ -13467,6 +13841,136 @@
           }
         },
         "summary": "Get Document",
+        "tags": [
+          "sales"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/documents/{document_id}/credit": {
+      "get": {
+        "description": "What is left to credit on an issued invoice, line by line, the credit notes made against it, and the last date\nthe law allows for one (s.34(2)). Read-only. A credit note, or another business's document, is a 404.",
+        "operationId": "get_credit_state_api_v1_b__business_id__documents__document_id__credit_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "title": "Document Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreditStateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Credit State",
+        "tags": [
+          "sales"
+        ]
+      }
+    },
+    "/api/v1/b/{business_id}/documents/{document_id}/credit-notes": {
+      "post": {
+        "description": "Issues a credit note against an issued invoice (#456): by quantity for goods returned (back to stock, or\nreturned and written off), by amount for a value charged too high or goods deficient. A practice invoice gets a\npractice note (PR-CN-), never in GST filing. The invoice itself never changes. Off, like finalize, until\n`sales.finalize.enabled` is true (a 404). The same key and body give the same note once.",
+        "operationId": "create_credit_note_api_v1_b__business_id__documents__document_id__credit_notes_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "title": "Document Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreditNoteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Credit Note",
         "tags": [
           "sales"
         ]
