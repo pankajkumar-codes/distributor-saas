@@ -119,3 +119,66 @@ def test_a_live_b2b_invoice_waits_while_e_invoicing_is_unsure(live):  # Rule 48(
     with pg.owner.connect() as c:  # a practice invoice still goes ahead with the warning
         c.execute(text("update business.series_settings set practice_mode = true"))
     assert fin(pg, biz, d).status_code == 200
+
+
+def _series_setting(pg, prefix, width, first=1):
+    with pg.owner.connect() as c:
+        c.execute(text("update business.series_settings set prefix = :p, width = :w, first_value = :f"),
+                  {"p": prefix, "w": width, "f": first})
+
+
+def _clock(when):
+    from app import api as app_api
+    from platform_common.clock import IST, FrozenClock, get_clock
+
+    app_api.app.dependency_overrides[get_clock] = lambda: FrozenClock(datetime(*when, 12, 0, tzinfo=IST))
+
+
+def _numbers(pg):
+    with pg.owner.connect() as c:
+        return c.execute(text("select doc_number from sales.documents order by finalized_at, doc_number")).scalars().all()
+
+
+def test_live_numbers_are_a_series_per_month_of_the_invoice_date(live):  # #457, Pankaj 2026-11-26
+    pg, biz = live
+    flip_live(pg, True)
+    _series_setting(pg, "INV", 6)
+    _clock((2026, 12, 2))
+    for day in ("2026-11-29", "2026-11-30", "2026-12-01", "2026-11-28"):  # the last one dated back into November
+        assert fin(pg, biz, ready_draft(pg, biz, doc_date=day)).status_code == 200
+    assert _numbers(pg) == ["INV/26-11/000001", "INV/26-11/000002", "INV/26-12/000001", "INV/26-11/000003"]
+    assert max(len(n) for n in _numbers(pg)) == 16  # Rule 46(b)'s limit, exactly
+
+
+def test_first_value_continues_only_the_fys_first_monthly_series(live):  # #457: a switch from other software
+    pg, biz = live
+    flip_live(pg, True)
+    _series_setting(pg, "INV", 6, first=41)
+    _clock((2026, 12, 2))
+    for day in ("2026-11-30", "2026-12-01"):
+        assert fin(pg, biz, ready_draft(pg, biz, doc_date=day)).status_code == 200
+    assert _numbers(pg) == ["INV/26-11/000041", "INV/26-12/000001"]
+
+
+def test_a_monthly_number_over_16_characters_is_refused_and_uses_nothing(live):
+    from app.modules.sales.finalize import monthly_number_fits
+
+    pg, biz = live
+    flip_live(pg, True)
+    _series_setting(pg, "INVC", 6)  # INVC/26-11/000001 is 17 characters
+    _clock((2026, 12, 2))
+    r = fin(pg, biz, ready_draft(pg, biz, doc_date="2026-11-30"))
+    assert r.status_code == 422 and r.json()["error"]["code"] == "number_too_long", r.text
+    assert counts(pg) == (0, 0, 0, 0)
+    assert monthly_number_fits("INV", 6) and not monthly_number_fits("INVC", 6) and monthly_number_fits("CN", 6)
+
+
+def test_practice_numbers_stay_one_series_per_fy_under_the_monthly_scope(live):
+    pg, biz = live
+    flip_live(pg, True)
+    with pg.owner.connect() as c:
+        c.execute(text("update business.series_settings set practice_mode = true"))
+    _clock((2026, 12, 2))
+    for day in ("2026-11-30", "2026-12-01"):
+        assert fin(pg, biz, ready_draft(pg, biz, doc_date=day)).status_code == 200
+    assert _numbers(pg) == ["PR-0001", "PR-0002"]

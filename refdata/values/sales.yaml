@@ -49,6 +49,18 @@
   status: provisional
   note: "D-010: the CA confirms the legal scope (CA-1). Another scope is a new allowed value plus code and a migration for its unique index."
 
+- key: sales.numbering_scope
+  value: "gstin_kind_month"
+  type: enum
+  allowed: [gstin_kind_fy, gstin_kind_month]
+  kind: product
+  valid_from: 2026-11-26
+  source_url: https://github.com/pankajkumar-codes/distributor-saas/issues/457
+  source_title: "Pankaj's decision 2026-11-26: live numbers INV/YY-MM/NNNNNN, a series per month of the invoice date restarting at 1 (CGST Rule 46(b) allows one or multiple series, unique for a financial year)"
+  last_checked: 2026-11-26
+  status: provisional
+  note: "Read only for live numbers (practice numbers stay one series per FY). Invoices dated before 2026-11-26 keep gstin_kind_fy. Live finalize is still off (sales.finalize.live)."
+
 - key: sales.practice_prefix
   value: "PR-"
   type: text
