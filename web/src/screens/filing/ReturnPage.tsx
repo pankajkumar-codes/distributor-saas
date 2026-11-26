@@ -40,6 +40,7 @@ const CHECKS: Record<string, string> = {
   "C-10": "HSN code has too few digits",
   "C-12": "Net sales to consumers in one state came out negative",
   "C-16": "Rules not yet confirmed by a CA",
+  "C-19": "IFF not marked filed: its invoices are in this quarter",
   "A-01": "Tax does not equal taxable value times rate",
   "A-02": "Tax heads do not fit the place of supply",
   "A-03": "CGST and SGST are not equal",
@@ -55,13 +56,13 @@ const SECTIONS: { name: SectionName; title: string; code: string; table: string;
   { name: "b2b", title: "Sales to businesses", code: "B2B", table: "Table 4A", hint: "One row per invoice and tax rate." },
   { name: "b2cl", title: "Large inter-state sales to consumers", code: "B2CL", table: "Table 5", hint: "One row per invoice and tax rate." },
   { name: "b2cs", title: "Other sales to consumers", code: "B2CS", table: "Table 7", hint: "One row per state and tax rate." },
-  { name: "cdnr", title: "Credit notes to businesses", code: "CDNR", table: "Table 9B", hint: "One row per note and tax rate." },
-  { name: "cdnur", title: "Credit notes to consumers", code: "CDNUR", table: "Table 9B", hint: "Notes against large inter-state consumer sales." },
+  { name: "cdnr", title: "Credit and debit notes to businesses", code: "CDNR", table: "Table 9B", hint: "One row per note and tax rate." },
+  { name: "cdnur", title: "Credit and debit notes to consumers", code: "CDNUR", table: "Table 9B", hint: "Notes against large inter-state consumer sales." },
   { name: "hsn_b2b", title: "HSN summary: business sales", code: "HSN", table: "Table 12", hint: "One row per HSN, unit and rate." },
   { name: "hsn_b2c", title: "HSN summary: consumer sales", code: "HSN", table: "Table 12", hint: "One row per HSN, unit and rate." },
 ];
 
-type Kind = "text" | "date" | "money" | "rate";
+type Kind = "text" | "date" | "money" | "rate" | "note";
 type Col = { label: string; key: string; kind: Kind };
 const col = (label: string, key: string, kind: Kind = "text"): Col => ({ label, key, kind });
 const TAX = [col("Taxable value", "taxable_value", "money"), col("IGST", "igst", "money"), col("CGST", "cgst", "money"), col("SGST", "sgst", "money"), col("Cess", "cess", "money")];
@@ -69,8 +70,8 @@ const COLUMNS: Record<SectionName, Col[]> = {
   b2b: [col("Invoice", "invoice_number"), col("Date", "invoice_date", "date"), col("Customer", "recipient_name"), col("GSTIN", "recipient_gstin"), col("Invoice value", "invoice_value", "money"), col("State code", "pos_state_code"), col("Rate", "rate", "rate"), ...TAX],
   b2cl: [col("Invoice", "invoice_number"), col("Date", "invoice_date", "date"), col("Invoice value", "invoice_value", "money"), col("State code", "pos_state_code"), col("Rate", "rate", "rate"), ...TAX],
   b2cs: [col("State code", "pos_state_code"), col("Rate", "rate", "rate"), ...TAX],
-  cdnr: [col("Note", "note_number"), col("Date", "note_date", "date"), col("Customer", "recipient_name"), col("GSTIN", "recipient_gstin"), col("Note value", "note_value", "money"), col("Against invoice", "original_doc_number"), col("Rate", "rate", "rate"), ...TAX],
-  cdnur: [col("Note", "note_number"), col("Date", "note_date", "date"), col("Note value", "note_value", "money"), col("Against invoice", "original_doc_number"), col("Rate", "rate", "rate"), ...TAX],
+  cdnr: [col("Note", "note_number"), col("Type", "note_type", "note"), col("Date", "note_date", "date"), col("Customer", "recipient_name"), col("GSTIN", "recipient_gstin"), col("Note value", "note_value", "money"), col("Against invoice", "original_doc_number"), col("Rate", "rate", "rate"), ...TAX],
+  cdnur: [col("Note", "note_number"), col("Type", "note_type", "note"), col("Date", "note_date", "date"), col("Note value", "note_value", "money"), col("Against invoice", "original_doc_number"), col("Rate", "rate", "rate"), ...TAX],
   hsn_b2b: [col("HSN", "hsn"), col("Unit", "uqc"), col("Rate", "rate", "rate"), col("Quantity", "quantity"), ...TAX],
   hsn_b2c: [col("HSN", "hsn"), col("Unit", "uqc"), col("Rate", "rate", "rate"), col("Quantity", "quantity"), ...TAX],
 };
@@ -78,6 +79,7 @@ const COLUMNS: Record<SectionName, Col[]> = {
 function show(value: unknown, kind: Kind): string {
   if (value === null || value === undefined || value === "") return "—";
   const s = String(value);
+  if (kind === "note") return s === "D" ? "Debit (adds)" : s === "C" ? "Credit (takes off)" : s; // GSTR-1 note type (#484)
   return kind === "money" ? amountOrDash(s) : kind === "rate" ? formatRate(s) : kind === "date" ? formatDate(s) : s;
 }
 
@@ -241,7 +243,9 @@ function SectionRows({ businessId, instanceId, name, count, fingerprint, onBack 
         <>
           {rows.isPending && count > 0 && <p className="pad" aria-busy="true">Loading…</p>}
           {shown.length > 0 && (
-            <div className="tablewrap">
+            // Wide sections scroll sideways, so the box takes keyboard focus to scroll with the arrow keys (axe
+            // scrollable-region-focusable, #486).
+            <div className="tablewrap" tabIndex={0} role="region" aria-label={`Rows of ${info.title}`}>
               <table className="lt dense">
                 <thead>
                   <tr>
@@ -293,7 +297,7 @@ function Contents({ d, businessId, instanceId }: { d: ReturnDetail; businessId: 
         </span>
       }
     >
-      <div className="tablewrap">
+      <div className="tablewrap" tabIndex={0} role="region" aria-label="Sections of the return">
         <table className="lt dense">
           <thead>
             <tr>
