@@ -7,11 +7,12 @@ Made-up data. Skipped unless PG_ADMIN_URL points at a disposable server.
 
 import json
 import uuid
-from datetime import timedelta
+from datetime import date, timedelta
 
 import pytest
 
 from platform_common import jobs, render
+from platform_common.clock import Clock
 from platform_common.queue import FakeQueue, set_queue
 from platform_common.storage import LocalObjectStore, set_store
 
@@ -84,10 +85,12 @@ def test_a_preview_writes_the_render_input_and_queues_only_its_key(shop):
     assert doc["charges"] == [{"label": "Freight", "amount": "150.00"}]
     # The computation's figures, as a save stores them (drafts.computation).
     assert doc["place_of_supply"] == "Maharashtra (27)"
+    # An undated draft is computed on today. The round-off line was on for 2026-11-26 only (D-109, then D-110).
+    rounded = Clock().today() == date(2026, 11, 26)
     assert doc["totals"] == {"taxable": "258.06", "taxes": [{"component": "IGST", "amount": "46.45"}],
-                             # an undated draft is computed on today: the round-off line is on from 2026-11-26 (D-109)
-                             "round_off": "0.49", "total": "305.00",
-                             "in_words": "Rupees Three Hundred Five Only"}
+                             "round_off": "0.49" if rounded else None, "total": "305.00" if rounded else "304.51",
+                             "in_words": "Rupees Three Hundred Five Only" if rounded
+                             else "Rupees Three Hundred Four and Fifty One Paise Only"}
     assert doc["blocks"] == ["Line 1: Tell us last year's turnover band (FY 2025-26) to use 4-digit HSN codes. "
                              "Until then, HSN codes need at least 6 digits."]
     assert "note" not in doc
